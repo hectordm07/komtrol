@@ -214,7 +214,7 @@ export function UsersAdmin() {
         group_name: 'INBOUND',
         shift_name: 'GUARDIA A',
         position: 'COORDINADOR ALMACEN CALLAO',
-        pin: '',
+        pin: '431827',
       },
       {
         dni: '99990002',
@@ -225,7 +225,7 @@ export function UsersAdmin() {
         group_name: 'INBOUND',
         shift_name: 'GUARDIA A',
         position: 'SUPERVISOR CALLAO',
-        pin: '',
+        pin: '572904',
       },
     ]
 
@@ -262,7 +262,7 @@ export function UsersAdmin() {
         .eq('dni', row.dni)
     }
 
-    setMessage('Usuarios de prueba Callao procesados. Descarga las credenciales generadas antes de salir de esta pantalla.')
+    setMessage('Usuarios de prueba Callao procesados. Coordinador: 99990001 / PIN 431827 · Supervisor: 99990002 / PIN 572904.')
     await loadProfiles()
   }
 
