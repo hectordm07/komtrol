@@ -26,6 +26,7 @@ import { ModulePlaceholder } from './components/ModulePlaceholder'
 import { TasksModule } from './components/TasksModule'
 import { GuidesModule } from './components/GuidesModule'
 import { MaterialsModule } from './components/MaterialsModule'
+import { OperationsControlModule } from './components/OperationsControlModule'
 
 type Tab = string
 
@@ -494,6 +495,16 @@ function Workspace({ session }: { session: Session }) {
     tab === 'master-materiales' ? 'master' :
     tab === 'hoja-ubicacion' ? 'ubicacion' :
     'consulta'
+  const operationsControlTabs = ['ingresos-consignacion', 'os-prestamos', 'outbound', 'inventarios', 'transitos', 'danados', 'activos'] as const
+  const isOperationsControlTab = operationsControlTabs.includes(tab as typeof operationsControlTabs[number])
+  const operationsControlMode =
+    tab === 'ingresos-consignacion' ? 'consignacion' :
+    tab === 'os-prestamos' ? 'prestamos' :
+    tab === 'outbound' ? 'outbound' :
+    tab === 'inventarios' ? 'inventarios' :
+    tab === 'transitos' ? 'transitos' :
+    tab === 'danados' ? 'danados' :
+    'activos'
 
   return (
     <div className="app-shell">
@@ -643,11 +654,19 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {isOperationsControlTab && (
+                <OperationsControlModule
+                  mode={operationsControlMode}
+                  userId={user.id}
+                  warehouse={profile?.warehouse}
+                />
+              )}
+
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isGuideTab && !isMaterialTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isGuideTab && !isMaterialTab && !isOperationsControlTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
