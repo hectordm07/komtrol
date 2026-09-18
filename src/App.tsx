@@ -267,7 +267,7 @@ function Login() {
 function Workspace({ session }: { session: Session }) {
   const [tab, setTab] = useState<Tab>('inicio')
   const [mobileMenu, setMobileMenu] = useState(false)
-  const [inboundOpen, setInboundOpen] = useState(true)
+  const [openSections, setOpenSections] = useState<string[]>(['INICIO'])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -598,6 +598,23 @@ function Workspace({ session }: { session: Session }) {
     setTab('inicio')
   }, [tab, role, profile?.warehouse])
 
+  useEffect(() => {
+    if (!currentNav?.section) return
+    setOpenSections((current) =>
+      current.includes(currentNav.section)
+        ? current
+        : [...current, currentNav.section]
+    )
+  }, [currentNav?.section])
+
+  function toggleNavSection(section: string) {
+    setOpenSections((current) =>
+      current.includes(section)
+        ? current.filter((item) => item !== section)
+        : [...current, section]
+    )
+  }
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileMenu ? 'open' : ''}`}>
@@ -609,28 +626,32 @@ function Workspace({ session }: { session: Session }) {
 
         <nav className="sidebar-nav">
           {navSections.map((group) => {
-            const isInbound = group.section === 'INBOUND · CALLAO'
-            const open = !isInbound || inboundOpen
+            const open = openSections.includes(group.section)
+            const hasActiveItem = group.items.some((item) => item.id === tab)
             return (
-              <div className="nav-section" key={group.section}>
-                {isInbound ? (
-                  <button className="nav-section-toggle" onClick={() => setInboundOpen((value) => !value)}>
-                    <span>{group.section}</span>
-                    {inboundOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                  </button>
-                ) : (
-                  <span className="nav-section-title">{group.section}</span>
+              <div className={hasActiveItem ? 'nav-section active-section' : 'nav-section'} key={group.section}>
+                <button
+                  className="nav-section-toggle"
+                  onClick={() => toggleNavSection(group.section)}
+                  aria-expanded={open}
+                >
+                  <span>{group.section}</span>
+                  {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                </button>
+                {open && (
+                  <div className="nav-section-items">
+                    {group.items.map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        className={tab === id ? 'active' : ''}
+                        onClick={() => { setTab(id); setMobileMenu(false) }}
+                      >
+                        <Icon size={18} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {open && group.items.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    className={tab === id ? 'active' : ''}
-                    onClick={() => { setTab(id); setMobileMenu(false) }}
-                  >
-                    <Icon size={18} />
-                    {label}
-                  </button>
-                ))}
               </div>
             )
           })}
@@ -669,6 +690,13 @@ function Workspace({ session }: { session: Session }) {
         <div className="content">
           {loading ? (
             <div className="screen-center compact"><div className="loader" /><p>Cargando información…</p></div>
+          ) : !profile ? (
+            <section className="panel profile-access-blocked">
+              <ShieldCheck size={34} />
+              <h2>Perfil operativo no configurado</h2>
+              <p>Tu cuenta existe, pero todavía no tiene un almacén, rol y grupo asignados. Por seguridad, KOMTROL no mostrará procesos hasta que un administrador configure el perfil.</p>
+              <button className="secondary-button" onClick={logout}><LogOut size={16} /> Cerrar sesión</button>
+            </section>
           ) : (
             <>
               {tab === 'inicio' && (
