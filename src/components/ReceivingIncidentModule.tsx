@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   Edit3,
+  ImagePlus,
   Mail,
   PackageSearch,
   RefreshCw,
@@ -36,6 +37,18 @@ type Material = {
   description: string
   location: string | null
   warehouse: string | null
+}
+
+type IncidentAttachment = {
+  id: string
+  attachment_type: string
+  bucket: string
+  storage_path: string
+  file_name: string
+  content_type: string | null
+  size_bytes: number | null
+  created_at: string
+  incident_attachments?: IncidentAttachment[]
 }
 
 type Incident = {
@@ -162,6 +175,10 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
   const [saving, setSaving] = useState(false)
   const [lookingMaterial, setLookingMaterial] = useState(false)
   const [message, setMessage] = useState('')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState('')
+  const [evidencePreview, setEvidencePreview] = useState<{ url: string; name: string } | null>(null)
+  const photoInputRef = useRef<HTMLInputElement | null>(null)
 
   const [scannerOpen, setScannerOpen] = useState(false)
   const [scannerMessage, setScannerMessage] = useState('')
@@ -189,7 +206,7 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
 
     let query = supabase
       .from('incidents')
-      .select('*')
+      .select('*, incident_attachments(id,attachment_type,bucket,storage_path,file_name,content_type,size_bytes,created_at)')
       .eq('warehouse', warehouse)
       .order('detected_at', { ascending: false })
       .limit(2000)
@@ -212,7 +229,10 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
     reload()
   }, [warehouse, scopeMode])
 
-  useEffect(() => () => stopScanner(), [])
+  useEffect(() => () => {
+    stopScanner()
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+  }, [photoPreview])
 
   const difference = useMemo(() => {
     const required = Number(form.qty_expected)
@@ -248,7 +268,88 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
     )
   }, [incidents, search])
 
+  function clearPhotoSelection() {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(null)
+    setPhotoPreview('')
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+
+  function chooseEvidencePhoto(file?: File | null) {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setMessage('La evidencia debe ser una imagen.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage('La foto supera 5 MB. Toma una foto con menor resolución.')
+      return
+    }
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+    setMessage('Foto de evidencia lista para guardar con la incidencia.')
+  }
+
+  async function uploadIncidentPhoto(incidentId: string, file: File) {
+    const ext = (file.name.split('.').pop() || file.type.split('/').pop() || 'jpg')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '') || 'jpg'
+    const safeWarehouse = (warehouse || 'almacen').toLowerCase().replace(/[^a-z0-9_-]/g, '-')
+    const storagePath = `${safeWarehouse}/${incidentId}/${Date.now()}-${userId.slice(0, 8)}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('incident-evidence')
+      .upload(storagePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'image/jpeg',
+      })
+
+    if (uploadError) return uploadError.message
+
+    const { error: attachmentError } = await supabase
+      .from('incident_attachments')
+      .insert({
+        incident_id: incidentId,
+        attachment_type: 'FOTO',
+        bucket: 'incident-evidence',
+        storage_path: storagePath,
+        file_name: file.name || `evidencia-${Date.now()}.${ext}`,
+        content_type: file.type || 'image/jpeg',
+        size_bytes: file.size,
+        uploaded_by: userId,
+      })
+
+    if (attachmentError) {
+      await supabase.storage.from('incident-evidence').remove([storagePath])
+      return attachmentError.message
+    }
+
+    return null
+  }
+
+  async function viewEvidence(row: Incident) {
+    const photo = (row.incident_attachments ?? []).find((item) => item.attachment_type === 'FOTO')
+    if (!photo) {
+      setMessage('Esta incidencia no tiene foto de evidencia.')
+      return
+    }
+
+    const { data, error } = await supabase.storage
+      .from(photo.bucket || 'incident-evidence')
+      .createSignedUrl(photo.storage_path, 600)
+
+    if (error || !data?.signedUrl) {
+      setMessage(error?.message || 'No se pudo abrir la evidencia.')
+      return
+    }
+
+    setEvidencePreview({ url: data.signedUrl, name: photo.file_name })
+  }
+
   function openNew() {
+    clearPhotoSelection()
     setEditing(null)
     setForm(emptyForm())
     setShowForm(true)
@@ -256,6 +357,7 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
   }
 
   function openEdit(row: Incident) {
+    clearPhotoSelection()
     setEditing(row)
     setForm({
       detection_mode: row.detection_mode || (row.incident_type === 'DANADO' ? 'MATERIAL_DANADO' : 'VERIFICACION_INVENTARIO'),
@@ -503,7 +605,13 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
         return
       }
       saved = data as Incident
-      setMessage('Incidencia actualizada. Usa el botón de correo si deseas reenviar la notificación.')
+      let evidenceError = ''
+      if (photoFile) evidenceError = (await uploadIncidentPhoto(saved.id, photoFile)) || ''
+      setMessage(
+        evidenceError
+          ? `Incidencia actualizada, pero la foto no pudo guardarse: ${evidenceError}`
+          : 'Incidencia actualizada. Usa el botón de correo si deseas reenviar la notificación.'
+      )
     } else {
       const { data, error } = await supabase
         .from('incidents')
@@ -526,6 +634,9 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
 
       saved = data as Incident
 
+      let evidenceError = ''
+      if (photoFile) evidenceError = (await uploadIncidentPhoto(saved.id, photoFile)) || ''
+
       const { data: emailData, error: emailError } = await supabase.functions.invoke(
         'send-outlook-notification',
         { body: { incidentId: saved.id } }
@@ -533,9 +644,17 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
 
       if (emailError || !emailData?.ok) {
         const emailMessage = emailData?.error || emailError?.message || 'correo pendiente'
-        setMessage(`Incidencia ${saved.incident_type} registrada. El envío automático quedó pendiente: ${emailMessage}`)
+        setMessage(
+          evidenceError
+            ? `Incidencia ${saved.incident_type} registrada. Foto pendiente: ${evidenceError}. Correo pendiente: ${emailMessage}`
+            : `Incidencia ${saved.incident_type} registrada. El envío automático quedó pendiente: ${emailMessage}`
+        )
       } else {
-        setMessage(`Incidencia ${saved.incident_type} registrada y correo automático enviado.`)
+        setMessage(
+          evidenceError
+            ? `Incidencia ${saved.incident_type} registrada y correo enviado, pero la foto no pudo guardarse: ${evidenceError}`
+            : `Incidencia ${saved.incident_type} registrada, foto guardada${photoFile ? ' y adjuntada al correo' : ''} y correo automático enviado.`
+        )
       }
     }
 
@@ -543,6 +662,7 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
     setShowForm(false)
     setEditing(null)
     setForm(emptyForm())
+    clearPhotoSelection()
     await reload()
   }
 
@@ -572,7 +692,7 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
 
   function exportIncidents() {
     downloadCsv(`KOMTROL_Incidencias_${warehouse}.csv`, [
-      ['INCIDENCIA','FECHA','ALMACEN','OPCION','RESULTADO','GUIA','OC','CODIGO LEIDO','MATERIAL','STOCK CODE','DESCRIPCION','UBICACION','CANT. REQUERIDA','CANT. LLEGADA','DIFERENCIA','CANT. DANADA','ESTADO','CORREO'],
+      ['INCIDENCIA','FECHA','ALMACEN','OPCION','RESULTADO','N° EMBARQUE O GUIA','OC','CODIGO LEIDO','MATERIAL','STOCK CODE','DESCRIPCION','UBICACION','CANT. REQUERIDA','CANT. LLEGADA','DIFERENCIA','CANT. DANADA','ESTADO','CORREO'],
       ...visible.map((row) => [
         row.incident_no,
         row.detected_at,
@@ -655,6 +775,7 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
                     </td>
                     <td><span className={row.auto_email_status === 'ENVIADO' ? 'status-pill' : row.auto_email_status === 'ERROR' || row.auto_email_status === 'NO_CONFIGURADO' ? 'status-pill danger' : 'status-pill warning'}>{labelEmailStatus(row.auto_email_status)}</span></td>
                     <td><div className="row-actions">
+                      {(row.incident_attachments ?? []).some((item)=>item.attachment_type === 'FOTO') && <button className="icon-button" title="Ver foto de evidencia" onClick={()=>viewEvidence(row)}><ImagePlus size={14}/></button>}
                       {!readOnly && <button className="icon-button" title="Editar" onClick={()=>openEdit(row)}><Edit3 size={14}/></button>}
                       {!readOnly && <button className="icon-button" title="Enviar / reenviar correo" onClick={()=>resendEmail(row)}><Mail size={14}/></button>}
                       {!readOnly && <button className="icon-button danger-icon" title="Eliminar" onClick={()=>deleteIncident(row)}><Trash2 size={14}/></button>}
@@ -704,9 +825,48 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
                 <label className="span-2">Descripción<input value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})}/></label>
                 <label>Ubicación<input value={form.location} onChange={(e)=>setForm({...form,location:e.target.value})}/></label>
                 <label>Guía<input value={form.guide_no} onChange={(e)=>setForm({...form,guide_no:e.target.value})}/></label>
-                <label>N° Documento<input value={form.document_no} onChange={(e)=>setForm({...form,document_no:e.target.value})}/></label>
+                <label>N° Embarque o Guía<input value={form.document_no} onChange={(e)=>setForm({...form,document_no:e.target.value})}/></label>
                 <label>OC<input value={form.purchase_order} onChange={(e)=>setForm({...form,purchase_order:e.target.value})}/></label>
               </div>
+            </div>
+
+            <div className="incident-evidence-card">
+              <div className="incident-evidence-head">
+                <div>
+                  <b>Foto del material</b>
+                  <small>Evidencia fotográfica de la condición recibida.</small>
+                </div>
+                <button type="button" className="secondary-button" onClick={()=>photoInputRef.current?.click()}>
+                  <Camera size={16}/> {photoFile ? 'Cambiar foto' : 'Tomar foto'}
+                </button>
+              </div>
+              <input
+                ref={photoInputRef}
+                className="evidence-file-input"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e)=>chooseEvidencePhoto(e.target.files?.[0])}
+              />
+              {photoPreview ? (
+                <div className="incident-evidence-preview">
+                  <img src={photoPreview} alt="Vista previa de evidencia"/>
+                  <div>
+                    <b>{photoFile?.name || 'Foto de evidencia'}</b>
+                    <small>{photoFile ? `${(photoFile.size / 1024 / 1024).toFixed(2)} MB` : ''}</small>
+                    <button type="button" className="secondary-button" onClick={clearPhotoSelection}>Quitar</button>
+                  </div>
+                </div>
+              ) : editing && (editing.incident_attachments ?? []).some((item)=>item.attachment_type === 'FOTO') ? (
+                <button type="button" className="evidence-existing-button" onClick={()=>viewEvidence(editing)}>
+                  <ImagePlus size={17}/> Ver evidencia existente
+                </button>
+              ) : (
+                <div className="incident-evidence-empty">
+                  <ImagePlus size={20}/>
+                  <span>Sin foto. En celular se abrirá directamente la cámara posterior.</span>
+                </div>
+              )}
             </div>
 
             {form.detection_mode === 'VERIFICACION_INVENTARIO' ? (
@@ -750,6 +910,18 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {evidencePreview && (
+        <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget && setEvidencePreview(null)}>
+          <section className="modal evidence-view-modal">
+            <div className="modal-head">
+              <div><h2>Evidencia fotográfica</h2><p>{evidencePreview.name}</p></div>
+              <button className="icon-button" onClick={()=>setEvidencePreview(null)}><X size={19}/></button>
+            </div>
+            <img src={evidencePreview.url} alt="Evidencia de incidencia"/>
+          </section>
         </div>
       )}
 
