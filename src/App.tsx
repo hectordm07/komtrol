@@ -655,7 +655,7 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {isReplenishmentTab && (
-                <ReplenishmentModule role={role} />
+                <ReplenishmentModule />
               )}
 
               {isMaterialTab && (
