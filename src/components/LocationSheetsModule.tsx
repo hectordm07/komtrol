@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   CalendarDays,
-  Download,
   FileSpreadsheet,
   FileText,
   PackageCheck,
@@ -101,54 +100,352 @@ function flattenIngress(ingress: Ingress): FlatLine[] {
     }
   }
 
-  return output
+  const sorted = output.sort((a, b) => {
+    const byPart = a.partNo.localeCompare(b.partNo, 'es', {
+      numeric: true,
+      sensitivity: 'base',
+    })
+    if (byPart !== 0) return byPart
+
+    const byGuide = a.guideNo.localeCompare(b.guideNo, 'es', {
+      numeric: true,
+      sensitivity: 'base',
+    })
+    if (byGuide !== 0) return byGuide
+
+    return a.rowNo - b.rowNo
+  })
+
+  return sorted.map((row, index) => ({
+    ...row,
+    rowNo: index + 1,
+  }))
+}
+
+function excelDate(value: string) {
+  const date = new Date(value.length === 10 ? value + 'T12:00:00' : value)
+  return Number.isNaN(date.getTime()) ? value : date
 }
 
 async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
-  const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm'
+  const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
   const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
 
-  const aoa: (string | number)[][] = [
-    ['RECEPCIÓN DE REPUESTOS - REPOSICIÓN'],
-    ['N° INGRESO', ingress.ingress_no],
-    ['FECHA', fmtDate(ingress.ingress_date)],
-    ['PROVEEDOR', ingress.supplier],
-    ['ALMACÉN', ingress.warehouse ?? ''],
-    [],
-    ['N°', 'NUMERO DE PARTE', 'Stock code', 'Descripción', 'Cantidad', 'UM', 'Ubicación', 'Guía de remisión', 'Fecha de Recepción', 'Ingreso SAP Antamina'],
+  const aoa: any[][] = [
+    ['RECEPCIÓN DE REPUESTOS REPOSICIÓN', '', '', '', '', '', '', '', 'N°', ingress.ingress_no],
+    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', '', '', ''],
+    ['N°', 'NÚMERO DE PARTE', 'STOCK CODE', 'DESCRIPCIÓN', 'CANT.', 'UM', 'UBICACIÓN', 'GUÍA DE REMISIÓN', 'FECHA DE RECEPCIÓN', 'INGRESO SAP ANTAMINA'],
     ...rows.map((row) => [
       row.rowNo,
       row.partNo,
-      row.stockCode,
+      row.stockCode || 'SIN SC',
       row.description,
       row.quantity ?? '',
       row.unit,
-      row.location,
+      row.location || '-',
       row.guideNo,
-      fmtDate(row.receptionDate),
-      row.sapIngress,
+      excelDate(row.receptionDate),
+      row.sapIngress || '0',
     ]),
   ]
 
-  const worksheet = XLSX.utils.aoa_to_sheet(aoa)
-  worksheet['!cols'] = [
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+  ]
+  ws['!cols'] = [
     { wch: 7 },
-    { wch: 20 },
-    { wch: 16 },
-    { wch: 42 },
+    { wch: 22 },
+    { wch: 17 },
+    { wch: 48 },
     { wch: 12 },
-    { wch: 8 },
-    { wch: 16 },
-    { wch: 19 },
+    { wch: 9 },
     { wch: 18 },
+    { wch: 21 },
     { wch: 20 },
+    { wch: 22 },
+  ]
+  ws['!rows'] = [
+    { hpt: 27 },
+    { hpt: 18 },
+    { hpt: 32 },
+  ]
+  ws['!autofilter'] = { ref: `A3:J${rows.length + 3}` }
+
+  const thinBorder = {
+    top: { style: 'thin', color: { rgb: 'B8C0CC' } },
+    bottom: { style: 'thin', color: { rgb: 'B8C0CC' } },
+    left: { style: 'thin', color: { rgb: 'D7DCE3' } },
+    right: { style: 'thin', color: { rgb: 'D7DCE3' } },
+  }
+
+  const titleCell = ws['A1']
+  if (titleCell) {
+    titleCell.s = {
+      font: { name: 'Arial', sz: 16, bold: true, color: { rgb: '0570C7' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        top: { style: 'medium', color: { rgb: '111111' } },
+        bottom: { style: 'medium', color: { rgb: '111111' } },
+        left: { style: 'medium', color: { rgb: '111111' } },
+      },
+    }
+  }
+
+  const subtitleCell = ws['A2']
+  if (subtitleCell) {
+    subtitleCell.s = {
+      font: { name: 'Arial', sz: 9, color: { rgb: '536174' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        bottom: { style: 'medium', color: { rgb: '111111' } },
+        left: { style: 'medium', color: { rgb: '111111' } },
+      },
+    }
+  }
+
+  const ingressLabel = ws['I1']
+  const ingressValue = ws['J1']
+  for (const cell of [ingressLabel, ingressValue]) {
+    if (!cell) continue
+    cell.s = {
+      fill: { fgColor: { rgb: 'FFF600' } },
+      font: {
+        name: 'Arial',
+        sz: cell === ingressValue ? 18 : 13,
+        bold: true,
+        color: { rgb: '0066C2' },
+      },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        top: { style: 'medium', color: { rgb: '111111' } },
+        bottom: { style: 'medium', color: { rgb: '111111' } },
+        left: { style: 'medium', color: { rgb: '111111' } },
+        right: { style: 'medium', color: { rgb: '111111' } },
+      },
+    }
+  }
+
+  for (const address of ['I2', 'J2']) {
+    if (!ws[address]) ws[address] = { t: 's', v: '' }
+    ws[address].s = {
+      fill: { fgColor: { rgb: 'FFF600' } },
+      border: {
+        bottom: { style: 'medium', color: { rgb: '111111' } },
+        left: { style: 'medium', color: { rgb: '111111' } },
+        right: { style: 'medium', color: { rgb: '111111' } },
+      },
+    }
+  }
+
+  const headerColors = [
+    'FFFFFF',
+    'FF2C2C',
+    'FFFFFF',
+    'FF2C2C',
+    'FFF600',
+    'FFFFFF',
+    'FFF600',
+    'FFFFFF',
+    'FFFFFF',
+    'FFFFFF',
   ]
 
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, `Ingreso ${ingress.ingress_no}`)
+  for (let col = 0; col < 10; col++) {
+    const address = XLSX.utils.encode_cell({ r: 2, c: col })
+    const cell = ws[address]
+    if (!cell) continue
+    cell.s = {
+      fill: { fgColor: { rgb: '050505' } },
+      font: { name: 'Arial', sz: 9, bold: true, color: { rgb: headerColors[col] } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border: {
+        top: { style: 'medium', color: { rgb: '111111' } },
+        bottom: { style: 'medium', color: { rgb: '111111' } },
+        left: { style: 'thin', color: { rgb: 'FFFFFF' } },
+        right: { style: 'thin', color: { rgb: 'FFFFFF' } },
+      },
+    }
+  }
+
+  for (let row = 3; row < rows.length + 3; row++) {
+    for (let col = 0; col < 10; col++) {
+      const address = XLSX.utils.encode_cell({ r: row, c: col })
+      const cell = ws[address]
+      if (!cell) continue
+      cell.s = {
+        font: {
+          name: 'Arial',
+          sz: 9,
+          bold: col === 1,
+          color: { rgb: col === 1 ? '111827' : '334155' },
+        },
+        alignment: {
+          horizontal: [0, 4, 5, 9].includes(col) ? 'center' : 'left',
+          vertical: 'center',
+          wrapText: col === 3,
+        },
+        border: thinBorder,
+      }
+
+      if (col === 4 && typeof cell.v === 'number') {
+        cell.z = '0.000'
+      }
+      if (col === 8 && cell.v instanceof Date) {
+        cell.z = 'dd/mm/yyyy'
+      }
+    }
+  }
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, `Ingreso ${ingress.ingress_no}`)
   XLSX.writeFile(
-    workbook,
-    `KOMTROL_Ingreso_${ingress.ingress_no}_${ingress.ingress_date}.xlsx`
+    wb,
+    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${ingress.ingress_date}.xlsx`
+  )
+}
+
+async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
+  const jspdfUrl = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm'
+  const autoTableUrl = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/+esm'
+  const jspdfModule: any = await import(/* @vite-ignore */ jspdfUrl)
+  const autoTableModule: any = await import(/* @vite-ignore */ autoTableUrl)
+  const jsPDF = jspdfModule.jsPDF
+  const autoTable = autoTableModule.default
+
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+  })
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const left = 7
+  const right = 7
+  const numberBoxWidth = 49
+  const headerHeight = 19
+  const reportWidth = pageWidth - left - right
+
+  const drawReportHeader = () => {
+    doc.setDrawColor(17, 17, 17)
+    doc.setLineWidth(0.5)
+    doc.setFillColor(255, 255, 255)
+    doc.rect(left, 7, reportWidth - numberBoxWidth, headerHeight, 'FD')
+
+    doc.setTextColor(5, 112, 199)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.text(
+      'HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS',
+      left + (reportWidth - numberBoxWidth) / 2,
+      14,
+      { align: 'center' }
+    )
+
+    doc.setTextColor(83, 97, 116)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.text(
+      `${ingress.supplier} · ${fmtDate(ingress.ingress_date)}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`,
+      left + (reportWidth - numberBoxWidth) / 2,
+      20.5,
+      { align: 'center' }
+    )
+
+    const boxX = left + reportWidth - numberBoxWidth
+    doc.setFillColor(255, 246, 0)
+    doc.setDrawColor(17, 17, 17)
+    doc.rect(boxX, 7, numberBoxWidth, headerHeight, 'FD')
+
+    doc.setTextColor(0, 86, 179)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('N°', boxX + 11, 18, { align: 'center' })
+    doc.setFontSize(18)
+    doc.text(String(ingress.ingress_no), boxX + 35, 18.5, { align: 'center' })
+  }
+
+  drawReportHeader()
+
+  autoTable(doc, {
+    startY: 31,
+    margin: { left, right, top: 31, bottom: 12 },
+    head: [[
+      'N°',
+      'NÚMERO DE PARTE',
+      'STOCK CODE',
+      'DESCRIPCIÓN',
+      'CANT.',
+      'UM',
+      'UBICACIÓN',
+      'GUÍA DE REMISIÓN',
+      'FECHA DE RECEPCIÓN',
+      'INGRESO SAP ANTAMINA',
+    ]],
+    body: rows.map((row) => [
+      row.rowNo,
+      row.partNo,
+      row.stockCode || 'SIN SC',
+      row.description,
+      row.quantity == null ? '' : Number(row.quantity).toFixed(3),
+      row.unit,
+      row.location || '-',
+      row.guideNo,
+      fmtDate(row.receptionDate),
+      row.sapIngress || '0',
+    ]),
+    styles: {
+      font: 'helvetica',
+      fontSize: 6.3,
+      cellPadding: 1.3,
+      lineColor: [213, 220, 227],
+      lineWidth: 0.15,
+      textColor: [51, 65, 85],
+      valign: 'middle',
+    },
+    headStyles: {
+      fillColor: [5, 5, 5],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center',
+      fontSize: 6.2,
+      minCellHeight: 10,
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 28, fontStyle: 'bold' },
+      2: { cellWidth: 24 },
+      3: { cellWidth: 66 },
+      4: { cellWidth: 17, halign: 'center' },
+      5: { cellWidth: 12, halign: 'center' },
+      6: { cellWidth: 25 },
+      7: { cellWidth: 28 },
+      8: { cellWidth: 25, halign: 'center' },
+      9: { cellWidth: 29, halign: 'center' },
+    },
+    didParseCell: (data: any) => {
+      if (data.section !== 'head') return
+      if ([1, 3].includes(data.column.index)) data.cell.styles.textColor = [255, 44, 44]
+      if ([4, 6].includes(data.column.index)) data.cell.styles.textColor = [255, 246, 0]
+    },
+    didDrawPage: (data: any) => {
+      if (data.pageNumber > 1) drawReportHeader()
+      doc.setTextColor(110, 120, 135)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.text(
+        `Ingreso ${ingress.ingress_no} · Página ${data.pageNumber}`,
+        pageWidth - right,
+        pageHeight - 5,
+        { align: 'right' }
+      )
+    },
+  })
+
+  doc.save(
+    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${ingress.ingress_date}.pdf`
   )
 }
 
@@ -156,7 +453,7 @@ export function LocationSheetsModule() {
   const [ingresses, setIngresses] = useState<Ingress[]>([])
   const [selected, setSelected] = useState<Ingress | null>(null)
   const [loading, setLoading] = useState(true)
-  const [exporting, setExporting] = useState(false)
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
   const [message, setMessage] = useState('')
   const [numberSearch, setNumberSearch] = useState('')
   const [dateSearch, setDateSearch] = useState('')
@@ -246,9 +543,9 @@ export function LocationSheetsModule() {
       .reduce((sum, receipt) => sum + (receipt.replenishment_receipt_lines?.length ?? 0), 0)
   }
 
-  async function exportSelected() {
+  async function exportSelectedExcel() {
     if (!selected) return
-    setExporting(true)
+    setExporting('excel')
     setMessage('')
     try {
       await exportIngressExcel(selected, selectedRows)
@@ -257,7 +554,22 @@ export function LocationSheetsModule() {
         `No se pudo generar el Excel: ${error instanceof Error ? error.message : 'error desconocido'}`
       )
     } finally {
-      setExporting(false)
+      setExporting(null)
+    }
+  }
+
+  async function exportSelectedPdf() {
+    if (!selected) return
+    setExporting('pdf')
+    setMessage('')
+    try {
+      await exportIngressPdf(selected, selectedRows)
+    } catch (error) {
+      setMessage(
+        `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'error desconocido'}`
+      )
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -400,9 +712,13 @@ export function LocationSheetsModule() {
               <button className="secondary-button" onClick={() => setSelected(null)}>
                 Cerrar detalle
               </button>
-              <button className="primary-button" disabled={exporting || !selectedRows.length} onClick={exportSelected}>
-                {exporting ? <RefreshCw className="spin" size={16} /> : <FileSpreadsheet size={16} />}
-                {exporting ? 'Generando…' : 'Exportar Excel'}
+              <button className="secondary-button" disabled={Boolean(exporting) || !selectedRows.length} onClick={exportSelectedPdf}>
+                {exporting === 'pdf' ? <RefreshCw className="spin" size={16} /> : <FileText size={16} />}
+                {exporting === 'pdf' ? 'Generando PDF…' : 'Generar PDF'}
+              </button>
+              <button className="primary-button" disabled={Boolean(exporting) || !selectedRows.length} onClick={exportSelectedExcel}>
+                {exporting === 'excel' ? <RefreshCw className="spin" size={16} /> : <FileSpreadsheet size={16} />}
+                {exporting === 'excel' ? 'Generando Excel…' : 'Exportar Excel'}
               </button>
             </div>
           </div>
