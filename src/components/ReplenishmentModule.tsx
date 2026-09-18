@@ -34,6 +34,9 @@ type Receipt = {
   line_count: number
   notes: string | null
   created_at: string
+  sap_kmmp_no: string | null
+  sap_fiori_no: string | null
+  sap_status: 'PENDIENTE' | 'INGRESADO'
   replenishment_receipt_lines?: ReceiptLine[]
 }
 
@@ -51,6 +54,9 @@ export function ReplenishmentModule() {
   const [search, setSearch] = useState('')
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
+  const [sapKmmp, setSapKmmp] = useState('')
+  const [sapFiori, setSapFiori] = useState('')
+  const [savingSap, setSavingSap] = useState(false)
 
   async function reload() {
     setLoading(true)
@@ -70,6 +76,9 @@ export function ReplenishmentModule() {
         line_count,
         notes,
         created_at,
+        sap_kmmp_no,
+        sap_fiori_no,
+        sap_status,
         replenishment_receipt_lines (
           id,
           line_no,
@@ -119,6 +128,9 @@ export function ReplenishmentModule() {
         row.document_no,
         row.warehouse,
         row.source,
+        row.sap_kmmp_no,
+        row.sap_fiori_no,
+        row.sap_status,
       ].some((value) => String(value ?? '').toLowerCase().includes(q))
 
       const detailMatch = (row.replenishment_receipt_lines ?? []).some((line) =>
@@ -134,6 +146,65 @@ export function ReplenishmentModule() {
     () => [...(selected?.replenishment_receipt_lines ?? [])].sort((a, b) => a.line_no - b.line_no),
     [selected]
   )
+
+  function openDetail(row: Receipt) {
+    setSelected(row)
+    setSapKmmp(row.sap_kmmp_no || '')
+    setSapFiori(row.sap_fiori_no || '')
+    setMessage('')
+  }
+
+  async function saveSapEntry() {
+    if (!selected) return
+
+    const kmmp = sapKmmp.trim()
+    const fiori = sapFiori.trim()
+
+    if (kmmp && !/^18\d+$/.test(kmmp)) {
+      setMessage('SAP KMMP inválido: debe contener solo números y empezar con 18. Ejemplo: 180499543.')
+      return
+    }
+    if (fiori && !/^50\d+$/.test(fiori)) {
+      setMessage('SAP FIORI inválido: debe contener solo números y empezar con 50. Ejemplo: 5000288368.')
+      return
+    }
+
+    setSavingSap(true)
+    setMessage('')
+
+    const { data, error } = await supabase
+      .from('replenishment_receipts')
+      .update({
+        sap_kmmp_no: kmmp || null,
+        sap_fiori_no: fiori || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', selected.id)
+      .select('sap_kmmp_no,sap_fiori_no,sap_status')
+      .single()
+
+    setSavingSap(false)
+
+    if (error || !data) {
+      setMessage(error?.message || 'No se pudo actualizar el ingreso SAP.')
+      return
+    }
+
+    const updated = {
+      ...selected,
+      sap_kmmp_no: data.sap_kmmp_no,
+      sap_fiori_no: data.sap_fiori_no,
+      sap_status: data.sap_status as 'PENDIENTE' | 'INGRESADO',
+    }
+
+    setSelected(updated)
+    setReceipts((rows) => rows.map((row) => row.id === selected.id ? updated : row))
+    setMessage(
+      data.sap_status === 'INGRESADO'
+        ? 'Guía marcada como INGRESADO. Ya no aparecerá en la Hoja de Ubicación de pendientes SAP.'
+        : 'Guía marcada como PENDIENTE SAP.'
+    )
+  }
 
   return (
     <div className="replenishment-module">
@@ -204,6 +275,7 @@ export function ReplenishmentModule() {
                   <th>Almacén</th>
                   <th>Origen</th>
                   <th>Líneas</th>
+                  <th>Estado SAP</th>
                   <th>Detalle</th>
                 </tr>
               </thead>
@@ -223,7 +295,12 @@ export function ReplenishmentModule() {
                     <td><span className="source-chip">{row.source.replace('_', ' ')}</span></td>
                     <td><b>{row.line_count}</b></td>
                     <td>
-                      <button className="secondary-button small-report" onClick={() => setSelected(row)}>
+                      <span className={row.sap_status === 'INGRESADO' ? 'status-pill' : 'status-pill warning'}>
+                        {row.sap_status}
+                      </span>
+                    </td>
+                    <td>
+                      <button className="secondary-button small-report" onClick={() => openDetail(row)}>
                         <FileText size={14} /> Ver
                       </button>
                     </td>
@@ -259,6 +336,46 @@ export function ReplenishmentModule() {
               <div><small>N° Documento</small><b>{selected.document_no || '—'}</b></div>
               <div><small>Almacén</small><b>{selected.warehouse || '—'}</b></div>
               <div><small>Origen</small><b>{selected.source.replace('_', ' ')}</b></div>
+            </div>
+
+            <div className="sap-validation-card">
+              <div className="sap-validation-head">
+                <div>
+                  <small>Estado SAP</small>
+                  <b className={selected.sap_status === 'INGRESADO' ? 'sap-status entered' : 'sap-status pending'}>
+                    {selected.sap_status}
+                  </b>
+                </div>
+                <p>
+                  Se considera <b>INGRESADO</b> cuando exista un documento válido de SAP KMMP (18…) o SAP FIORI (50…).
+                  Las guías ingresadas dejan de aparecer en la Hoja de Ubicación de pendientes.
+                </p>
+              </div>
+
+              <div className="sap-validation-fields">
+                <label>SAP KMMP
+                  <input
+                    inputMode="numeric"
+                    value={sapKmmp}
+                    onChange={(e) => setSapKmmp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Ej. 180499543"
+                  />
+                  <small>Debe iniciar con 18</small>
+                </label>
+                <label>SAP FIORI
+                  <input
+                    inputMode="numeric"
+                    value={sapFiori}
+                    onChange={(e) => setSapFiori(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Ej. 5000288368"
+                  />
+                  <small>Debe iniciar con 50</small>
+                </label>
+                <button className="primary-button sap-save-button" disabled={savingSap} onClick={saveSapEntry}>
+                  {savingSap ? <RefreshCw className="spin" size={16} /> : <PackageCheck size={16} />}
+                  {savingSap ? 'Guardando…' : 'Guardar ingreso SAP'}
+                </button>
+              </div>
             </div>
 
             <div className="table-wrap guide-detail-lines">
