@@ -54,6 +54,8 @@ Deno.serve(async (req: Request) => {
   if (!incidentId) return json({ error: "incidentId es obligatorio" }, 400)
 
   const admin = createClient(supabaseUrl, serviceRoleKey)
+  const role = String(user.app_metadata?.role ?? "")
+  const canManageAll = role === "COORDINADOR" || role === "ADMINISTRADOR"
 
   const { data: incident, error: incidentError } = await admin
     .from("incidents")
@@ -62,6 +64,9 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (incidentError || !incident) return json({ error: "Incidencia no encontrada" }, 404)
+  if (!canManageAll && incident.created_by !== user.id) {
+    return json({ error: "No tienes acceso a esta incidencia" }, 403)
+  }
 
   const { data: rule, error: ruleError } = await admin
     .from("email_rules")
