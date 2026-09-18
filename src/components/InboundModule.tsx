@@ -488,9 +488,30 @@ export function InboundModule({ mode, userId, profile }: Props) {
           <div><Mail/><span><b>{counts.notified}</b><small>Notificadas</small></span></div>
           <div><Boxes/><span><b>{counts.boxes}</b><small>Cajas</small></span></div>
         </div>
-        <section className="panel">
+        <section className="panel inbound-recent-panel">
           <div className="panel-title"><div><h3>Actividad reciente</h3><p>Últimas incidencias de Callao Inbound.</p></div></div>
-          <IncidentRows rows={incidents.slice(0,8)} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={true}/>
+          <div className="inbound-recent-list">
+            {incidents.slice(0,5).map((row) => {
+              const diff = Number(row.qty_received || 0) - Number(row.qty_expected || 0)
+              return (
+                <article className="inbound-recent-card" key={row.id}>
+                  <div className="inbound-recent-main">
+                    <span className={row.incident_type === 'SOBRANTE' ? 'status-pill warning' : row.incident_type === 'FALTANTE' ? 'status-pill danger' : 'status-pill'}>
+                      {row.incident_type.replaceAll('_',' ')}
+                    </span>
+                    <b>{row.material_no || 'Sin material'}</b>
+                    <small>{row.description || row.guide_no || row.purchase_order || 'Sin descripción'}</small>
+                  </div>
+                  <div className="inbound-recent-meta">
+                    <b>{diff === 0 ? '—' : diff.toLocaleString('es-PE',{maximumFractionDigits:3})}</b>
+                    <small>Diferencia</small>
+                  </div>
+                  <time>{fmt(row.created_at)}</time>
+                </article>
+              )
+            })}
+            {!incidents.length && <div className="empty-work"><CheckCircle2 size={25}/><b>Sin actividad reciente</b></div>}
+          </div>
         </section>
         {showIncidentForm && <IncidentModal form={incidentForm} setForm={setIncidentForm} profiles={profiles} editing={editingIncident} saving={saving} onClose={() => setShowIncidentForm(false)} onSubmit={saveIncident}/>}
       </div>
@@ -605,7 +626,7 @@ function IncidentModal({ form, setForm, profiles, editing, saving, onClose, onSu
         <label>Responsable<select value={form.assigned_to} onChange={(e)=>setForm({...form,assigned_to:e.target.value})}><option value="">Sin asignar</option>{profiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}</select></label>
         <label>Guía<input value={form.guide_no} onChange={(e)=>setForm({...form,guide_no:e.target.value})}/></label>
         <label>OC<input value={form.purchase_order} onChange={(e)=>setForm({...form,purchase_order:e.target.value})}/></label>
-        <label>N° Documento<input value={form.document_no} onChange={(e)=>setForm({...form,document_no:e.target.value})}/></label>
+        <label>N° Embarque o Guía<input value={form.document_no} onChange={(e)=>setForm({...form,document_no:e.target.value})}/></label>
         <label>Número de parte<input value={form.material_no} onChange={(e)=>setForm({...form,material_no:e.target.value})}/></label>
         <label className="span-2">Descripción<input value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})}/></label>
         <label>Cantidad esperada<input type="number" min="0" step="any" value={form.qty_expected} onChange={(e)=>setForm({...form,qty_expected:e.target.value})}/></label>
