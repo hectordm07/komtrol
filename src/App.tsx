@@ -5,6 +5,8 @@ import {
   Bell,
   Boxes,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   LogOut,
   Mail,
@@ -33,6 +35,8 @@ import { ReplenishmentModule } from './components/ReplenishmentModule'
 import { LocationSheetsModule } from './components/LocationSheetsModule'
 import { AlertsModule } from './components/AlertsModule'
 import { OcCargoTrackingModule } from './components/OcCargoTrackingModule'
+import { InboundModule } from './components/InboundModule'
+import { MainDashboardModule } from './components/MainDashboardModule'
 
 type Tab = string
 
@@ -45,6 +49,7 @@ type Profile = {
   warehouse?: string | null
   project?: string | null
   group_name?: string | null
+  shift_name?: string | null
 }
 
 type Incident = {
@@ -260,6 +265,7 @@ function Login() {
 function Workspace({ session }: { session: Session }) {
   const [tab, setTab] = useState<Tab>('inicio')
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [inboundOpen, setInboundOpen] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -417,6 +423,19 @@ function Workspace({ session }: { session: Session }) {
         { id: 'calendario' as Tab, label: 'Calendario', icon: BarChart3 },
       ],
     },
+    ...((profile?.warehouse === 'CALLAO' || ['SUPERVISOR','ADMINISTRADOR'].includes(role))
+      ? [{
+          section: 'INBOUND · CALLAO',
+          collapsible: true,
+          items: [
+            { id: 'inbound-dashboard' as Tab, label: 'Dashboard Inbound', icon: BarChart3 },
+            { id: 'inbound-personal' as Tab, label: 'Mis tareas', icon: ClipboardList },
+            { id: 'inbound-tareas' as Tab, label: 'Asignar tareas', icon: ClipboardList },
+            { id: 'inbound-incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
+            { id: 'inbound-cajas' as Tab, label: 'Sobrantes / Cajas', icon: Boxes },
+          ],
+        }]
+      : []),
     {
       section: 'OPERACIONES',
       items: [
@@ -487,6 +506,8 @@ function Workspace({ session }: { session: Session }) {
   )
   const currentNav = flatNav.find((item) => item.id === tab)
   const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
+  const inboundTabs = ['inbound-dashboard', 'inbound-personal', 'inbound-tareas', 'inbound-incidencias', 'inbound-cajas'] as const
+  const isInboundTab = inboundTabs.includes(tab as typeof inboundTabs[number])
   const isTaskTab = taskTabs.includes(tab as typeof taskTabs[number])
   const guideTabs = ['scanner-guias', 'seguimiento-guias'] as const
   const isGuideTab = guideTabs.includes(tab as typeof guideTabs[number])
@@ -526,21 +547,32 @@ function Workspace({ session }: { session: Session }) {
         </div>
 
         <nav className="sidebar-nav">
-          {navSections.map((group) => (
-            <div className="nav-section" key={group.section}>
-              <span className="nav-section-title">{group.section}</span>
-              {group.items.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  className={tab === id ? 'active' : ''}
-                  onClick={() => { setTab(id); setMobileMenu(false) }}
-                >
-                  <Icon size={18} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          ))}
+          {navSections.map((group) => {
+            const isInbound = group.section === 'INBOUND · CALLAO'
+            const open = !isInbound || inboundOpen
+            return (
+              <div className="nav-section" key={group.section}>
+                {isInbound ? (
+                  <button className="nav-section-toggle" onClick={() => setInboundOpen((value) => !value)}>
+                    <span>{group.section}</span>
+                    {inboundOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                  </button>
+                ) : (
+                  <span className="nav-section-title">{group.section}</span>
+                )}
+                {open && group.items.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    className={tab === id ? 'active' : ''}
+                    onClick={() => { setTab(id); setMobileMenu(false) }}
+                  >
+                    <Icon size={18} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )
+          })}
         </nav>
 
         <div className="sidebar-footer">
@@ -557,7 +589,7 @@ function Workspace({ session }: { session: Session }) {
           <button className="icon-button mobile-only" onClick={() => setMobileMenu(true)}><Menu size={22} /></button>
           <div>
             <h1>{currentNav?.label ?? 'KOMTROL'}</h1>
-            <p>{displayName} · {role}</p>
+            <p>{displayName} · {role}{profile?.warehouse ? ` · ${profile.warehouse}` : ''}{profile?.group_name ? ` · ${profile.group_name}` : ''}{profile?.shift_name ? ` · ${profile.shift_name}` : ''}</p>
           </div>
           <div className="top-actions">
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={19} /></button>
@@ -571,33 +603,7 @@ function Workspace({ session }: { session: Session }) {
           ) : (
             <>
               {tab === 'inicio' && (
-                <>
-                  <section className="hero-card">
-                    <div>
-                      <span className="status-pill"><CheckCircle2 size={15} /> Supabase conectado</span>
-                      <h2>Control operativo centralizado</h2>
-                      <p>Registra incidencias, adjunta evidencia y mantén trazabilidad de las notificaciones desde un solo lugar.</p>
-                    </div>
-                    <button className="primary-button" onClick={() => { setTab('incidencias'); setShowIncidentForm(true) }}>
-                      <Plus size={18} /> Nueva incidencia
-                    </button>
-                  </section>
-
-                  <section className="kpi-grid">
-                    <Kpi icon={<ClipboardList />} label="Incidencias" value={counts.total} />
-                    <Kpi icon={<AlertTriangle />} label="Pendientes" value={counts.abiertos} />
-                    <Kpi icon={<Send />} label="Notificadas" value={counts.notificados} />
-                    <Kpi icon={<Mail />} label="Errores correo" value={counts.errores} />
-                  </section>
-
-                  <section className="panel">
-                    <div className="panel-title">
-                      <div><h3>Actividad reciente</h3><p>Últimas incidencias registradas</p></div>
-                      <button className="text-button" onClick={() => setTab('incidencias')}>Ver todas</button>
-                    </div>
-                    <IncidentTable incidents={incidents.slice(0, 6)} sendingId={sendingId} onSend={sendNotification} />
-                  </section>
-                </>
+                <MainDashboardModule profile={profile} role={role} />
               )}
 
               {tab === 'incidencias' && (
@@ -638,6 +644,40 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                   )}
                 </section>
+              )}
+
+              {isInboundTab && tab === 'inbound-dashboard' && (
+                <InboundModule mode="dashboard" userId={user.id} profile={profile} />
+              )}
+
+              {isInboundTab && tab === 'inbound-incidencias' && (
+                <InboundModule mode="incidents" userId={user.id} profile={profile} />
+              )}
+
+              {isInboundTab && tab === 'inbound-cajas' && (
+                <InboundModule mode="boxes" userId={user.id} profile={profile} />
+              )}
+
+              {isInboundTab && tab === 'inbound-personal' && (
+                <TasksModule
+                  mode="area-personal"
+                  userId={user.id}
+                  profile={profile}
+                  scopeWarehouse="CALLAO"
+                  scopeProject="INBOUND CALLAO"
+                  scopeGroup="INBOUND"
+                />
+              )}
+
+              {isInboundTab && tab === 'inbound-tareas' && (
+                <TasksModule
+                  mode="tareas"
+                  userId={user.id}
+                  profile={profile}
+                  scopeWarehouse="CALLAO"
+                  scopeProject="INBOUND CALLAO"
+                  scopeGroup="INBOUND"
+                />
               )}
 
               {isTaskTab && (
@@ -711,7 +751,7 @@ function Workspace({ session }: { session: Session }) {
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isGuideTab && !isOcCargoTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
@@ -758,6 +798,7 @@ function Workspace({ session }: { session: Session }) {
               <label>Tipo
                 <select value={form.incident_type} onChange={(e) => setForm({ ...form, incident_type: e.target.value })}>
                   <option value="FALTANTE">Faltante</option>
+                  <option value="SOBRANTE">Sobrante</option>
                   <option value="DANADO">Dañado</option>
                   <option value="DIFERENCIA">Diferencia</option>
                   <option value="SIN_DOCUMENTACION">Sin documentación</option>
