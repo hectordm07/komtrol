@@ -35,6 +35,9 @@ type Receipt = {
   source: 'SCANNER' | 'CARGA_MASIVA' | 'MANUAL' | 'MIGRADO'
   line_count: number
   notes: string | null
+  sap_kmmp_no: string | null
+  sap_fiori_no: string | null
+  sap_status: 'PENDIENTE' | 'INGRESADO'
   replenishment_receipt_lines?: ReceiptLine[]
 }
 
@@ -59,7 +62,6 @@ type FlatLine = {
   location: string
   guideNo: string
   receptionDate: string
-  sapIngress: string
   source: string
 }
 
@@ -69,8 +71,12 @@ function fmtDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-PE').format(date)
 }
 
-function flattenIngress(ingress: Ingress): FlatLine[] {
+function flattenIngress(
+  ingress: Ingress,
+  sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS'
+): FlatLine[] {
   const receipts = [...(ingress.replenishment_receipts ?? [])]
+    .filter((receipt) => sapFilter === 'TODOS' || receipt.sap_status === sapFilter)
     .sort((a, b) => {
       const date = String(a.receipt_date).localeCompare(String(b.receipt_date))
       if (date !== 0) return date
@@ -94,7 +100,6 @@ function flattenIngress(ingress: Ingress): FlatLine[] {
         location: line.location ?? '',
         guideNo: receipt.guide_no ?? '',
         receptionDate: receipt.receipt_date,
-        sapIngress: line.sap_ingress ?? '0',
         source: receipt.source,
       })
     }
@@ -127,14 +132,23 @@ function excelDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : date
 }
 
-async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
+async function exportIngressExcel(
+  ingress: Ingress,
+  rows: FlatLine[],
+  sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS'
+) {
   const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
   const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
 
+  const statusLabel =
+    sapFilter === 'PENDIENTE' ? 'PENDIENTES SAP' :
+    sapFilter === 'INGRESADO' ? 'INGRESADOS SAP' :
+    'TODOS'
+
   const aoa: any[][] = [
-    ['RECEPCIÓN DE REPUESTOS REPOSICIÓN', '', '', '', '', '', '', '', 'N°', ingress.ingress_no],
-    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', '', '', ''],
-    ['N°', 'NÚMERO DE PARTE', 'STOCK CODE', 'DESCRIPCIÓN', 'CANT.', 'UM', 'UBICACIÓN', 'GUÍA DE REMISIÓN', 'FECHA DE RECEPCIÓN', 'INGRESO SAP ANTAMINA'],
+    ['HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS', '', '', '', '', '', '', 'N°', ingress.ingress_no],
+    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', '', ''],
+    ['N°', 'NÚMERO DE PARTE', 'STOCK CODE', 'DESCRIPCIÓN', 'CANT.', 'UM', 'UBICACIÓN', 'GUÍA DE REMISIÓN', 'FECHA DE RECEPCIÓN'],
     ...rows.map((row) => [
       row.rowNo,
       row.partNo,
@@ -145,33 +159,27 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
       row.location || '-',
       row.guideNo,
       excelDate(row.receptionDate),
-      row.sapIngress || '0',
     ]),
   ]
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
   ]
   ws['!cols'] = [
     { wch: 7 },
     { wch: 22 },
     { wch: 17 },
-    { wch: 48 },
+    { wch: 50 },
     { wch: 12 },
     { wch: 9 },
     { wch: 18 },
     { wch: 21 },
     { wch: 20 },
-    { wch: 22 },
   ]
-  ws['!rows'] = [
-    { hpt: 27 },
-    { hpt: 18 },
-    { hpt: 32 },
-  ]
-  ws['!autofilter'] = { ref: `A3:J${rows.length + 3}` }
+  ws['!rows'] = [{ hpt: 27 }, { hpt: 18 }, { hpt: 32 }]
+  ws['!autofilter'] = { ref: `A3:I${rows.length + 3}` }
 
   const thinBorder = {
     top: { style: 'thin', color: { rgb: 'B8C0CC' } },
@@ -180,9 +188,8 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
     right: { style: 'thin', color: { rgb: 'D7DCE3' } },
   }
 
-  const titleCell = ws['A1']
-  if (titleCell) {
-    titleCell.s = {
+  if (ws['A1']) {
+    ws['A1'].s = {
       font: { name: 'Arial', sz: 16, bold: true, color: { rgb: '0570C7' } },
       alignment: { horizontal: 'center', vertical: 'center' },
       border: {
@@ -193,9 +200,8 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
     }
   }
 
-  const subtitleCell = ws['A2']
-  if (subtitleCell) {
-    subtitleCell.s = {
+  if (ws['A2']) {
+    ws['A2'].s = {
       font: { name: 'Arial', sz: 9, color: { rgb: '536174' } },
       alignment: { horizontal: 'center', vertical: 'center' },
       border: {
@@ -205,15 +211,14 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
     }
   }
 
-  const ingressLabel = ws['I1']
-  const ingressValue = ws['J1']
-  for (const cell of [ingressLabel, ingressValue]) {
+  for (const address of ['H1', 'I1']) {
+    const cell = ws[address]
     if (!cell) continue
     cell.s = {
       fill: { fgColor: { rgb: 'FFF600' } },
       font: {
         name: 'Arial',
-        sz: cell === ingressValue ? 18 : 13,
+        sz: address === 'I1' ? 18 : 13,
         bold: true,
         color: { rgb: '0066C2' },
       },
@@ -227,7 +232,7 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
     }
   }
 
-  for (const address of ['I2', 'J2']) {
+  for (const address of ['H2', 'I2']) {
     if (!ws[address]) ws[address] = { t: 's', v: '' }
     ws[address].s = {
       fill: { fgColor: { rgb: 'FFF600' } },
@@ -240,19 +245,11 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
   }
 
   const headerColors = [
-    'FFFFFF',
-    'FF2C2C',
-    'FFFFFF',
-    'FF2C2C',
-    'FFF600',
-    'FFFFFF',
-    'FFF600',
-    'FFFFFF',
-    'FFFFFF',
-    'FFFFFF',
+    'FFFFFF', 'FF2C2C', 'FFFFFF', 'FF2C2C', 'FFF600',
+    'FFFFFF', 'FFF600', 'FFFFFF', 'FFFFFF',
   ]
 
-  for (let col = 0; col < 10; col++) {
+  for (let col = 0; col < 9; col++) {
     const address = XLSX.utils.encode_cell({ r: 2, c: col })
     const cell = ws[address]
     if (!cell) continue
@@ -270,7 +267,7 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
   }
 
   for (let row = 3; row < rows.length + 3; row++) {
-    for (let col = 0; col < 10; col++) {
+    for (let col = 0; col < 9; col++) {
       const address = XLSX.utils.encode_cell({ r: row, c: col })
       const cell = ws[address]
       if (!cell) continue
@@ -282,19 +279,14 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
           color: { rgb: col === 1 ? '111827' : '334155' },
         },
         alignment: {
-          horizontal: [0, 4, 5, 9].includes(col) ? 'center' : 'left',
+          horizontal: [0, 4, 5].includes(col) ? 'center' : 'left',
           vertical: 'center',
           wrapText: col === 3,
         },
         border: thinBorder,
       }
-
-      if (col === 4 && typeof cell.v === 'number') {
-        cell.z = '0.000'
-      }
-      if (col === 8 && cell.v instanceof Date) {
-        cell.z = 'dd/mm/yyyy'
-      }
+      if (col === 4 && typeof cell.v === 'number') cell.z = '0.000'
+      if (col === 8 && cell.v instanceof Date) cell.z = 'dd/mm/yyyy'
     }
   }
 
@@ -302,11 +294,15 @@ async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
   XLSX.utils.book_append_sheet(wb, ws, `Ingreso ${ingress.ingress_no}`)
   XLSX.writeFile(
     wb,
-    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${ingress.ingress_date}.xlsx`
+    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${sapFilter}_${ingress.ingress_date}.xlsx`
   )
 }
 
-async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
+async function exportIngressPdf(
+  ingress: Ingress,
+  rows: FlatLine[],
+  sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS'
+) {
   const jspdfUrl = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm'
   const autoTableUrl = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/+esm'
   const jspdfModule: any = await import(/* @vite-ignore */ jspdfUrl)
@@ -314,12 +310,7 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
   const jsPDF = jspdfModule.jsPDF
   const autoTable = autoTableModule.default
 
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4',
-  })
-
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const left = 7
@@ -327,6 +318,10 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
   const numberBoxWidth = 49
   const headerHeight = 19
   const reportWidth = pageWidth - left - right
+  const statusLabel =
+    sapFilter === 'PENDIENTE' ? 'PENDIENTES SAP' :
+    sapFilter === 'INGRESADO' ? 'INGRESADOS SAP' :
+    'TODOS'
 
   const drawReportHeader = () => {
     doc.setDrawColor(17, 17, 17)
@@ -348,7 +343,7 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
     doc.text(
-      `${ingress.supplier} · ${fmtDate(ingress.ingress_date)}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`,
+      `${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`,
       left + (reportWidth - numberBoxWidth) / 2,
       20.5,
       { align: 'center' }
@@ -358,7 +353,6 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
     doc.setFillColor(255, 246, 0)
     doc.setDrawColor(17, 17, 17)
     doc.rect(boxX, 7, numberBoxWidth, headerHeight, 'FD')
-
     doc.setTextColor(0, 86, 179)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
@@ -382,7 +376,6 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
       'UBICACIÓN',
       'GUÍA DE REMISIÓN',
       'FECHA DE RECEPCIÓN',
-      'INGRESO SAP ANTAMINA',
     ]],
     body: rows.map((row) => [
       row.rowNo,
@@ -394,7 +387,6 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
       row.location || '-',
       row.guideNo,
       fmtDate(row.receptionDate),
-      row.sapIngress || '0',
     ]),
     styles: {
       font: 'helvetica',
@@ -415,15 +407,14 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
     },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 28, fontStyle: 'bold' },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 66 },
-      4: { cellWidth: 17, halign: 'center' },
-      5: { cellWidth: 12, halign: 'center' },
-      6: { cellWidth: 25 },
-      7: { cellWidth: 28 },
-      8: { cellWidth: 25, halign: 'center' },
-      9: { cellWidth: 29, halign: 'center' },
+      1: { cellWidth: 30, fontStyle: 'bold' },
+      2: { cellWidth: 25 },
+      3: { cellWidth: 78 },
+      4: { cellWidth: 18, halign: 'center' },
+      5: { cellWidth: 13, halign: 'center' },
+      6: { cellWidth: 27 },
+      7: { cellWidth: 30 },
+      8: { cellWidth: 28, halign: 'center' },
     },
     didParseCell: (data: any) => {
       if (data.section !== 'head') return
@@ -436,7 +427,7 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(6.5)
       doc.text(
-        `Ingreso ${ingress.ingress_no} · Página ${data.pageNumber}`,
+        `Ingreso ${ingress.ingress_no} · ${statusLabel} · Página ${data.pageNumber}`,
         pageWidth - right,
         pageHeight - 5,
         { align: 'right' }
@@ -445,7 +436,7 @@ async function exportIngressPdf(ingress: Ingress, rows: FlatLine[]) {
   })
 
   doc.save(
-    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${ingress.ingress_date}.pdf`
+    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${sapFilter}_${ingress.ingress_date}.pdf`
   )
 }
 
@@ -458,6 +449,7 @@ export function LocationSheetsModule() {
   const [numberSearch, setNumberSearch] = useState('')
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
+  const [sapFilter, setSapFilter] = useState<'PENDIENTE' | 'INGRESADO' | 'TODOS'>('PENDIENTE')
 
   async function reload() {
     setLoading(true)
@@ -484,6 +476,9 @@ export function LocationSheetsModule() {
           source,
           line_count,
           notes,
+          sap_kmmp_no,
+          sap_fiori_no,
+          sap_status,
           replenishment_receipt_lines (
             id,
             line_no,
@@ -525,21 +520,30 @@ export function LocationSheetsModule() {
       if (no && !String(row.ingress_no).includes(no)) return false
       if (dateSearch && row.ingress_date !== dateSearch) return false
       if (supplier !== 'TODOS' && row.supplier !== supplier) return false
+      if (
+        sapFilter !== 'TODOS' &&
+        !(row.replenishment_receipts ?? []).some((receipt) => receipt.sap_status === sapFilter)
+      ) return false
       return true
     })
-  }, [ingresses, numberSearch, dateSearch, supplier])
+  }, [ingresses, numberSearch, dateSearch, supplier, sapFilter])
 
   const selectedRows = useMemo(
-    () => selected ? flattenIngress(selected) : [],
-    [selected]
+    () => selected ? flattenIngress(selected, sapFilter) : [],
+    [selected, sapFilter]
   )
 
+  function matchingReceipts(row: Ingress) {
+    return (row.replenishment_receipts ?? [])
+      .filter((receipt) => sapFilter === 'TODOS' || receipt.sap_status === sapFilter)
+  }
+
   function guideCount(row: Ingress) {
-    return row.replenishment_receipts?.length ?? 0
+    return matchingReceipts(row).length
   }
 
   function lineCount(row: Ingress) {
-    return (row.replenishment_receipts ?? [])
+    return matchingReceipts(row)
       .reduce((sum, receipt) => sum + (receipt.replenishment_receipt_lines?.length ?? 0), 0)
   }
 
@@ -548,7 +552,7 @@ export function LocationSheetsModule() {
     setExporting('excel')
     setMessage('')
     try {
-      await exportIngressExcel(selected, selectedRows)
+      await exportIngressExcel(selected, selectedRows, sapFilter)
     } catch (error) {
       setMessage(
         `No se pudo generar el Excel: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -563,7 +567,7 @@ export function LocationSheetsModule() {
     setExporting('pdf')
     setMessage('')
     try {
-      await exportIngressPdf(selected, selectedRows)
+      await exportIngressPdf(selected, selectedRows, sapFilter)
     } catch (error) {
       setMessage(
         `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -579,7 +583,7 @@ export function LocationSheetsModule() {
         <div className="panel-title">
           <div>
             <h3>Hojas de Ubicación</h3>
-            <p>Cada hoja consolida las guías de un N° de Ingreso y completa Stock Code y Ubicación desde el Master.</p>
+            <p>Por defecto muestra solo guías PENDIENTES de ingreso SAP. Las guías con documento 18… o 50… pasan a INGRESADO y dejan de aparecer aquí.</p>
           </div>
           <button className="icon-button" onClick={reload} title="Actualizar">
             <RefreshCw size={18} />
@@ -619,12 +623,22 @@ export function LocationSheetsModule() {
             </select>
           </label>
 
+          <label>
+            Estado SAP
+            <select value={sapFilter} onChange={(e) => setSapFilter(e.target.value as 'PENDIENTE' | 'INGRESADO' | 'TODOS')}>
+              <option value="PENDIENTE">Pendientes SAP</option>
+              <option value="INGRESADO">Ingresados SAP</option>
+              <option value="TODOS">Todos</option>
+            </select>
+          </label>
+
           <button
             className="secondary-button clear-ingress-filter"
             onClick={() => {
               setNumberSearch('')
               setDateSearch('')
               setSupplier('TODOS')
+              setSapFilter('PENDIENTE')
             }}
           >
             Limpiar filtros
@@ -707,6 +721,9 @@ export function LocationSheetsModule() {
               <span><Truck size={15} /> {guideCount(selected)} guías</span>
               <span><PackageCheck size={15} /> {selectedRows.length} líneas</span>
               <span><CalendarDays size={15} /> {fmtDate(selected.ingress_date)}</span>
+              <span className={sapFilter === 'PENDIENTE' ? 'sap-filter-chip pending' : sapFilter === 'INGRESADO' ? 'sap-filter-chip entered' : 'sap-filter-chip'}>
+                {sapFilter === 'PENDIENTE' ? 'Pendientes SAP' : sapFilter === 'INGRESADO' ? 'Ingresados SAP' : 'Todos'}
+              </span>
             </div>
             <div className="button-row">
               <button className="secondary-button" onClick={() => setSelected(null)}>
@@ -736,7 +753,6 @@ export function LocationSheetsModule() {
                   <th>Ubicación</th>
                   <th>Guía de remisión</th>
                   <th>Fecha de Recepción</th>
-                  <th>Ingreso SAP Antamina</th>
                 </tr>
               </thead>
               <tbody>
@@ -751,7 +767,6 @@ export function LocationSheetsModule() {
                     <td>{row.location || '-'}</td>
                     <td>{row.guideNo || '—'}</td>
                     <td>{fmtDate(row.receptionDate)}</td>
-                    <td>{row.sapIngress || '0'}</td>
                   </tr>
                 ))}
               </tbody>
