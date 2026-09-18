@@ -1,0 +1,699 @@
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Copy,
+  DollarSign,
+  Eye,
+  Mail,
+  MapPin,
+  RefreshCw,
+  Save,
+  Search,
+  Send,
+  X,
+} from 'lucide-react'
+import { supabase } from '../lib/supabase'
+
+type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
+
+type Profile = {
+  user_id: string
+  full_name: string
+  role: Role
+  warehouse?: string | null
+}
+
+type GuideType = 'ORDEN_COMPRA' | 'CARGO_DIRECTO'
+
+type Followup = {
+  id: string
+  guide_id: string
+  client_delivery_date: string | null
+  refrendo_delivery_date: string | null
+  oc_value_usd: number | null
+  mine_warehouse_observations: string | null
+  kmmp_warehouse_observation: string | null
+  received_by: 'ANTAMINA' | 'CONSIGNADO' | 'OTRO' | null
+  final_status:
+    | 'PENDIENTE'
+    | 'EN_SEGUIMIENTO'
+    | 'OBSERVADO'
+    | 'ENTREGADO_CLIENTE'
+    | 'REFRENDADO'
+    | 'ANULADO'
+    | 'CERRADO'
+  cancellation_comments: string | null
+  management_owner: string | null
+  parts_location: string | null
+  scan_sent_date: string | null
+  scan_send_status: 'PENDIENTE' | 'ENVIADO' | 'OBSERVADO' | 'NO_APLICA'
+  updated_at: string
+}
+
+type Guide = {
+  id: string
+  guide_no: string
+  document_no: string | null
+  emission_date: string | null
+  transfer_start_date: string | null
+  reception_at: string
+  reference: string
+  line_count: number
+  guide_type: GuideType
+  warehouse: string | null
+  responsible_user_id: string
+  status: string
+  notes: string | null
+  file_bucket: string | null
+  file_path: string | null
+  file_name: string | null
+  created_at: string
+  followup?: Followup | null
+}
+
+type Props = {
+  userId: string
+  profile: Profile | null
+}
+
+type FollowupForm = {
+  client_delivery_date: string
+  refrendo_delivery_date: string
+  oc_value_usd: string
+  mine_warehouse_observations: string
+  kmmp_warehouse_observation: string
+  received_by: '' | 'ANTAMINA' | 'CONSIGNADO' | 'OTRO'
+  final_status: Followup['final_status']
+  cancellation_comments: string
+  management_owner: string
+  parts_location: string
+  scan_sent_date: string
+  scan_send_status: Followup['scan_send_status']
+}
+
+const emptyFollowup = (): FollowupForm => ({
+  client_delivery_date: '',
+  refrendo_delivery_date: '',
+  oc_value_usd: '',
+  mine_warehouse_observations: '',
+  kmmp_warehouse_observation: '',
+  received_by: '',
+  final_status: 'PENDIENTE',
+  cancellation_comments: '',
+  management_owner: '',
+  parts_location: '',
+  scan_sent_date: '',
+  scan_send_status: 'PENDIENTE',
+})
+
+function normalizeFollowup(value: unknown): Followup | null {
+  if (!value) return null
+  if (Array.isArray(value)) return (value[0] ?? null) as Followup | null
+  return value as Followup
+}
+
+function isoDay(value?: string | null) {
+  if (!value) return ''
+  return value.slice(0, 10)
+}
+
+function fmtDate(value?: string | null) {
+  if (!value) return '—'
+  const date = new Date(value.length === 10 ? value + 'T12:00:00' : value)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('es-PE').format(date)
+}
+
+function daysBetween(start?: string | null, end?: string | null) {
+  if (!start || !end) return null
+  const a = new Date(start.length === 10 ? start + 'T12:00:00' : start)
+  const b = new Date(end.length === 10 ? end + 'T12:00:00' : end)
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null
+  return Math.max(0, Math.floor((b.getTime() - a.getTime()) / 86400000))
+}
+
+function followupToForm(followup?: Followup | null): FollowupForm {
+  if (!followup) return emptyFollowup()
+  return {
+    client_delivery_date: followup.client_delivery_date || '',
+    refrendo_delivery_date: followup.refrendo_delivery_date || '',
+    oc_value_usd: followup.oc_value_usd == null ? '' : String(followup.oc_value_usd),
+    mine_warehouse_observations: followup.mine_warehouse_observations || '',
+    kmmp_warehouse_observation: followup.kmmp_warehouse_observation || '',
+    received_by: followup.received_by || '',
+    final_status: followup.final_status || 'PENDIENTE',
+    cancellation_comments: followup.cancellation_comments || '',
+    management_owner: followup.management_owner || '',
+    parts_location: followup.parts_location || '',
+    scan_sent_date: followup.scan_sent_date || '',
+    scan_send_status: followup.scan_send_status || 'PENDIENTE',
+  }
+}
+
+function statusLabel(value: string) {
+  return value.replaceAll('_', ' ')
+}
+
+function emails(value: string) {
+  return value
+    .split(/[;,\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+export function OcCargoTrackingModule({ userId, profile }: Props) {
+  const [guides, setGuides] = useState<Guide[]>([])
+  const [activeType, setActiveType] = useState<GuideType>('ORDEN_COMPRA')
+  const [selected, setSelected] = useState<Guide | null>(null)
+  const [form, setForm] = useState<FollowupForm>(emptyFollowup())
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('TODOS')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [mail, setMail] = useState({
+    to: '',
+    cc: '',
+    subject: '',
+    body: '',
+  })
+
+  async function reload() {
+    setLoading(true)
+    setMessage('')
+
+    const { data, error } = await supabase
+      .from('guides')
+      .select(`
+        id,
+        guide_no,
+        document_no,
+        emission_date,
+        transfer_start_date,
+        reception_at,
+        reference,
+        line_count,
+        guide_type,
+        warehouse,
+        responsible_user_id,
+        status,
+        notes,
+        file_bucket,
+        file_path,
+        file_name,
+        created_at,
+        oc_cargo_followups (*)
+      `)
+      .in('guide_type', ['ORDEN_COMPRA', 'CARGO_DIRECTO'])
+      .order('created_at', { ascending: false })
+      .limit(2000)
+
+    if (error) {
+      setMessage(error.message)
+      setGuides([])
+    } else {
+      const rows = (data ?? []).map((row: any) => ({
+        ...row,
+        followup: normalizeFollowup(row.oc_cargo_followups),
+      })) as Guide[]
+      setGuides(rows)
+      if (selected) {
+        const refreshed = rows.find((row) => row.id === selected.id) ?? null
+        setSelected(refreshed)
+        if (refreshed) setForm(followupToForm(refreshed.followup))
+      }
+    }
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    reload()
+  }, [userId])
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return guides.filter((guide) => {
+      if (guide.guide_type !== activeType) return false
+      if (statusFilter !== 'TODOS' && (guide.followup?.final_status ?? 'PENDIENTE') !== statusFilter) return false
+      if (!q) return true
+      return [
+        guide.guide_no,
+        guide.reference,
+        guide.document_no,
+        guide.warehouse,
+        guide.status,
+        guide.followup?.final_status,
+        guide.followup?.management_owner,
+        guide.followup?.parts_location,
+      ].some((value) => String(value ?? '').toLowerCase().includes(q))
+    })
+  }, [guides, activeType, statusFilter, search])
+
+  const counts = useMemo(() => {
+    const rows = guides.filter((guide) => guide.guide_type === activeType)
+    return {
+      total: rows.length,
+      observed: rows.filter((guide) => guide.followup?.final_status === 'OBSERVADO').length,
+      refrendado: rows.filter((guide) => guide.followup?.final_status === 'REFRENDADO').length,
+      pending: rows.filter((guide) => !guide.followup || ['PENDIENTE', 'EN_SEGUIMIENTO'].includes(guide.followup.final_status)).length,
+    }
+  }, [guides, activeType])
+
+  function openFollowup(guide: Guide) {
+    setSelected(guide)
+    setForm(followupToForm(guide.followup))
+    setMessage('')
+    setEmailOpen(false)
+  }
+
+  function closeFollowup() {
+    setSelected(null)
+    setEmailOpen(false)
+    setMessage('')
+  }
+
+  async function saveFollowup(event?: FormEvent) {
+    event?.preventDefault()
+    if (!selected) return
+
+    setSaving(true)
+    setMessage('')
+
+    const payload = {
+      guide_id: selected.id,
+      client_delivery_date: form.client_delivery_date || null,
+      refrendo_delivery_date: form.refrendo_delivery_date || null,
+      oc_value_usd:
+        selected.guide_type === 'ORDEN_COMPRA' && form.oc_value_usd
+          ? Number(form.oc_value_usd)
+          : null,
+      mine_warehouse_observations: form.mine_warehouse_observations.trim() || null,
+      kmmp_warehouse_observation: form.kmmp_warehouse_observation.trim() || null,
+      received_by: form.received_by || null,
+      final_status: form.final_status,
+      cancellation_comments: form.cancellation_comments.trim() || null,
+      management_owner: form.management_owner.trim() || null,
+      parts_location: form.parts_location.trim() || null,
+      scan_sent_date: form.scan_sent_date || null,
+      scan_send_status: form.scan_send_status,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await supabase
+      .from('oc_cargo_followups')
+      .upsert(payload, { onConflict: 'guide_id' })
+      .select('*')
+      .single()
+
+    if (error || !data) {
+      setSaving(false)
+      setMessage(error?.message || 'No se pudo guardar el seguimiento.')
+      return
+    }
+
+    if (form.final_status === 'OBSERVADO' && selected.status !== 'OBSERVADO') {
+      await supabase.from('guides').update({ status: 'OBSERVADO', updated_at: new Date().toISOString() }).eq('id', selected.id)
+    } else if (form.final_status === 'CERRADO' && selected.status !== 'CERRADO') {
+      await supabase.from('guides').update({ status: 'CERRADO', updated_at: new Date().toISOString() }).eq('id', selected.id)
+    }
+
+    await supabase.from('guide_history').insert({
+      guide_id: selected.id,
+      action: 'SEGUIMIENTO_ACTUALIZADO',
+      note: `Seguimiento ${selected.guide_type.replace('_', ' ')} actualizado a ${form.final_status}`,
+      changed_by: userId,
+    })
+
+    setSaving(false)
+    setMessage('Seguimiento guardado correctamente.')
+    await reload()
+  }
+
+  const dispatchDate = selected
+    ? selected.transfer_start_date || selected.emission_date || isoDay(selected.created_at)
+    : ''
+  const receptionDate = selected ? isoDay(selected.reception_at) : ''
+  const today = new Date().toISOString().slice(0, 10)
+
+  const daysFromDispatch = selected ? daysBetween(dispatchDate, today) : null
+  const daysReceptionToClient = selected ? daysBetween(receptionDate, form.client_delivery_date) : null
+  const daysClientToRefrendo = selected ? daysBetween(form.client_delivery_date, form.refrendo_delivery_date) : null
+
+  function buildEmail() {
+    if (!selected) return
+    if (form.final_status !== 'OBSERVADO') {
+      setMessage('Para reportar por correo, primero establece ESTATUS FINAL = OBSERVADO y guarda el seguimiento.')
+      return
+    }
+
+    const kind = selected.guide_type === 'ORDEN_COMPRA' ? 'ORDEN DE COMPRA' : 'CARGO DIRECTO'
+    const subject = `[KOMTROL][${kind} OBSERVADO] Guía ${selected.guide_no} | Ref. ${selected.reference}`
+    const body = [
+      'Estimados,',
+      '',
+      `Se reporta la siguiente guía como OBSERVADA desde KOMTROL.`,
+      '',
+      `Tipo: ${kind}`,
+      `Guía: ${selected.guide_no}`,
+      `Referencia: ${selected.reference}`,
+      `N° Documento: ${selected.document_no || '—'}`,
+      `Almacén: ${selected.warehouse || '—'}`,
+      selected.guide_type === 'ORDEN_COMPRA'
+        ? `Valor OC $: ${form.oc_value_usd || '—'}`
+        : '',
+      `Observaciones Almacén Mina: ${form.mine_warehouse_observations || '—'}`,
+      `Observación Almacén KMMP: ${form.kmmp_warehouse_observation || '—'}`,
+      `Recepcionado por: ${form.received_by || '—'}`,
+      `Encargado de gestión: ${form.management_owner || '—'}`,
+      `Ubicación de repuestos: ${form.parts_location || '—'}`,
+      `Comentarios para anulación de guía: ${form.cancellation_comments || '—'}`,
+      '',
+      'Favor su apoyo con la revisión y regularización correspondiente.',
+      '',
+      `Registro generado desde KOMTROL por ${profile?.full_name || 'usuario'}.`,
+    ].filter(Boolean).join('\n')
+
+    setMail({ to: '', cc: '', subject, body })
+    setEmailOpen(true)
+  }
+
+  function openOutlook() {
+    const to = emails(mail.to).join(',')
+    const cc = emails(mail.cc).join(',')
+    const url =
+      `mailto:${encodeURIComponent(to)}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`
+    window.location.href = url
+  }
+
+  async function copyEmail() {
+    const text = `Para: ${mail.to}\nCC: ${mail.cc}\nAsunto: ${mail.subject}\n\n${mail.body}`
+    await navigator.clipboard.writeText(text)
+    setMessage('Correo copiado al portapapeles.')
+  }
+
+  async function sendEmail() {
+    if (!selected) return
+    const to = emails(mail.to)
+    if (!to.length) {
+      setMessage('Ingresa al menos un destinatario.')
+      return
+    }
+    if (form.final_status !== 'OBSERVADO') {
+      setMessage('El correo solo puede enviarse cuando la guía está OBSERVADA.')
+      return
+    }
+
+    setSendingEmail(true)
+    setMessage('')
+    const { data, error } = await supabase.functions.invoke('send-guide-observation-email', {
+      body: {
+        guideId: selected.id,
+        to,
+        cc: emails(mail.cc),
+        subject: mail.subject.trim(),
+        body: mail.body,
+      },
+    })
+    setSendingEmail(false)
+
+    if (error) {
+      setMessage(`No se pudo enviar desde KOMTROL: ${error.message}. Puedes usar “Abrir en Outlook”.`)
+      return
+    }
+    if (data?.error) {
+      setMessage(`${data.error}. Puedes usar “Abrir en Outlook”.`)
+      return
+    }
+
+    setMessage('Correo de observación enviado correctamente desde KOMTROL.')
+    setEmailOpen(false)
+    await reload()
+  }
+
+  return (
+    <div className="oc-cargo-module">
+      <section className="panel oc-cargo-list-panel">
+        <div className="panel-title">
+          <div>
+            <h3>OC / Cargos Directos</h3>
+            <p>Seguimiento separado por tipo de guía, trazabilidad operativa y reporte de observaciones.</p>
+          </div>
+          <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
+        </div>
+
+        <div className="oc-cargo-type-tabs">
+          <button
+            className={activeType === 'ORDEN_COMPRA' ? 'active' : ''}
+            onClick={() => setActiveType('ORDEN_COMPRA')}
+          >
+            Orden de Compra
+            <span>{guides.filter((g) => g.guide_type === 'ORDEN_COMPRA').length}</span>
+          </button>
+          <button
+            className={activeType === 'CARGO_DIRECTO' ? 'active' : ''}
+            onClick={() => setActiveType('CARGO_DIRECTO')}
+          >
+            Cargos Directos
+            <span>{guides.filter((g) => g.guide_type === 'CARGO_DIRECTO').length}</span>
+          </button>
+        </div>
+
+        <div className="oc-cargo-kpis">
+          <div><CheckCircle2 size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
+          <div><Clock3 size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
+          <div><AlertTriangle size={17} /><span><b>{counts.observed}</b><small>Observados</small></span></div>
+          <div><CalendarDays size={17} /><span><b>{counts.refrendado}</b><small>Refrendados</small></span></div>
+        </div>
+
+        <div className="task-toolbar oc-cargo-toolbar">
+          <div className="search">
+            <Search size={17} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar guía, referencia, documento, encargado, ubicación…"
+            />
+          </div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="TODOS">Todos los estados</option>
+            <option value="PENDIENTE">Pendiente</option>
+            <option value="EN_SEGUIMIENTO">En seguimiento</option>
+            <option value="OBSERVADO">Observado</option>
+            <option value="ENTREGADO_CLIENTE">Entregado cliente</option>
+            <option value="REFRENDADO">Refrendado</option>
+            <option value="ANULADO">Anulado</option>
+            <option value="CERRADO">Cerrado</option>
+          </select>
+        </div>
+
+        {message && !selected && <div className="inline-message">{message}</div>}
+
+        {loading ? (
+          <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando guías…</p></div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Guía</th>
+                  <th>Referencia</th>
+                  <th>N° Documento</th>
+                  <th>Emisión</th>
+                  <th>Recepción</th>
+                  {activeType === 'ORDEN_COMPRA' && <th>Valor OC $</th>}
+                  <th>Estatus final</th>
+                  <th>Encargado</th>
+                  <th>Ubicación</th>
+                  <th>Seguimiento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((guide) => (
+                  <tr key={guide.id}>
+                    <td><b>{guide.guide_no}</b><small>{guide.warehouse || 'Sin almacén'}</small></td>
+                    <td>{guide.reference}</td>
+                    <td>{guide.document_no || '—'}</td>
+                    <td>{fmtDate(guide.emission_date)}</td>
+                    <td>{fmtDate(guide.reception_at)}</td>
+                    {activeType === 'ORDEN_COMPRA' && (
+                      <td>{guide.followup?.oc_value_usd == null ? '—' : Number(guide.followup.oc_value_usd).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</td>
+                    )}
+                    <td>
+                      <span className={guide.followup?.final_status === 'OBSERVADO' ? 'status-pill danger' : guide.followup?.final_status === 'REFRENDADO' || guide.followup?.final_status === 'CERRADO' ? 'status-pill' : 'status-pill warning'}>
+                        {statusLabel(guide.followup?.final_status || 'PENDIENTE')}
+                      </span>
+                    </td>
+                    <td>{guide.followup?.management_owner || '—'}</td>
+                    <td>{guide.followup?.parts_location || '—'}</td>
+                    <td>
+                      <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
+                        <Eye size={14} /> Ver / Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {!visible.length && (
+              <div className="empty-work">
+                <CheckCircle2 size={28} />
+                <b>Sin guías para este filtro</b>
+                <p>Las guías registradas desde Scanner aparecerán automáticamente en su tipo correspondiente.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {selected && (
+        <div className="modal-backdrop oc-followup-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeFollowup()}>
+          <section className="modal oc-followup-modal">
+            <div className="modal-head">
+              <div>
+                <h2>{selected.guide_type === 'ORDEN_COMPRA' ? 'Seguimiento de Orden de Compra' : 'Seguimiento de Cargo Directo'}</h2>
+                <p>{selected.guide_no} · Ref. {selected.reference} · {selected.document_no || 'Sin documento'}</p>
+              </div>
+              <button className="icon-button" onClick={closeFollowup}><X size={20} /></button>
+            </div>
+
+            {message && <div className="inline-message">{message}</div>}
+
+            <div className="oc-followup-summary">
+              <div><small>Despacho</small><b>{fmtDate(dispatchDate)}</b></div>
+              <div><small>Recepción</small><b>{fmtDate(receptionDate)}</b></div>
+              <div><small>Días desde despacho</small><b>{daysFromDispatch ?? '—'}</b></div>
+              <div><small>Recepción → cliente</small><b>{daysReceptionToClient ?? '—'}</b></div>
+              <div><small>Cliente → refrendo</small><b>{daysClientToRefrendo ?? '—'}</b></div>
+            </div>
+
+            <form className="oc-followup-form" onSubmit={saveFollowup}>
+              <label>Fecha de entrega al cliente
+                <input type="date" value={form.client_delivery_date} onChange={(e) => setForm({ ...form, client_delivery_date: e.target.value })} />
+              </label>
+
+              <label>Fecha de entrega del refrendo
+                <input type="date" value={form.refrendo_delivery_date} onChange={(e) => setForm({ ...form, refrendo_delivery_date: e.target.value })} />
+              </label>
+
+              {selected.guide_type === 'ORDEN_COMPRA' && (
+                <label>Valor OC $
+                  <div className="input-with-icon"><DollarSign size={15} /><input type="number" min="0" step="0.01" value={form.oc_value_usd} onChange={(e) => setForm({ ...form, oc_value_usd: e.target.value })} /></div>
+                </label>
+              )}
+
+              <label>Recepcionado por
+                <select value={form.received_by} onChange={(e) => setForm({ ...form, received_by: e.target.value as FollowupForm['received_by'] })}>
+                  <option value="">Seleccionar</option>
+                  <option value="ANTAMINA">ANTAMINA</option>
+                  <option value="CONSIGNADO">CONSIGNADO</option>
+                  <option value="OTRO">OTRO</option>
+                </select>
+              </label>
+
+              <label>Estatus final
+                <select value={form.final_status} onChange={(e) => setForm({ ...form, final_status: e.target.value as Followup['final_status'] })}>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="EN_SEGUIMIENTO">EN SEGUIMIENTO</option>
+                  <option value="OBSERVADO">OBSERVADO</option>
+                  <option value="ENTREGADO_CLIENTE">ENTREGADO A CLIENTE</option>
+                  <option value="REFRENDADO">REFRENDADO</option>
+                  <option value="ANULADO">ANULADO</option>
+                  <option value="CERRADO">CERRADO</option>
+                </select>
+              </label>
+
+              <label>Encargado de gestión
+                <input value={form.management_owner} onChange={(e) => setForm({ ...form, management_owner: e.target.value })} placeholder="Nombre del encargado" />
+              </label>
+
+              <label>Ubicación de repuestos
+                <div className="input-with-icon"><MapPin size={15} /><input value={form.parts_location} onChange={(e) => setForm({ ...form, parts_location: e.target.value })} placeholder="Ubicación física" /></div>
+              </label>
+
+              <label>Fecha de envío Scan
+                <input type="date" value={form.scan_sent_date} onChange={(e) => setForm({ ...form, scan_sent_date: e.target.value })} />
+              </label>
+
+              <label>Status envío de Scan
+                <select value={form.scan_send_status} onChange={(e) => setForm({ ...form, scan_send_status: e.target.value as Followup['scan_send_status'] })}>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="ENVIADO">ENVIADO</option>
+                  <option value="OBSERVADO">OBSERVADO</option>
+                  <option value="NO_APLICA">NO APLICA</option>
+                </select>
+              </label>
+
+              <label className="span-2">Observaciones Almacén Mina
+                <textarea rows={3} value={form.mine_warehouse_observations} onChange={(e) => setForm({ ...form, mine_warehouse_observations: e.target.value })} />
+              </label>
+
+              <label className="span-2">Observación Almacén KMMP
+                <textarea rows={3} value={form.kmmp_warehouse_observation} onChange={(e) => setForm({ ...form, kmmp_warehouse_observation: e.target.value })} />
+              </label>
+
+              <label className="span-2">Comentarios para anulación de guía
+                <textarea rows={2} value={form.cancellation_comments} onChange={(e) => setForm({ ...form, cancellation_comments: e.target.value })} />
+              </label>
+
+              <div className="oc-followup-calculated span-2">
+                <div><Clock3 size={15} /><span>Días transc. desde despacho</span><b>{daysFromDispatch ?? '—'}</b></div>
+                <div><Clock3 size={15} /><span>Recepción a entrega cliente</span><b>{daysReceptionToClient ?? '—'}</b></div>
+                <div><Clock3 size={15} /><span>Cliente a refrendo</span><b>{daysClientToRefrendo ?? '—'}</b></div>
+              </div>
+
+              <div className="modal-actions span-2 oc-followup-actions">
+                <button type="button" className="secondary-button" onClick={closeFollowup}>Cerrar</button>
+                <button type="button" className="secondary-button" disabled={form.final_status !== 'OBSERVADO'} onClick={buildEmail}>
+                  <Mail size={16} /> Reportar observado
+                </button>
+                <button className="primary-button" disabled={saving}>
+                  {saving ? <RefreshCw className="spin" size={16} /> : <Save size={16} />}
+                  {saving ? 'Guardando…' : 'Guardar seguimiento'}
+                </button>
+              </div>
+            </form>
+
+            {emailOpen && (
+              <div className="oc-email-box">
+                <div className="oc-email-head">
+                  <div><b>Correo de observación</b><small>Editable antes de enviar.</small></div>
+                  <button className="icon-button" onClick={() => setEmailOpen(false)}><X size={17} /></button>
+                </div>
+                <div className="oc-email-grid">
+                  <label>Para
+                    <input value={mail.to} onChange={(e) => setMail({ ...mail, to: e.target.value })} placeholder="correo@kmmp.com.pe; otro@kmmp.com.pe" />
+                  </label>
+                  <label>CC
+                    <input value={mail.cc} onChange={(e) => setMail({ ...mail, cc: e.target.value })} />
+                  </label>
+                  <label className="span-2">Asunto
+                    <input value={mail.subject} onChange={(e) => setMail({ ...mail, subject: e.target.value })} />
+                  </label>
+                  <label className="span-2">Mensaje
+                    <textarea rows={10} value={mail.body} onChange={(e) => setMail({ ...mail, body: e.target.value })} />
+                  </label>
+                </div>
+                <div className="oc-email-actions">
+                  <button className="secondary-button" onClick={copyEmail}><Copy size={15} /> Copiar</button>
+                  <button className="secondary-button" onClick={openOutlook}><Mail size={15} /> Abrir en Outlook</button>
+                  <button className="primary-button" disabled={sendingEmail || !emails(mail.to).length} onClick={sendEmail}>
+                    {sendingEmail ? <RefreshCw className="spin" size={15} /> : <Send size={15} />}
+                    {sendingEmail ? 'Enviando…' : 'Enviar desde KOMTROL'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  )
+}
