@@ -126,21 +126,76 @@ function guideFromFileName(fileName?: string) {
 
 function detectDocumentLineCount(text: string) {
   const rows = text.replace(/\r/g, '').split('\n')
-  let maxLine = 0
+  let maxInlineLine = 0
 
+  // Caso 1: texto OCR / texto ya aplanado:
+  // "128 SOLVENTE SOLMAX ... 1.000 UND KG"
   for (const row of rows) {
-    // Líneas típicas de las guías KMMP:
-    // 128 SOLVENTE SOLMAX ... 1.000 UND KG
     const match = row.match(/^\s*(\d{1,3})\s+.+?\s+\d+(?:[.,]\d+)?\s+(?:UND|EA|PC|PZ|PIE|FT|M|MT)\b/i)
     if (!match) continue
 
     const lineNo = Number(match[1])
-    if (Number.isInteger(lineNo) && lineNo > maxLine && lineNo <= 999) {
-      maxLine = lineNo
+    if (Number.isInteger(lineNo) && lineNo > maxInlineLine && lineNo <= 999) {
+      maxInlineLine = lineNo
     }
   }
 
-  return maxLine
+  // Caso 2: PDF digital KMMP. PDF.js puede devolver el número de línea
+  // separado de la descripción, cantidad y unidad. Buscamos la secuencia
+  // correlativa más larga de enteros independientes: 1,2,3,...128.
+  const standaloneNumbers = rows
+    .map((row) => row.trim())
+    .filter((row) => /^\d{1,3}$/.test(row))
+    .map(Number)
+    .filter((value) => value >= 1 && value <= 999)
+
+  let bestStart = 0
+  let bestEnd = 0
+  let bestLength = 0
+  let currentStart = 0
+  let currentEnd = 0
+  let currentLength = 0
+
+  for (const value of standaloneNumbers) {
+    if (currentLength === 0) {
+      currentStart = value
+      currentEnd = value
+      currentLength = 1
+      continue
+    }
+
+    if (value === currentEnd + 1) {
+      currentEnd = value
+      currentLength += 1
+      continue
+    }
+
+    // Algunos motores pueden repetir un número; no rompemos la secuencia.
+    if (value === currentEnd) continue
+
+    if (currentLength > bestLength) {
+      bestStart = currentStart
+      bestEnd = currentEnd
+      bestLength = currentLength
+    }
+
+    currentStart = value
+    currentEnd = value
+    currentLength = 1
+  }
+
+  if (currentLength > bestLength) {
+    bestStart = currentStart
+    bestEnd = currentEnd
+    bestLength = currentLength
+  }
+
+  const sequentialCount =
+    bestLength >= 3 && bestStart === 1
+      ? bestEnd
+      : 0
+
+  return Math.max(maxInlineLine, sequentialCount)
 }
 
 function extractObservations(text: string) {
