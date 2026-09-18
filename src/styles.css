@@ -2191,3 +2191,293 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     grid-template-columns: 1fr;
   }
 }
+
+
+/* OC / Cargos Directos - seguimiento */
+.oc-cargo-module {
+  display: grid;
+  gap: 12px;
+}
+.oc-cargo-list-panel {
+  padding: 13px;
+}
+.oc-cargo-type-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  background: #eef2f6;
+  border-radius: 10px;
+  margin: 8px 0 10px;
+}
+.oc-cargo-type-tabs button {
+  border: 0;
+  background: transparent;
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  color: #607087;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.oc-cargo-type-tabs button span {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+}
+.oc-cargo-type-tabs button.active {
+  background: #17243a;
+  color: #fff;
+}
+.oc-cargo-type-tabs button.active span {
+  color: #17243a;
+}
+.oc-cargo-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.oc-cargo-kpis > div {
+  min-height: 58px;
+  border: 1px solid #e0e6ee;
+  background: #fbfcfe;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.oc-cargo-kpis span {
+  display: grid;
+  gap: 1px;
+}
+.oc-cargo-kpis b {
+  font-size: 18px;
+}
+.oc-cargo-kpis small {
+  color: #7c8798;
+  font-size: 9px;
+}
+.oc-cargo-toolbar {
+  display: flex;
+  gap: 8px;
+}
+.oc-cargo-toolbar .search {
+  flex: 1;
+}
+.oc-cargo-toolbar > select {
+  min-height: 34px;
+  min-width: 170px;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  background: #fff;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.oc-followup-modal {
+  width: min(1020px, calc(100vw - 26px));
+  max-height: 94vh;
+  overflow: auto;
+}
+.oc-followup-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid #e0e6ee;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 8px 0 12px;
+}
+.oc-followup-summary > div {
+  min-height: 62px;
+  padding: 9px 10px;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  border-right: 1px solid #e7ebf1;
+}
+.oc-followup-summary > div:last-child {
+  border-right: 0;
+}
+.oc-followup-summary small {
+  color: #7d8999;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.oc-followup-summary b {
+  font-size: 13px;
+}
+.oc-followup-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+.oc-followup-form label,
+.oc-email-grid label {
+  display: grid;
+  gap: 4px;
+  color: #59677a;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.oc-followup-form input,
+.oc-followup-form select,
+.oc-followup-form textarea,
+.oc-email-grid input,
+.oc-email-grid textarea {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px 9px;
+  font-size: 11px;
+  color: #1f2937;
+  resize: vertical;
+}
+.oc-followup-form textarea,
+.oc-email-grid textarea {
+  min-height: 66px;
+}
+.oc-followup-form .span-2,
+.oc-email-grid .span-2 {
+  grid-column: span 2;
+}
+.input-with-icon {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #d8e0e9;
+  border-radius: 8px;
+  background: #fff;
+  padding-left: 8px;
+}
+.input-with-icon svg {
+  color: #7d8999;
+  flex: 0 0 auto;
+}
+.input-with-icon input {
+  border: 0 !important;
+  min-height: 32px !important;
+  padding-left: 2px !important;
+}
+.oc-followup-calculated {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.oc-followup-calculated > div {
+  border: 1px solid #e0e6ee;
+  border-radius: 9px;
+  min-height: 50px;
+  padding: 8px 9px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: center;
+  background: #f9fbfd;
+}
+.oc-followup-calculated span {
+  color: #69768a;
+  font-size: 9px;
+}
+.oc-followup-calculated b {
+  font-size: 15px;
+}
+.oc-followup-actions {
+  margin-top: 2px;
+}
+.oc-email-box {
+  margin-top: 14px;
+  padding: 11px;
+  border: 1px solid #cfd8e3;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.oc-email-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 9px;
+}
+.oc-email-head > div {
+  display: grid;
+  gap: 2px;
+}
+.oc-email-head b {
+  font-size: 12px;
+}
+.oc-email-head small {
+  color: #7b8797;
+  font-size: 9px;
+}
+.oc-email-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.oc-email-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+}
+.status-pill.danger {
+  background: #fff0ee;
+  color: #b42318;
+}
+@media (max-width: 900px) {
+  .oc-cargo-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .oc-followup-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .oc-followup-form {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .oc-followup-form .span-2,
+  .oc-email-grid .span-2 {
+    grid-column: 1 / -1;
+  }
+  .oc-followup-calculated {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 620px) {
+  .oc-cargo-type-tabs {
+    width: 100%;
+  }
+  .oc-cargo-type-tabs button {
+    flex: 1;
+    justify-content: center;
+  }
+  .oc-cargo-toolbar {
+    flex-direction: column;
+  }
+  .oc-cargo-toolbar > select {
+    width: 100%;
+  }
+  .oc-cargo-kpis,
+  .oc-followup-summary,
+  .oc-followup-form,
+  .oc-email-grid {
+    grid-template-columns: 1fr;
+  }
+  .oc-followup-form .span-2,
+  .oc-email-grid .span-2 {
+    grid-column: auto;
+  }
+}
