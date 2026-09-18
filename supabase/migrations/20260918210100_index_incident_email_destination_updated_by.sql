@@ -1,0 +1,2 @@
+create index if not exists incident_email_destinations_updated_by_idx
+on public.incident_email_destinations(updated_by);
