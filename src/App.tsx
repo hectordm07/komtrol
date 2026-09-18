@@ -426,7 +426,7 @@ function Workspace({ session }: { session: Session }) {
         { id: 'oc-cargos' as Tab, label: 'OC / Cargos Directos', icon: ClipboardList },
         { id: 'os-prestamos' as Tab, label: 'OS / Préstamos', icon: Boxes },
         { id: 'outbound' as Tab, label: 'Consumos / Outbound', icon: Send },
-        { id: 'hoja-ubicacion' as Tab, label: 'Hoja de Ubicación', icon: ClipboardList },
+        { id: 'hoja-ubicacion' as Tab, label: 'Hojas de Ubicación', icon: ClipboardList },
         { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
       ],
     },
