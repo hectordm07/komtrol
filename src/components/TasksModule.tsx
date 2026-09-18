@@ -160,10 +160,10 @@ export function TasksModule({
     setForm((prev) => ({
       ...prev,
       work_type: defaultWorkType(mode),
-      warehouse: scopeWarehouse ?? prev.warehouse || profile?.warehouse || '',
-      project: scopeProject ?? prev.project || profile?.project || '',
-      group_name: scopeGroup ?? prev.group_name || profile?.group_name || '',
-      shift_name: scopeShift ?? prev.shift_name || profile?.shift_name || '',
+      warehouse: scopeWarehouse ?? (prev.warehouse || profile?.warehouse || ''),
+      project: scopeProject ?? (prev.project || profile?.project || ''),
+      group_name: scopeGroup ?? (prev.group_name || profile?.group_name || ''),
+      shift_name: scopeShift ?? (prev.shift_name || profile?.shift_name || ''),
       responsible_id: mode === 'area-personal' ? userId : prev.responsible_id,
     }))
   }, [mode, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name, scopeWarehouse, scopeProject, scopeGroup, scopeShift, userId])
@@ -314,10 +314,10 @@ export function TasksModule({
       ...prev,
       work_type: defaultWorkType(mode),
       responsible_id: mode === 'area-personal' ? userId : prev.responsible_id,
-      warehouse: scopeWarehouse ?? prev.warehouse || profile?.warehouse || '',
-      project: scopeProject ?? prev.project || profile?.project || '',
-      group_name: scopeGroup ?? prev.group_name || profile?.group_name || '',
-      shift_name: scopeShift ?? prev.shift_name || profile?.shift_name || '',
+      warehouse: scopeWarehouse ?? (prev.warehouse || profile?.warehouse || ''),
+      project: scopeProject ?? (prev.project || profile?.project || ''),
+      group_name: scopeGroup ?? (prev.group_name || profile?.group_name || ''),
+      shift_name: scopeShift ?? (prev.shift_name || profile?.shift_name || ''),
     }))
     setShowForm(true)
   }
