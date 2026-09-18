@@ -391,6 +391,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
     reference: '',
     line_count: '1',
     guide_type: 'OTRO' as GuideType,
+    supplier: 'KOMATSU' as 'KOMATSU' | 'CUMMINS',
     warehouse: profile?.warehouse ?? '',
     status: 'VALIDADO',
     notes: '',
@@ -436,6 +437,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       reference: '',
       line_count: '1',
       guide_type: 'OTRO',
+      supplier: 'KOMATSU',
       warehouse: profile?.warehouse ?? '',
       status: 'VALIDADO',
       notes: '',
@@ -462,6 +464,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       reference: '',
       line_count: '1',
       guide_type: 'OTRO',
+      supplier: 'KOMATSU',
       status: 'VALIDADO',
       notes: '',
       ocr_text: '',
@@ -720,6 +723,10 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       setMessage('Número de guía y referencia son obligatorios.')
       return
     }
+    if (form.guide_type === 'REPOSICION' && !form.supplier) {
+      setMessage('Selecciona el proveedor de la Reposición: KOMATSU o CUMMINS.')
+      return
+    }
 
     const { data: duplicate } = await supabase
       .from('guides')
@@ -768,6 +775,8 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       reference: form.reference.trim(),
       line_count: Math.max(Number(form.line_count || 1), 1),
       guide_type: form.guide_type,
+      supplier: form.guide_type === 'REPOSICION' ? form.supplier : null,
+      data_source: 'SCANNER',
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
       responsible_user_id: userId,
       status: form.status,
@@ -896,6 +905,14 @@ export function GuidesModule({ mode, userId, profile }: Props) {
               <option value="OTRO">Otro</option>
             </select>
           </label>
+          {form.guide_type === 'REPOSICION' && (
+            <label>Proveedor
+              <select value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value as 'KOMATSU' | 'CUMMINS' })}>
+                <option value="KOMATSU">KOMATSU</option>
+                <option value="CUMMINS">CUMMINS</option>
+              </select>
+            </label>
+          )}
           <label>Fecha emisión
             <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.emission_date} onChange={(e) => setForm({ ...form, emission_date: e.target.value, date_source: 'DOCUMENTO' })} />
           </label>
