@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  CalendarDays,
-  Download,
-  FileSpreadsheet,
   FileText,
   PackageCheck,
   RefreshCw,
   Search,
-  Truck,
+  X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -36,32 +33,8 @@ type Receipt = {
   source: 'SCANNER' | 'CARGA_MASIVA' | 'MANUAL' | 'MIGRADO'
   line_count: number
   notes: string | null
-  replenishment_receipt_lines?: ReceiptLine[]
-}
-
-type Ingress = {
-  id: string
-  ingress_no: number
-  ingress_date: string
-  supplier: Supplier
-  warehouse: string | null
-  notes: string | null
   created_at: string
-  replenishment_receipts?: Receipt[]
-}
-
-type FlatLine = {
-  rowNo: number
-  partNo: string
-  stockCode: string
-  description: string
-  quantity: number | null
-  unit: string
-  location: string
-  guideNo: string
-  receptionDate: string
-  sapIngress: string
-  source: string
+  replenishment_receipt_lines?: ReceiptLine[]
 }
 
 function fmtDate(value?: string | null) {
@@ -70,95 +43,12 @@ function fmtDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-PE').format(date)
 }
 
-function flattenIngress(ingress: Ingress): FlatLine[] {
-  const receipts = [...(ingress.replenishment_receipts ?? [])]
-    .sort((a, b) => {
-      const date = String(a.receipt_date).localeCompare(String(b.receipt_date))
-      if (date !== 0) return date
-      return String(a.guide_no ?? '').localeCompare(String(b.guide_no ?? ''))
-    })
-
-  const output: FlatLine[] = []
-
-  for (const receipt of receipts) {
-    const lines = [...(receipt.replenishment_receipt_lines ?? [])]
-      .sort((a, b) => a.line_no - b.line_no)
-
-    for (const line of lines) {
-      output.push({
-        rowNo: output.length + 1,
-        partNo: line.part_no ?? '',
-        stockCode: line.stock_code ?? '',
-        description: line.description ?? '',
-        quantity: line.quantity,
-        unit: line.unit ?? '',
-        location: line.location ?? '',
-        guideNo: receipt.guide_no ?? '',
-        receptionDate: receipt.receipt_date,
-        sapIngress: line.sap_ingress ?? '0',
-        source: receipt.source,
-      })
-    }
-  }
-
-  return output
-}
-
-async function exportIngressExcel(ingress: Ingress, rows: FlatLine[]) {
-  const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm'
-  const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
-
-  const aoa: (string | number)[][] = [
-    ['RECEPCIÓN DE REPUESTOS - REPOSICIÓN'],
-    ['N° INGRESO', ingress.ingress_no],
-    ['FECHA', fmtDate(ingress.ingress_date)],
-    ['PROVEEDOR', ingress.supplier],
-    ['ALMACÉN', ingress.warehouse ?? ''],
-    [],
-    ['N°', 'NUMERO DE PARTE', 'Stock code', 'Descripción', 'Cantidad', 'UM', 'Ubicación', 'Guía de remisión', 'Fecha de Recepción', 'Ingreso SAP Antamina'],
-    ...rows.map((row) => [
-      row.rowNo,
-      row.partNo,
-      row.stockCode,
-      row.description,
-      row.quantity ?? '',
-      row.unit,
-      row.location,
-      row.guideNo,
-      fmtDate(row.receptionDate),
-      row.sapIngress,
-    ]),
-  ]
-
-  const worksheet = XLSX.utils.aoa_to_sheet(aoa)
-  worksheet['!cols'] = [
-    { wch: 7 },
-    { wch: 20 },
-    { wch: 16 },
-    { wch: 42 },
-    { wch: 12 },
-    { wch: 8 },
-    { wch: 16 },
-    { wch: 19 },
-    { wch: 18 },
-    { wch: 20 },
-  ]
-
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, `Ingreso ${ingress.ingress_no}`)
-  XLSX.writeFile(
-    workbook,
-    `KOMTROL_Ingreso_${ingress.ingress_no}_${ingress.ingress_date}.xlsx`
-  )
-}
-
 export function ReplenishmentModule() {
-  const [ingresses, setIngresses] = useState<Ingress[]>([])
-  const [selected, setSelected] = useState<Ingress | null>(null)
+  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [selected, setSelected] = useState<Receipt | null>(null)
   const [loading, setLoading] = useState(true)
-  const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState('')
-  const [numberSearch, setNumberSearch] = useState('')
+  const [search, setSearch] = useState('')
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
 
@@ -167,51 +57,43 @@ export function ReplenishmentModule() {
     setMessage('')
 
     const { data, error } = await supabase
-      .from('replenishment_ingresses')
+      .from('replenishment_receipts')
       .select(`
         id,
-        ingress_no,
-        ingress_date,
+        receipt_date,
         supplier,
+        guide_no,
+        reference,
+        document_no,
         warehouse,
+        source,
+        line_count,
         notes,
         created_at,
-        replenishment_receipts (
+        replenishment_receipt_lines (
           id,
-          receipt_date,
-          supplier,
-          guide_no,
-          reference,
-          document_no,
-          warehouse,
-          source,
-          line_count,
-          notes,
-          replenishment_receipt_lines (
-            id,
-            line_no,
-            part_no,
-            stock_code,
-            description,
-            quantity,
-            unit,
-            location,
-            sap_ingress
-          )
+          line_no,
+          part_no,
+          stock_code,
+          description,
+          quantity,
+          unit,
+          location,
+          sap_ingress
         )
       `)
-      .order('ingress_no', { ascending: false })
-      .limit(1000)
+      .order('receipt_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(2000)
 
     if (error) {
       setMessage(error.message)
-      setIngresses([])
+      setReceipts([])
     } else {
-      const rows = (data ?? []) as Ingress[]
-      setIngresses(rows)
+      const rows = (data ?? []) as Receipt[]
+      setReceipts(rows)
       if (selected) {
-        const refreshed = rows.find((row) => row.id === selected.id) ?? null
-        setSelected(refreshed)
+        setSelected(rows.find((row) => row.id === selected.id) ?? null)
       }
     }
 
@@ -223,43 +105,35 @@ export function ReplenishmentModule() {
   }, [])
 
   const visible = useMemo(() => {
-    const no = numberSearch.trim()
-    return ingresses.filter((row) => {
-      if (no && !String(row.ingress_no).includes(no)) return false
-      if (dateSearch && row.ingress_date !== dateSearch) return false
-      if (supplier !== 'TODOS' && row.supplier !== supplier) return false
-      return true
-    })
-  }, [ingresses, numberSearch, dateSearch, supplier])
+    const q = search.trim().toLowerCase()
 
-  const selectedRows = useMemo(
-    () => selected ? flattenIngress(selected) : [],
+    return receipts.filter((row) => {
+      if (dateSearch && row.receipt_date !== dateSearch) return false
+      if (supplier !== 'TODOS' && row.supplier !== supplier) return false
+
+      if (!q) return true
+
+      const headerMatch = [
+        row.guide_no,
+        row.reference,
+        row.document_no,
+        row.warehouse,
+        row.source,
+      ].some((value) => String(value ?? '').toLowerCase().includes(q))
+
+      const detailMatch = (row.replenishment_receipt_lines ?? []).some((line) =>
+        [line.part_no, line.stock_code, line.description, line.location]
+          .some((value) => String(value ?? '').toLowerCase().includes(q))
+      )
+
+      return headerMatch || detailMatch
+    })
+  }, [receipts, search, dateSearch, supplier])
+
+  const selectedLines = useMemo(
+    () => [...(selected?.replenishment_receipt_lines ?? [])].sort((a, b) => a.line_no - b.line_no),
     [selected]
   )
-
-  function guideCount(row: Ingress) {
-    return row.replenishment_receipts?.length ?? 0
-  }
-
-  function lineCount(row: Ingress) {
-    return (row.replenishment_receipts ?? [])
-      .reduce((sum, receipt) => sum + (receipt.replenishment_receipt_lines?.length ?? 0), 0)
-  }
-
-  async function exportSelected() {
-    if (!selected) return
-    setExporting(true)
-    setMessage('')
-    try {
-      await exportIngressExcel(selected, selectedRows)
-    } catch (error) {
-      setMessage(
-        `No se pudo generar el Excel: ${error instanceof Error ? error.message : 'error desconocido'}`
-      )
-    } finally {
-      setExporting(false)
-    }
-  }
 
   return (
     <div className="replenishment-module">
@@ -267,55 +141,46 @@ export function ReplenishmentModule() {
         <div className="panel-title">
           <div>
             <h3>Ingresos de Reposición</h3>
-            <p>Cada N° de Ingreso agrupa todas las guías recibidas en una fecha por proveedor.</p>
+            <p>Detalle de guías de Reposición registradas por Scanner o Carga Masiva.</p>
           </div>
           <button className="icon-button" onClick={reload} title="Actualizar">
             <RefreshCw size={18} />
           </button>
         </div>
 
-        <div className="replenishment-search-grid">
-          <label>
-            N° de Ingreso
-            <div className="search">
-              <Search size={16} />
-              <input
-                inputMode="numeric"
-                value={numberSearch}
-                onChange={(e) => setNumberSearch(e.target.value.replace(/\D/g, ''))}
-                placeholder="Ej. 101"
-              />
-            </div>
-          </label>
-
-          <label>
-            Fecha de ingreso
+        <div className="guide-replenishment-filters">
+          <div className="search">
+            <Search size={16} />
             <input
-              type="date"
-              value={dateSearch}
-              onChange={(e) => setDateSearch(e.target.value)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar guía, referencia, documento o material…"
             />
-          </label>
+          </div>
 
-          <label>
-            Proveedor
-            <select value={supplier} onChange={(e) => setSupplier(e.target.value)}>
-              <option value="TODOS">Todos</option>
-              <option value="KOMATSU">KOMATSU</option>
-              <option value="CUMMINS">CUMMINS</option>
-              <option value="POR_VALIDAR">Por validar</option>
-            </select>
-          </label>
+          <input
+            type="date"
+            value={dateSearch}
+            onChange={(e) => setDateSearch(e.target.value)}
+            title="Fecha de recepción"
+          />
+
+          <select value={supplier} onChange={(e) => setSupplier(e.target.value)}>
+            <option value="TODOS">Todos los proveedores</option>
+            <option value="KOMATSU">KOMATSU</option>
+            <option value="CUMMINS">CUMMINS</option>
+            <option value="POR_VALIDAR">Por validar</option>
+          </select>
 
           <button
-            className="secondary-button clear-ingress-filter"
+            className="secondary-button"
             onClick={() => {
-              setNumberSearch('')
+              setSearch('')
               setDateSearch('')
               setSupplier('TODOS')
             }}
           >
-            Limpiar filtros
+            Limpiar
           </button>
         </div>
 
@@ -324,18 +189,20 @@ export function ReplenishmentModule() {
         {loading ? (
           <div className="screen-center compact">
             <RefreshCw className="spin" size={22} />
-            <p>Cargando ingresos…</p>
+            <p>Cargando guías…</p>
           </div>
         ) : (
-          <div className="table-wrap ingress-list-table">
+          <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>N° Ingreso</th>
                   <th>Fecha</th>
                   <th>Proveedor</th>
+                  <th>Guía</th>
+                  <th>Referencia</th>
+                  <th>N° Documento</th>
                   <th>Almacén</th>
-                  <th>Guías</th>
+                  <th>Origen</th>
                   <th>Líneas</th>
                   <th>Detalle</th>
                 </tr>
@@ -343,19 +210,21 @@ export function ReplenishmentModule() {
               <tbody>
                 {visible.map((row) => (
                   <tr key={row.id}>
-                    <td><b className="ingress-number">{row.ingress_no}</b></td>
-                    <td>{fmtDate(row.ingress_date)}</td>
+                    <td>{fmtDate(row.receipt_date)}</td>
                     <td>
                       <span className={row.supplier === 'CUMMINS' ? 'supplier-chip cummins' : row.supplier === 'KOMATSU' ? 'supplier-chip' : 'supplier-chip pending'}>
                         {row.supplier.replace('_', ' ')}
                       </span>
                     </td>
+                    <td><b>{row.guide_no || '—'}</b></td>
+                    <td>{row.reference || '—'}</td>
+                    <td>{row.document_no || '—'}</td>
                     <td>{row.warehouse || '—'}</td>
-                    <td><b>{guideCount(row)}</b></td>
-                    <td><b>{lineCount(row)}</b></td>
+                    <td><span className="source-chip">{row.source.replace('_', ' ')}</span></td>
+                    <td><b>{row.line_count}</b></td>
                     <td>
                       <button className="secondary-button small-report" onClick={() => setSelected(row)}>
-                        <FileText size={14} /> Ver ingreso
+                        <FileText size={14} /> Ver
                       </button>
                     </td>
                   </tr>
@@ -366,8 +235,8 @@ export function ReplenishmentModule() {
             {!visible.length && (
               <div className="empty-work">
                 <PackageCheck size={30} />
-                <b>No se encontraron ingresos</b>
-                <p>Busca por N° de Ingreso, fecha o proveedor.</p>
+                <b>Sin guías de Reposición</b>
+                <p>Las guías registradas aparecerán aquí automáticamente.</p>
               </div>
             )}
           </div>
@@ -375,80 +244,67 @@ export function ReplenishmentModule() {
       </section>
 
       {selected && (
-        <section className="panel ingress-detail-report">
-          <div className="ingress-report-title">
-            <div>
-              <h2>RECEPCIÓN DE REPUESTOS REPOSICIÓN</h2>
-              <p>
-                {selected.supplier} · {fmtDate(selected.ingress_date)}
-                {selected.warehouse ? ` · ${selected.warehouse}` : ''}
-              </p>
+        <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setSelected(null)}>
+          <section className="modal guide-replenishment-detail">
+            <div className="modal-head">
+              <div>
+                <h2>{selected.guide_no || 'Guía de Reposición'}</h2>
+                <p>{fmtDate(selected.receipt_date)} · {selected.supplier} · {selected.line_count} líneas</p>
+              </div>
+              <button className="icon-button" onClick={() => setSelected(null)}><X size={19} /></button>
             </div>
-            <div className="ingress-report-number">
-              <span>N°</span>
-              <b>{selected.ingress_no}</b>
-            </div>
-          </div>
 
-          <div className="ingress-detail-actions">
-            <div className="ingress-detail-summary">
-              <span><Truck size={15} /> {guideCount(selected)} guías</span>
-              <span><PackageCheck size={15} /> {selectedRows.length} líneas</span>
-              <span><CalendarDays size={15} /> {fmtDate(selected.ingress_date)}</span>
+            <div className="guide-detail-meta">
+              <div><small>Referencia</small><b>{selected.reference || '—'}</b></div>
+              <div><small>N° Documento</small><b>{selected.document_no || '—'}</b></div>
+              <div><small>Almacén</small><b>{selected.warehouse || '—'}</b></div>
+              <div><small>Origen</small><b>{selected.source.replace('_', ' ')}</b></div>
             </div>
-            <div className="button-row">
-              <button className="secondary-button" onClick={() => setSelected(null)}>
-                Cerrar detalle
-              </button>
-              <button className="primary-button" disabled={exporting || !selectedRows.length} onClick={exportSelected}>
-                {exporting ? <RefreshCw className="spin" size={16} /> : <FileSpreadsheet size={16} />}
-                {exporting ? 'Generando…' : 'Exportar Excel'}
-              </button>
-            </div>
-          </div>
 
-          <div className="table-wrap ingress-detail-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>N°</th>
-                  <th>NÚMERO DE PARTE</th>
-                  <th>Stock code</th>
-                  <th>Descripción</th>
-                  <th>Cant.</th>
-                  <th>UM</th>
-                  <th>Ubicación</th>
-                  <th>Guía de remisión</th>
-                  <th>Fecha de Recepción</th>
-                  <th>Ingreso SAP Antamina</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedRows.map((row) => (
-                  <tr key={`${row.rowNo}-${row.guideNo}-${row.partNo}`}>
-                    <td>{row.rowNo}</td>
-                    <td><b>{row.partNo || '—'}</b></td>
-                    <td>{row.stockCode || 'SIN SC'}</td>
-                    <td>{row.description || '—'}</td>
-                    <td>{row.quantity == null ? '—' : Number(row.quantity).toLocaleString('es-PE', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td>
-                    <td>{row.unit || '—'}</td>
-                    <td>{row.location || '-'}</td>
-                    <td>{row.guideNo || '—'}</td>
-                    <td>{fmtDate(row.receptionDate)}</td>
-                    <td>{row.sapIngress || '0'}</td>
+            <div className="table-wrap guide-detail-lines">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Número de parte</th>
+                    <th>Stock Code</th>
+                    <th>Descripción</th>
+                    <th>Cantidad</th>
+                    <th>UM</th>
+                    <th>Ubicación</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {selectedLines.map((line) => (
+                    <tr key={line.id}>
+                      <td>{line.line_no}</td>
+                      <td><b>{line.part_no || '—'}</b></td>
+                      <td>{line.stock_code || 'SIN SC'}</td>
+                      <td>{line.description || '—'}</td>
+                      <td>{line.quantity == null ? '—' : Number(line.quantity).toLocaleString('es-PE', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td>
+                      <td>{line.unit || '—'}</td>
+                      <td>{line.location || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            {!selectedRows.length && (
-              <div className="empty-work">
-                <FileText size={28} />
-                <b>Este ingreso aún no tiene líneas</b>
+              {!selectedLines.length && (
+                <div className="empty-work">
+                  <FileText size={26} />
+                  <b>Esta guía aún no tiene detalle de materiales</b>
+                </div>
+              )}
+            </div>
+
+            {selected.notes && (
+              <div className="report-notes">
+                <small>Observación</small>
+                <p>{selected.notes}</p>
               </div>
             )}
-          </div>
-        </section>
+          </section>
+        </div>
       )}
     </div>
   )
