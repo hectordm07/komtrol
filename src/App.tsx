@@ -145,14 +145,36 @@ function Login() {
     }
 
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmail(dni),
+
+    const email = loginEmail(dni)
+
+    // Formato principal de KOMTROL. Si el usuario fue creado manualmente
+    // usando el PIN directo en Supabase, intentamos una vez ese formato
+    // para facilitar la migración de cuentas.
+    let { error } = await supabase.auth.signInWithPassword({
+      email,
       password: loginPassword(pin),
     })
+
+    if (error?.message?.toLowerCase().includes('invalid login credentials')) {
+      const legacyAttempt = await supabase.auth.signInWithPassword({
+        email,
+        password: pin.trim(),
+      })
+      error = legacyAttempt.error
+    }
+
     setLoading(false)
 
     if (error) {
-      setMessage('DNI o PIN incorrecto, o el usuario aún no está habilitado.')
+      const messageText = error.message?.toLowerCase() ?? ''
+      if (messageText.includes('email not confirmed')) {
+        setMessage('El usuario existe, pero aún no está confirmado.')
+      } else if (messageText.includes('invalid login credentials')) {
+        setMessage('DNI o PIN incorrecto. Verifica los datos e intenta nuevamente.')
+      } else {
+        setMessage(`No se pudo validar el acceso: ${error.message}`)
+      }
     }
   }
 
