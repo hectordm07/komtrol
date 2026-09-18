@@ -478,7 +478,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
       <div className="inbound-module">
         <section className="panel inbound-hero">
           <div><span className="status-pill">CALLAO · INBOUND</span><h3>Dashboard de Incidencias Inbound</h3><p>Seguimiento de incidencias, sobrantes, notificaciones y cajas operativas.</p></div>
-          {!readOnly && <button className="primary-button" onClick={openNewIncident}><Plus size={16}/> Nueva incidencia</button>}
+          <span className="status-pill"><CheckCircle2 size={14}/> Registro desde Incidencias</span>
         </section>
         {message && <div className="inline-message">{message}</div>}
         <div className="inbound-kpis">
@@ -490,7 +490,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
         </div>
         <section className="panel">
           <div className="panel-title"><div><h3>Actividad reciente</h3><p>Últimas incidencias de Callao Inbound.</p></div></div>
-          <IncidentRows rows={incidents.slice(0,8)} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={readOnly}/>
+          <IncidentRows rows={incidents.slice(0,8)} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={true}/>
         </section>
         {showIncidentForm && <IncidentModal form={incidentForm} setForm={setIncidentForm} profiles={profiles} editing={editingIncident} saving={saving} onClose={() => setShowIncidentForm(false)} onSubmit={saveIncident}/>}
       </div>
