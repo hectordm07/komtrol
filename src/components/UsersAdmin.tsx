@@ -203,6 +203,69 @@ export function UsersAdmin() {
     setMessage('')
   }
 
+  async function createCallaoTestUsers() {
+    const users: ImportUser[] = [
+      {
+        dni: '99990001',
+        full_name: 'Coordinador Callao',
+        role: 'COORDINADOR',
+        warehouse: 'CALLAO',
+        project: 'INBOUND CALLAO',
+        group_name: 'INBOUND',
+        shift_name: 'GUARDIA A',
+        position: 'COORDINADOR ALMACEN CALLAO',
+        pin: '',
+      },
+      {
+        dni: '99990002',
+        full_name: 'Supervisor Callao',
+        role: 'SUPERVISOR',
+        warehouse: 'CALLAO',
+        project: 'INBOUND CALLAO',
+        group_name: 'INBOUND',
+        shift_name: 'GUARDIA A',
+        position: 'SUPERVISOR CALLAO',
+        pin: '',
+      },
+    ]
+
+    setImporting(true)
+    setMessage('')
+    setResults([])
+
+    const { data, error } = await supabase.functions.invoke('admin-bulk-users', {
+      body: { users, fileName: 'usuarios_prueba_callao.csv' },
+    })
+
+    setImporting(false)
+
+    if (error || !data?.ok) {
+      setMessage(data?.error || error?.message || 'No se pudieron crear los usuarios de prueba Callao.')
+      return
+    }
+
+    const resultRows = (data.results ?? []) as ImportResult[]
+    setResults(resultRows)
+
+    for (const row of users) {
+      await supabase
+        .from('user_profiles')
+        .update({
+          shift_name: row.shift_name,
+          position: row.position,
+          warehouse: row.warehouse,
+          project: row.project,
+          group_name: row.group_name,
+          role: row.role,
+          active: true,
+        })
+        .eq('dni', row.dni)
+    }
+
+    setMessage('Usuarios de prueba Callao procesados. Descarga las credenciales generadas antes de salir de esta pantalla.')
+    await loadProfiles()
+  }
+
   async function createUsers() {
     setMessage('')
     setResults([])
@@ -282,6 +345,7 @@ export function UsersAdmin() {
             <p>Crea personal masivamente con DNI + PIN y asigna rol, almacén, proyecto y grupo.</p>
           </div>
           <div className="button-row">
+            <button className="secondary-button" disabled={importing} onClick={createCallaoTestUsers}><Users size={17} /> Crear pruebas Callao</button>
             <button className="secondary-button" onClick={downloadTemplate}><Download size={17} /> Plantilla CSV</button>
             <button className="icon-button" onClick={loadProfiles} title="Actualizar"><RefreshCw size={18} /></button>
           </div>
