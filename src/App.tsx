@@ -21,14 +21,15 @@ import {
 } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
+import { UsersAdmin } from './components/UsersAdmin'
 
-type Tab = 'inicio' | 'incidencias' | 'correos' | 'configuracion'
+type Tab = 'inicio' | 'incidencias' | 'correos' | 'usuarios' | 'configuracion'
 
 type Profile = {
   user_id: string
   dni: string
   full_name: string
-  role: 'TRABAJADOR' | 'COORDINADOR' | 'ADMINISTRADOR'
+  role: 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
   active: boolean
 }
 
@@ -153,13 +154,13 @@ function Login() {
     // para facilitar la migración de cuentas.
     let { error } = await supabase.auth.signInWithPassword({
       email,
-      password: loginPassword(pin),
+      password: pin.trim(),
     })
 
     if (error?.message?.toLowerCase().includes('invalid login credentials')) {
       const legacyAttempt = await supabase.auth.signInWithPassword({
         email,
-        password: pin.trim(),
+        password: loginPassword(pin),
       })
       error = legacyAttempt.error
     }
@@ -385,6 +386,9 @@ function Workspace({ session }: { session: Session }) {
     { id: 'inicio' as Tab, label: 'Inicio', icon: BarChart3 },
     { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
     { id: 'correos' as Tab, label: 'Correos', icon: Mail },
+    ...(role === 'ADMINISTRADOR'
+      ? [{ id: 'usuarios' as Tab, label: 'Usuarios', icon: ShieldCheck }]
+      : []),
     { id: 'configuracion' as Tab, label: 'Configuración', icon: Settings },
   ]
 
@@ -505,6 +509,10 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                   )}
                 </section>
+              )}
+
+              {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
+                <UsersAdmin />
               )}
 
               {tab === 'configuracion' && (
