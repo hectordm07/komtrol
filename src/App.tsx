@@ -29,6 +29,7 @@ import { MaterialsModule } from './components/MaterialsModule'
 import { OperationsControlModule } from './components/OperationsControlModule'
 import { DashboardModule } from './components/DashboardModule'
 import { AdministrationModule } from './components/AdministrationModule'
+import { ReplenishmentModule } from './components/ReplenishmentModule'
 import { AlertsModule } from './components/AlertsModule'
 
 type Tab = string
@@ -485,13 +486,13 @@ function Workspace({ session }: { session: Session }) {
   const currentNav = flatNav.find((item) => item.id === tab)
   const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
   const isTaskTab = taskTabs.includes(tab as typeof taskTabs[number])
-  const guideTabs = ['scanner-guias', 'seguimiento-guias', 'oc-cargos', 'ingresos-reposicion'] as const
+  const guideTabs = ['scanner-guias', 'seguimiento-guias', 'oc-cargos'] as const
   const isGuideTab = guideTabs.includes(tab as typeof guideTabs[number])
   const guideMode =
     tab === 'scanner-guias' ? 'scanner' :
     tab === 'seguimiento-guias' ? 'seguimiento' :
-    tab === 'oc-cargos' ? 'oc-cargos' :
-    'reposicion'
+    'oc-cargos'
+  const isReplenishmentTab = tab === 'ingresos-reposicion'
   const materialTabs = ['materiales', 'master-materiales', 'hoja-ubicacion'] as const
   const isMaterialTab = materialTabs.includes(tab as typeof materialTabs[number])
   const materialMode =
@@ -653,6 +654,10 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {isReplenishmentTab && (
+                <ReplenishmentModule role={role} />
+              )}
+
               {isMaterialTab && (
                 <MaterialsModule
                   mode={materialMode}
@@ -693,7 +698,7 @@ function Workspace({ session }: { session: Session }) {
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isGuideTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isGuideTab && !isReplenishmentTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
