@@ -37,6 +37,8 @@ import { AlertsModule } from './components/AlertsModule'
 import { OcCargoTrackingModule } from './components/OcCargoTrackingModule'
 import { InboundModule } from './components/InboundModule'
 import { MainDashboardModule } from './components/MainDashboardModule'
+import { ReceivingIncidentModule } from './components/ReceivingIncidentModule'
+import { IncidentEmailSettings } from './components/IncidentEmailSettings'
 
 type Tab = string
 
@@ -655,16 +657,11 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {tab === 'incidencias' && (
-                <section className="panel">
-                  <div className="panel-title">
-                    <div><h3>Faltantes, dañados y diferencias</h3><p>Registro y trazabilidad de recepción</p></div>
-                    <button className="primary-button" onClick={() => setShowIncidentForm(true)}><Plus size={18} /> Registrar</button>
-                  </div>
-                  <div className="toolbar">
-                    <div className="search"><Search size={17} /><input placeholder="Buscar por guía, OC, material…" /></div>
-                  </div>
-                  <IncidentTable incidents={incidents} sendingId={sendingId} onSend={sendNotification} />
-                </section>
+                <ReceivingIncidentModule
+                  userId={user.id}
+                  profile={profile}
+                  scopeMode="REMOTE"
+                />
               )}
 
               {tab === 'correos' && (
@@ -699,7 +696,11 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {isInboundTab && tab === 'inbound-incidencias' && (
-                <InboundModule mode="incidents" userId={user.id} profile={profile} />
+                <ReceivingIncidentModule
+                  userId={user.id}
+                  profile={profile}
+                  scopeMode="CALLAO"
+                />
               )}
 
               {isInboundTab && tab === 'inbound-cajas' && (
@@ -827,6 +828,9 @@ function Workspace({ session }: { session: Session }) {
                     <p>Rol actual: <b>{role}</b></p>
                     <span className="status-pill"><CheckCircle2 size={15} /> Sesión protegida</span>
                   </div>
+                  {role === 'ADMINISTRADOR' && (
+                    <IncidentEmailSettings userId={user.id} />
+                  )}
                 </section>
               )}
             </>
