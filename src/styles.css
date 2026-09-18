@@ -1819,3 +1819,174 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     background: #fff !important;
   }
 }
+
+
+/* Ingresos diarios de Reposición */
+.replenishment-search-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, .8fr) minmax(170px, .7fr) minmax(170px, .7fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin: 12px 0;
+}
+.replenishment-search-grid > label {
+  display: grid;
+  gap: 4px;
+  color: #617086;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.replenishment-search-grid input,
+.replenishment-search-grid select {
+  min-height: 36px;
+  border: 1px solid #d9e1ea;
+  background: #fff;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 11px;
+  color: #1f2937;
+}
+.replenishment-search-grid .search input {
+  border: 0;
+  min-height: 32px;
+  padding: 0;
+}
+.clear-ingress-filter {
+  min-height: 36px;
+}
+.ingress-list-table .ingress-number {
+  display: inline-flex;
+  min-width: 46px;
+  justify-content: center;
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: #fff7a8;
+  color: #21324a;
+  font-size: 13px;
+}
+.ingress-detail-report {
+  padding: 12px;
+}
+.ingress-report-title {
+  display: grid;
+  grid-template-columns: 1fr 210px;
+  border: 2px solid #111;
+  background: #fff;
+  margin-bottom: 10px;
+}
+.ingress-report-title > div:first-child {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  min-height: 70px;
+  padding: 8px 12px;
+}
+.ingress-report-title h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #0570c7;
+  letter-spacing: .01em;
+}
+.ingress-report-title p {
+  margin: 3px 0 0;
+  color: #536174;
+  font-size: 10px;
+}
+.ingress-report-number {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  background: #fff600;
+  border-left: 2px solid #111;
+}
+.ingress-report-number span,
+.ingress-report-number b {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-weight: 900;
+}
+.ingress-report-number span {
+  color: #0056b3;
+  font-size: 18px;
+}
+.ingress-report-number b {
+  font-size: 26px;
+  color: #0066c2;
+}
+.ingress-detail-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ingress-detail-summary {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: #5f6b7c;
+  font-size: 10px;
+}
+.ingress-detail-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ingress-detail-table table {
+  min-width: 1180px;
+}
+.ingress-detail-table thead th {
+  background: #050505;
+  color: #fff;
+  border-right: 1px solid #d7dce3;
+  font-size: 9px;
+  font-weight: 900;
+  text-align: center;
+}
+.ingress-detail-table thead th:nth-child(2),
+.ingress-detail-table thead th:nth-child(4) {
+  color: #ff2c2c;
+}
+.ingress-detail-table thead th:nth-child(5),
+.ingress-detail-table thead th:nth-child(7) {
+  color: #fff600;
+}
+.ingress-detail-table tbody td {
+  border-bottom: 1px solid #dfe4ea;
+  border-right: 1px solid #edf0f4;
+  font-size: 10px;
+}
+.ingress-detail-table tbody td:nth-child(1),
+.ingress-detail-table tbody td:nth-child(5),
+.ingress-detail-table tbody td:nth-child(6),
+.ingress-detail-table tbody td:nth-child(10) {
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .replenishment-search-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ingress-report-title {
+    grid-template-columns: 1fr 150px;
+  }
+  .ingress-detail-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+@media (max-width: 560px) {
+  .replenishment-search-grid {
+    grid-template-columns: 1fr;
+  }
+  .ingress-report-title {
+    grid-template-columns: 1fr;
+  }
+  .ingress-report-number {
+    border-left: 0;
+    border-top: 2px solid #111;
+    min-height: 54px;
+  }
+}
