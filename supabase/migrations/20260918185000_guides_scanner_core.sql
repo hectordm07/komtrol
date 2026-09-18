@@ -1,0 +1,198 @@
+create table if not exists public.guides (
+  id uuid primary key default gen_random_uuid(),
+  guide_no text not null,
+  document_no text,
+  emission_date date,
+  transfer_start_date date,
+  date_source text not null default 'DOCUMENTO'
+    check (date_source in ('DOCUMENTO','INICIO_TRASLADO','FECHA_CARGA')),
+  reception_at timestamptz not null default now(),
+  reception_source text not null default 'FECHA_CARGA'
+    check (reception_source in ('DOCUMENTO','FECHA_CARGA')),
+  reference text not null,
+  line_count integer not null default 1 check (line_count >= 0),
+  guide_type text not null
+    check (guide_type in ('REPOSICION','ORDEN_COMPRA','CARGO_DIRECTO','OTRO')),
+  warehouse text,
+  responsible_user_id uuid not null references auth.users(id),
+  status text not null default 'VALIDADO'
+    check (status in ('BORRADOR','VALIDADO','RECEPCIONADO','OBSERVADO','CERRADO')),
+  notes text,
+  ocr_text text,
+  ocr_confidence numeric(5,2),
+  file_bucket text,
+  file_path text,
+  file_name text,
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (guide_no, reference)
+);
+
+alter table public.guides enable row level security;
+create index if not exists guides_created_by_idx on public.guides(created_by);
+create index if not exists guides_responsible_idx on public.guides(responsible_user_id);
+create index if not exists guides_warehouse_idx on public.guides(warehouse);
+create index if not exists guides_reference_idx on public.guides(reference);
+create index if not exists guides_type_idx on public.guides(guide_type);
+create index if not exists guides_created_at_idx on public.guides(created_at);
+
+drop policy if exists "guides_select_scope" on public.guides;
+create policy "guides_select_scope"
+on public.guides for select
+to authenticated
+using (
+  created_by = (select auth.uid())
+  or responsible_user_id = (select auth.uid())
+  or (select private.current_user_komtrol_role()) in ('SUPERVISOR','ADMINISTRADOR')
+  or (
+    (select private.current_user_komtrol_role()) = 'COORDINADOR'
+    and warehouse is not distinct from (select private.current_user_warehouse())
+  )
+);
+
+drop policy if exists "guides_insert_authenticated" on public.guides;
+create policy "guides_insert_authenticated"
+on public.guides for insert
+to authenticated
+with check (
+  created_by = (select auth.uid())
+  and responsible_user_id = (select auth.uid())
+);
+
+drop policy if exists "guides_update_scope" on public.guides;
+create policy "guides_update_scope"
+on public.guides for update
+to authenticated
+using (
+  created_by = (select auth.uid())
+  or (select private.current_user_komtrol_role()) = 'ADMINISTRADOR'
+  or (
+    (select private.current_user_komtrol_role()) = 'COORDINADOR'
+    and warehouse is not distinct from (select private.current_user_warehouse())
+  )
+)
+with check (
+  created_by = (select auth.uid())
+  or (select private.current_user_komtrol_role()) = 'ADMINISTRADOR'
+  or (
+    (select private.current_user_komtrol_role()) = 'COORDINADOR'
+    and warehouse is not distinct from (select private.current_user_warehouse())
+  )
+);
+
+create table if not exists public.guide_lines (
+  id uuid primary key default gen_random_uuid(),
+  guide_id uuid not null references public.guides(id) on delete cascade,
+  line_no integer not null,
+  part_no text,
+  description text,
+  quantity numeric(14,3),
+  unit text,
+  created_at timestamptz not null default now(),
+  unique (guide_id, line_no)
+);
+alter table public.guide_lines enable row level security;
+create index if not exists guide_lines_guide_idx on public.guide_lines(guide_id);
+
+drop policy if exists "guide_lines_select_scope" on public.guide_lines;
+create policy "guide_lines_select_scope"
+on public.guide_lines for select
+to authenticated
+using (
+  exists (
+    select 1 from public.guides g
+    where g.id = guide_id
+      and (
+        g.created_by = (select auth.uid())
+        or g.responsible_user_id = (select auth.uid())
+        or (select private.current_user_komtrol_role()) in ('SUPERVISOR','ADMINISTRADOR')
+        or (
+          (select private.current_user_komtrol_role()) = 'COORDINADOR'
+          and g.warehouse is not distinct from (select private.current_user_warehouse())
+        )
+      )
+  )
+);
+
+drop policy if exists "guide_lines_insert_authenticated" on public.guide_lines;
+create policy "guide_lines_insert_authenticated"
+on public.guide_lines for insert
+to authenticated
+with check (
+  exists (
+    select 1 from public.guides g
+    where g.id = guide_id
+      and (
+        g.created_by = (select auth.uid())
+        or (select private.current_user_komtrol_role()) = 'ADMINISTRADOR'
+        or (
+          (select private.current_user_komtrol_role()) = 'COORDINADOR'
+          and g.warehouse is not distinct from (select private.current_user_warehouse())
+        )
+      )
+  )
+);
+
+create table if not exists public.guide_history (
+  id bigint generated by default as identity primary key,
+  guide_id uuid not null references public.guides(id) on delete cascade,
+  action text not null,
+  note text,
+  changed_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now()
+);
+alter table public.guide_history enable row level security;
+create index if not exists guide_history_guide_idx on public.guide_history(guide_id);
+
+drop policy if exists "guide_history_select_scope" on public.guide_history;
+create policy "guide_history_select_scope"
+on public.guide_history for select
+to authenticated
+using (
+  exists (
+    select 1 from public.guides g
+    where g.id = guide_id
+      and (
+        g.created_by = (select auth.uid())
+        or g.responsible_user_id = (select auth.uid())
+        or (select private.current_user_komtrol_role()) in ('SUPERVISOR','ADMINISTRADOR')
+        or (
+          (select private.current_user_komtrol_role()) = 'COORDINADOR'
+          and g.warehouse is not distinct from (select private.current_user_warehouse())
+        )
+      )
+  )
+);
+
+drop policy if exists "guide_history_insert_authenticated" on public.guide_history;
+create policy "guide_history_insert_authenticated"
+on public.guide_history for insert
+to authenticated
+with check (changed_by = (select auth.uid()));
+
+insert into storage.buckets (id, name, public)
+values ('guide-documents','guide-documents',false)
+on conflict (id) do update set public = false;
+
+drop policy if exists "guide_documents_select" on storage.objects;
+create policy "guide_documents_select"
+on storage.objects for select
+to authenticated
+using (
+  bucket_id = 'guide-documents'
+  and (
+    (storage.foldername(name))[1] = (select auth.uid())::text
+    or (select private.current_user_komtrol_role()) in ('SUPERVISOR','ADMINISTRADOR')
+    or (select private.current_user_komtrol_role()) = 'COORDINADOR'
+  )
+);
+
+drop policy if exists "guide_documents_insert" on storage.objects;
+create policy "guide_documents_insert"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'guide-documents'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
