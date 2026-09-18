@@ -543,6 +543,17 @@ function Workspace({ session }: { session: Session }) {
     group.items.map((item) => ({ ...item, section: group.section }))
   )
   const currentNav = flatNav.find((item) => item.id === tab)
+  const mobileHomeTab = isCallaoUser ? 'inbound-dashboard' : 'inicio'
+  const mobileWorkTab = flatNav.some((item) => item.id === 'inbound-personal')
+    ? 'inbound-personal'
+    : flatNav.some((item) => item.id === 'mi-trabajo')
+      ? 'mi-trabajo'
+      : null
+  const mobileIncidentTab = flatNav.some((item) => item.id === 'inbound-incidencias')
+    ? 'inbound-incidencias'
+    : flatNav.some((item) => item.id === 'incidencias')
+      ? 'incidencias'
+      : null
   const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
   const inboundTabs = ['inbound-dashboard', 'inbound-personal', 'inbound-tareas', 'inbound-incidencias', 'inbound-cajas'] as const
   const isInboundTab = inboundTabs.includes(tab as typeof inboundTabs[number])
@@ -633,6 +644,14 @@ function Workspace({ session }: { session: Session }) {
           <button className="logout-button" onClick={logout}><LogOut size={17} /> Salir</button>
         </div>
       </aside>
+
+      {mobileMenu && (
+        <button
+          className="mobile-menu-overlay"
+          aria-label="Cerrar menú"
+          onClick={() => setMobileMenu(false)}
+        />
+      )}
 
       <main className="main-area">
         <header className="topbar">
@@ -836,6 +855,37 @@ function Workspace({ session }: { session: Session }) {
             </>
           )}
         </div>
+        <nav className="mobile-bottom-nav" aria-label="Navegación rápida">
+          <button
+            className={tab === mobileHomeTab ? 'active' : ''}
+            onClick={() => { setTab(mobileHomeTab); setMobileMenu(false) }}
+          >
+            <BarChart3 size={19} />
+            <span>Inicio</span>
+          </button>
+          {mobileWorkTab && (
+            <button
+              className={tab === mobileWorkTab ? 'active' : ''}
+              onClick={() => { setTab(mobileWorkTab); setMobileMenu(false) }}
+            >
+              <ClipboardList size={19} />
+              <span>Trabajo</span>
+            </button>
+          )}
+          {mobileIncidentTab && (
+            <button
+              className={tab === mobileIncidentTab ? 'active' : ''}
+              onClick={() => { setTab(mobileIncidentTab); setMobileMenu(false) }}
+            >
+              <AlertTriangle size={19} />
+              <span>Incidencias</span>
+            </button>
+          )}
+          <button onClick={() => setMobileMenu(true)}>
+            <Menu size={19} />
+            <span>Menú</span>
+          </button>
+        </nav>
       </main>
 
       {showIncidentForm && (
