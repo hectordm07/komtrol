@@ -125,82 +125,72 @@ function guideFromFileName(fileName?: string) {
 }
 
 function detectDocumentLineCount(text: string) {
-  const rows = text.replace(/\r/g, '').split('\n')
+  const rows = text.replace(/\r/g, '').split('\n').map((row) => row.trim()).filter(Boolean)
+  const candidates: number[] = []
   let maxInlineLine = 0
 
-  // Caso 1: texto OCR / texto ya aplanado:
-  // "128 SOLVENTE SOLMAX ... 1.000 UND KG"
   for (const row of rows) {
-    const match = row.match(/^\s*(\d{1,3})\s+.+?\s+\d+(?:[.,]\d+)?\s+(?:UND|EA|PC|PZ|PIE|FT|M|MT)\b/i)
-    if (!match) continue
+    // Reconstrucción por coordenadas del PDF:
+    // "6 DESCRIPCION MATERIAL 2.000 UND KG"
+    const leading = row.match(/^(\d{1,3})\s+(.+)$/)
+    if (leading) {
+      const lineNo = Number(leading[1])
+      const remainder = leading[2]
 
-    const lineNo = Number(match[1])
-    if (Number.isInteger(lineNo) && lineNo > maxInlineLine && lineNo <= 999) {
-      maxInlineLine = lineNo
+      // Una línea de material normalmente contiene texto descriptivo y
+      // cantidad/unidad; usamos esto para excluir números de cabecera.
+      const looksLikeMaterial =
+        /[A-ZÁÉÍÓÚÑ]{2,}/i.test(remainder) &&
+        (
+          /\d+(?:[.,]\d+)?\s*(?:UND|EA|PC|PZ|PIE|FT|M|MT|KG)\b/i.test(remainder) ||
+          remainder.length >= 12
+        )
+
+      if (looksLikeMaterial && lineNo >= 1 && lineNo <= 999) {
+        candidates.push(lineNo)
+        maxInlineLine = Math.max(maxInlineLine, lineNo)
+      }
+    }
+
+    const strict = row.match(/^(\d{1,3})\s+.+?\s+\d+(?:[.,]\d+)?\s+(?:UND|EA|PC|PZ|PIE|FT|M|MT)\b/i)
+    if (strict) {
+      maxInlineLine = Math.max(maxInlineLine, Number(strict[1]))
     }
   }
 
-  // Caso 2: PDF digital KMMP. PDF.js puede devolver el número de línea
-  // separado de la descripción, cantidad y unidad. Buscamos la secuencia
-  // correlativa más larga de enteros independientes: 1,2,3,...128.
+  // Buscar la secuencia correlativa 1..N aunque PDF.js haya separado
+  // algunos elementos de la tabla en distintos items.
+  const unique = [...new Set(candidates)].sort((a, b) => a - b)
+  let sequentialCount = 0
+  if (unique[0] === 1) {
+    sequentialCount = 1
+    for (let expected = 2; expected <= unique.length + 1; expected++) {
+      if (unique.includes(expected)) sequentialCount = expected
+      else break
+    }
+  }
+
+  // Respaldo para PDFs cuyo número quedó como item aislado.
   const standaloneNumbers = rows
-    .map((row) => row.trim())
     .filter((row) => /^\d{1,3}$/.test(row))
     .map(Number)
     .filter((value) => value >= 1 && value <= 999)
 
-  let bestStart = 0
-  let bestEnd = 0
-  let bestLength = 0
-  let currentStart = 0
-  let currentEnd = 0
-  let currentLength = 0
-
-  for (const value of standaloneNumbers) {
-    if (currentLength === 0) {
-      currentStart = value
-      currentEnd = value
-      currentLength = 1
-      continue
-    }
-
-    if (value === currentEnd + 1) {
-      currentEnd = value
-      currentLength += 1
-      continue
-    }
-
-    // Algunos motores pueden repetir un número; no rompemos la secuencia.
-    if (value === currentEnd) continue
-
-    if (currentLength > bestLength) {
-      bestStart = currentStart
-      bestEnd = currentEnd
-      bestLength = currentLength
-    }
-
-    currentStart = value
-    currentEnd = value
-    currentLength = 1
+  if (standaloneNumbers.length) {
+    const standaloneSet = new Set(standaloneNumbers)
+    let count = standaloneSet.has(1) ? 1 : 0
+    while (count && standaloneSet.has(count + 1)) count += 1
+    sequentialCount = Math.max(sequentialCount, count)
   }
-
-  if (currentLength > bestLength) {
-    bestStart = currentStart
-    bestEnd = currentEnd
-    bestLength = currentLength
-  }
-
-  const sequentialCount =
-    bestLength >= 3 && bestStart === 1
-      ? bestEnd
-      : 0
 
   return Math.max(maxInlineLine, sequentialCount)
 }
 
 function extractObservations(text: string) {
   const normalized = text.replace(/\r/g, '')
-  const match = normalized.match(/OBSERVACIONES?\s*:\s*([\s\S]*?)(?=\n\s*(?:KMONCCA\b|REPRESENTACI[ÓO]N\s+IMPRESA\b|AUTORIZADA\b|SU\s+COMPROBANTE\b|<PARSED\s+TEXT|---\s*P[ÁA]GINA)|$)/i)
+  const match = normalized.match(
+    /OBSERVACIONES?\s*:\s*([\s\S]*?)(?=\s*(?:KMONCCA\b|REPRESENTACI[ÓO]N\s+IMPRESA\b|AUTORIZADA\s+MEDIANTE\b|SU\s+COMPROBANTE\b|---\s*P[ÁA]GINA\b)|$)/i
+  )
   if (!match) return ''
 
   return match[1]
@@ -341,6 +331,27 @@ export function GuidesModule({ mode, userId, profile }: Props) {
     if (!nextFile) return
     setMessage('')
     setFile(nextFile)
+
+    // Cada documento empieza limpio. Evita que una guía nueva herede
+    // observaciones, fechas o referencias del archivo anterior.
+    setForm((prev) => ({
+      ...prev,
+      guide_no: '',
+      document_no: '',
+      emission_date: '',
+      transfer_start_date: '',
+      date_source: 'FECHA_CARGA',
+      reference: '',
+      line_count: '1',
+      guide_type: 'OTRO',
+      status: 'VALIDADO',
+      notes: '',
+      ocr_text: '',
+      ocr_confidence: '',
+    }))
+    setLines([emptyLine()])
+    setScanProgress(0)
+
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(nextFile.type.startsWith('image/') ? URL.createObjectURL(nextFile) : '')
 
@@ -369,7 +380,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       reference: parsed.reference || prev.reference,
       line_count: String(parsed.line_count || Number(prev.line_count || 1)),
       guide_type: parsed.reference ? parsed.guide_type : prev.guide_type,
-      notes: parsed.observations || prev.notes,
+      notes: parsed.observations || '',
       ocr_text: text,
       ocr_confidence: confidence > 0 ? confidence.toFixed(1) : '',
     }))
@@ -438,19 +449,53 @@ export function GuidesModule({ mode, userId, profile }: Props) {
         setScanProgress(Math.round((pageNumber / pageLimit) * 25))
         const page = await pdf.getPage(pageNumber)
         const content = await page.getTextContent()
-        const pageText = content.items
-          .map((item: any) => {
-            const value = typeof item?.str === 'string' ? item.str : ''
-            return value ? value + (item?.hasEOL ? '\n' : ' ') : ''
-          })
-          .join('')
+
+        // Reconstruir renglones usando las coordenadas reales del PDF.
+        // PDF.js no siempre entrega saltos de línea; sin esto una guía de
+        // 6 o 128 posiciones puede convertirse en una sola línea de texto.
+        const positioned = content.items
+          .map((item: any) => ({
+            text: typeof item?.str === 'string' ? item.str.trim() : '',
+            x: Number(item?.transform?.[4] ?? 0),
+            y: Number(item?.transform?.[5] ?? 0),
+            width: Number(item?.width ?? 0),
+          }))
+          .filter((item: any) => item.text)
+
+        positioned.sort((a: any, b: any) => {
+          const yDiff = b.y - a.y
+          return Math.abs(yDiff) > 2.5 ? yDiff : a.x - b.x
+        })
+
+        const rowGroups: Array<{ y: number; items: typeof positioned }> = []
+        for (const item of positioned) {
+          const group = rowGroups.find((row) => Math.abs(row.y - item.y) <= 2.5)
+          if (group) {
+            group.items.push(item)
+            group.y = (group.y + item.y) / 2
+          } else {
+            rowGroups.push({ y: item.y, items: [item] })
+          }
+        }
+
+        rowGroups.sort((a, b) => b.y - a.y)
+        const pageText = rowGroups
+          .map((row) => row.items
+            .sort((a, b) => a.x - b.x)
+            .map((item) => item.text)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim())
+          .filter(Boolean)
+          .join('\n')
+
         extractedText += `\n--- PÁGINA ${pageNumber} ---\n${pageText}\n`
       }
 
       const compactText = extractedText.replace(/\s+/g, ' ').trim()
       const directParsed = parseGuideOcr(extractedText, pdfFile.name)
       const needsLineOcr =
-        directParsed.guide_type === 'REPOSICION' &&
+        directParsed.line_count <= 1 &&
         directParsed.lines.length === 0
       const digitallyReadable =
         compactText.length >= 120 &&
@@ -467,7 +512,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
 
       // 2) Si el PDF es escaneado, renderizar cada página y ejecutar OCR.
       setMessage(needsLineOcr
-        ? 'Cabecera leída, pero faltan líneas de Reposición. Iniciando OCR visual…'
+        ? 'Cabecera leída, pero el conteo de líneas no es confiable. Iniciando OCR visual…'
         : 'PDF escaneado detectado. Iniciando OCR de las páginas…')
       const moduleUrl = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm'
       const tesseract: any = await import(/* @vite-ignore */ moduleUrl)
