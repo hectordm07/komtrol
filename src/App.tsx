@@ -402,7 +402,7 @@ function Workspace({ session }: { session: Session }) {
     await supabase.auth.signOut()
   }
 
-  const navSections = [
+  const allNavSections = [
     {
       section: 'INICIO',
       items: [
@@ -501,6 +501,31 @@ function Workspace({ session }: { session: Session }) {
     },
   ]
 
+  const isCallaoCoordinator = role === 'COORDINADOR' && profile?.warehouse === 'CALLAO'
+  const isCallaoSupervisor = role === 'SUPERVISOR' && profile?.warehouse === 'CALLAO'
+
+  const navSections = isCallaoCoordinator
+    ? allNavSections
+        .filter((group) => group.section === 'INBOUND · CALLAO')
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) =>
+            ['inbound-dashboard','inbound-personal','inbound-tareas','inbound-incidencias','inbound-cajas'].includes(item.id)
+          ),
+        }))
+    : isCallaoSupervisor
+      ? allNavSections
+          .filter((group) => ['INICIO','INBOUND · CALLAO'].includes(group.section))
+          .map((group) => ({
+            ...group,
+            items: group.section === 'INICIO'
+              ? group.items.filter((item) => item.id === 'inicio')
+              : group.items.filter((item) =>
+                  ['inbound-dashboard','inbound-incidencias','inbound-cajas'].includes(item.id)
+                ),
+          }))
+      : allNavSections
+
   const flatNav = navSections.flatMap((group) =>
     group.items.map((item) => ({ ...item, section: group.section }))
   )
@@ -536,6 +561,20 @@ function Workspace({ session }: { session: Session }) {
   const isDashboardTab = dashboardTabs.includes(tab as typeof dashboardTabs[number])
   const adminTabs = ['proyectos', 'cargas-masivas', 'almacenes', 'categorias', 'metas-kpi', 'periodos', 'auditoria'] as const
   const isAdminModuleTab = adminTabs.includes(tab as typeof adminTabs[number])
+
+  useEffect(() => {
+    const allowed = flatNav.map((item) => item.id)
+    if (allowed.includes(tab)) return
+
+    if (isCallaoCoordinator) {
+      setTab('inbound-dashboard')
+      return
+    }
+
+    if (isCallaoSupervisor) {
+      setTab('inicio')
+    }
+  }, [tab, role, profile?.warehouse])
 
   return (
     <div className="app-shell">
