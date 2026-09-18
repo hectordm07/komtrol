@@ -2759,3 +2759,404 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     align-items: stretch;
   }
 }
+
+
+/* =========================================================
+   KOMTROL 2026 · Tema Azul Pastel + Blanco
+   Inspiración visual: Asana (claridad), SAP Fiori (operación),
+   Linear (navegación compacta) y Monday (dashboards).
+   ========================================================= */
+:root {
+  --kt-blue-900: #284863;
+  --kt-blue-800: #355c7a;
+  --kt-blue-700: #527fa4;
+  --kt-blue-600: #6f9ec3;
+  --kt-blue-500: #8eb8d7;
+  --kt-blue-300: #c7dfef;
+  --kt-blue-200: #dcecf7;
+  --kt-blue-100: #edf6fc;
+  --kt-blue-50: #f7fbfe;
+  --kt-white: #ffffff;
+  --kt-ink: #2d4154;
+  --kt-muted: #71869a;
+  color: var(--kt-ink);
+  background: var(--kt-blue-50);
+}
+
+body {
+  background: var(--kt-blue-50);
+  color: var(--kt-ink);
+}
+
+.app-shell {
+  background: #f3f8fc;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, #dcecf8 0%, #eaf4fb 100%);
+  color: var(--kt-blue-900);
+  border-right: 1px solid #cbdfee;
+  box-shadow: 4px 0 18px rgba(61, 103, 137, .05);
+}
+
+.sidebar-brand b {
+  color: var(--kt-blue-900);
+}
+.sidebar-brand span {
+  color: #7691a8;
+}
+.sidebar nav button {
+  color: #58758e;
+  font-weight: 700;
+}
+.sidebar nav button:hover {
+  background: rgba(255,255,255,.7);
+  color: var(--kt-blue-900);
+}
+.sidebar nav button.active {
+  background: #ffffff;
+  color: var(--kt-blue-900);
+  box-shadow: 0 5px 14px rgba(72, 111, 143, .08);
+}
+.sidebar nav button.active svg {
+  color: #5f91b8;
+}
+.sidebar-footer {
+  border-top-color: #c6dbe9;
+}
+.profile-mini span,
+.logout-button {
+  color: #6e8aa1;
+}
+.avatar,
+.brand-mark.small {
+  background: #9fc7e4;
+  color: #24445f;
+}
+
+.nav-section-title,
+.nav-section-toggle {
+  color: #7691a8 !important;
+}
+.nav-section-toggle:hover {
+  color: var(--kt-blue-900) !important;
+  background: rgba(255,255,255,.48) !important;
+}
+
+.topbar {
+  background: rgba(255,255,255,.94);
+  border-bottom-color: #dce8f1;
+  box-shadow: 0 5px 18px rgba(79,111,137,.04);
+}
+.topbar h1 {
+  color: var(--kt-blue-900);
+}
+.topbar p {
+  color: #7890a4;
+}
+
+.content {
+  background:
+    radial-gradient(circle at 95% 3%, rgba(170, 207, 232, .17), transparent 24%),
+    #f5f9fc;
+}
+
+.panel,
+.kpi-card,
+.main-dashboard-card,
+.inbound-kpis > div,
+.oc-cargo-kpis > div {
+  background: rgba(255,255,255,.97);
+  border-color: #dbe8f2;
+  box-shadow: 0 5px 18px rgba(60, 94, 121, .035);
+}
+
+.panel-title h3,
+.modal-head h2,
+.main-dashboard-hero h2 {
+  color: #2f526f;
+}
+.panel-title p,
+.main-dashboard-hero p,
+.inbound-hero p {
+  color: #7890a4;
+}
+
+.primary-button {
+  background: #5f8db3;
+  color: #fff;
+  box-shadow: 0 5px 12px rgba(80, 129, 168, .12);
+}
+.primary-button:hover {
+  background: #4e7da4;
+}
+.secondary-button {
+  background: #e8f3fa;
+  color: #365d7a;
+  border: 1px solid #d5e7f3;
+}
+.secondary-button:hover {
+  background: #dcecf7;
+}
+.icon-button {
+  border-color: #d5e5f0;
+  background: #fbfdff;
+  color: #557793;
+}
+.send-button {
+  background: #e4f1fa;
+  color: #3c6889;
+}
+
+input,
+textarea,
+select {
+  border-color: #d7e6f0;
+  background: #ffffff;
+  color: var(--kt-ink);
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #86b2d1;
+  box-shadow: 0 0 0 3px rgba(126, 177, 213, .16);
+}
+
+.search {
+  border-color: #d7e6f0;
+  background: #fff;
+}
+
+.status-pill {
+  background: #e5f4ec;
+  color: #347456;
+}
+.status-pill.warning,
+.status.abierto,
+.status.pendiente {
+  background: #fff3dc;
+  color: #8b661c;
+}
+.status.en_revision,
+.status.enviando,
+.status.reintento {
+  background: #e7f2fb;
+  color: #416f94;
+}
+.status.notificado,
+.status.enviado,
+.status.cerrado {
+  background: #e5f4ec;
+  color: #347456;
+}
+
+.main-dashboard-hero,
+.inbound-hero {
+  background: linear-gradient(135deg, #edf6fc 0%, #ffffff 72%);
+  border-color: #d6e6f1;
+}
+.main-dashboard-card > div,
+.kpi-icon,
+.setting-icon {
+  background: #e7f2f9;
+  color: #5b88aa;
+}
+
+.inbound-kpis > div:nth-child(1),
+.main-dashboard-card:nth-child(1) {
+  background: linear-gradient(135deg,#f0f7fc,#ffffff);
+}
+.inbound-kpis > div:nth-child(2),
+.main-dashboard-card:nth-child(4) {
+  background: linear-gradient(135deg,#fff8eb,#ffffff);
+}
+.inbound-kpis > div:nth-child(3),
+.main-dashboard-card:nth-child(5) {
+  background: linear-gradient(135deg,#eef8f4,#ffffff);
+}
+
+table th {
+  color: #6f879b;
+  background: #f9fcfe;
+}
+table td {
+  color: #536b7e;
+}
+table td b {
+  color: #2e4d67;
+}
+table tbody tr:hover td {
+  background: #f7fbfe;
+}
+
+.modal {
+  border: 1px solid #d7e5ef;
+  box-shadow: 0 26px 70px rgba(44, 79, 105, .22);
+}
+.modal-backdrop {
+  background: rgba(49, 75, 96, .38);
+  backdrop-filter: blur(5px);
+}
+
+.login-page {
+  background: #e8f3fb;
+}
+.login-brand {
+  color: #294963;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.8), transparent 30%),
+    linear-gradient(145deg, #cfe5f5 0%, #edf7fc 100%);
+}
+.login-brand::after {
+  border-color: rgba(74, 121, 157, .12);
+}
+.login-brand .brand-mark {
+  background: #87b4d5;
+  color: #24435d;
+  box-shadow: 0 14px 36px rgba(73,123,159,.16);
+}
+.eyebrow {
+  color: #527b9c;
+}
+.brand-copy {
+  color: #607e96;
+}
+.login-feature-grid div {
+  border-color: rgba(83, 132, 169, .13);
+  background: rgba(255,255,255,.48);
+  color: #486980;
+}
+.login-feature-grid svg {
+  color: #608daf;
+}
+.login-card-wrap {
+  background: #f6fbfe;
+}
+.login-card {
+  border: 1px solid #dce9f2;
+  box-shadow: 0 28px 70px rgba(57, 94, 122, .12);
+}
+.mini-logo {
+  background: #96bfdd;
+  color: #284861;
+}
+
+.read-only-note {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #edf3f8;
+  color: #6b8295;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+/* Ergonomía móvil */
+@media (max-width: 980px) {
+  .sidebar {
+    box-shadow: 12px 0 30px rgba(51, 87, 113, .18);
+  }
+  .content {
+    padding: 16px 14px 36px;
+  }
+  .topbar {
+    min-height: 66px;
+    padding: 12px 14px;
+  }
+  .panel {
+    border-radius: 14px;
+    padding: 15px;
+  }
+  .primary-button,
+  .secondary-button,
+  .send-button,
+  .icon-button {
+    min-height: 42px;
+  }
+  input,
+  textarea,
+  select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+    scrollbar-width: thin;
+  }
+  .table-wrap table {
+    min-width: 760px;
+  }
+}
+
+@media (max-width: 620px) {
+  .content {
+    padding: 12px 10px 28px;
+  }
+  .topbar h1 {
+    font-size: 17px;
+  }
+  .topbar p {
+    max-width: 230px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .panel-title {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .panel-title .button-row,
+  .button-row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .panel-title .button-row > button,
+  .button-row > button {
+    width: 100%;
+  }
+  .modal-backdrop {
+    place-items: end center;
+    padding: 0;
+  }
+  .modal {
+    width: 100% !important;
+    max-height: 94vh;
+    border-radius: 20px 20px 0 0;
+    padding: 16px 14px 22px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-grid .span-2 {
+    grid-column: auto;
+  }
+  .modal-actions {
+    position: sticky;
+    bottom: -1px;
+    background: rgba(255,255,255,.96);
+    border-top: 1px solid #e2edf4;
+    padding-top: 10px;
+    flex-direction: column-reverse;
+  }
+  .modal-actions button {
+    width: 100%;
+    min-height: 46px;
+  }
+  .main-dashboard-hero,
+  .inbound-hero {
+    border-radius: 14px;
+  }
+  .login-card-wrap {
+    padding: 14px;
+  }
+  .login-card {
+    padding: 26px 20px;
+    border-radius: 20px;
+  }
+}
