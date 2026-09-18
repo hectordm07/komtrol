@@ -48,7 +48,6 @@ type IncidentAttachment = {
   content_type: string | null
   size_bytes: number | null
   created_at: string
-  incident_attachments?: IncidentAttachment[]
 }
 
 type Incident = {
@@ -78,6 +77,7 @@ type Incident = {
   created_by: string
   detected_at: string
   created_at: string
+  incident_attachments?: IncidentAttachment[]
 }
 
 type Props = {
