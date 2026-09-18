@@ -22,7 +22,7 @@ type Profile = {
   shift_name?:string|null
 }
 
-type Props = { profile:Profile|null; role:Role }
+type Props = { profile:Profile|null; role:Role; scope?: 'REMOTE' | 'ALL' }
 
 type Task = {
   id:string
@@ -65,13 +65,17 @@ function fmt(value?:string|null) {
   return new Intl.DateTimeFormat('es-PE',{dateStyle:'short',timeStyle:'short'}).format(new Date(value))
 }
 
-export function MainDashboardModule({ profile, role }:Props) {
+export function MainDashboardModule({ profile, role, scope = 'REMOTE' }:Props) {
   const [tasks,setTasks]=useState<Task[]>([])
   const [incidents,setIncidents]=useState<Incident[]>([])
   const [guides,setGuides]=useState<Guide[]>([])
   const [boxes,setBoxes]=useState<Box[]>([])
   const [warehouses,setWarehouses]=useState<string[]>([])
-  const [warehouse,setWarehouse]=useState(profile?.warehouse || 'TODOS')
+  const initialWarehouse =
+    scope === 'REMOTE'
+      ? (profile?.warehouse && profile.warehouse !== 'CALLAO' ? profile.warehouse : 'TODOS_REMOTOS')
+      : (profile?.warehouse || 'TODOS')
+  const [warehouse,setWarehouse]=useState(initialWarehouse)
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
 
@@ -97,18 +101,30 @@ export function MainDashboardModule({ profile, role }:Props) {
   useEffect(()=>{ reload() },[])
 
   useEffect(()=>{
-    if (role !== 'ADMINISTRADOR') setWarehouse(profile?.warehouse || 'TODOS')
-  },[profile?.warehouse,role])
+    if (role !== 'ADMINISTRADOR') {
+      setWarehouse(
+        scope === 'REMOTE'
+          ? (profile?.warehouse && profile.warehouse !== 'CALLAO' ? profile.warehouse : 'TODOS_REMOTOS')
+          : (profile?.warehouse || 'TODOS')
+      )
+    }
+  },[profile?.warehouse,role,scope])
 
   const scoped=useMemo(()=>{
-    const keep=(value:string|null|undefined)=>warehouse==='TODOS'||value===warehouse
+    const keep=(value:string|null|undefined)=>{
+      if (scope === 'REMOTE') {
+        if (!value || value === 'CALLAO') return false
+        return warehouse === 'TODOS_REMOTOS' || value === warehouse
+      }
+      return warehouse === 'TODOS' || value === warehouse
+    }
     return {
       tasks:tasks.filter((x)=>keep(x.warehouse)),
       incidents:incidents.filter((x)=>keep(x.warehouse)),
       guides:guides.filter((x)=>keep(x.warehouse)),
       boxes:boxes.filter((x)=>keep(x.warehouse)),
     }
-  },[tasks,incidents,guides,boxes,warehouse])
+  },[tasks,incidents,guides,boxes,warehouse,scope])
 
   const stats=useMemo(()=>{
     const taskPending=scoped.tasks.filter((x)=>x.status!=='CERRADO').length
@@ -136,16 +152,24 @@ export function MainDashboardModule({ profile, role }:Props) {
     <section className="panel main-dashboard-hero">
       <div>
         <span className="status-pill"><CheckCircle2 size={14}/> Operación conectada</span>
-        <h2>Resumen del almacén</h2>
+        <h2>{scope === 'REMOTE' ? 'Dashboard Almacenes Remotos' : 'Resumen del almacén'}</h2>
         <p>
-          {profile?.warehouse || 'Sin almacén'} · {profile?.group_name || 'Sin grupo'} · {profile?.shift_name || 'Sin guardia'}
+          {scope === 'REMOTE'
+            ? (warehouse === 'TODOS_REMOTOS' ? 'Todos los almacenes excepto Callao' : warehouse)
+            : (profile?.warehouse || 'Sin almacén')}
+          {profile?.group_name ? ` · ${profile.group_name}` : ''}
+          {profile?.shift_name ? ` · ${profile.shift_name}` : ''}
         </p>
       </div>
       <div className="main-dashboard-filter">
         {role === 'ADMINISTRADOR' && <label>Almacén
           <select value={warehouse} onChange={(e)=>setWarehouse(e.target.value)}>
-            <option value="TODOS">Todos</option>
-            {warehouses.map((name)=><option key={name} value={name}>{name}</option>)}
+            {scope === 'REMOTE'
+              ? <option value="TODOS_REMOTOS">Todos los remotos</option>
+              : <option value="TODOS">Todos</option>}
+            {warehouses
+              .filter((name)=>scope !== 'REMOTE' || name !== 'CALLAO')
+              .map((name)=><option key={name} value={name}>{name}</option>)}
           </select>
         </label>}
         <button className="icon-button" onClick={reload}><RefreshCw size={18}/></button>
@@ -165,7 +189,7 @@ export function MainDashboardModule({ profile, role }:Props) {
     </div>
 
     <section className="panel">
-      <div className="panel-title"><div><h3>Actividad reciente</h3><p>Últimos movimientos visibles para el almacén seleccionado.</p></div></div>
+      <div className="panel-title"><div><h3>Actividad reciente</h3><p>{scope === 'REMOTE' ? 'Últimos movimientos de los almacenes remotos visibles para tu perfil.' : 'Últimos movimientos visibles para el almacén seleccionado.'}</p></div></div>
       <div className="main-activity-list">
         {activity.map((row,index)=><article key={index}><span>{row.kind}</span><div><b>{row.title}</b><small>{row.status}</small></div><time>{fmt(row.date)}</time></article>)}
         {!activity.length && <div className="empty-work"><BarChart3 size={27}/><b>Sin actividad registrada</b></div>}
