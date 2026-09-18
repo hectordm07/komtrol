@@ -24,6 +24,7 @@ import { supabase } from './lib/supabase'
 import { UsersAdmin } from './components/UsersAdmin'
 import { ModulePlaceholder } from './components/ModulePlaceholder'
 import { TasksModule } from './components/TasksModule'
+import { GuidesModule } from './components/GuidesModule'
 
 type Tab = string
 
@@ -479,6 +480,13 @@ function Workspace({ session }: { session: Session }) {
   const currentNav = flatNav.find((item) => item.id === tab)
   const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
   const isTaskTab = taskTabs.includes(tab as typeof taskTabs[number])
+  const guideTabs = ['scanner-guias', 'seguimiento-guias', 'oc-cargos', 'ingresos-reposicion'] as const
+  const isGuideTab = guideTabs.includes(tab as typeof guideTabs[number])
+  const guideMode =
+    tab === 'scanner-guias' ? 'scanner' :
+    tab === 'seguimiento-guias' ? 'seguimiento' :
+    tab === 'oc-cargos' ? 'oc-cargos' :
+    'reposicion'
 
   return (
     <div className="app-shell">
@@ -612,11 +620,19 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {isGuideTab && (
+                <GuidesModule
+                  mode={guideMode}
+                  userId={user.id}
+                  profile={profile}
+                />
+              )}
+
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isGuideTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
