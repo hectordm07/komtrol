@@ -1122,3 +1122,28 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     box-shadow: none !important;
   }
 }
+
+
+/* Operaciones y Control */
+.operations-control-panel {
+  padding: 13px;
+}
+.title-with-icon {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.operations-table td {
+  max-width: 260px;
+}
+.operation-modal {
+  width: min(760px, calc(100vw - 28px));
+}
+@media (max-width: 700px) {
+  .operations-control-panel .panel-title {
+    align-items: stretch;
+  }
+  .operations-control-panel .button-row {
+    width: 100%;
+  }
+}
