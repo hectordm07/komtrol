@@ -124,6 +124,36 @@ function guideFromFileName(fileName?: string) {
     ''
 }
 
+function detectDocumentLineCount(text: string) {
+  const rows = text.replace(/\r/g, '').split('\n')
+  let maxLine = 0
+
+  for (const row of rows) {
+    // Líneas típicas de las guías KMMP:
+    // 128 SOLVENTE SOLMAX ... 1.000 UND KG
+    const match = row.match(/^\s*(\d{1,3})\s+.+?\s+\d+(?:[.,]\d+)?\s+(?:UND|EA|PC|PZ|PIE|FT|M|MT)\b/i)
+    if (!match) continue
+
+    const lineNo = Number(match[1])
+    if (Number.isInteger(lineNo) && lineNo > maxLine && lineNo <= 999) {
+      maxLine = lineNo
+    }
+  }
+
+  return maxLine
+}
+
+function extractObservations(text: string) {
+  const normalized = text.replace(/\r/g, '')
+  const match = normalized.match(/OBSERVACIONES?\s*:\s*([\s\S]*?)(?=\n\s*(?:KMONCCA\b|REPRESENTACI[ÓO]N\s+IMPRESA\b|AUTORIZADA\b|SU\s+COMPROBANTE\b|<PARSED\s+TEXT|---\s*P[ÁA]GINA)|$)/i)
+  if (!match) return ''
+
+  return match[1]
+    .replace(/\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function parseGuideOcr(text: string, fileName?: string) {
   const normalized = text.toUpperCase().replace(/[–—]/g, '-')
   const guide =
@@ -151,7 +181,11 @@ function parseGuideOcr(text: string, fileName?: string) {
   const explicitLines =
     normalized.match(/(?:CANTIDAD\s*(?:DE\s*)?L[IÍ]NEAS|N[°ºO]?\s*(?:DE\s*)?L[IÍ]NEAS|TOTAL\s*(?:DE\s*)?L[IÍ]NEAS|L[IÍ]NEAS)\s*[:#-]?\s*(\d{1,3})/i)
   const parsedLines = parseLines(text)
-  const lineCount = explicitLines ? Number(explicitLines[1]) : Math.max(parsedLines.length, 1)
+  const numberedLineCount = detectDocumentLineCount(text)
+  const lineCount = explicitLines
+    ? Number(explicitLines[1])
+    : numberedLineCount || Math.max(parsedLines.length, 1)
+  const observations = extractObservations(text)
 
   return {
     guide_no: guide,
@@ -162,6 +196,7 @@ function parseGuideOcr(text: string, fileName?: string) {
     date_source: dateSource as 'DOCUMENTO' | 'INICIO_TRASLADO' | 'FECHA_CARGA',
     guide_type: classifyReference(reference),
     line_count: lineCount,
+    observations,
     lines: parsedLines,
   }
 }
@@ -279,6 +314,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       reference: parsed.reference || prev.reference,
       line_count: String(parsed.line_count || Number(prev.line_count || 1)),
       guide_type: parsed.reference ? parsed.guide_type : prev.guide_type,
+      notes: parsed.observations || prev.notes,
       ocr_text: text,
       ocr_confidence: confidence > 0 ? confidence.toFixed(1) : '',
     }))
@@ -289,6 +325,8 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       parsed.reference ? 'referencia' : '',
       parsed.document_no ? 'N° documento' : '',
       parsed.emission_date ? 'fecha' : '',
+      parsed.line_count ? `${parsed.line_count} líneas` : '',
+      parsed.observations ? 'observaciones' : '',
     ].filter(Boolean)
 
     setMessage(
