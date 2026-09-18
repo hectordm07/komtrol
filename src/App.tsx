@@ -406,7 +406,7 @@ function Workspace({ session }: { session: Session }) {
     {
       section: 'INICIO',
       items: [
-        { id: 'inicio' as Tab, label: 'Resumen del almacén', icon: BarChart3 },
+        { id: 'inicio' as Tab, label: 'Dashboard Almacenes Remotos', icon: BarChart3 },
         { id: 'mi-trabajo' as Tab, label: 'Mi trabajo', icon: ClipboardList },
         { id: 'alertas' as Tab, label: 'Alertas', icon: Bell },
       ],
@@ -423,7 +423,7 @@ function Workspace({ session }: { session: Session }) {
         { id: 'calendario' as Tab, label: 'Calendario', icon: BarChart3 },
       ],
     },
-    ...((profile?.warehouse === 'CALLAO' || ['SUPERVISOR','ADMINISTRADOR'].includes(role))
+    ...((profile?.warehouse === 'CALLAO' || role === 'ADMINISTRADOR')
       ? [{
           section: 'INBOUND · CALLAO',
           collapsible: true,
@@ -461,7 +461,7 @@ function Workspace({ session }: { session: Session }) {
       ],
     },
     {
-      section: 'DASHBOARD',
+      section: 'INDICADORES REMOTOS',
       items: [
         { id: 'dashboard-operacion' as Tab, label: 'Operación', icon: BarChart3 },
         { id: 'inbound-outbound' as Tab, label: 'Inbound / Outbound', icon: BarChart3 },
@@ -501,8 +501,10 @@ function Workspace({ session }: { session: Session }) {
     },
   ]
 
+  const isCallaoUser = profile?.warehouse === 'CALLAO' && role !== 'ADMINISTRADOR'
   const isCallaoCoordinator = role === 'COORDINADOR' && profile?.warehouse === 'CALLAO'
   const isCallaoSupervisor = role === 'SUPERVISOR' && profile?.warehouse === 'CALLAO'
+  const isCallaoWorker = role === 'TRABAJADOR' && profile?.warehouse === 'CALLAO'
 
   const navSections = isCallaoCoordinator
     ? allNavSections
@@ -515,16 +517,25 @@ function Workspace({ session }: { session: Session }) {
         }))
     : isCallaoSupervisor
       ? allNavSections
-          .filter((group) => ['INICIO','INBOUND · CALLAO'].includes(group.section))
+          .filter((group) => group.section === 'INBOUND · CALLAO')
           .map((group) => ({
             ...group,
-            items: group.section === 'INICIO'
-              ? group.items.filter((item) => item.id === 'inicio')
-              : group.items.filter((item) =>
-                  ['inbound-dashboard','inbound-incidencias','inbound-cajas'].includes(item.id)
-                ),
+            items: group.items.filter((item) =>
+              ['inbound-dashboard','inbound-incidencias','inbound-cajas'].includes(item.id)
+            ),
           }))
-      : allNavSections
+      : isCallaoWorker
+        ? allNavSections
+            .filter((group) => group.section === 'INBOUND · CALLAO')
+            .map((group) => ({
+              ...group,
+              items: group.items.filter((item) =>
+                ['inbound-dashboard','inbound-personal','inbound-incidencias','inbound-cajas'].includes(item.id)
+              ),
+            }))
+        : allNavSections.filter((group) =>
+            role === 'ADMINISTRADOR' || group.section !== 'INBOUND · CALLAO'
+          )
 
   const flatNav = navSections.flatMap((group) =>
     group.items.map((item) => ({ ...item, section: group.section }))
@@ -566,14 +577,12 @@ function Workspace({ session }: { session: Session }) {
     const allowed = flatNav.map((item) => item.id)
     if (allowed.includes(tab)) return
 
-    if (isCallaoCoordinator) {
+    if (isCallaoUser) {
       setTab('inbound-dashboard')
       return
     }
 
-    if (isCallaoSupervisor) {
-      setTab('inicio')
-    }
+    setTab('inicio')
   }, [tab, role, profile?.warehouse])
 
   return (
@@ -642,7 +651,7 @@ function Workspace({ session }: { session: Session }) {
           ) : (
             <>
               {tab === 'inicio' && (
-                <MainDashboardModule profile={profile} role={role} />
+                <MainDashboardModule profile={profile} role={role} scope="REMOTE" />
               )}
 
               {tab === 'incidencias' && (
