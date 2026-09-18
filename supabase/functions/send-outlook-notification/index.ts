@@ -54,7 +54,18 @@ Deno.serve(async (req: Request) => {
   if (!incidentId) return json({ error: "incidentId es obligatorio" }, 400)
 
   const admin = createClient(supabaseUrl, serviceRoleKey)
-  const role = String(user.app_metadata?.role ?? "")
+
+  const { data: profile } = await admin
+    .from("user_profiles")
+    .select("role,active")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!profile?.active) {
+    return json({ error: "Usuario no habilitado" }, 403)
+  }
+
+  const role = String(profile.role ?? "TRABAJADOR")
   const canManageAll = role === "COORDINADOR" || role === "ADMINISTRADOR"
 
   const { data: incident, error: incidentError } = await admin
