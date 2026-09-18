@@ -79,7 +79,7 @@ type Period = {
   closed_at: string | null
 }
 
-type ImportType = 'MASTER_MATERIALES' | 'INBOUND' | 'ORDEN_COMPRA' | 'CARGO_DIRECTO' | 'KPI'
+type ImportType = 'MASTER_MATERIALES' | 'REPOSICION' | 'INBOUND' | 'ORDEN_COMPRA' | 'CARGO_DIRECTO' | 'KPI'
 
 type ImportPreview = {
   row: number
@@ -90,6 +90,7 @@ type ImportPreview = {
 
 const IMPORT_HEADERS: Record<ImportType, string[]> = {
   MASTER_MATERIALES: ['MATERIAL','STOCK_CODE','DESCRIPCION','UBICACION','ALMACEN','PRECIO','OBSERVACION','ESTADO'],
+  REPOSICION: ['GUIA','REFERENCIA','FECHA_EMISION','N_DOCUMENTO','PROVEEDOR','LINEA','MATERIAL','DESCRIPCION','CANTIDAD','UM','ALMACEN','OBSERVACION'],
   INBOUND: ['GUIA','REFERENCIA','FECHA_EMISION','N_DOCUMENTO','LINEAS','ALMACEN','OBSERVACION'],
   ORDEN_COMPRA: ['GUIA','REFERENCIA','FECHA_EMISION','N_DOCUMENTO','LINEAS','ALMACEN','OBSERVACION'],
   CARGO_DIRECTO: ['GUIA','REFERENCIA','FECHA_EMISION','N_DOCUMENTO','LINEAS','ALMACEN','OBSERVACION'],
@@ -574,6 +575,8 @@ function BulkImports({ userId }: { userId: string }) {
     const example =
       type === 'MASTER_MATERIALES'
         ? ['RH018753','1100176102','DESCRIPCION MATERIAL','PHPB001A','ANTAMINA','0','','ACTIVO']
+        : type === 'REPOSICION'
+          ? ['T062-00001445','8910501730',new Date().toISOString().slice(0,10),'','KOMATSU','1','19T6066D5','PIN, BOOM BUMPER - PHLB01A01','4.000','UND','ANTAMINA','']
         : type === 'KPI'
           ? ['ERI',String(new Date().getFullYear()),String(new Date().getMonth() + 1),'ANTAMINA','99.8','','%']
           : ['T098-00005674','8910542095',new Date().toISOString().slice(0,10),'DOC-001','1','ANTAMINA','']
@@ -627,7 +630,7 @@ function BulkImports({ userId }: { userId: string }) {
   return (
     <section className="panel bulk-import-admin">
       <div className="panel-title">
-        <div><h3>Cargas Masivas</h3><p>Data Master, Inbound, OC, Cargos Directos y KPI desde Excel/CSV.</p></div>
+        <div><h3>Cargas Masivas</h3><p>Data Master, Reposición, Inbound, OC, Cargos Directos y KPI desde Excel/CSV.</p></div>
         <button className="secondary-button" onClick={template}><Download size={16} /> Plantilla</button>
       </div>
 
@@ -636,6 +639,7 @@ function BulkImports({ userId }: { userId: string }) {
           <label className="field-label">Tipo de información
             <select value={type} onChange={(e) => { setType(e.target.value as ImportType); setText(''); setMessage('') }}>
               <option value="MASTER_MATERIALES">Master de Materiales</option>
+              <option value="REPOSICION">Reposición (detalle por material)</option>
               <option value="INBOUND">Inbound / Guías (clasificación automática)</option>
               <option value="ORDEN_COMPRA">Orden de Compra</option>
               <option value="CARGO_DIRECTO">Cargos Directos</option>
@@ -687,6 +691,7 @@ function BulkImports({ userId }: { userId: string }) {
 function validateImport(type: ImportType, headers: string[], rows: Record<string, string>[]): ImportPreview[] {
   const required =
     type === 'MASTER_MATERIALES' ? ['MATERIAL','DESCRIPCION','ALMACEN'] :
+    type === 'REPOSICION' ? ['GUIA','REFERENCIA','PROVEEDOR','MATERIAL','DESCRIPCION','CANTIDAD','UM','ALMACEN'] :
     type === 'KPI' ? ['INDICADOR','ANO','MES','ALMACEN','VALOR'] :
     ['GUIA','REFERENCIA','LINEAS','ALMACEN']
   const missing = required.filter((header) => !headers.includes(header))
@@ -701,6 +706,18 @@ function validateImport(type: ImportType, headers: string[], rows: Record<string
       else if (!values.DESCRIPCION?.trim()) error = 'Descripción requerida'
       else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
       else if (values.PRECIO && Number.isNaN(Number(values.PRECIO.replace(',', '.')))) error = 'Precio inválido'
+    } else if (type === 'REPOSICION') {
+      const provider = (values.PROVEEDOR || '').trim().toUpperCase()
+      if (!values.GUIA?.trim()) error = 'Guía requerida'
+      else if (!values.REFERENCIA?.trim().startsWith('89')) error = 'La referencia de Reposición debe iniciar con 89'
+      else if (!['KOMATSU','CUMMINS'].includes(provider)) error = 'Proveedor debe ser KOMATSU o CUMMINS'
+      else if (!values.MATERIAL?.trim()) error = 'Material requerido'
+      else if (!values.DESCRIPCION?.trim()) error = 'Descripción requerida'
+      else if (Number.isNaN(Number((values.CANTIDAD || '').replace(',', '.')))) error = 'Cantidad inválida'
+      else if (!values.UM?.trim()) error = 'UM requerida'
+      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
+      else if (values.FECHA_EMISION && !toIsoDate(values.FECHA_EMISION)) error = 'Fecha inválida'
+      else if (values.LINEA && !(Number(values.LINEA) >= 1)) error = 'Línea inválida'
     } else if (type === 'KPI') {
       if (!values.INDICADOR?.trim()) error = 'Indicador requerido'
       else if (!/^\d{4}$/.test(values.ANO || '')) error = 'Año inválido'
@@ -738,6 +755,95 @@ async function executeImport(type: ImportType, preview: ImportPreview[], userId:
     const { error } = await supabase.from('materials').upsert(rows, { onConflict: 'material_no,warehouse' })
     if (error) throw error
     return { imported: rows.length, duplicates, errors: 0 }
+  }
+
+  if (type === 'REPOSICION') {
+    const grouped = new Map<string, ImportPreview[]>()
+    for (const row of preview) {
+      const values = row.values
+      const key = [
+        values.GUIA.trim().toUpperCase(),
+        values.REFERENCIA.trim(),
+        values.PROVEEDOR.trim().toUpperCase(),
+        values.ALMACEN.trim(),
+      ].join('|')
+      const list = grouped.get(key) ?? []
+      list.push(row)
+      grouped.set(key, list)
+    }
+
+    let imported = 0
+    let duplicates = 0
+    let receiptsCreated = 0
+
+    for (const rows of grouped.values()) {
+      const first = rows[0].values
+      const guideNo = first.GUIA.trim().toUpperCase()
+      const reference = first.REFERENCIA.trim()
+      const provider = first.PROVEEDOR.trim().toUpperCase()
+      const warehouse = first.ALMACEN.trim()
+
+      const { data: existingGuide } = await supabase
+        .from('guides')
+        .select('id')
+        .eq('guide_no', guideNo)
+        .eq('reference', reference)
+        .maybeSingle()
+
+      if (existingGuide) {
+        duplicates += rows.length
+        continue
+      }
+
+      let emissionDate = toIsoDate(first.FECHA_EMISION || '')
+      const today = new Date().toISOString().slice(0, 10)
+      if (emissionDate && emissionDate > today) emissionDate = today
+
+      const { data: createdGuide, error: guideError } = await supabase
+        .from('guides')
+        .insert({
+          guide_no: guideNo,
+          document_no: first.N_DOCUMENTO?.trim() || null,
+          emission_date: emissionDate || null,
+          transfer_start_date: null,
+          date_source: emissionDate ? 'DOCUMENTO' : 'FECHA_CARGA',
+          reception_at: new Date().toISOString(),
+          reception_source: 'FECHA_CARGA',
+          reference,
+          line_count: rows.length,
+          guide_type: 'REPOSICION',
+          supplier: provider,
+          data_source: 'CARGA_MASIVA',
+          warehouse,
+          responsible_user_id: userId,
+          status: 'VALIDADO',
+          notes: first.OBSERVACION?.trim() || null,
+          created_by: userId,
+        })
+        .select('id')
+        .single()
+
+      if (guideError || !createdGuide) throw guideError || new Error('No se pudo crear la guía de Reposición.')
+
+      const lineRows = rows
+        .map((row, index) => ({
+          guide_id: createdGuide.id,
+          line_no: row.values.LINEA ? Number(row.values.LINEA) : index + 1,
+          part_no: row.values.MATERIAL.trim().toUpperCase(),
+          description: row.values.DESCRIPCION.trim(),
+          quantity: Number(row.values.CANTIDAD.replace(',', '.')),
+          unit: row.values.UM.trim().toUpperCase(),
+        }))
+        .sort((a, b) => a.line_no - b.line_no)
+
+      const { error: linesError } = await supabase.from('guide_lines').insert(lineRows)
+      if (linesError) throw linesError
+
+      imported += rows.length
+      receiptsCreated += 1
+    }
+
+    return { imported, duplicates, errors: 0, receiptsCreated }
   }
 
   if (type === 'KPI') {
@@ -781,6 +887,8 @@ async function executeImport(type: ImportType, preview: ImportPreview[], userId:
       reference: values.REFERENCIA.trim(),
       line_count: Number(values.LINEAS),
       guide_type: forcedType || guideType(values.REFERENCIA),
+      supplier: null,
+      data_source: 'CARGA_MASIVA',
       warehouse: values.ALMACEN.trim(),
       responsible_user_id: userId,
       status: 'VALIDADO',
