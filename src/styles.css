@@ -869,3 +869,224 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     max-width: none;
   }
 }
+
+
+/* Scanner de Guías / Seguimiento */
+.scanner-module {
+  display: grid;
+  gap: 12px;
+}
+.scanner-panel,
+.guide-list-panel {
+  padding: 13px;
+}
+.scanner-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.scan-action {
+  min-height: 72px;
+  border: 1px dashed #c9d3df;
+  background: #fbfcfe;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+}
+.scan-action:hover {
+  border-color: #98a6b8;
+  background: #f7f9fc;
+}
+.scan-action span {
+  display: grid;
+  gap: 2px;
+}
+.scan-action small {
+  color: #7b8798;
+  font-size: 11px;
+}
+.scan-file-card {
+  border: 1px solid #e1e6ee;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 9px;
+}
+.scan-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eef2f6;
+  display: grid;
+  place-items: center;
+}
+.scan-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.scan-file-card > div:nth-child(2) {
+  display: grid;
+  gap: 3px;
+}
+.scan-file-card small {
+  color: #7b8798;
+  font-size: 10px;
+}
+.scan-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: #edf0f4;
+}
+.scan-progress span {
+  display: block;
+  height: 100%;
+  background: #344054;
+  transition: width .2s ease;
+}
+.validation-header {
+  min-height: 48px;
+  border-top: 1px solid #e6eaf0;
+  border-bottom: 1px solid #e6eaf0;
+  margin: 12px 0 10px;
+  padding: 8px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.validation-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.validation-header span {
+  display: grid;
+  gap: 1px;
+}
+.validation-header small {
+  color: #7b8798;
+  font-size: 10px;
+}
+.confidence-badge {
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #edf7f0;
+  color: #2d6a4f;
+  display: inline-flex !important;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.confidence-badge.low {
+  background: #fff4df;
+  color: #9a5c00;
+}
+.guide-form {
+  margin-bottom: 12px;
+}
+.guide-lines {
+  border-top: 1px solid #e6eaf0;
+  padding-top: 11px;
+  margin-top: 6px;
+}
+.compact-title {
+  margin-bottom: 7px;
+}
+.guide-lines input {
+  min-width: 80px;
+  width: 100%;
+  min-height: 29px;
+  border: 1px solid #dce3eb;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+.small-icon {
+  width: 29px;
+  height: 29px;
+}
+.scanner-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e6eaf0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.rule-hints {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.rule-hints span {
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f1f4f8;
+  color: #5f6d80;
+  font-size: 10px;
+}
+.guide-type {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.type-reposicion {
+  background: #edf7f0;
+  color: #2d6a4f;
+}
+.type-orden-compra {
+  background: #edf3ff;
+  color: #315a9e;
+}
+.type-cargo-directo {
+  background: #fff4df;
+  color: #915a05;
+}
+.type-otro {
+  background: #eef1f5;
+  color: #5f6b7c;
+}
+.guide-list-panel td > small {
+  display: block;
+  color: #7d8898;
+  font-size: 9px;
+  margin-top: 2px;
+}
+@media (max-width: 700px) {
+  .scanner-actions {
+    grid-template-columns: 1fr;
+  }
+  .scanner-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .scanner-footer .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
