@@ -1990,3 +1990,79 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     min-height: 54px;
   }
 }
+
+
+/* Ingresos de Reposición por guía */
+.guide-replenishment-filters {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 170px 190px auto;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+.guide-replenishment-filters > input,
+.guide-replenishment-filters > select {
+  min-height: 36px;
+  border: 1px solid #d9e1ea;
+  background: #fff;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 11px;
+  color: #1f2937;
+}
+.guide-replenishment-detail {
+  width: min(980px, calc(100vw - 28px));
+  max-height: 92vh;
+  overflow: auto;
+}
+.guide-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #e0e6ee;
+  border-radius: 9px;
+  overflow: hidden;
+  margin: 8px 0 12px;
+}
+.guide-detail-meta > div {
+  min-height: 56px;
+  padding: 9px 10px;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  border-right: 1px solid #e8ecf1;
+}
+.guide-detail-meta > div:last-child {
+  border-right: 0;
+}
+.guide-detail-meta small {
+  color: #7c8798;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.guide-detail-meta b {
+  font-size: 11px;
+}
+.guide-detail-lines table {
+  min-width: 850px;
+}
+@media (max-width: 800px) {
+  .guide-replenishment-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .guide-replenishment-filters .search {
+    grid-column: 1 / -1;
+  }
+  .guide-detail-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .guide-replenishment-filters,
+  .guide-detail-meta {
+    grid-template-columns: 1fr;
+  }
+  .guide-replenishment-filters .search {
+    grid-column: auto;
+  }
+}
