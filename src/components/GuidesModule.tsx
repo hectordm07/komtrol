@@ -116,11 +116,20 @@ function parseLines(text: string): GuideLine[] {
   return output
 }
 
-function parseGuideOcr(text: string) {
+function guideFromFileName(fileName?: string) {
+  if (!fileName) return ''
+  const normalized = fileName.toUpperCase().replace(/[–—_]/g, '-')
+  return normalized.match(/\b[A-Z]\d{3}-\d{8}\b/)?.[0] ||
+    normalized.match(/\bT\d{3}\s*-\s*\d{8}\b/)?.[0]?.replace(/\s/g, '') ||
+    ''
+}
+
+function parseGuideOcr(text: string, fileName?: string) {
   const normalized = text.toUpperCase().replace(/[–—]/g, '-')
   const guide =
     normalized.match(/\b[A-Z]\d{3}-\d{8}\b/)?.[0] ||
     normalized.match(/\bT\d{3}\s*-\s*\d{8}\b/)?.[0]?.replace(/\s/g, '') ||
+    guideFromFileName(fileName) ||
     ''
 
   const referenceCandidates = [...normalized.matchAll(/\b8\d{9}\b/g)].map((m) => m[0])
@@ -129,7 +138,9 @@ function parseGuideOcr(text: string) {
     referenceCandidates[0] ||
     ''
 
-  const docMatch = normalized.match(/(?:N[°ºO]?\s*DOCUMENTO|DOCUMENTO)\s*[:#-]?\s*([A-Z0-9-]{4,})/i)
+  const docMatch =
+    normalized.match(/(?:N[°ºO]?\s*(?:DE\s*)?DOCUMENTO|DOCUMENTO)\s*[:#-]?\s*([A-Z0-9-]{4,})/i) ||
+    normalized.match(/(?:DOCUMENTO\s*(?:RELACIONADO|REFERENCIA))\s*[:#-]?\s*([A-Z0-9-]{4,})/i)
   const documentNo = docMatch?.[1] || ''
 
   const emission = findDateNear(normalized, ['FECHA\\s*(?:DE\\s*)?EMISI[ÓO]N', 'EMISI[ÓO]N'])
@@ -137,7 +148,8 @@ function parseGuideOcr(text: string) {
   const dateSource = emission ? 'DOCUMENTO' : transferStart ? 'INICIO_TRASLADO' : 'FECHA_CARGA'
   const emissionDate = emission || transferStart || new Date().toISOString().slice(0, 10)
 
-  const explicitLines = normalized.match(/(?:CANTIDAD\s*(?:DE\s*)?L[IÍ]NEAS|N[°ºO]?\s*L[IÍ]NEAS|L[IÍ]NEAS)\s*[:#-]?\s*(\d{1,3})/i)
+  const explicitLines =
+    normalized.match(/(?:CANTIDAD\s*(?:DE\s*)?L[IÍ]NEAS|N[°ºO]?\s*(?:DE\s*)?L[IÍ]NEAS|TOTAL\s*(?:DE\s*)?L[IÍ]NEAS|L[IÍ]NEAS)\s*[:#-]?\s*(\d{1,3})/i)
   const parsedLines = parseLines(text)
   const lineCount = explicitLines ? Number(explicitLines[1]) : Math.max(parsedLines.length, 1)
 
@@ -241,14 +253,52 @@ export function GuidesModule({ mode, userId, profile }: Props) {
     setFile(nextFile)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(nextFile.type.startsWith('image/') ? URL.createObjectURL(nextFile) : '')
+
+    const isPdf = nextFile.type === 'application/pdf' || /\.pdf$/i.test(nextFile.name)
     if (nextFile.type.startsWith('image/')) {
-      await runOcr(nextFile)
+      await runImageOcr(nextFile)
+    } else if (isPdf) {
+      await runPdfOcr(nextFile)
     } else {
-      setMessage('PDF cargado. Puedes validar los campos manualmente; el archivo quedará adjunto al registro.')
+      setMessage('Formato no compatible para OCR. Usa PDF, JPG o PNG.')
     }
   }
 
-  async function runOcr(imageFile: File) {
+  function applyOcrResult(text: string, confidence: number, sourceFile: File, sourceLabel: string) {
+    const parsed = parseGuideOcr(text, sourceFile.name)
+    const parsedLines = parsed.lines.length ? parsed.lines : [emptyLine()]
+    const fallbackGuide = guideFromFileName(sourceFile.name)
+
+    setForm((prev) => ({
+      ...prev,
+      guide_no: parsed.guide_no || fallbackGuide || prev.guide_no,
+      document_no: parsed.document_no || prev.document_no,
+      emission_date: parsed.emission_date || prev.emission_date,
+      transfer_start_date: parsed.transfer_start_date || prev.transfer_start_date,
+      date_source: parsed.date_source,
+      reference: parsed.reference || prev.reference,
+      line_count: String(parsed.line_count || Number(prev.line_count || 1)),
+      guide_type: parsed.reference ? parsed.guide_type : prev.guide_type,
+      ocr_text: text,
+      ocr_confidence: confidence > 0 ? confidence.toFixed(1) : '',
+    }))
+    setLines(parsedLines)
+
+    const detected = [
+      parsed.guide_no || fallbackGuide ? 'guía' : '',
+      parsed.reference ? 'referencia' : '',
+      parsed.document_no ? 'N° documento' : '',
+      parsed.emission_date ? 'fecha' : '',
+    ].filter(Boolean)
+
+    setMessage(
+      detected.length
+        ? `${sourceLabel} procesado. Se detectó: ${detected.join(', ')}. Revisa los campos antes de confirmar.`
+        : `${sourceLabel} procesado, pero no se identificaron suficientes campos. Revisa el documento y completa lo necesario.`
+    )
+  }
+
+  async function runImageOcr(imageFile: File) {
     setScanning(true)
     setScanProgress(2)
     setMessage('Analizando imagen con OCR gratuito…')
@@ -258,34 +308,120 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       const result = await tesseract.recognize(imageFile, 'spa', {
         logger: (event: any) => {
           if (event?.status === 'recognizing text' && typeof event.progress === 'number') {
-            setScanProgress(Math.round(event.progress * 100))
+            setScanProgress(Math.max(2, Math.round(event.progress * 100)))
           }
         },
       })
       const text = String(result?.data?.text ?? '')
       const confidence = Number(result?.data?.confidence ?? 0)
-      const parsed = parseGuideOcr(text)
-      const parsedLines = parsed.lines.length ? parsed.lines : [emptyLine()]
-
-      setForm((prev) => ({
-        ...prev,
-        guide_no: parsed.guide_no,
-        document_no: parsed.document_no,
-        emission_date: parsed.emission_date,
-        transfer_start_date: parsed.transfer_start_date,
-        date_source: parsed.date_source,
-        reference: parsed.reference,
-        line_count: String(parsed.line_count),
-        guide_type: parsed.guide_type,
-        ocr_text: text,
-        ocr_confidence: confidence ? confidence.toFixed(1) : '',
-      }))
-      setLines(parsedLines)
-      setMessage(confidence < 65
-        ? 'OCR completado con baja confianza. Revisa los campos resaltados antes de confirmar.'
-        : 'OCR completado. Valida la información antes de guardar.')
+      applyOcrResult(text, confidence, imageFile, 'Imagen')
     } catch (error) {
-      setMessage(`No se pudo completar el OCR: ${error instanceof Error ? error.message : 'error desconocido'}. Puedes registrar la guía manualmente.`)
+      setMessage(`No se pudo completar el OCR de la imagen: ${error instanceof Error ? error.message : 'error desconocido'}.`)
+    } finally {
+      setScanning(false)
+      setScanProgress(100)
+    }
+  }
+
+  async function runPdfOcr(pdfFile: File) {
+    setScanning(true)
+    setScanProgress(2)
+    setMessage('Leyendo PDF…')
+    try {
+      const pdfModuleUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs'
+      const pdfWorkerUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs'
+      const pdfjs: any = await import(/* @vite-ignore */ pdfModuleUrl)
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+
+      const bytes = new Uint8Array(await pdfFile.arrayBuffer())
+      const pdf = await pdfjs.getDocument({ data: bytes }).promise
+      const pageLimit = Math.min(pdf.numPages, 5)
+      let extractedText = ''
+
+      // 1) Intentar primero extraer texto real del PDF. Es más rápido y preciso
+      // para guías generadas digitalmente.
+      for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber++) {
+        setMessage(`Leyendo texto del PDF · página ${pageNumber} de ${pageLimit}…`)
+        setScanProgress(Math.round((pageNumber / pageLimit) * 25))
+        const page = await pdf.getPage(pageNumber)
+        const content = await page.getTextContent()
+        const pageText = content.items
+          .map((item: any) => typeof item?.str === 'string' ? item.str : '')
+          .filter(Boolean)
+          .join(' ')
+        extractedText += `\n--- PÁGINA ${pageNumber} ---\n${pageText}\n`
+      }
+
+      const compactText = extractedText.replace(/\s+/g, ' ').trim()
+      const digitallyReadable =
+        compactText.length >= 120 &&
+        Boolean(
+          parseGuideOcr(extractedText, pdfFile.name).guide_no ||
+          parseGuideOcr(extractedText, pdfFile.name).reference
+        )
+
+      if (digitallyReadable) {
+        setScanProgress(100)
+        // La extracción textual no entrega un porcentaje de confianza de OCR.
+        // Se usa 99 para indicar lectura directa del PDF.
+        applyOcrResult(extractedText, 99, pdfFile, `PDF (${pageLimit} página${pageLimit > 1 ? 's' : ''})`)
+        return
+      }
+
+      // 2) Si el PDF es escaneado, renderizar cada página y ejecutar OCR.
+      setMessage('PDF escaneado detectado. Iniciando OCR de las páginas…')
+      const moduleUrl = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm'
+      const tesseract: any = await import(/* @vite-ignore */ moduleUrl)
+      let ocrText = ''
+      let confidenceTotal = 0
+      let confidencePages = 0
+
+      for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber++) {
+        const page = await pdf.getPage(pageNumber)
+        const viewport = page.getViewport({ scale: 2.2 })
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        if (!context) throw new Error('No se pudo preparar la página del PDF para OCR.')
+
+        canvas.width = Math.ceil(viewport.width)
+        canvas.height = Math.ceil(viewport.height)
+        await page.render({ canvasContext: context, viewport }).promise
+
+        setMessage(`OCR del PDF · página ${pageNumber} de ${pageLimit}…`)
+        const pageBase = 25 + ((pageNumber - 1) / pageLimit) * 75
+        const pageShare = 75 / pageLimit
+
+        const result = await tesseract.recognize(canvas, 'spa', {
+          logger: (event: any) => {
+            if (event?.status === 'recognizing text' && typeof event.progress === 'number') {
+              setScanProgress(Math.min(99, Math.round(pageBase + event.progress * pageShare)))
+            }
+          },
+        })
+
+        const pageText = String(result?.data?.text ?? '')
+        const pageConfidence = Number(result?.data?.confidence ?? 0)
+        ocrText += `\n--- PÁGINA ${pageNumber} ---\n${pageText}\n`
+        if (pageConfidence > 0) {
+          confidenceTotal += pageConfidence
+          confidencePages++
+        }
+
+        canvas.width = 1
+        canvas.height = 1
+      }
+
+      const averageConfidence = confidencePages ? confidenceTotal / confidencePages : 0
+      applyOcrResult(ocrText, averageConfidence, pdfFile, `PDF OCR (${pageLimit} página${pageLimit > 1 ? 's' : ''})`)
+    } catch (error) {
+      const fallbackGuide = guideFromFileName(pdfFile.name)
+      if (fallbackGuide) {
+        setForm((prev) => ({ ...prev, guide_no: fallbackGuide }))
+      }
+      setMessage(
+        `No se pudo completar la lectura automática del PDF: ${error instanceof Error ? error.message : 'error desconocido'}.` +
+        (fallbackGuide ? ` Se recuperó la guía ${fallbackGuide} desde el nombre del archivo.` : '')
+      )
     } finally {
       setScanning(false)
       setScanProgress(100)
@@ -450,13 +586,13 @@ export function GuidesModule({ mode, userId, profile }: Props) {
     <div className="scanner-module">
       <section className="panel scanner-panel">
         <div className="panel-title">
-          <div><h3>Scanner de Guías</h3><p>Foto / imagen / PDF → OCR → validación → registro → seguimiento.</p></div>
+          <div><h3>Scanner de Guías</h3><p>Foto / imagen / PDF → lectura automática / OCR → validación → registro → seguimiento.</p></div>
           <button className="secondary-button" onClick={resetForm}><X size={16} /> Limpiar</button>
         </div>
 
         <div className="scanner-actions">
           <button className="scan-action" onClick={() => cameraRef.current?.click()}><Camera size={22} /><span><b>Tomar foto</b><small>Cámara trasera en celular</small></span></button>
-          <button className="scan-action" onClick={() => fileRef.current?.click()}><Upload size={22} /><span><b>Subir imagen / PDF</b><small>JPG, PNG o PDF</small></span></button>
+          <button className="scan-action" onClick={() => fileRef.current?.click()}><Upload size={22} /><span><b>Subir imagen / PDF</b><small>PDF digital o escaneado · JPG · PNG</small></span></button>
           <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(e) => selectFile(e.target.files?.[0])} />
           <input ref={fileRef} hidden type="file" accept="image/*,.pdf,application/pdf" onChange={(e) => selectFile(e.target.files?.[0])} />
         </div>
