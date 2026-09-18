@@ -1329,3 +1329,127 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Administración */
+.admin-catalogs,
+.audit-grid {
+  display: grid;
+  gap: 12px;
+}
+.catalog-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 10px;
+}
+.catalog-form {
+  border: 1px solid #e1e6ee;
+  background: #fbfcfe;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 7px;
+}
+.catalog-form > b {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.catalog-form input,
+.catalog-form select,
+.inline-admin-form input,
+.inline-admin-form select,
+.kpi-admin-form input,
+.kpi-admin-form select,
+.field-label select {
+  min-height: 33px;
+  border: 1px solid #d9e1ea;
+  background: #fff;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+.admin-three-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.small-catalog {
+  padding: 11px;
+}
+.inline-admin-form {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+.inline-admin-form input,
+.inline-admin-form select {
+  min-width: 180px;
+}
+.kpi-admin-form {
+  display: grid;
+  grid-template-columns: 1.3fr .7fr .6fr 1fr .7fr .5fr auto;
+  gap: 7px;
+  align-items: end;
+  margin: 10px 0;
+}
+.audit-grid {
+  grid-template-columns: 1.4fr 1fr;
+}
+.audit-detail {
+  max-width: 480px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  color: #697588;
+}
+.bulk-import-admin {
+  padding: 13px;
+}
+.bulk-import-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, .8fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+.field-label {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  color: #59677a;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+@media (max-width: 1050px) {
+  .catalog-form-grid,
+  .admin-three-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .kpi-admin-form {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .audit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .catalog-form-grid,
+  .admin-three-grid,
+  .bulk-import-grid {
+    grid-template-columns: 1fr;
+  }
+  .kpi-admin-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .kpi-admin-form {
+    grid-template-columns: 1fr;
+  }
+}
