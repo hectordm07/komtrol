@@ -155,6 +155,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
   const [boxDraft, setBoxDraft] = useState<InboundBox | null>(null)
   const [saving, setSaving] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
+  const readOnly = profile?.role === 'SUPERVISOR'
 
   async function reload() {
     setLoading(true)
@@ -477,7 +478,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
       <div className="inbound-module">
         <section className="panel inbound-hero">
           <div><span className="status-pill">CALLAO · INBOUND</span><h3>Dashboard de Incidencias Inbound</h3><p>Seguimiento de incidencias, sobrantes, notificaciones y cajas operativas.</p></div>
-          <button className="primary-button" onClick={openNewIncident}><Plus size={16}/> Nueva incidencia</button>
+          {!readOnly && <button className="primary-button" onClick={openNewIncident}><Plus size={16}/> Nueva incidencia</button>}
         </section>
         {message && <div className="inline-message">{message}</div>}
         <div className="inbound-kpis">
@@ -489,7 +490,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
         </div>
         <section className="panel">
           <div className="panel-title"><div><h3>Actividad reciente</h3><p>Últimas incidencias de Callao Inbound.</p></div></div>
-          <IncidentRows rows={incidents.slice(0,8)} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus}/>
+          <IncidentRows rows={incidents.slice(0,8)} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={readOnly}/>
         </section>
         {showIncidentForm && <IncidentModal form={incidentForm} setForm={setIncidentForm} profiles={profiles} editing={editingIncident} saving={saving} onClose={() => setShowIncidentForm(false)} onSubmit={saveIncident}/>}
       </div>
@@ -502,12 +503,12 @@ export function InboundModule({ mode, userId, profile }: Props) {
         <section className="panel">
           <div className="panel-title">
             <div><h3>Incidencias Inbound · Callao</h3><p>Crear, modificar, eliminar, actualizar, notificar y exportar.</p></div>
-            <div className="button-row"><button className="secondary-button" onClick={exportIncidents}><Download size={15}/> Exportar</button><button className="primary-button" onClick={openNewIncident}><Plus size={15}/> Registrar</button></div>
+            <div className="button-row"><button className="secondary-button" onClick={exportIncidents}><Download size={15}/> Exportar</button>{!readOnly && <button className="primary-button" onClick={openNewIncident}><Plus size={15}/> Registrar</button>}</div>
           </div>
           <div className="task-toolbar"><div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar incidencia, guía, OC o material…"/></div></div>
           {message && <div className="inline-message">{message}</div>}
-          <IncidentRows rows={visibleIncidents} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus}/>
-          {selectedSurplus.length > 0 && <div className="floating-selection"><b>{selectedSurplus.length} sobrante(s) seleccionado(s)</b><button className="primary-button" disabled={saving} onClick={createBoxFromSurplus}><Boxes size={16}/> Generar caja</button></div>}
+          <IncidentRows rows={visibleIncidents} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={readOnly}/>
+          {!readOnly && selectedSurplus.length > 0 && <div className="floating-selection"><b>{selectedSurplus.length} sobrante(s) seleccionado(s)</b><button className="primary-button" disabled={saving} onClick={createBoxFromSurplus}><Boxes size={16}/> Generar caja</button></div>}
         </section>
         {showIncidentForm && <IncidentModal form={incidentForm} setForm={setIncidentForm} profiles={profiles} editing={editingIncident} saving={saving} onClose={() => setShowIncidentForm(false)} onSubmit={saveIncident}/>}
       </div>
@@ -524,7 +525,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
         {message && <div className="inline-message">{message}</div>}
         <div className="table-wrap">
           <table><thead><tr><th>Caja</th><th>Título</th><th>Estado</th><th>Ítems</th><th>Creación</th><th>Acciones</th></tr></thead>
-          <tbody>{boxes.map((box) => <tr key={box.id}><td><b>{box.box_no}</b></td><td>{box.title || '—'}</td><td><span className="status-pill">{box.status}</span></td><td>{box.inbound_box_items?.length ?? 0}</td><td>{fmt(box.created_at)}</td><td><div className="row-actions"><button className="secondary-button" onClick={()=>openBox(box)}><Edit3 size={14}/> Ver / Editar</button><button className="secondary-button" onClick={()=>exportBox(box)}><Download size={14}/></button><button className="icon-button danger-icon" onClick={()=>deleteBox(box)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table>
+          <tbody>{boxes.map((box) => <tr key={box.id}><td><b>{box.box_no}</b></td><td>{box.title || '—'}</td><td><span className="status-pill">{box.status}</span></td><td>{box.inbound_box_items?.length ?? 0}</td><td>{fmt(box.created_at)}</td><td><div className="row-actions"><button className="secondary-button" onClick={()=>openBox(box)}><Edit3 size={14}/> {readOnly ? 'Ver detalle' : 'Ver / Editar'}</button><button className="secondary-button" onClick={()=>exportBox(box)}><Download size={14}/></button>{!readOnly && <button className="icon-button danger-icon" onClick={()=>deleteBox(box)}><Trash2 size={15}/></button>}</div></td></tr>)}</tbody></table>
           {!boxes.length && <div className="empty-work"><Boxes size={28}/><b>Sin cajas</b><p>Selecciona incidencias tipo SOBRANTE para generar la primera caja.</p></div>}
         </div>
       </section>
@@ -534,21 +535,21 @@ export function InboundModule({ mode, userId, profile }: Props) {
           <section className="modal inbound-box-modal">
             <div className="modal-head"><div><h2>{boxDraft.box_no}</h2><p>Detalle editable de sobrantes.</p></div><button className="icon-button" onClick={()=>setSelectedBox(null)}><X size={19}/></button></div>
             <div className="form-grid">
-              <label>Título<input value={boxDraft.title || ''} onChange={(e)=>setBoxDraft({...boxDraft,title:e.target.value})}/></label>
-              <label>Estado<select value={boxDraft.status} onChange={(e)=>setBoxDraft({...boxDraft,status:e.target.value as InboundBox['status']})}><option>ABIERTA</option><option>CERRADA</option><option>DESPACHADA</option><option>ANULADA</option></select></label>
-              <label className="span-2">Observación<textarea rows={2} value={boxDraft.notes || ''} onChange={(e)=>setBoxDraft({...boxDraft,notes:e.target.value})}/></label>
+              <label>Título<input disabled={readOnly} value={boxDraft.title || ''} onChange={(e)=>setBoxDraft({...boxDraft,title:e.target.value})}/></label>
+              <label>Estado<select disabled={readOnly} value={boxDraft.status} onChange={(e)=>setBoxDraft({...boxDraft,status:e.target.value as InboundBox['status']})}><option>ABIERTA</option><option>CERRADA</option><option>DESPACHADA</option><option>ANULADA</option></select></label>
+              <label className="span-2">Observación<textarea disabled={readOnly} rows={2} value={boxDraft.notes || ''} onChange={(e)=>setBoxDraft({...boxDraft,notes:e.target.value})}/></label>
             </div>
             <div className="table-wrap box-item-editor"><table><thead><tr><th>Material</th><th>Descripción</th><th>Cantidad</th><th>UM</th><th>Stock Code</th><th>Ubicación</th><th></th></tr></thead><tbody>
               {(boxDraft.inbound_box_items ?? []).map((item,index)=><tr key={item.id}>
                 <td><b>{item.material_no || '—'}</b></td><td>{item.description || '—'}</td>
-                <td><input type="number" step="any" value={item.quantity} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,quantity:Number(e.target.value)}:x)})}/></td>
-                <td><input value={item.unit} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,unit:e.target.value}:x)})}/></td>
-                <td><input value={item.stock_code || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,stock_code:e.target.value}:x)})}/></td>
-                <td><input value={item.location || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,location:e.target.value}:x)})}/></td>
-                <td><button className="icon-button danger-icon" onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button></td>
+                <td><input disabled={readOnly} type="number" step="any" value={item.quantity} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,quantity:Number(e.target.value)}:x)})}/></td>
+                <td><input disabled={readOnly} value={item.unit} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,unit:e.target.value}:x)})}/></td>
+                <td><input disabled={readOnly} value={item.stock_code || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,stock_code:e.target.value}:x)})}/></td>
+                <td><input disabled={readOnly} value={item.location || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,location:e.target.value}:x)})}/></td>
+                <td>{!readOnly && <button className="icon-button danger-icon" onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button>}</td>
               </tr>)}
             </tbody></table></div>
-            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBox(boxDraft)}><Download size={15}/> Exportar</button><button className="primary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button></div>
+            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBox(boxDraft)}><Download size={15}/> Exportar</button>{!readOnly && <button className="primary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}</div>
           </section>
         </div>
       )}
@@ -556,7 +557,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
   )
 }
 
-function IncidentRows({ rows, profileName, sendingId, onEdit, onDelete, onSend, onStatus, selectedSurplus, onToggle }: {
+function IncidentRows({ rows, profileName, sendingId, onEdit, onDelete, onSend, onStatus, selectedSurplus, onToggle, readOnly }: {
   rows: Incident[]
   profileName:(id?:string|null)=>string
   sendingId:string|null
@@ -566,21 +567,22 @@ function IncidentRows({ rows, profileName, sendingId, onEdit, onDelete, onSend, 
   onStatus:(row:Incident,status:Incident['status'])=>void
   selectedSurplus:string[]
   onToggle:(id:string)=>void
+  readOnly:boolean
 }) {
   if (!rows.length) return <div className="empty-work"><AlertTriangle size={27}/><b>Sin incidencias</b></div>
   return <div className="table-wrap"><table><thead><tr><th></th><th>Incidencia</th><th>Tipo</th><th>Guía / OC</th><th>Material</th><th>Diferencia</th><th>Responsable</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
     {rows.map((row)=>{
       const diff = Number(row.qty_received || 0)-Number(row.qty_expected || 0)
       return <tr key={row.id}>
-        <td>{row.incident_type==='SOBRANTE' && row.status!=='CERRADO' ? <input type="checkbox" checked={selectedSurplus.includes(row.id)} onChange={()=>onToggle(row.id)}/> : null}</td>
+        <td>{!readOnly && row.incident_type==='SOBRANTE' && row.status!=='CERRADO' ? <input type="checkbox" checked={selectedSurplus.includes(row.id)} onChange={()=>onToggle(row.id)}/> : null}</td>
         <td><b>{row.incident_no}</b><small>{fmt(row.created_at)}</small></td>
         <td><span className={row.incident_type==='SOBRANTE'?'status-pill warning':'status-pill'}>{row.incident_type.replaceAll('_',' ')}</span></td>
         <td>{row.guide_no || row.purchase_order || '—'}</td>
         <td><b>{row.material_no || '—'}</b><small>{row.description || ''}</small></td>
         <td>{diff === 0 ? '—' : diff.toLocaleString('es-PE',{maximumFractionDigits:3})}</td>
         <td>{profileName(row.assigned_to)}</td>
-        <td><select className="inline-select" value={row.status} onChange={(e)=>onStatus(row,e.target.value as Incident['status'])}><option>ABIERTO</option><option>EN_REVISION</option><option>NOTIFICADO</option><option>CERRADO</option></select></td>
-        <td><div className="row-actions"><button className="icon-button" title="Editar" onClick={()=>onEdit(row)}><Edit3 size={14}/></button><button className="icon-button" title="Enviar correo" disabled={sendingId===row.id} onClick={()=>onSend(row)}>{sendingId===row.id?<RefreshCw className="spin" size={14}/>:<Mail size={14}/>}</button><button className="icon-button danger-icon" title="Eliminar" onClick={()=>onDelete(row)}><Trash2 size={14}/></button></div></td>
+        <td>{readOnly ? <span className="status-pill">{row.status.replaceAll('_',' ')}</span> : <select className="inline-select" value={row.status} onChange={(e)=>onStatus(row,e.target.value as Incident['status'])}><option>ABIERTO</option><option>EN_REVISION</option><option>NOTIFICADO</option><option>CERRADO</option></select>}</td>
+        <td>{readOnly ? <span className="read-only-note">Solo lectura</span> : <div className="row-actions"><button className="icon-button" title="Editar" onClick={()=>onEdit(row)}><Edit3 size={14}/></button><button className="icon-button" title="Enviar correo" disabled={sendingId===row.id} onClick={()=>onSend(row)}>{sendingId===row.id?<RefreshCw className="spin" size={14}/>:<Mail size={14}/>}</button><button className="icon-button danger-icon" title="Eliminar" onClick={()=>onDelete(row)}><Trash2 size={14}/></button></div>}</td>
       </tr>
     })}
   </tbody></table></div>
