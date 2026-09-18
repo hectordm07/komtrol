@@ -25,6 +25,7 @@ type Profile = {
   warehouse?: string | null
   project?: string | null
   group_name?: string | null
+  shift_name?: string | null
 }
 
 type Task = {
@@ -36,6 +37,7 @@ type Task = {
   warehouse: string | null
   project: string | null
   group_name: string | null
+  shift_name: string | null
   responsible_id: string | null
   created_by: string
   category: string | null
@@ -59,6 +61,10 @@ type Props = {
   mode: Mode
   userId: string
   profile: Profile | null
+  scopeWarehouse?: string
+  scopeProject?: string
+  scopeGroup?: string
+  scopeShift?: string
 }
 
 const emptyForm = {
@@ -68,6 +74,7 @@ const emptyForm = {
   warehouse: '',
   project: '',
   group_name: '',
+  shift_name: '',
   responsible_id: '',
   category: 'INFORMATIVO',
   priority: 'MEDIA' as Task['priority'],
@@ -106,7 +113,15 @@ function defaultWorkType(mode: Mode): Task['work_type'] {
   return 'TAREA'
 }
 
-export function TasksModule({ mode, userId, profile }: Props) {
+export function TasksModule({
+  mode,
+  userId,
+  profile,
+  scopeWarehouse,
+  scopeProject,
+  scopeGroup,
+  scopeShift,
+}: Props) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [categories, setCategories] = useState<string[]>(['INFORMATIVO'])
@@ -117,16 +132,17 @@ export function TasksModule({ mode, userId, profile }: Props) {
   const [search, setSearch] = useState('')
   const [form, setForm] = useState({
     ...emptyForm,
-    warehouse: profile?.warehouse ?? '',
-    project: profile?.project ?? '',
-    group_name: profile?.group_name ?? '',
+    warehouse: scopeWarehouse ?? profile?.warehouse ?? '',
+    project: scopeProject ?? profile?.project ?? '',
+    group_name: scopeGroup ?? profile?.group_name ?? '',
+    shift_name: scopeShift ?? profile?.shift_name ?? '',
   })
 
   async function reload() {
     setLoading(true)
     const [taskRes, profileRes, categoryRes] = await Promise.all([
       supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(500),
-      supabase.from('user_profiles').select('user_id,dni,full_name,role,active,warehouse,project,group_name').eq('active', true).order('full_name'),
+      supabase.from('user_profiles').select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name').eq('active', true).order('full_name'),
       supabase.from('categories').select('name').eq('active', true).order('name'),
     ])
     if (taskRes.error) setMessage(taskRes.error.message)
@@ -144,15 +160,21 @@ export function TasksModule({ mode, userId, profile }: Props) {
     setForm((prev) => ({
       ...prev,
       work_type: defaultWorkType(mode),
-      warehouse: prev.warehouse || profile?.warehouse || '',
-      project: prev.project || profile?.project || '',
-      group_name: prev.group_name || profile?.group_name || '',
+      warehouse: scopeWarehouse ?? prev.warehouse || profile?.warehouse || '',
+      project: scopeProject ?? prev.project || profile?.project || '',
+      group_name: scopeGroup ?? prev.group_name || profile?.group_name || '',
+      shift_name: scopeShift ?? prev.shift_name || profile?.shift_name || '',
       responsible_id: mode === 'area-personal' ? userId : prev.responsible_id,
     }))
-  }, [mode, profile?.warehouse, profile?.project, profile?.group_name, userId])
+  }, [mode, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name, scopeWarehouse, scopeProject, scopeGroup, scopeShift, userId])
 
   const filtered = useMemo(() => {
     let data = [...tasks]
+
+    if (scopeWarehouse) data = data.filter((t) => t.warehouse === scopeWarehouse)
+    if (scopeProject) data = data.filter((t) => t.project === scopeProject)
+    if (scopeGroup) data = data.filter((t) => t.group_name === scopeGroup)
+    if (scopeShift) data = data.filter((t) => t.shift_name === scopeShift)
 
     if (mode === 'mi-trabajo') {
       data = data.filter((t) => t.responsible_id === userId || t.created_by === userId)
@@ -174,13 +196,14 @@ export function TasksModule({ mode, userId, profile }: Props) {
           t.warehouse,
           t.project,
           t.group_name,
+          t.shift_name,
           t.category,
           t.email_subject,
         ].some((value) => String(value ?? '').toLowerCase().includes(q))
       )
     }
     return data
-  }, [tasks, mode, search, userId])
+  }, [tasks, mode, search, userId, scopeWarehouse, scopeProject, scopeGroup, scopeShift])
 
   const counts = useMemo(() => {
     const total = filtered.length
@@ -190,6 +213,8 @@ export function TasksModule({ mode, userId, profile }: Props) {
     const average = total ? Math.round(filtered.reduce((sum, t) => sum + Number(t.progress || 0), 0) / total) : 0
     return { total, closed, overdue, pending, average }
   }, [filtered])
+
+  const scopedProfiles = profiles.filter((p) => !scopeWarehouse || p.warehouse === scopeWarehouse)
 
   const profileName = (id?: string | null) =>
     profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
@@ -206,7 +231,8 @@ export function TasksModule({ mode, userId, profile }: Props) {
       description: form.description.trim() || null,
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
       project: form.project.trim() || profile?.project || null,
-      group_name: form.group_name.trim() || profile?.group_name || null,
+      group_name: form.group_name.trim() || scopeGroup || profile?.group_name || null,
+      shift_name: form.shift_name.trim() || scopeShift || profile?.shift_name || null,
       responsible_id: form.work_type === 'PERSONAL' ? userId : (form.responsible_id || null),
       created_by: userId,
       category: form.category || null,
@@ -241,9 +267,10 @@ export function TasksModule({ mode, userId, profile }: Props) {
     setForm({
       ...emptyForm,
       work_type: defaultWorkType(mode),
-      warehouse: profile?.warehouse ?? '',
-      project: profile?.project ?? '',
-      group_name: profile?.group_name ?? '',
+      warehouse: scopeWarehouse ?? profile?.warehouse ?? '',
+      project: scopeProject ?? profile?.project ?? '',
+      group_name: scopeGroup ?? profile?.group_name ?? '',
+      shift_name: scopeShift ?? profile?.shift_name ?? '',
       responsible_id: mode === 'area-personal' ? userId : '',
     })
     setMessage(`${data.task_no} creada correctamente.`)
@@ -287,9 +314,10 @@ export function TasksModule({ mode, userId, profile }: Props) {
       ...prev,
       work_type: defaultWorkType(mode),
       responsible_id: mode === 'area-personal' ? userId : prev.responsible_id,
-      warehouse: prev.warehouse || profile?.warehouse || '',
-      project: prev.project || profile?.project || '',
-      group_name: prev.group_name || profile?.group_name || '',
+      warehouse: scopeWarehouse ?? prev.warehouse || profile?.warehouse || '',
+      project: scopeProject ?? prev.project || profile?.project || '',
+      group_name: scopeGroup ?? prev.group_name || profile?.group_name || '',
+      shift_name: scopeShift ?? prev.shift_name || profile?.shift_name || '',
     }))
     setShowForm(true)
   }
@@ -389,7 +417,7 @@ export function TasksModule({ mode, userId, profile }: Props) {
               <label>Responsable
                 <select value={form.responsible_id} disabled={form.work_type === 'PERSONAL'} onChange={(e) => setForm({ ...form, responsible_id: e.target.value })}>
                   <option value="">Sin asignar</option>
-                  {profiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}
+                  {scopedProfiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}
                 </select>
               </label>
               <label>Categoría
