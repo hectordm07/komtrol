@@ -23,6 +23,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { UsersAdmin } from './components/UsersAdmin'
 import { ModulePlaceholder } from './components/ModulePlaceholder'
+import { TasksModule } from './components/TasksModule'
 
 type Tab = string
 
@@ -32,6 +33,9 @@ type Profile = {
   full_name: string
   role: 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
   active: boolean
+  warehouse?: string | null
+  project?: string | null
+  group_name?: string | null
 }
 
 type Incident = {
@@ -473,6 +477,8 @@ function Workspace({ session }: { session: Session }) {
     group.items.map((item) => ({ ...item, section: group.section }))
   )
   const currentNav = flatNav.find((item) => item.id === tab)
+  const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
+  const isTaskTab = taskTabs.includes(tab as typeof taskTabs[number])
 
   return (
     <div className="app-shell">
@@ -598,11 +604,19 @@ function Workspace({ session }: { session: Session }) {
                 </section>
               )}
 
+              {isTaskTab && (
+                <TasksModule
+                  mode={tab as typeof taskTabs[number]}
+                  userId={user.id}
+                  profile={profile}
+                />
+              )}
+
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
                 <UsersAdmin />
               )}
 
-              {!['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
