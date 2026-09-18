@@ -13,6 +13,7 @@ type ProfileRow = {
   warehouse: string | null
   project: string | null
   group_name: string | null
+  shift_name: string | null
   position: string | null
   created_at: string
 }
@@ -24,6 +25,7 @@ type ImportUser = {
   warehouse: string
   project: string
   group_name: string
+  shift_name: string
   position: string
   pin: string
 }
@@ -105,6 +107,7 @@ function parseUsers(text: string): ImportUser[] {
     warehouse: indexOf('ALMACEN', 'WAREHOUSE', 'CENTRO'),
     project: indexOf('PROYECTO', 'PROJECT'),
     group: indexOf('GRUPO', 'GROUP'),
+    shift: indexOf('GUARDIA', 'TURNO', 'SHIFT', 'SHIFT_NAME'),
     position: indexOf('CARGO', 'PUESTO', 'POSITION'),
     pin: indexOf('PIN', 'CLAVE'),
   }
@@ -122,6 +125,7 @@ function parseUsers(text: string): ImportUser[] {
       warehouse: indexes.warehouse >= 0 ? String(cells[indexes.warehouse] ?? '').trim() : '',
       project: indexes.project >= 0 ? String(cells[indexes.project] ?? '').trim() : '',
       group_name: indexes.group >= 0 ? String(cells[indexes.group] ?? '').trim() : '',
+      shift_name: indexes.shift >= 0 ? String(cells[indexes.shift] ?? '').trim() : '',
       position: indexes.position >= 0 ? String(cells[indexes.position] ?? '').trim() : '',
       pin: indexes.pin >= 0 ? String(cells[indexes.pin] ?? '').replace(/\D/g, '').slice(0, 8) : '',
     }
@@ -176,7 +180,7 @@ export function UsersAdmin() {
     setLoading(true)
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id,dni,full_name,role,active,warehouse,project,group_name,position,created_at')
+      .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,created_at')
       .order('full_name')
     if (error) setMessage(error.message)
     setProfiles((data ?? []) as ProfileRow[])
@@ -230,16 +234,26 @@ export function UsersAdmin() {
       return
     }
 
-    setResults((data.results ?? []) as ImportResult[])
+    const resultRows = (data.results ?? []) as ImportResult[]
+    setResults(resultRows)
+
+    for (const row of parsed) {
+      if (!row.shift_name) continue
+      await supabase
+        .from('user_profiles')
+        .update({ shift_name: row.shift_name })
+        .eq('dni', row.dni)
+    }
+
     setMessage(`Importación terminada: ${data.summary.created} creados, ${data.summary.skipped} existentes y ${data.summary.errors} errores.`)
     await loadProfiles()
   }
 
   function downloadTemplate() {
     downloadCsv('KOMTROL_Plantilla_Usuarios.csv', [
-      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'CARGO', 'PIN'],
-      ['12345678', 'NOMBRE APELLIDO', 'TRABAJADOR', 'ANTAMINA', 'ALMACEN MINA', 'PALAS', 'ALMACENERO', ''],
-      ['87654321', 'NOMBRE APELLIDO', 'COORDINADOR', 'ANTAMINA', 'ALMACEN MINA', 'CAMIONES', 'COORDINADOR', ''],
+      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'CARGO', 'PIN'],
+      ['12345678', 'NOMBRE APELLIDO', 'TRABAJADOR', 'ANTAMINA', 'ALMACEN ANTAMINA', 'PALAS', 'GUARDIA A', 'ALMACENERO', ''],
+      ['87654321', 'NOMBRE APELLIDO', 'COORDINADOR', 'CALLAO', 'INBOUND CALLAO', 'INBOUND', 'GUARDIA A', 'COORDINADOR', ''],
     ])
   }
 
@@ -247,8 +261,8 @@ export function UsersAdmin() {
     const created = results.filter((r) => r.status === 'CREADO')
     if (!created.length) return
     downloadCsv('KOMTROL_Credenciales_Creadas.csv', [
-      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'PIN'],
-      ...created.map((r) => [r.dni, r.full_name, r.role, r.warehouse, r.project, r.group_name, r.pin]),
+      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'PIN'],
+      ...created.map((r) => [r.dni, r.full_name, r.role, r.warehouse, r.project, r.group_name, r.shift_name || '', r.pin]),
     ])
   }
 
@@ -275,7 +289,7 @@ export function UsersAdmin() {
 
         <div className="bulk-user-grid">
           <div className="bulk-input-card">
-            <div className="bulk-step"><span>1</span><div><b>Copia desde Excel o carga CSV</b><small>Columnas: DNI, NOMBRE, ROL, ALMACEN, PROYECTO, GRUPO, CARGO, PIN.</small></div></div>
+            <div className="bulk-step"><span>1</span><div><b>Copia desde Excel o carga CSV</b><small>Columnas: DNI, NOMBRE, ROL, ALMACEN, PROYECTO, GRUPO, GUARDIA, CARGO, PIN.</small></div></div>
             <label className="upload-box compact-upload">
               <FileUp size={20} />
               <span><b>Seleccionar CSV</b><small>También puedes pegar directamente filas copiadas de Excel.</small></span>
@@ -286,7 +300,7 @@ export function UsersAdmin() {
               rows={9}
               value={importText}
               onChange={(e) => { setImportText(e.target.value); setResults([]); setMessage('') }}
-              placeholder={'DNI\tNOMBRE\tROL\tALMACEN\tPROYECTO\tGRUPO\tCARGO\tPIN\n12345678\tNOMBRE APELLIDO\tTRABAJADOR\tANTAMINA\tALMACEN MINA\tPALAS\tALMACENERO\t'}
+              placeholder={'DNI\tNOMBRE\tROL\tALMACEN\tPROYECTO\tGRUPO\tGUARDIA\tCARGO\tPIN\n12345678\tNOMBRE APELLIDO\tTRABAJADOR\tANTAMINA\tALMACEN ANTAMINA\tPALAS\tGUARDIA A\tALMACENERO\t'}
             />
             <small className="muted">Si PIN queda vacío, KOMTROL genera automáticamente un PIN de 6 dígitos y lo muestra una sola vez en el resultado.</small>
           </div>
@@ -316,7 +330,7 @@ export function UsersAdmin() {
         {parsed.length > 0 && (
           <div className="table-wrap preview-table">
             <table>
-              <thead><tr><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>PIN</th><th>Validación</th></tr></thead>
+              <thead><tr><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>PIN</th><th>Validación</th></tr></thead>
               <tbody>
                 {parsed.slice(0, 30).map((row, index) => {
                   const ok = /^\d{8}$/.test(row.dni) && Boolean(row.full_name) && (!row.pin || /^\d{4,8}$/.test(row.pin))
@@ -328,6 +342,7 @@ export function UsersAdmin() {
                       <td>{row.warehouse || '—'}</td>
                       <td>{row.project || '—'}</td>
                       <td>{row.group_name || '—'}</td>
+                      <td>{row.shift_name || '—'}</td>
                       <td>{row.pin ? 'Definido' : 'Auto'}</td>
                       <td>{ok ? <span className="ok-text"><CheckCircle2 size={15} /> Válido</span> : <span className="error-text"><XCircle size={15} /> Revisar</span>}</td>
                     </tr>
@@ -376,7 +391,7 @@ export function UsersAdmin() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Cargo</th></tr></thead>
+              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Cargo</th></tr></thead>
               <tbody>
                 {visibleProfiles.map((p) => (
                   <tr key={p.user_id}>
@@ -387,6 +402,7 @@ export function UsersAdmin() {
                     <td>{p.warehouse || '—'}</td>
                     <td>{p.project || '—'}</td>
                     <td>{p.group_name || '—'}</td>
+                    <td>{p.shift_name || '—'}</td>
                     <td>{p.position || '—'}</td>
                   </tr>
                 ))}
