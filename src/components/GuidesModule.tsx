@@ -346,30 +346,36 @@ export function GuidesModule({ mode, userId, profile }: Props) {
         const page = await pdf.getPage(pageNumber)
         const content = await page.getTextContent()
         const pageText = content.items
-          .map((item: any) => typeof item?.str === 'string' ? item.str : '')
-          .filter(Boolean)
-          .join(' ')
+          .map((item: any) => {
+            const value = typeof item?.str === 'string' ? item.str : ''
+            return value ? value + (item?.hasEOL ? '\n' : ' ') : ''
+          })
+          .join('')
         extractedText += `\n--- PÁGINA ${pageNumber} ---\n${pageText}\n`
       }
 
       const compactText = extractedText.replace(/\s+/g, ' ').trim()
+      const directParsed = parseGuideOcr(extractedText, pdfFile.name)
+      const needsLineOcr =
+        directParsed.guide_type === 'REPOSICION' &&
+        directParsed.lines.length === 0
       const digitallyReadable =
         compactText.length >= 120 &&
-        Boolean(
-          parseGuideOcr(extractedText, pdfFile.name).guide_no ||
-          parseGuideOcr(extractedText, pdfFile.name).reference
-        )
+        Boolean(directParsed.guide_no || directParsed.reference) &&
+        !needsLineOcr
 
       if (digitallyReadable) {
         setScanProgress(100)
         // La extracción textual no entrega un porcentaje de confianza de OCR.
         // Se usa 99 para indicar lectura directa del PDF.
-        applyOcrResult(extractedText, 99, pdfFile, `PDF (${pageLimit} página${pageLimit > 1 ? 's' : ''})`)
+        applyOcrResult(extractedText, 99, pdfFile, `PDF digital (${pageLimit} página${pageLimit > 1 ? 's' : ''})`)
         return
       }
 
       // 2) Si el PDF es escaneado, renderizar cada página y ejecutar OCR.
-      setMessage('PDF escaneado detectado. Iniciando OCR de las páginas…')
+      setMessage(needsLineOcr
+        ? 'Cabecera leída, pero faltan líneas de Reposición. Iniciando OCR visual…'
+        : 'PDF escaneado detectado. Iniciando OCR de las páginas…')
       const moduleUrl = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm'
       const tesseract: any = await import(/* @vite-ignore */ moduleUrl)
       let ocrText = ''
