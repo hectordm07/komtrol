@@ -348,7 +348,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
 
   function buildEmail() {
     if (!selected) return
-    if (form.final_status !== 'OBSERVADO') {
+    if (selected.followup?.final_status !== 'OBSERVADO') {
       setMessage('Para reportar por correo, primero establece ESTATUS FINAL = OBSERVADO y guarda el seguimiento.')
       return
     }
@@ -651,7 +651,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
 
               <div className="modal-actions span-2 oc-followup-actions">
                 <button type="button" className="secondary-button" onClick={closeFollowup}>Cerrar</button>
-                <button type="button" className="secondary-button" disabled={form.final_status !== 'OBSERVADO'} onClick={buildEmail}>
+                <button type="button" className="secondary-button" disabled={selected.followup?.final_status !== 'OBSERVADO'} onClick={buildEmail}>
                   <Mail size={16} /> Reportar observado
                 </button>
                 <button className="primary-button" disabled={saving}>
