@@ -508,8 +508,10 @@ function Workspace({ session }: { session: Session }) {
   const isCallaoSupervisor = role === 'SUPERVISOR' && profile?.warehouse === 'CALLAO'
   const isCallaoWorker = role === 'TRABAJADOR' && profile?.warehouse === 'CALLAO'
 
-  const navSections = isCallaoCoordinator
-    ? allNavSections
+  const navSections = !profile
+    ? []
+    : isCallaoCoordinator
+      ? allNavSections
         .filter((group) => group.section === 'INBOUND · CALLAO')
         .map((group) => ({
           ...group,
@@ -517,8 +519,8 @@ function Workspace({ session }: { session: Session }) {
             ['inbound-dashboard','inbound-personal','inbound-tareas','inbound-incidencias','inbound-cajas'].includes(item.id)
           ),
         }))
-    : isCallaoSupervisor
-      ? allNavSections
+      : isCallaoSupervisor
+        ? allNavSections
           .filter((group) => group.section === 'INBOUND · CALLAO')
           .map((group) => ({
             ...group,
@@ -526,8 +528,8 @@ function Workspace({ session }: { session: Session }) {
               ['inbound-dashboard','inbound-incidencias','inbound-cajas'].includes(item.id)
             ),
           }))
-      : isCallaoWorker
-        ? allNavSections
+        : isCallaoWorker
+          ? allNavSections
             .filter((group) => group.section === 'INBOUND · CALLAO')
             .map((group) => ({
               ...group,
@@ -535,9 +537,9 @@ function Workspace({ session }: { session: Session }) {
                 ['inbound-dashboard','inbound-personal','inbound-incidencias','inbound-cajas'].includes(item.id)
               ),
             }))
-        : allNavSections.filter((group) =>
-            role === 'ADMINISTRADOR' || group.section !== 'INBOUND · CALLAO'
-          )
+          : allNavSections.filter((group) =>
+              role === 'ADMINISTRADOR' || group.section !== 'INBOUND · CALLAO'
+            )
 
   const flatNav = navSections.flatMap((group) =>
     group.items.map((item) => ({ ...item, section: group.section }))
