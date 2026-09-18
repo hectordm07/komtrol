@@ -653,7 +653,9 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
         setMessage(
           evidenceError
             ? `Incidencia ${saved.incident_type} registrada y correo enviado, pero la foto no pudo guardarse: ${evidenceError}`
-            : `Incidencia ${saved.incident_type} registrada, foto guardada${photoFile ? ' y adjuntada al correo' : ''} y correo automático enviado.`
+            : photoFile
+              ? `Incidencia ${saved.incident_type} registrada, foto guardada y adjuntada al correo automático.`
+              : `Incidencia ${saved.incident_type} registrada y correo automático enviado.`
         )
       }
     }
