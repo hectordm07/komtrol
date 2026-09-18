@@ -151,7 +151,7 @@ begin
       warehouse, source, line_count, notes, created_by, updated_at
     )
     values (
-      coalesce(new.emission_date, new.reception_at::date, current_date),
+      coalesce(new.reception_at::date, new.created_at::date, current_date),
       coalesce(new.supplier, 'POR_VALIDAR'),
       new.id, new.guide_no, new.reference, new.document_no, new.warehouse,
       coalesce(new.data_source, 'SCANNER'), new.line_count, new.notes,
@@ -242,7 +242,7 @@ insert into public.replenishment_receipts (
   warehouse, source, line_count, notes, created_by
 )
 select
-  coalesce(g.emission_date, g.reception_at::date, g.created_at::date),
+  coalesce(g.reception_at::date, g.created_at::date, current_date),
   coalesce(g.supplier, 'POR_VALIDAR'),
   g.id, g.guide_no, g.reference, g.document_no, g.warehouse,
   coalesce(g.data_source, 'MIGRADO'), g.line_count, g.notes, g.created_by
