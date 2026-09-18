@@ -25,6 +25,7 @@ import { UsersAdmin } from './components/UsersAdmin'
 import { ModulePlaceholder } from './components/ModulePlaceholder'
 import { TasksModule } from './components/TasksModule'
 import { GuidesModule } from './components/GuidesModule'
+import { MaterialsModule } from './components/MaterialsModule'
 
 type Tab = string
 
@@ -487,6 +488,12 @@ function Workspace({ session }: { session: Session }) {
     tab === 'seguimiento-guias' ? 'seguimiento' :
     tab === 'oc-cargos' ? 'oc-cargos' :
     'reposicion'
+  const materialTabs = ['materiales', 'master-materiales', 'hoja-ubicacion'] as const
+  const isMaterialTab = materialTabs.includes(tab as typeof materialTabs[number])
+  const materialMode =
+    tab === 'master-materiales' ? 'master' :
+    tab === 'hoja-ubicacion' ? 'ubicacion' :
+    'consulta'
 
   return (
     <div className="app-shell">
@@ -628,11 +635,19 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {isMaterialTab && (
+                <MaterialsModule
+                  mode={materialMode}
+                  userId={user.id}
+                  isAdmin={role === 'ADMINISTRADOR'}
+                />
+              )}
+
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isGuideTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isGuideTab && !isMaterialTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
