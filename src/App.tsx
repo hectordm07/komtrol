@@ -29,6 +29,7 @@ import { MaterialsModule } from './components/MaterialsModule'
 import { OperationsControlModule } from './components/OperationsControlModule'
 import { DashboardModule } from './components/DashboardModule'
 import { AdministrationModule } from './components/AdministrationModule'
+import { AlertsModule } from './components/AlertsModule'
 
 type Tab = string
 
@@ -684,11 +685,15 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {tab === 'alertas' && (
+                <AlertsModule />
+              )}
+
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isGuideTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isGuideTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
