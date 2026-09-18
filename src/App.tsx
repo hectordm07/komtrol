@@ -22,8 +22,9 @@ import {
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { UsersAdmin } from './components/UsersAdmin'
+import { ModulePlaceholder } from './components/ModulePlaceholder'
 
-type Tab = 'inicio' | 'incidencias' | 'correos' | 'usuarios' | 'configuracion'
+type Tab = string
 
 type Profile = {
   user_id: string
@@ -382,15 +383,96 @@ function Workspace({ session }: { session: Session }) {
     await supabase.auth.signOut()
   }
 
-  const nav = [
-    { id: 'inicio' as Tab, label: 'Inicio', icon: BarChart3 },
-    { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
-    { id: 'correos' as Tab, label: 'Correos', icon: Mail },
+  const navSections = [
+    {
+      section: 'INICIO',
+      items: [
+        { id: 'inicio' as Tab, label: 'Resumen del almacén', icon: BarChart3 },
+        { id: 'mi-trabajo' as Tab, label: 'Mi trabajo', icon: ClipboardList },
+        { id: 'alertas' as Tab, label: 'Alertas', icon: Bell },
+      ],
+    },
+    {
+      section: 'TRABAJO',
+      items: [
+        { id: 'area-personal' as Tab, label: 'Área Personal', icon: ClipboardList },
+        { id: 'proyectos' as Tab, label: 'Proyectos / Almacenes', icon: Boxes },
+        { id: 'relevos' as Tab, label: 'Relevos', icon: RefreshCw },
+        { id: 'tareas' as Tab, label: 'Tareas', icon: ClipboardList },
+        { id: 'lista' as Tab, label: 'Lista', icon: ClipboardList },
+        { id: 'tablero' as Tab, label: 'Tablero', icon: Boxes },
+        { id: 'calendario' as Tab, label: 'Calendario', icon: BarChart3 },
+      ],
+    },
+    {
+      section: 'OPERACIONES',
+      items: [
+        { id: 'scanner-guias' as Tab, label: 'Scanner de Guías', icon: PackageCheck },
+        { id: 'seguimiento-guias' as Tab, label: 'Seguimiento de Guías', icon: Search },
+        { id: 'ingresos-reposicion' as Tab, label: 'Ingresos de Reposición', icon: PackageCheck },
+        { id: 'ingresos-consignacion' as Tab, label: 'Ingresos de Consignación', icon: PackageCheck },
+        { id: 'oc-cargos' as Tab, label: 'OC / Cargos Directos', icon: ClipboardList },
+        { id: 'os-prestamos' as Tab, label: 'OS / Préstamos', icon: Boxes },
+        { id: 'outbound' as Tab, label: 'Consumos / Outbound', icon: Send },
+        { id: 'hoja-ubicacion' as Tab, label: 'Hoja de Ubicación', icon: ClipboardList },
+        { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
+      ],
+    },
+    {
+      section: 'CONTROL',
+      items: [
+        { id: 'materiales' as Tab, label: 'Materiales', icon: Boxes },
+        { id: 'inventarios' as Tab, label: 'Inventarios', icon: ClipboardList },
+        { id: 'transitos' as Tab, label: 'Tránsitos', icon: RefreshCw },
+        { id: 'danados' as Tab, label: 'Dañados', icon: AlertTriangle },
+        { id: 'activos' as Tab, label: 'Activos', icon: ShieldCheck },
+      ],
+    },
+    {
+      section: 'DASHBOARD',
+      items: [
+        { id: 'dashboard-operacion' as Tab, label: 'Operación', icon: BarChart3 },
+        { id: 'inbound-outbound' as Tab, label: 'Inbound / Outbound', icon: BarChart3 },
+        { id: 'eri' as Tab, label: 'ERI', icon: BarChart3 },
+        { id: 'sobrantes-faltantes' as Tab, label: 'Sobrantes / Faltantes', icon: BarChart3 },
+        { id: 'diferencias-inventario' as Tab, label: 'Diferencias inventario', icon: BarChart3 },
+        { id: 'dashboard-transitos' as Tab, label: 'Tránsitos', icon: BarChart3 },
+        { id: 'uca' as Tab, label: 'UCA', icon: BarChart3 },
+        { id: 'ahorros' as Tab, label: 'Ahorros', icon: BarChart3 },
+        { id: 'perfect-ship' as Tab, label: 'Perfect Ship', icon: BarChart3 },
+        { id: 'consignaciones' as Tab, label: 'Consignaciones', icon: BarChart3 },
+        { id: 'vhs' as Tab, label: 'VHS', icon: BarChart3 },
+        { id: 'safe' as Tab, label: 'SAFE', icon: BarChart3 },
+      ],
+    },
     ...(role === 'ADMINISTRADOR'
-      ? [{ id: 'usuarios' as Tab, label: 'Usuarios', icon: ShieldCheck }]
+      ? [{
+          section: 'ADMINISTRACIÓN',
+          items: [
+            { id: 'master-materiales' as Tab, label: 'Master de Materiales', icon: Boxes },
+            { id: 'cargas-masivas' as Tab, label: 'Cargas Masivas', icon: Upload },
+            { id: 'usuarios' as Tab, label: 'Usuarios', icon: ShieldCheck },
+            { id: 'almacenes' as Tab, label: 'Almacenes', icon: Boxes },
+            { id: 'categorias' as Tab, label: 'Categorías', icon: ClipboardList },
+            { id: 'metas-kpi' as Tab, label: 'Metas / KPI', icon: BarChart3 },
+            { id: 'periodos' as Tab, label: 'Periodos', icon: RefreshCw },
+            { id: 'auditoria' as Tab, label: 'Auditoría', icon: ShieldCheck },
+          ],
+        }]
       : []),
-    { id: 'configuracion' as Tab, label: 'Configuración', icon: Settings },
+    {
+      section: 'SISTEMA',
+      items: [
+        { id: 'correos' as Tab, label: 'Correos', icon: Mail },
+        { id: 'configuracion' as Tab, label: 'Configuración', icon: Settings },
+      ],
+    },
   ]
+
+  const flatNav = navSections.flatMap((group) =>
+    group.items.map((item) => ({ ...item, section: group.section }))
+  )
+  const currentNav = flatNav.find((item) => item.id === tab)
 
   return (
     <div className="app-shell">
@@ -401,16 +483,21 @@ function Workspace({ session }: { session: Session }) {
           <button className="icon-button mobile-only" onClick={() => setMobileMenu(false)}><X size={20} /></button>
         </div>
 
-        <nav>
-          {nav.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={tab === id ? 'active' : ''}
-              onClick={() => { setTab(id); setMobileMenu(false) }}
-            >
-              <Icon size={19} />
-              {label}
-            </button>
+        <nav className="sidebar-nav">
+          {navSections.map((group) => (
+            <div className="nav-section" key={group.section}>
+              <span className="nav-section-title">{group.section}</span>
+              {group.items.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  className={tab === id ? 'active' : ''}
+                  onClick={() => { setTab(id); setMobileMenu(false) }}
+                >
+                  <Icon size={18} />
+                  {label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -427,7 +514,7 @@ function Workspace({ session }: { session: Session }) {
         <header className="topbar">
           <button className="icon-button mobile-only" onClick={() => setMobileMenu(true)}><Menu size={22} /></button>
           <div>
-            <h1>{tab === 'inicio' ? 'Resumen del almacén' : nav.find((n) => n.id === tab)?.label}</h1>
+            <h1>{currentNav?.label ?? 'KOMTROL'}</h1>
             <p>{displayName} · {role}</p>
           </div>
           <div className="top-actions">
@@ -513,6 +600,14 @@ function Workspace({ session }: { session: Session }) {
 
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
                 <UsersAdmin />
+              )}
+
+              {!['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+                <ModulePlaceholder
+                  title={currentNav.label}
+                  section={currentNav.section}
+                  description={`${currentNav.label} forma parte de la migración completa desde KOMTROL Sites hacia GitHub + Vercel + Supabase.`}
+                />
               )}
 
               {tab === 'configuracion' && (
