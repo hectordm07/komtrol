@@ -86,34 +86,79 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (ruleError || !rule || !rule.enabled) {
+    await admin.from("incidents").update({ auto_email_status: "NO_CONFIGURADO" }).eq("id", incidentId)
     return json({ error: "No hay una regla de correo activa para esta incidencia" }, 409)
   }
-  if (!Array.isArray(rule.to_addresses) || rule.to_addresses.length === 0) {
-    return json({ error: "La regla no tiene destinatarios configurados" }, 409)
+
+  const { data: destination } = await admin
+    .from("incident_email_destinations")
+    .select("enabled,to_addresses,cc_addresses")
+    .eq("warehouse", incident.warehouse)
+    .maybeSingle()
+
+  const warehouseTo =
+    destination?.enabled && Array.isArray(destination.to_addresses) && destination.to_addresses.length
+      ? destination.to_addresses
+      : (Array.isArray(rule.to_addresses) ? rule.to_addresses : [])
+  const warehouseCc =
+    destination?.enabled && Array.isArray(destination.cc_addresses) && destination.cc_addresses.length
+      ? destination.cc_addresses
+      : (Array.isArray(rule.cc_addresses) ? rule.cc_addresses : [])
+
+  if (!warehouseTo.length) {
+    await admin.from("incidents").update({ auto_email_status: "NO_CONFIGURADO" }).eq("id", incidentId)
+    return json({
+      error: `No hay destinatario automático configurado para el almacén ${incident.warehouse ?? "SIN ALMACÉN"}`,
+      configurationRequired: true,
+    }, 409)
   }
 
-  const subject = String(rule.subject_template ?? "[KOMTROL][{{incident_type}}] {{guide_no}}")
+  const incidentDate = new Intl.DateTimeFormat("es-PE", {
+    dateStyle: "full",
+    timeStyle: "short",
+    timeZone: "America/Lima",
+  }).format(new Date(incident.detected_at ?? incident.created_at))
+
+  const difference =
+    incident.qty_expected != null && incident.qty_received != null
+      ? Number(incident.qty_received) - Number(incident.qty_expected)
+      : null
+
+  const subjectTemplate =
+    rule.subject_template ??
+    "[KOMTROL][{{incident_type}}] {{warehouse}} | {{material_no}} | {{incident_no}}"
+  const subject = String(subjectTemplate)
     .replaceAll("{{incident_type}}", incident.incident_type ?? "")
     .replaceAll("{{guide_no}}", incident.guide_no ?? "")
     .replaceAll("{{purchase_order}}", incident.purchase_order ?? "")
     .replaceAll("{{material_no}}", incident.material_no ?? "")
     .replaceAll("{{incident_no}}", incident.incident_no ?? "")
+    .replaceAll("{{warehouse}}", incident.warehouse ?? "")
+    .replaceAll("{{date}}", incidentDate)
 
   const bodyHtml = `
-    <div style="font-family:Arial,sans-serif;font-size:14px;color:#222">
-      <h2>Incidencia KOMTROL - ${escapeHtml(incident.incident_type)}</h2>
-      <table cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+    <div style="font-family:Arial,sans-serif;font-size:14px;color:#22384a;line-height:1.45">
+      <h2 style="color:#355c7a">Incidencia KOMTROL - ${escapeHtml(incident.incident_type)}</h2>
+      <p><b>Fecha de detección:</b> ${escapeHtml(incidentDate)}</p>
+      <table cellpadding="7" cellspacing="0" style="border-collapse:collapse;border:1px solid #dce8f1">
         <tr><td><b>Incidencia</b></td><td>${escapeHtml(incident.incident_no)}</td></tr>
+        <tr><td><b>Almacén</b></td><td>${escapeHtml(incident.warehouse)}</td></tr>
+        <tr><td><b>Opción</b></td><td>${escapeHtml(incident.detection_mode === "VERIFICACION_INVENTARIO" ? "Verificación de inventario" : "Material dañado")}</td></tr>
         <tr><td><b>Guía</b></td><td>${escapeHtml(incident.guide_no)}</td></tr>
         <tr><td><b>N° documento</b></td><td>${escapeHtml(incident.document_no)}</td></tr>
         <tr><td><b>OC</b></td><td>${escapeHtml(incident.purchase_order)}</td></tr>
+        <tr><td><b>Código leído</b></td><td>${escapeHtml(incident.barcode_value)}</td></tr>
         <tr><td><b>N° parte / material</b></td><td>${escapeHtml(incident.material_no)}</td></tr>
+        <tr><td><b>Stock Code</b></td><td>${escapeHtml(incident.stock_code)}</td></tr>
         <tr><td><b>Descripción</b></td><td>${escapeHtml(incident.description)}</td></tr>
-        <tr><td><b>Cantidad esperada</b></td><td>${escapeHtml(incident.qty_expected)}</td></tr>
-        <tr><td><b>Cantidad recibida</b></td><td>${escapeHtml(incident.qty_received)}</td></tr>
+        <tr><td><b>Ubicación</b></td><td>${escapeHtml(incident.location)}</td></tr>
+        <tr><td><b>Cantidad requerida</b></td><td>${escapeHtml(incident.qty_expected)}</td></tr>
+        <tr><td><b>Cantidad llegada</b></td><td>${escapeHtml(incident.qty_received)}</td></tr>
+        <tr><td><b>Diferencia</b></td><td>${escapeHtml(difference)}</td></tr>
+        <tr><td><b>Cantidad dañada</b></td><td>${escapeHtml(incident.qty_damaged)}</td></tr>
         <tr><td><b>Observaciones</b></td><td>${escapeHtml(incident.notes)}</td></tr>
       </table>
-      <p>Registro generado desde KOMTROL.</p>
+      <p>Registro generado automáticamente desde KOMTROL.</p>
     </div>`
 
   const { data: attachmentRows } = await admin
@@ -167,8 +212,8 @@ Deno.serve(async (req: Request) => {
     .insert({
       incident_id: incidentId,
       status: "ENVIANDO",
-      to_addresses: rule.to_addresses,
-      cc_addresses: rule.cc_addresses ?? [],
+      to_addresses: warehouseTo,
+      cc_addresses: warehouseCc,
       subject,
       body_html: bodyHtml,
       created_by: user.id,
@@ -177,8 +222,11 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (notificationError || !notification) {
+    await admin.from("incidents").update({ auto_email_status: "ERROR" }).eq("id", incidentId)
     return json({ error: "No se pudo registrar la notificación" }, 500)
   }
+
+  await admin.from("incidents").update({ auto_email_status: "ENVIANDO" }).eq("id", incidentId)
 
   const tenantId = Deno.env.get("MS_TENANT_ID")
   const clientId = Deno.env.get("MS_CLIENT_ID")
@@ -190,6 +238,7 @@ Deno.serve(async (req: Request) => {
       status: "ERROR",
       error_message: "Microsoft Graph no está configurado",
     }).eq("id", notification.id)
+    await admin.from("incidents").update({ auto_email_status: "ERROR" }).eq("id", incidentId)
     return json({ error: "Microsoft Graph todavía no está configurado", notificationId: notification.id }, 503)
   }
 
@@ -213,6 +262,7 @@ Deno.serve(async (req: Request) => {
       status: "ERROR",
       error_message: "Error de autenticación Microsoft Graph",
     }).eq("id", notification.id)
+    await admin.from("incidents").update({ auto_email_status: "ERROR" }).eq("id", incidentId)
     return json({ error: "No se pudo autenticar con Microsoft Graph", notificationId: notification.id }, 502)
   }
 
@@ -228,8 +278,8 @@ Deno.serve(async (req: Request) => {
         message: {
           subject,
           body: { contentType: "HTML", content: bodyHtml },
-          toRecipients: rule.to_addresses.map((address: string) => ({ emailAddress: { address } })),
-          ccRecipients: (rule.cc_addresses ?? []).map((address: string) => ({ emailAddress: { address } })),
+          toRecipients: warehouseTo.map((address: string) => ({ emailAddress: { address } })),
+          ccRecipients: warehouseCc.map((address: string) => ({ emailAddress: { address } })),
           attachments,
         },
         saveToSentItems: true,
@@ -246,6 +296,7 @@ Deno.serve(async (req: Request) => {
       graph_request_id: graphRequestId,
       error_message: detail.slice(0, 1500),
     }).eq("id", notification.id)
+    await admin.from("incidents").update({ auto_email_status: "ERROR" }).eq("id", incidentId)
     return json({ error: "Microsoft Graph rechazó el envío", notificationId: notification.id }, 502)
   }
 
@@ -256,7 +307,10 @@ Deno.serve(async (req: Request) => {
     error_message: skippedAttachments.length ? `Adjuntos omitidos por tamaño/error: ${skippedAttachments.join(", ")}` : null,
   }).eq("id", notification.id)
 
-  await admin.from("incidents").update({ status: "NOTIFICADO" }).eq("id", incidentId)
+  await admin.from("incidents").update({
+    status: "NOTIFICADO",
+    auto_email_status: "ENVIADO",
+  }).eq("id", incidentId)
 
   return json({
     ok: true,
