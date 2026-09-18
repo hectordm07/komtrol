@@ -1584,3 +1584,238 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     grid-column: 2;
   }
 }
+
+
+/* Ingresos de Reposición unificados */
+.replenishment-module {
+  display: grid;
+  gap: 12px;
+}
+.replenishment-panel {
+  padding: 13px;
+}
+.replenishment-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.replenishment-kpis > div {
+  min-height: 62px;
+  border: 1px solid #e1e6ee;
+  background: #fbfcfe;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.replenishment-kpis > div > svg {
+  color: #68758a;
+}
+.replenishment-kpis span {
+  display: grid;
+  gap: 1px;
+}
+.replenishment-kpis b {
+  font-size: 18px;
+}
+.replenishment-kpis small {
+  color: #7b8798;
+  font-size: 10px;
+}
+.replenishment-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 9px 0 10px;
+}
+.replenishment-toolbar .search {
+  flex: 1;
+  max-width: 620px;
+}
+.replenishment-toolbar > select {
+  min-height: 33px;
+  border: 1px solid #d9e1ea;
+  background: #fff;
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.supplier-chip,
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #425066;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.supplier-chip.cummins {
+  background: #fff4df;
+  color: #8a5604;
+}
+.supplier-chip.pending {
+  background: #fff0ee;
+  color: #b42318;
+}
+.source-chip {
+  background: #edf3ff;
+  color: #315a9e;
+}
+.small-report {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+.replenishment-report {
+  width: min(980px, calc(100vw - 28px));
+  max-height: 92vh;
+  overflow: auto;
+}
+.report-brand {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  border: 1px solid #dce3eb;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 6px 0 12px;
+}
+.report-brand > div {
+  padding: 12px 14px;
+  display: grid;
+  gap: 2px;
+}
+.report-brand > div:first-child {
+  flex: 1;
+}
+.report-brand > div:last-child {
+  min-width: 210px;
+  border-left: 1px solid #dce3eb;
+  background: #f7f9fc;
+}
+.report-brand b {
+  font-size: 22px;
+  letter-spacing: .03em;
+}
+.report-brand span,
+.report-brand small {
+  color: #768296;
+  font-size: 10px;
+}
+.report-brand strong {
+  font-size: 17px;
+}
+.report-header-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #e0e6ee;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.report-header-grid > div {
+  min-height: 58px;
+  padding: 9px 10px;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  border-right: 1px solid #e8ecf1;
+  border-bottom: 1px solid #e8ecf1;
+}
+.report-header-grid small {
+  color: #7c8798;
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.report-header-grid b {
+  font-size: 11px;
+}
+.report-lines {
+  margin-top: 6px;
+}
+.report-notes {
+  margin-top: 10px;
+  border: 1px solid #e0e6ee;
+  border-radius: 9px;
+  padding: 10px;
+}
+.report-notes small {
+  display: block;
+  color: #7b8798;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.report-notes p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.report-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e9ef;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  color: #7f8a9a;
+  font-size: 9px;
+}
+@media (max-width: 850px) {
+  .replenishment-kpis,
+  .report-header-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .replenishment-toolbar {
+    flex-wrap: wrap;
+  }
+  .replenishment-toolbar .search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+@media (max-width: 520px) {
+  .replenishment-kpis,
+  .report-header-grid {
+    grid-template-columns: 1fr;
+  }
+  .report-brand {
+    flex-direction: column;
+  }
+  .report-brand > div:last-child {
+    border-left: 0;
+    border-top: 1px solid #dce3eb;
+  }
+}
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .replenishment-report,
+  .replenishment-report * {
+    visibility: visible !important;
+  }
+  .replenishment-report {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .replenishment-report .no-print {
+    display: none !important;
+  }
+  .replenishment-report-backdrop {
+    background: #fff !important;
+  }
+}
