@@ -453,21 +453,23 @@ export function GuidesModule({ mode, userId, profile }: Props) {
         // Reconstruir renglones usando las coordenadas reales del PDF.
         // PDF.js no siempre entrega saltos de línea; sin esto una guía de
         // 6 o 128 posiciones puede convertirse en una sola línea de texto.
-        const positioned = content.items
-          .map((item: any) => ({
+        type PositionedText = { text: string; x: number; y: number; width: number }
+
+        const positioned: PositionedText[] = (content.items as any[])
+          .map((item: any): PositionedText => ({
             text: typeof item?.str === 'string' ? item.str.trim() : '',
             x: Number(item?.transform?.[4] ?? 0),
             y: Number(item?.transform?.[5] ?? 0),
             width: Number(item?.width ?? 0),
           }))
-          .filter((item: any) => item.text)
+          .filter((item: PositionedText) => Boolean(item.text))
 
         positioned.sort((a: any, b: any) => {
           const yDiff = b.y - a.y
           return Math.abs(yDiff) > 2.5 ? yDiff : a.x - b.x
         })
 
-        const rowGroups: Array<{ y: number; items: typeof positioned }> = []
+        const rowGroups: Array<{ y: number; items: PositionedText[] }> = []
         for (const item of positioned) {
           const group = rowGroups.find((row) => Math.abs(row.y - item.y) <= 2.5)
           if (group) {
