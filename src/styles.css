@@ -1453,3 +1453,134 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Alertas operativas */
+.alerts-module {
+  padding: 13px;
+}
+.alert-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.alert-kpis button {
+  min-height: 60px;
+  border: 1px solid #e0e6ee;
+  background: #fbfcfe;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.alert-kpis button.active {
+  border-color: #9aa8ba;
+  background: #f1f4f8;
+}
+.alert-kpis span {
+  display: grid;
+  gap: 1px;
+}
+.alert-kpis b {
+  font-size: 18px;
+}
+.alert-kpis small {
+  color: #758195;
+  font-size: 10px;
+}
+.alert-list {
+  display: grid;
+  gap: 6px;
+}
+.alert-row {
+  min-height: 68px;
+  border: 1px solid #e2e7ee;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 9px;
+  align-items: center;
+  background: #fff;
+}
+.alert-row.severity-urgente {
+  border-left: 4px solid #d92d20;
+}
+.alert-row.severity-alta {
+  border-left: 4px solid #e07a16;
+}
+.alert-row.severity-media {
+  border-left: 4px solid #637083;
+}
+.alert-row-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #f2f4f7;
+  display: grid;
+  place-items: center;
+  color: #566478;
+}
+.alert-row-content {
+  display: grid;
+  gap: 3px;
+}
+.alert-row-content > div {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.alert-row-content b {
+  font-size: 12px;
+}
+.alert-row-content p {
+  margin: 0;
+  color: #748094;
+  font-size: 10px;
+}
+.alert-source,
+.alert-severity {
+  min-height: 20px;
+  border-radius: 999px;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 8px;
+  font-weight: 800;
+}
+.alert-source {
+  background: #edf1f5;
+  color: #526074;
+}
+.alert-severity.urgente {
+  background: #fff0ee;
+  color: #b42318;
+}
+.alert-severity.alta {
+  background: #fff4df;
+  color: #9a5c00;
+}
+.alert-severity.media {
+  background: #eef2f6;
+  color: #59677a;
+}
+.alert-row time {
+  color: #7d8899;
+  font-size: 9px;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .alert-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .alert-row {
+    grid-template-columns: auto 1fr;
+  }
+  .alert-row time {
+    grid-column: 2;
+  }
+}
