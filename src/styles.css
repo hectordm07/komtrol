@@ -426,3 +426,94 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     padding: 10px;
   }
 }
+
+
+/* Navegación completa migrada desde KOMTROL Sites */
+.sidebar {
+  overflow: hidden;
+}
+.sidebar-nav {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 8px 12px;
+  scrollbar-width: thin;
+}
+.nav-section {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.nav-section-title {
+  padding: 7px 9px 3px;
+  color: #7d8899;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.nav-section button {
+  min-height: 34px;
+}
+.module-placeholder {
+  padding: 18px;
+}
+.module-placeholder-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.module-placeholder-head h2 {
+  margin: 2px 0 4px;
+  font-size: 20px;
+}
+.module-placeholder-head p {
+  margin: 0;
+  color: #687386;
+  max-width: 760px;
+}
+.module-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #eef2f7;
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+}
+.migration-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.migration-status-grid > div {
+  border: 1px solid #e0e6ef;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 11px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.migration-status-grid > div > svg {
+  margin-top: 2px;
+  color: #2d6a4f;
+  flex: 0 0 auto;
+}
+.migration-status-grid span {
+  display: grid;
+  gap: 2px;
+}
+.migration-status-grid small {
+  color: #778397;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@media (max-width: 800px) {
+  .migration-status-grid {
+    grid-template-columns: 1fr;
+  }
+  .module-placeholder {
+    padding: 14px;
+  }
+}
