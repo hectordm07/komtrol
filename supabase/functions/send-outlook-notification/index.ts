@@ -145,7 +145,7 @@ Deno.serve(async (req: Request) => {
         <tr><td><b>Almacén</b></td><td>${escapeHtml(incident.warehouse)}</td></tr>
         <tr><td><b>Opción</b></td><td>${escapeHtml(incident.detection_mode === "VERIFICACION_INVENTARIO" ? "Verificación de inventario" : "Material dañado")}</td></tr>
         <tr><td><b>Guía</b></td><td>${escapeHtml(incident.guide_no)}</td></tr>
-        <tr><td><b>N° documento</b></td><td>${escapeHtml(incident.document_no)}</td></tr>
+        <tr><td><b>N° Embarque o Guía</b></td><td>${escapeHtml(incident.document_no)}</td></tr>
         <tr><td><b>OC</b></td><td>${escapeHtml(incident.purchase_order)}</td></tr>
         <tr><td><b>Código leído</b></td><td>${escapeHtml(incident.barcode_value)}</td></tr>
         <tr><td><b>N° parte / material</b></td><td>${escapeHtml(incident.material_no)}</td></tr>
