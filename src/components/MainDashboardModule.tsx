@@ -97,7 +97,7 @@ export function MainDashboardModule({ profile, role }:Props) {
   useEffect(()=>{ reload() },[])
 
   useEffect(()=>{
-    if (!['ADMINISTRADOR','SUPERVISOR'].includes(role)) setWarehouse(profile?.warehouse || 'TODOS')
+    if (role !== 'ADMINISTRADOR') setWarehouse(profile?.warehouse || 'TODOS')
   },[profile?.warehouse,role])
 
   const scoped=useMemo(()=>{
@@ -142,7 +142,7 @@ export function MainDashboardModule({ profile, role }:Props) {
         </p>
       </div>
       <div className="main-dashboard-filter">
-        {['ADMINISTRADOR','SUPERVISOR'].includes(role) && <label>Almacén
+        {role === 'ADMINISTRADOR' && <label>Almacén
           <select value={warehouse} onChange={(e)=>setWarehouse(e.target.value)}>
             <option value="TODOS">Todos</option>
             {warehouses.map((name)=><option key={name} value={name}>{name}</option>)}
