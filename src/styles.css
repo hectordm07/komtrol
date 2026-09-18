@@ -1090,3 +1090,35 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     justify-content: center;
   }
 }
+
+
+/* Materiales / Master / Hoja de Ubicación */
+.materials-panel,
+.location-sheet {
+  padding: 13px;
+}
+.location-input {
+  min-height: 110px;
+  margin: 8px 0 10px;
+}
+.location-table td:nth-child(5) {
+  font-weight: 800;
+}
+@media print {
+  .sidebar,
+  .topbar,
+  .panel-title .button-row,
+  .location-input {
+    display: none !important;
+  }
+  .main-area,
+  .content,
+  .location-sheet {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .location-sheet {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+}
