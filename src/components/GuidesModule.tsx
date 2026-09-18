@@ -96,6 +96,116 @@ function findDateNear(text: string, labels: string[]) {
   return ''
 }
 
+const MATERIAL_UNITS = ['UND', 'EA', 'PC', 'PZ', 'PIE', 'FT', 'M', 'MT'] as const
+
+function isMaterialUnit(value: string) {
+  return MATERIAL_UNITS.includes(value.toUpperCase() as typeof MATERIAL_UNITS[number])
+}
+
+function parseReplenishmentLines(text: string): GuideLine[] {
+  const normalized = text.replace(/\r/g, '')
+  const tableStart = normalized.search(/DESCRIPCI[ÓO]N/i)
+  const tableEndMatch = normalized.match(/\n\s*(?:NOTA\s*:|OBSERVACIONES?\s*:|REPRESENTACI[ÓO]N\s+IMPRESA)/i)
+  const tableEnd = tableEndMatch?.index ?? normalized.length
+  const section = tableStart >= 0 ? normalized.slice(tableStart, tableEnd) : normalized
+
+  const rows = section
+    .split('\n')
+    .map((row) => row.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  const byLine = new Map<number, GuideLine>()
+
+  // Caso principal: PDF reconstruido por coordenadas.
+  // 1 19T6066D5 PIN, BOOM BUMPER - PHLB01A01 4.000 UND 88.00 KG 0.0392
+  for (const row of rows) {
+    const match = row.match(
+      /^(\d{1,3})\s+([A-Z0-9][A-Z0-9._/-]{3,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(UND|EA|PC|PZ|PIE|FT|M|MT)\b/i
+    )
+    if (!match) continue
+
+    const lineNo = Number(match[1])
+    if (lineNo < 1 || lineNo > 999) continue
+
+    byLine.set(lineNo, {
+      line_no: lineNo,
+      part_no: match[2].trim(),
+      description: cleanText(match[3]),
+      quantity: match[4].replace(',', '.'),
+      unit: match[5].toUpperCase(),
+    })
+  }
+
+  // Respaldo: algunos PDF separan cada celda en un renglón distinto:
+  // 1 / 19T6066D5 / DESCRIPCIÓN / 4.000 / UND / peso / KG / volumen
+  for (let index = 0; index < rows.length; index++) {
+    const lineToken = rows[index]
+    if (!/^\d{1,3}$/.test(lineToken)) continue
+
+    const lineNo = Number(lineToken)
+    if (lineNo < 1 || lineNo > 999 || byLine.has(lineNo)) continue
+
+    let cursor = index + 1
+    while (cursor < rows.length && !rows[cursor]) cursor++
+    const partNo = rows[cursor] ?? ''
+
+    const validPart =
+      /^[A-Z0-9][A-Z0-9._/-]{3,}$/i.test(partNo) &&
+      !/^\d+(?:[.,]\d+)?$/.test(partNo) &&
+      !isMaterialUnit(partNo) &&
+      !/^(KG|DESCRIPCI[ÓO]N|COD\.?(?:CLIENTE)?|CANTIDAD|PESO|VOLUMEN)/i.test(partNo)
+
+    if (!validPart) continue
+    cursor++
+
+    const descriptionParts: string[] = []
+    let quantity = ''
+    let unit = ''
+
+    while (cursor < rows.length) {
+      const current = rows[cursor]
+
+      // Cantidad y UM en la misma fila: "4.000 UND"
+      const qtyUnit = current.match(/^(\d+(?:[.,]\d+)?)\s+(UND|EA|PC|PZ|PIE|FT|M|MT)$/i)
+      if (qtyUnit) {
+        quantity = qtyUnit[1].replace(',', '.')
+        unit = qtyUnit[2].toUpperCase()
+        break
+      }
+
+      // Cantidad y UM en filas separadas: "4.000" / "UND"
+      if (/^\d+(?:[.,]\d+)?$/.test(current)) {
+        const next = rows[cursor + 1] ?? ''
+        if (isMaterialUnit(next)) {
+          quantity = current.replace(',', '.')
+          unit = next.toUpperCase()
+          break
+        }
+      }
+
+      // Si aparece el siguiente correlativo sin hallar cantidad, la fila no es válida.
+      if (/^\d{1,3}$/.test(current) && Number(current) === lineNo + 1) break
+
+      descriptionParts.push(current)
+      cursor++
+    }
+
+    if (!quantity || !unit || !descriptionParts.length) continue
+
+    byLine.set(lineNo, {
+      line_no: lineNo,
+      part_no: partNo,
+      description: cleanText(descriptionParts.join(' ')),
+      quantity,
+      unit,
+    })
+  }
+
+  return [...byLine.values()]
+    .sort((a, b) => a.line_no - b.line_no)
+    .slice(0, 999)
+}
+
 function parseLines(text: string): GuideLine[] {
   const output: GuideLine[] = []
   const rows = text.replace(/\r/g, '').split('\n').map((x) => x.trim()).filter(Boolean)
@@ -103,7 +213,7 @@ function parseLines(text: string): GuideLine[] {
   for (const row of rows) {
     const m = row.match(/^([A-Z0-9][A-Z0-9._/-]{4,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(UND|EA|PC|PZ|PIE|FT|M|MT)?$/i)
     if (!m) continue
-    if (/^(FECHA|GUIA|REFERENCIA|DOCUMENTO|RUC)/i.test(m[1])) continue
+    if (/^(FECHA|GUIA|REFERENCIA|DOCUMENTO|RUC|PUNTO|RAZON|DOMICILIO)/i.test(m[1])) continue
     output.push({
       line_no: output.length + 1,
       part_no: m[1],
@@ -111,7 +221,7 @@ function parseLines(text: string): GuideLine[] {
       quantity: m[3].replace(',', '.'),
       unit: (m[4] || 'UND').toUpperCase(),
     })
-    if (output.length >= 100) break
+    if (output.length >= 999) break
   }
   return output
 }
@@ -225,11 +335,19 @@ function parseGuideOcr(text: string, fileName?: string) {
 
   const explicitLines =
     normalized.match(/(?:CANTIDAD\s*(?:DE\s*)?L[IÍ]NEAS|N[°ºO]?\s*(?:DE\s*)?L[IÍ]NEAS|TOTAL\s*(?:DE\s*)?L[IÍ]NEAS|L[IÍ]NEAS)\s*[:#-]?\s*(\d{1,3})/i)
-  const parsedLines = parseLines(text)
+
+  const replenishment = reference.startsWith('89')
+  const parsedLines = replenishment
+    ? parseReplenishmentLines(text)
+    : parseLines(text)
+
   const numberedLineCount = detectDocumentLineCount(text)
+  const highestParsedLine = parsedLines.reduce((max, line) => Math.max(max, line.line_no), 0)
   const lineCount = explicitLines
     ? Number(explicitLines[1])
-    : numberedLineCount || Math.max(parsedLines.length, 1)
+    : replenishment
+      ? Math.max(highestParsedLine, numberedLineCount, parsedLines.length, 1)
+      : numberedLineCount || Math.max(parsedLines.length, 1)
   const observations = extractObservations(text)
 
   return {
