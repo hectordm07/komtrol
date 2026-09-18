@@ -2066,3 +2066,128 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
     grid-column: auto;
   }
 }
+
+
+/* Validación SAP KMMP / FIORI */
+.sap-validation-card {
+  margin: 10px 0 12px;
+  border: 1px solid #dfe5ec;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 11px;
+}
+.sap-validation-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.sap-validation-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 130px;
+}
+.sap-validation-head small {
+  color: #7d899a;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.sap-validation-head p {
+  margin: 0;
+  max-width: 640px;
+  color: #687487;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.sap-status {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 900;
+}
+.sap-status.pending {
+  background: #fff4df;
+  color: #8a5604;
+}
+.sap-status.entered {
+  background: #e8f7ee;
+  color: #147a3f;
+}
+.sap-validation-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+.sap-validation-fields label {
+  display: grid;
+  gap: 4px;
+  color: #59677a;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.sap-validation-fields input {
+  min-height: 36px;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px 9px;
+  font-size: 11px;
+}
+.sap-validation-fields label small {
+  color: #8a95a5;
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: none;
+}
+.sap-save-button {
+  min-height: 36px;
+  white-space: nowrap;
+}
+.sap-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #536074;
+  font-size: 9px;
+  font-weight: 800;
+}
+.sap-filter-chip.pending {
+  background: #fff4df;
+  color: #8a5604;
+}
+.sap-filter-chip.entered {
+  background: #e8f7ee;
+  color: #147a3f;
+}
+.replenishment-search-grid {
+  grid-template-columns: minmax(150px, .65fr) minmax(155px, .65fr) minmax(150px, .7fr) minmax(155px, .7fr) auto;
+}
+@media (max-width: 1000px) {
+  .replenishment-search-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sap-validation-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sap-save-button {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 600px) {
+  .sap-validation-head {
+    flex-direction: column;
+  }
+  .sap-validation-fields,
+  .replenishment-search-grid {
+    grid-template-columns: 1fr;
+  }
+}
