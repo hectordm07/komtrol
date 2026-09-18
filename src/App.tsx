@@ -27,6 +27,7 @@ import { TasksModule } from './components/TasksModule'
 import { GuidesModule } from './components/GuidesModule'
 import { MaterialsModule } from './components/MaterialsModule'
 import { OperationsControlModule } from './components/OperationsControlModule'
+import { DashboardModule } from './components/DashboardModule'
 
 type Tab = string
 
@@ -505,6 +506,8 @@ function Workspace({ session }: { session: Session }) {
     tab === 'transitos' ? 'transitos' :
     tab === 'danados' ? 'danados' :
     'activos'
+  const dashboardTabs = ['dashboard-operacion', 'inbound-outbound', 'eri', 'sobrantes-faltantes', 'diferencias-inventario', 'dashboard-transitos', 'uca', 'ahorros', 'perfect-ship', 'consignaciones', 'vhs', 'safe'] as const
+  const isDashboardTab = dashboardTabs.includes(tab as typeof dashboardTabs[number])
 
   return (
     <div className="app-shell">
@@ -662,11 +665,19 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {isDashboardTab && (
+                <DashboardModule
+                  mode={tab as typeof dashboardTabs[number]}
+                  role={role}
+                  warehouse={profile?.warehouse}
+                />
+              )}
+
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isGuideTab && !isMaterialTab && !isOperationsControlTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isGuideTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !['inicio', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
