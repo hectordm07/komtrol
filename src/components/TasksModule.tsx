@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { TaskDetailModal } from './TaskDetailModal'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -51,6 +52,7 @@ type Task = {
   estimated_hours: number | null
   email_subject: string | null
   extensions_count: number
+  original_due_at: string | null
   created_at: string
   updated_at: string
 }
@@ -130,6 +132,7 @@ export function TasksModule({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [form, setForm] = useState({
     ...emptyForm,
     warehouse: scopeWarehouse ?? profile?.warehouse ?? '',
@@ -262,6 +265,18 @@ export function TasksModule({
       changed_by: userId,
     })
 
+    if (data.responsible_id && data.responsible_id !== userId) {
+      await supabase.from('app_notifications').insert({
+        user_id: data.responsible_id,
+        notification_type: 'TASK_ASSIGNED',
+        title: 'Nueva tarea asignada',
+        message: `${data.task_no} · ${data.title}`,
+        task_id: data.id,
+        created_by: userId,
+        metadata: { task_no: data.task_no },
+      })
+    }
+
     setSaving(false)
     setShowForm(false)
     setForm({
@@ -367,13 +382,27 @@ export function TasksModule({
         {loading ? (
           <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando trabajo…</p></div>
         ) : mode === 'tablero' ? (
-          <TaskBoard tasks={filtered} profiles={profiles} onUpdate={updateTask} />
+          <TaskBoard tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
         ) : mode === 'calendario' ? (
-          <TaskCalendar tasks={filtered} profiles={profiles} onUpdate={updateTask} />
+          <TaskCalendar tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
         ) : (
-          <TaskList tasks={filtered} profiles={profiles} onUpdate={updateTask} />
+          <TaskList tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
         )}
       </section>
+
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          userId={userId}
+          profiles={profiles}
+          onClose={() => setSelectedTask(null)}
+          onTaskUpdated={(updated) => {
+            const next = updated as Task
+            setSelectedTask(next)
+            setTasks((current) => current.map((item) => item.id === next.id ? next : item))
+          }}
+        />
+      )}
 
       {showForm && (
         <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowForm(false)}>
@@ -450,7 +479,7 @@ export function TasksModule({
   )
 }
 
-function TaskList({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void }) {
+function TaskList({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
   if (!tasks.length) return <EmptyWork />
 
@@ -460,14 +489,14 @@ function TaskList({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Prof
         <thead><tr><th>Prioridad</th><th>Tarea</th><th>Proyecto / Grupo</th><th>Responsable</th><th>Vence</th><th>Estado</th><th>Avance</th></tr></thead>
         <tbody>
           {tasks.map((task) => (
-            <tr key={task.id} className={isOverdue(task) ? 'overdue-row' : ''}>
+            <tr key={task.id} className={isOverdue(task) ? 'overdue-row task-open-row' : 'task-open-row'} onClick={() => onOpen(task)}>
               <td><span className={`priority-chip p-${task.priority.toLowerCase()}`}>{task.priority}</span></td>
               <td><b>{task.title}</b><small>{task.task_no} · {task.work_type}{task.category ? ` · ${task.category}` : ''}</small></td>
               <td>{task.project || '—'}<small>{task.group_name || task.warehouse || '—'}</small></td>
               <td><span className="user-inline"><UserRound size={14} /> {name(task.responsible_id)}</span></td>
               <td>{shortDate(task.due_at)}{isOverdue(task) && <small className="error-line">Vencida</small>}</td>
               <td>
-                <select className="inline-select" value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
+                <select className="inline-select" value={task.status} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
                   <option value="PENDIENTE">Pendiente</option>
                   <option value="EN_PROCESO">En proceso</option>
                   <option value="BLOQUEADO">Bloqueado</option>
@@ -475,7 +504,7 @@ function TaskList({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Prof
                 </select>
               </td>
               <td>
-                <select className="inline-select progress-select" value={task.progress} onChange={(e) => onUpdate(task, { progress: Number(e.target.value) })}>
+                <select className="inline-select progress-select" value={task.progress} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { progress: Number(e.target.value) })}>
                   {[0, 25, 50, 75, 100].map((v) => <option key={v} value={v}>{v}%</option>)}
                 </select>
               </td>
@@ -487,7 +516,7 @@ function TaskList({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Prof
   )
 }
 
-function TaskBoard({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void }) {
+function TaskBoard({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const columns: Task['status'][] = ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADO', 'CERRADO']
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Sin asignar'
 
@@ -500,17 +529,17 @@ function TaskBoard({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Pro
             <div className="board-column-head"><b>{status.replace('_', ' ')}</b><span>{items.length}</span></div>
             <div className="board-cards">
               {items.map((task) => (
-                <article className={`task-card ${isOverdue(task) ? 'overdue-card' : ''}`} key={task.id}>
+                <article className={`task-card task-open-card ${isOverdue(task) ? 'overdue-card' : ''}`} key={task.id} onClick={() => onOpen(task)}>
                   <div className="task-card-top"><span className={`priority-dot p-${task.priority.toLowerCase()}`} /><small>{task.task_no}</small></div>
                   <b>{task.title}</b>
                   <p>{task.project || task.warehouse || 'Sin proyecto'}{task.group_name ? ` · ${task.group_name}` : ''}</p>
                   <div className="task-card-meta"><span><UserRound size={13} /> {name(task.responsible_id)}</span><span><CalendarDays size={13} /> {shortDate(task.due_at)}</span></div>
                   <div className="progress-bar"><i style={{ width: `${task.progress}%` }} /></div>
                   <div className="task-card-actions">
-                    <select value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
+                    <select value={task.status} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
                       {columns.map((value) => <option key={value} value={value}>{value.replace('_', ' ')}</option>)}
                     </select>
-                    <select value={task.progress} onChange={(e) => onUpdate(task, { progress: Number(e.target.value) })}>
+                    <select value={task.progress} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { progress: Number(e.target.value) })}>
                       {[0, 25, 50, 75, 100].map((v) => <option key={v} value={v}>{v}%</option>)}
                     </select>
                   </div>
@@ -525,7 +554,7 @@ function TaskBoard({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Pro
   )
 }
 
-function TaskCalendar({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void }) {
+function TaskCalendar({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Sin asignar'
   const grouped = tasks
     .filter((t) => t.due_at)
@@ -548,10 +577,10 @@ function TaskCalendar({ tasks, profiles, onUpdate }: { tasks: Task[]; profiles: 
           </div>
           <div className="calendar-items">
             {grouped[date].map((task) => (
-              <article key={task.id} className={isOverdue(task) ? 'calendar-task overdue-card' : 'calendar-task'}>
+              <article key={task.id} className={isOverdue(task) ? 'calendar-task overdue-card task-open-card' : 'calendar-task task-open-card'} onClick={() => onOpen(task)}>
                 <span className={`priority-dot p-${task.priority.toLowerCase()}`} />
                 <div><b>{task.title}</b><small>{task.project || task.warehouse || 'Sin proyecto'} · {name(task.responsible_id)}</small></div>
-                <select className="inline-select" value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
+                <select className="inline-select" value={task.status} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
                   <option value="PENDIENTE">Pendiente</option>
                   <option value="EN_PROCESO">En proceso</option>
                   <option value="BLOQUEADO">Bloqueado</option>
