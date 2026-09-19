@@ -768,6 +768,42 @@ function validateImport(type: ImportType, headers: string[], rows: Record<string
   return rows.map((values, index) => {
     let error = ''
     if (type === 'MASTER_MATERIALES') {
+      if (!values.MATERIAL?.trim()) error = 'Material requerido'
+      else if (!values.DESCRIPCION?.trim()) error = 'Descripción requerida'
+      else if (!values.CENTRO?.trim()) error = 'Centro requerido'
+      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
+      else if (values.PRECIO && Number.isNaN(Number(values.PRECIO.replace(',', '.')))) error = 'Precio inválido'
+    } else if (type === 'REPOSICION') {
+      const provider = (values.PROVEEDOR || '').trim().toUpperCase()
+      if (!values.GUIA?.trim()) error = 'Guía requerida'
+      else if (!values.REFERENCIA?.trim().startsWith('89')) error = 'La referencia de Reposición debe iniciar con 89'
+      else if (!['KOMATSU','CUMMINS'].includes(provider)) error = 'Proveedor debe ser KOMATSU o CUMMINS'
+      else if (!values.MATERIAL?.trim()) error = 'Material requerido'
+      else if (!values.DESCRIPCION?.trim()) error = 'Descripción requerida'
+      else if (Number.isNaN(Number((values.CANTIDAD || '').replace(',', '.')))) error = 'Cantidad inválida'
+      else if (!values.UM?.trim()) error = 'UM requerida'
+      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
+      else if (values.FECHA_EMISION && !toIsoDate(values.FECHA_EMISION)) error = 'Fecha inválida'
+      else if (values.LINEA && !(Number(values.LINEA) >= 1)) error = 'Línea inválida'
+    } else if (type === 'KPI') {
+      if (!values.INDICADOR?.trim()) error = 'Indicador requerido'
+      else if (!/^\d{4}$/.test(values.ANO || '')) error = 'Año inválido'
+      else if (!(Number(values.MES) >= 1 && Number(values.MES) <= 12)) error = 'Mes inválido'
+      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
+      else if (Number.isNaN(Number((values.VALOR || '').replace(',', '.')))) error = 'Valor inválido'
+    } else {
+      if (!values.GUIA?.trim()) error = 'Guía requerida'
+      else if (!values.REFERENCIA?.trim()) error = 'Referencia requerida'
+      else if (!(Number(values.LINEAS) >= 1)) error = 'Líneas inválidas'
+      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
+      else if (values.FECHA_EMISION && !toIsoDate(values.FECHA_EMISION)) error = 'Fecha inválida'
+    }
+    return { row: index + 2, values, valid: !error, error }
+  })
+}
+
+async function executeImport(type: ImportType, preview: ImportPreview[], userId: string) {
+  if (type === 'MASTER_MATERIALES') {
     const mappedRows = preview.map(({ values }) => ({
       material_no: values.MATERIAL.trim().toUpperCase(),
       stock_code: values.STOCK_CODE?.trim() || null,
@@ -782,7 +818,8 @@ function validateImport(type: ImportType, headers: string[], rows: Record<string
       updated_at: new Date().toISOString(),
     }))
 
-    // Deduplicar dentro del mismo Excel: prevalece la última fila del material/almacén.
+    // Si el mismo Material/Almacén aparece repetido en el Excel,
+    // prevalece la última fila y se contabiliza como duplicado.
     const uniqueMap = new Map<string, typeof mappedRows[number]>()
     let internalDuplicates = 0
     for (const row of mappedRows) {
@@ -801,7 +838,6 @@ function validateImport(type: ImportType, headers: string[], rows: Record<string
     const keys = new Set((existing ?? []).map((row) => `${row.material_no}|${row.warehouse}`))
     const existingDuplicates = rows.filter((row) => keys.has(`${row.material_no}|${row.warehouse}`)).length
 
-    // Subir por lotes para soportar maestros grandes sin exceder el tamaño de una sola solicitud.
     const chunkSize = 500
     for (let index = 0; index < rows.length; index += chunkSize) {
       const chunk = rows.slice(index, index + chunkSize)
