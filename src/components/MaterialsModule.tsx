@@ -1,5 +1,21 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Boxes, Clock3, Download, Edit3, MapPin, Plus, Printer, RefreshCw, Search, X } from 'lucide-react'
+import {
+  Boxes,
+  CheckCircle2,
+  Clock3,
+  Download,
+  Edit3,
+  History,
+  MapPin,
+  MinusCircle,
+  MoreHorizontal,
+  MoveHorizontal,
+  Plus,
+  Printer,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 type Material = {
@@ -18,6 +34,22 @@ type Material = {
   updated_by: string | null
   created_at: string
   updated_at: string
+}
+
+type MaterialHistory = {
+  id: number
+  material_id: string
+  action: string
+  old_values: Record<string, unknown> | null
+  new_values: Record<string, unknown> | null
+  changed_by: string
+  created_at: string
+}
+
+type SearchMatch = {
+  material: Material
+  score: number
+  kind: 'EXACTA' | 'SIN_PREFIJO' | 'PREFIJO' | 'APROXIMADA' | 'TEXTO'
 }
 
 type Mode = 'consulta' | 'master' | 'ubicacion'
@@ -74,6 +106,82 @@ function parseLocationRows(text: string) {
   }).filter((x) => x.material_no)
 }
 
+function normalizeCode(value: string | null | undefined) {
+  return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+function baseCode(value: string | null | undefined) {
+  const normalized = normalizeCode(value)
+  return normalized.replace(/^[A-Z]{1,4}(?=\d)/, '')
+}
+
+function levenshtein(a: string, b: string) {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i]
+    for (let j = 1; j <= b.length; j++) {
+      next[j] = Math.min(
+        next[j - 1] + 1,
+        prev[j] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      )
+    }
+    prev = next
+  }
+  return prev[b.length]
+}
+
+function similarity(a: string, b: string) {
+  const left = normalizeCode(a)
+  const right = normalizeCode(b)
+  if (!left || !right) return 0
+  const maxLength = Math.max(left.length, right.length)
+  return Math.max(0, Math.round((1 - levenshtein(left, right) / maxLength) * 100))
+}
+
+function matchMaterial(material: Material, rawQuery: string): SearchMatch | null {
+  const query = normalizeCode(rawQuery)
+  if (!query) return null
+
+  const materialCode = normalizeCode(material.material_no)
+  const materialBase = baseCode(material.material_no)
+  const queryBase = baseCode(query)
+
+  if (materialCode === query) return { material, score: 100, kind: 'EXACTA' }
+  if (materialBase && materialBase === query) return { material, score: 99, kind: 'SIN_PREFIJO' }
+  if (queryBase && materialBase === queryBase) return { material, score: 97, kind: 'PREFIJO' }
+  if (materialCode.endsWith(query) && query.length >= 5) return { material, score: 96, kind: 'SIN_PREFIJO' }
+
+  const fuzzyScore = Math.max(
+    similarity(query, materialCode),
+    similarity(query, materialBase)
+  )
+  if (query.length >= 5 && fuzzyScore >= 72) {
+    return { material, score: fuzzyScore, kind: 'APROXIMADA' }
+  }
+
+  const textQuery = rawQuery.toLowerCase().trim()
+  if (
+    textQuery &&
+    [material.stock_code, material.description, material.center, material.warehouse, material.location]
+      .some((value) => String(value ?? '').toLowerCase().includes(textQuery))
+  ) {
+    return { material, score: 70, kind: 'TEXTO' }
+  }
+
+  return null
+}
+
+function confidenceLabel(score: number) {
+  if (score >= 95) return 'ALTA'
+  if (score >= 80) return 'CONFIRMAR'
+  return 'REVISAR'
+}
+
 export function MaterialsModule({ mode, userId, isAdmin }: Props) {
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,6 +191,14 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
   const [editing, setEditing] = useState<Material | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [locationInput, setLocationInput] = useState('')
+  const [actionMaterial, setActionMaterial] = useState<Material | null>(null)
+  const [actionMode, setActionMode] = useState<'HISTORY' | 'WITHDRAW' | 'MOVE' | null>(null)
+  const [historyRows, setHistoryRows] = useState<MaterialHistory[]>([])
+  const [actionLoading, setActionLoading] = useState(false)
+  const [withdrawQty, setWithdrawQty] = useState('1')
+  const [withdrawReason, setWithdrawReason] = useState('')
+  const [newLocation, setNewLocation] = useState('')
+  const [actionSuccess, setActionSuccess] = useState('')
 
   async function reload() {
     setLoading(true)
@@ -96,12 +212,29 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
     reload()
   }, [])
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return materials
-    return materials.filter((m) => [m.material_no, m.stock_code, m.description, m.center, m.warehouse, m.location, m.previous_location, m.status]
-      .some((v) => String(v ?? '').toLowerCase().includes(q)))
+  const matches = useMemo(() => {
+    const q = search.trim()
+    if (!q) return [] as SearchMatch[]
+    return materials
+      .map((material) => matchMaterial(material, q))
+      .filter(Boolean)
+      .sort((a, b) => {
+        const left = a as SearchMatch
+        const right = b as SearchMatch
+        return right.score - left.score || left.material.material_no.localeCompare(right.material.material_no)
+      })
+      .slice(0, 80) as SearchMatch[]
   }, [materials, search])
+
+  const filtered = useMemo(
+    () => search.trim() ? matches.map((row) => row.material) : materials,
+    [materials, matches, search]
+  )
+
+  const topSuggestions = useMemo(
+    () => matches.filter((row) => row.kind !== 'TEXTO').slice(0, 5),
+    [matches]
+  )
 
   function openNew() {
     setEditing(null)
@@ -194,10 +327,156 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
     await reload()
   }
 
+  function openActions(material: Material) {
+    setActionMaterial(material)
+    setActionMode(null)
+    setActionSuccess('')
+    setWithdrawQty('1')
+    setWithdrawReason('')
+    setNewLocation(material.location || '')
+  }
+
+  async function openHistory() {
+    if (!actionMaterial) return
+    setActionMode('HISTORY')
+    setActionLoading(true)
+    const [historyRes, outboundRes] = await Promise.all([
+      supabase
+        .from('material_history')
+        .select('*')
+        .eq('material_id', actionMaterial.id)
+        .order('created_at', { ascending: false })
+        .limit(100),
+      supabase
+        .from('outbound_movements')
+        .select('id,material_no,quantity,destination,reference,responsible,notes,created_at,created_by')
+        .eq('material_no', actionMaterial.material_no)
+        .order('created_at', { ascending: false })
+        .limit(100),
+    ])
+
+    const history = (historyRes.data ?? []) as MaterialHistory[]
+    const outboundAsHistory: MaterialHistory[] = (outboundRes.data ?? []).map((row) => ({
+      id: -Number(String(row.id).replace(/\D/g, '').slice(0, 8) || Date.now()),
+      material_id: actionMaterial.id,
+      action: 'RETIRO',
+      old_values: null,
+      new_values: {
+        quantity: row.quantity,
+        destination: row.destination,
+        reference: row.reference,
+        responsible: row.responsible,
+        notes: row.notes,
+      },
+      changed_by: row.created_by,
+      created_at: row.created_at,
+    }))
+
+    setHistoryRows([...history, ...outboundAsHistory].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    setActionLoading(false)
+  }
+
+  async function registerWithdrawal(event: FormEvent) {
+    event.preventDefault()
+    if (!actionMaterial) return
+    const qty = Number(withdrawQty.replace(',', '.'))
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setMessage('Ingresa una cantidad válida para el retiro.')
+      return
+    }
+
+    setActionLoading(true)
+    const payload = {
+      movement_date: new Date().toISOString().slice(0, 10),
+      warehouse: actionMaterial.warehouse,
+      material_no: actionMaterial.material_no,
+      stock_code: actionMaterial.stock_code,
+      description: actionMaterial.description,
+      quantity: qty,
+      destination: 'RETIRO MATERIAL',
+      reference: 'MATERIAL',
+      responsible: userId,
+      notes: withdrawReason.trim() || null,
+      created_by: userId,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error } = await supabase.from('outbound_movements').insert(payload)
+    if (!error) {
+      await supabase.from('material_history').insert({
+        material_id: actionMaterial.id,
+        action: 'RETIRO',
+        old_values: null,
+        new_values: payload,
+        changed_by: userId,
+      })
+    }
+
+    setActionLoading(false)
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setActionSuccess(`Retiro registrado: ${qty.toLocaleString('es-PE')} UND`)
+    setActionMode(null)
+  }
+
+  async function moveMaterial(event: FormEvent) {
+    event.preventDefault()
+    if (!actionMaterial) return
+    const nextLocation = newLocation.trim().toUpperCase()
+    if (!nextLocation) {
+      setMessage('Ingresa la nueva ubicación.')
+      return
+    }
+    if (nextLocation === (actionMaterial.location || '').toUpperCase()) {
+      setMessage('La nueva ubicación debe ser diferente a la ubicación actual.')
+      return
+    }
+
+    setActionLoading(true)
+    const oldLocation = actionMaterial.location
+    const now = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('materials')
+      .update({
+        previous_location: oldLocation,
+        location: nextLocation,
+        location_changed_at: now,
+        updated_at: now,
+        updated_by: userId,
+      })
+      .eq('id', actionMaterial.id)
+      .select('*')
+      .single()
+
+    if (!error && data) {
+      await supabase.from('material_history').insert({
+        material_id: actionMaterial.id,
+        action: 'MOVIDO',
+        old_values: { location: oldLocation, warehouse: actionMaterial.warehouse },
+        new_values: { location: nextLocation, warehouse: actionMaterial.warehouse },
+        changed_by: userId,
+      })
+      setActionMaterial(data as Material)
+    }
+
+    setActionLoading(false)
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setActionSuccess(`Ubicación actualizada: ${oldLocation || 'Sin ubicación'} → ${nextLocation}`)
+    setActionMode(null)
+    await reload()
+  }
+
   const locationRows = useMemo(() => {
     const parsed = parseLocationRows(locationInput)
     return parsed.map((row) => {
-      const found = materials.find((m) => m.material_no.toUpperCase() === row.material_no.toUpperCase())
+      const found = materials.find((m) => normalizeCode(m.material_no) === normalizeCode(row.material_no))
       return {
         material_no: row.material_no,
         quantity: row.quantity,
@@ -214,7 +493,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
   function exportLocation() {
     downloadCsv('KOMTROL_Hoja_Ubicacion.csv', [
       ['MATERIAL', 'STOCK CODE', 'DESCRIPCION', 'CANTIDAD', 'CENTRO', 'ALMACEN', 'UBICACION'],
-      ...locationRows.map((r) => [r.material_no, r.stock_code, r.description, r.quantity, r.center, r.warehouse, r.location]),
+      ...locationRows.map((row) => [row.material_no, row.stock_code, row.description, row.quantity, row.center, row.warehouse, row.location]),
     ])
   }
 
@@ -264,7 +543,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       <div className="panel-title">
         <div>
           <h3>{mode === 'master' ? 'Maestro de Materiales' : 'Materiales'}</h3>
-          <p>{mode === 'master' ? 'Administración central por Centro, Almacén y Ubicación, con trazabilidad del último cambio.' : 'Consulta rápida por número de parte, SC, descripción, centro, almacén o ubicación.'}</p>
+          <p>{mode === 'master' ? 'Administración central por Centro, Almacén y Ubicación, con trazabilidad del último cambio.' : 'Consulta inteligente por número de parte, SC, descripción, centro, almacén o ubicación.'}</p>
         </div>
         <div className="button-row">
           <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
@@ -272,36 +551,178 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         </div>
       </div>
 
-      <div className="task-toolbar">
-        <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar material, SC, descripción, centro, almacén, ubicación…" /></div>
+      <div className="material-smart-search">
+        <label>
+          N° parte / material
+          <div className="material-search-input">
+            <Search size={20} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Escanea o escribe: KT1822936D5 o 1822936D5"
+              autoComplete="off"
+            />
+            {search && <button type="button" className="material-search-clear" onClick={() => setSearch('')}><X size={16} /></button>}
+          </div>
+        </label>
+        <div className="material-search-rule">
+          <span>Exacta</span>
+          <span>Sin prefijo</span>
+          <span>Prefijo probable</span>
+          <span>Aproximada</span>
+        </div>
+      </div>
+
+      {search.trim() && (
+        <div className="material-match-summary">
+          <div>
+            <b>{matches.length ? `${matches.length} coincidencia(s)` : 'Sin coincidencias confiables'}</b>
+            <span>KOMTROL compara código completo, código base sin prefijo y similitud aproximada.</span>
+          </div>
+          {topSuggestions[0]?.score >= 95 && <span className="status-pill"><CheckCircle2 size={14} /> Mejor coincidencia {topSuggestions[0].score}%</span>}
+        </div>
+      )}
+
+      {topSuggestions.length > 0 && (
+        <div className="material-suggestions">
+          {topSuggestions.map((match, index) => (
+            <article className={index === 0 && match.score >= 95 ? 'material-suggestion recommended' : 'material-suggestion'} key={match.material.id}>
+              <div className="material-suggestion-main">
+                <div className="material-suggestion-title">
+                  <b>{match.material.material_no}</b>
+                  {index === 0 && match.score >= 95 && <span>RECOMENDADO</span>}
+                </div>
+                <p>{match.material.description}</p>
+                <small>SC {match.material.stock_code || '—'} · {match.material.warehouse || '—'} · Ubicación {match.material.location || '—'}</small>
+              </div>
+              <div className="material-confidence">
+                <b>{match.score}%</b>
+                <span className={match.score >= 95 ? 'high' : match.score >= 80 ? 'medium' : 'low'}>{confidenceLabel(match.score)}</span>
+                <small>{match.kind.replace('_', ' ')}</small>
+              </div>
+              <button className="secondary-button material-suggestion-action" onClick={() => openActions(match.material)}>Seleccionar</button>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="task-toolbar material-toolbar">
         <span className="view-hint"><Boxes size={16} /> {filtered.length} materiales</span>
       </div>
+
       {message && <div className="inline-message">{message}</div>}
+
       {loading ? (
         <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando materiales…</p></div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap materials-responsive-table">
           <table>
-            <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio</th><th>Estado</th>{mode === 'master' && isAdmin && <th></th>}</tr></thead>
+            <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio</th><th>Estado</th><th>Acciones</th>{mode === 'master' && isAdmin && <th>Editar</th>}</tr></thead>
             <tbody>
-              {filtered.map((m) => (
-                <tr key={m.id}>
-                  <td><b>{m.material_no}</b></td>
-                  <td>{m.stock_code || '—'}</td>
-                  <td>{m.description}</td>
-                  <td>{m.center || '—'}</td>
-                  <td>{m.warehouse || '—'}</td>
-                  <td><b>{m.location || '—'}</b></td>
-                  <td>{m.previous_location || '—'}</td>
-                  <td><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(m.location_changed_at)}</span></td>
-                  <td>{m.price == null ? '—' : Number(m.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</td>
-                  <td><span className={m.status === 'ACTIVO' ? 'status-pill' : m.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{m.status}</span></td>
-                  {mode === 'master' && isAdmin && <td><button className="icon-button small-icon" onClick={() => openEdit(m)}><Edit3 size={15} /></button></td>}
+              {filtered.slice(0, 250).map((material) => (
+                <tr key={material.id}>
+                  <td data-label="Material"><b>{material.material_no}</b></td>
+                  <td data-label="Stock Code">{material.stock_code || '—'}</td>
+                  <td data-label="Descripción">{material.description}</td>
+                  <td data-label="Centro">{material.center || '—'}</td>
+                  <td data-label="Almacén">{material.warehouse || '—'}</td>
+                  <td data-label="Ubicación"><b>{material.location || '—'}</b></td>
+                  <td data-label="Ubicación anterior">{material.previous_location || '—'}</td>
+                  <td data-label="Último cambio"><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(material.location_changed_at)}</span></td>
+                  <td data-label="Precio">{material.price == null ? '—' : Number(material.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</td>
+                  <td data-label="Estado"><span className={material.status === 'ACTIVO' ? 'status-pill' : material.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{material.status}</span></td>
+                  <td data-label="Acciones"><button className="icon-button material-more-button" onClick={() => openActions(material)} title="Acciones"><MoreHorizontal size={17} /></button></td>
+                  {mode === 'master' && isAdmin && <td data-label="Editar"><button className="icon-button small-icon" onClick={() => openEdit(material)}><Edit3 size={15} /></button></td>}
                 </tr>
               ))}
             </tbody>
           </table>
           {!filtered.length && <div className="empty-work"><Boxes size={30} /><b>Sin materiales</b><p>No hay registros que coincidan con la búsqueda.</p></div>}
+          {filtered.length > 250 && <div className="table-note">Mostrando 250 de {filtered.length}. Refina la búsqueda para reducir resultados.</div>}
+        </div>
+      )}
+
+      {actionMaterial && (
+        <div className="material-action-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setActionMaterial(null)}>
+          <aside className="material-action-sheet">
+            <div className="material-action-head">
+              <div><small>MATERIAL</small><h3>{actionMaterial.material_no}</h3><p>{actionMaterial.description}</p></div>
+              <button className="icon-button" onClick={() => setActionMaterial(null)}><X size={18} /></button>
+            </div>
+
+            {actionSuccess && <div className="material-action-success"><CheckCircle2 size={18} /><span>{actionSuccess}</span></div>}
+
+            {!actionMode && (
+              <div className="material-action-grid">
+                <button onClick={openHistory}>
+                  <History size={21} />
+                  <span><b>Historial</b><small>Ver cambios y movimientos</small></span>
+                </button>
+                <button onClick={() => { setActionMode('WITHDRAW'); setActionSuccess('') }}>
+                  <MinusCircle size={21} />
+                  <span><b>Retiro</b><small>Registrar salida de material</small></span>
+                </button>
+                <button onClick={() => { setActionMode('MOVE'); setActionSuccess(''); setNewLocation(actionMaterial.location || '') }}>
+                  <MoveHorizontal size={21} />
+                  <span><b>Mover</b><small>Cambiar ubicación</small></span>
+                </button>
+              </div>
+            )}
+
+            {actionMode === 'HISTORY' && (
+              <div className="material-action-content">
+                <div className="material-action-subhead"><button className="text-button" onClick={() => setActionMode(null)}>← Volver</button><b>Historial</b></div>
+                {actionLoading ? <div className="screen-center compact"><RefreshCw className="spin" size={20} /></div> : (
+                  <div className="material-history-timeline">
+                    {historyRows.map((row) => (
+                      <article key={row.id}>
+                        <i />
+                        <div>
+                          <b>{row.action}</b>
+                          <span>{formatDateTime(row.created_at)}</span>
+                          {row.action === 'MOVIDO' && <p>{String(row.old_values?.location ?? 'Sin ubicación')} → {String(row.new_values?.location ?? 'Sin ubicación')}</p>}
+                          {row.action === 'RETIRO' && <p>{String(row.new_values?.quantity ?? '—')} UND · {String(row.new_values?.notes ?? 'Sin observación')}</p>}
+                          {row.action === 'ACTUALIZADO' && <p>Datos del material actualizados.</p>}
+                          {row.action === 'CREADO' && <p>Material incorporado al Master.</p>}
+                          <small>Usuario: {row.changed_by}</small>
+                        </div>
+                      </article>
+                    ))}
+                    {!historyRows.length && <div className="empty-work compact"><History size={25} /><b>Sin historial</b></div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {actionMode === 'WITHDRAW' && (
+              <form className="material-action-content" onSubmit={registerWithdrawal}>
+                <div className="material-action-subhead"><button type="button" className="text-button" onClick={() => setActionMode(null)}>← Volver</button><b>Registrar retiro</b></div>
+                <div className="material-context-card"><span>Ubicación actual</span><b>{actionMaterial.location || 'Sin ubicación'}</b><small>{actionMaterial.warehouse || 'Sin almacén'}</small></div>
+                <label>Cantidad
+                  <input type="number" min="0.001" step="0.001" required value={withdrawQty} onChange={(e) => setWithdrawQty(e.target.value)} />
+                </label>
+                <label>Motivo / observación
+                  <textarea rows={3} value={withdrawReason} onChange={(e) => setWithdrawReason(e.target.value)} placeholder="Ej. Retiro para mantenimiento TD28" />
+                </label>
+                <button className="primary-button full" disabled={actionLoading}>{actionLoading ? <RefreshCw className="spin" size={17} /> : <MinusCircle size={17} />}{actionLoading ? 'Registrando…' : 'Registrar retiro'}</button>
+              </form>
+            )}
+
+            {actionMode === 'MOVE' && (
+              <form className="material-action-content" onSubmit={moveMaterial}>
+                <div className="material-action-subhead"><button type="button" className="text-button" onClick={() => setActionMode(null)}>← Volver</button><b>Mover material</b></div>
+                <div className="material-move-route">
+                  <div><small>ACTUAL</small><b>{actionMaterial.location || 'Sin ubicación'}</b></div>
+                  <MoveHorizontal size={20} />
+                  <div><small>NUEVA</small><b>{newLocation.trim().toUpperCase() || '—'}</b></div>
+                </div>
+                <label>Nueva ubicación
+                  <input required value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Ej. PHPB001A" />
+                </label>
+                <button className="primary-button full" disabled={actionLoading}>{actionLoading ? <RefreshCw className="spin" size={17} /> : <MoveHorizontal size={17} />}{actionLoading ? 'Moviendo…' : 'Mover material'}</button>
+              </form>
+            )}
+          </aside>
         </div>
       )}
 
