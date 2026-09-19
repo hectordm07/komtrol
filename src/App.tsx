@@ -117,6 +117,26 @@ function formatDate(value?: string | null) {
   }).format(new Date(value))
 }
 
+function greetingForDate(value: Date) {
+  const hour = value.getHours()
+  if (hour >= 5 && hour < 12) return 'Buenos días'
+  if (hour >= 12 && hour < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+function todayLabel(value: Date) {
+  const label = new Intl.DateTimeFormat('es-PE', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  }).format(value)
+  return `HOY ES ${label.toUpperCase()}`
+}
+
+function firstName(value: string) {
+  return value.trim().split(/\s+/)[0]?.toUpperCase() || 'USUARIO'
+}
+
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loadingSession, setLoadingSession] = useState(true)
@@ -279,6 +299,7 @@ function Workspace({ session }: { session: Session }) {
   const [saving, setSaving] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  const [now, setNow] = useState(() => new Date())
 
   const user = session.user
   const role = profile?.role ?? (user.app_metadata?.role as Profile['role'] | undefined) ?? 'TRABAJADOR'
@@ -307,6 +328,11 @@ function Workspace({ session }: { session: Session }) {
     const timer = window.setTimeout(() => setToast(''), 4500)
     return () => window.clearTimeout(timer)
   }, [toast])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const counts = useMemo(() => {
     return {
@@ -690,6 +716,18 @@ function Workspace({ session }: { session: Session }) {
             <button className="icon-button" title="Notificaciones"><Bell size={19} /></button>
           </div>
         </header>
+
+        {profile && (
+          <section className="user-greeting-sticky" aria-label="Saludo del usuario">
+            <div className="user-greeting-inner">
+              <span className="user-greeting-date"><i />{todayLabel(now)}</span>
+              <div className="user-greeting-copy">
+                <strong>{greetingForDate(now)}, <b>{firstName(displayName)}</b></strong>
+                <small>{profile.warehouse || 'SIN ALMACÉN'}{profile.group_name ? ` · ${profile.group_name}` : ''}{profile.shift_name ? ` · ${profile.shift_name}` : ''}</small>
+              </div>
+            </div>
+          </section>
+        )}
 
         <div className="content">
           {loading ? (

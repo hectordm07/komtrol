@@ -6,6 +6,7 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  History,
   LayoutDashboard,
   List,
   MinusCircle,
@@ -78,6 +79,27 @@ type LedgerRow = Movement & {
   entry: number
   exit: number
   runningBalance: number
+}
+
+type HistoryMovement = {
+  movement_id: string
+  warehouse: string
+  center: string | null
+  movement_type: 'ENTRADA' | 'SALIDA'
+  source_type: string
+  reference_no: string | null
+  shipment_no: string | null
+  box_no: string | null
+  material_no: string
+  stock_code: string | null
+  description: string | null
+  location: string | null
+  quantity: number
+  unit: string
+  notes: string | null
+  created_by: string
+  created_by_name: string
+  created_at: string
 }
 
 type InitialRow = {
@@ -265,7 +287,6 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
   const [selected, setSelected] = useState<BalanceRow | null>(null)
   const [selectedAction, setSelectedAction] = useState<'withdrawal' | 'transfer' | null>(null)
   const [quantity, setQuantity] = useState('')
-  const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
   const [destinationLocation, setDestinationLocation] = useState('')
   const [saving, setSaving] = useState(false)
@@ -283,9 +304,15 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     location: '',
     quantity: '',
     unit: 'UND',
-    reference_no: '',
     notes: '',
   })
+
+  const [historyTarget, setHistoryTarget] = useState<{ materialNo: string; warehouse: string; description: string; stockCode: string } | null>(null)
+  const [historyRows, setHistoryRows] = useState<HistoryMovement[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState('')
+  const [historyShipment, setHistoryShipment] = useState('TODOS')
+  const [historyBox, setHistoryBox] = useState('TODOS')
 
   const [initialFileName, setInitialFileName] = useState('')
   const [initialRows, setInitialRows] = useState<InitialRow[]>([])
@@ -472,7 +499,6 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     setSelected(row)
     setSelectedAction(action)
     setQuantity('')
-    setReference('')
     setNotes('')
     setDestinationLocation('')
     setMessage('')
@@ -502,7 +528,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
           p_stock_type: selected.stock_type || 'SOBRANTE',
           p_quantity: qty,
           p_unit: selected.unit || 'UND',
-          p_reference_no: reference.trim() || null,
+          p_reference_no: null,
           p_notes: notes.trim() || null,
         }
       : {
@@ -518,11 +544,11 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
           p_stock_type: selected.stock_type || 'SOBRANTE',
           p_quantity: qty,
           p_unit: selected.unit || 'UND',
-          p_reference_no: reference.trim() || null,
+          p_reference_no: null,
           p_notes: notes.trim() || null,
         }
 
-    const { error } = await supabase.rpc(rpc, args)
+    const { data, error } = await supabase.rpc(rpc, args)
     setSaving(false)
 
     if (error) {
@@ -530,11 +556,23 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       return
     }
 
+    let generatedCode = ''
+    if (selectedAction === 'transfer') {
+      generatedCode = String((data as { reference?: string } | null)?.reference || '')
+    } else if (data) {
+      const { data: created } = await supabase
+        .from('surplus_kardex_movements')
+        .select('reference_no')
+        .eq('id', String(data))
+        .maybeSingle()
+      generatedCode = String(created?.reference_no || '')
+    }
+
     setSelected(null)
     setSelectedAction(null)
     setMessage(selectedAction === 'withdrawal'
-      ? 'Salida registrada correctamente en el Kardex.'
-      : 'Transferencia registrada. El saldo total no cambia; solo cambia la ubicación.')
+      ? `Salida registrada correctamente. Código: ${generatedCode || 'generado automáticamente'}.`
+      : `Transferencia registrada. Código: ${generatedCode || 'generado automáticamente'}. El saldo total no cambia.`)
     await reload()
   }
 
@@ -552,7 +590,6 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       location: '',
       quantity: '',
       unit: 'UND',
-      reference_no: '',
       notes: '',
     })
     setMessage('')
@@ -568,7 +605,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     if(!(qty>0)){setMessage('Cantidad inválida.');return}
 
     setSaving(true)
-    const {error}=await supabase.rpc('register_surplus_manual_entry',{
+    const {data,error}=await supabase.rpc('register_surplus_manual_entry',{
       p_warehouse:manualForm.warehouse.trim().toUpperCase(),
       p_center:manualForm.center.trim().toUpperCase(),
       p_storage_type:manualForm.storage_type.trim().toUpperCase(),
@@ -581,15 +618,91 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       p_location:manualForm.location.trim().toUpperCase(),
       p_quantity:qty,
       p_unit:manualForm.unit.trim().toUpperCase()||'UND',
-      p_reference_no:manualForm.reference_no.trim()||null,
+      p_reference_no:null,
       p_notes:manualForm.notes.trim()||null,
     })
     setSaving(false)
     if(error){setMessage(error.message);return}
+    let generatedCode=''
+    if(data){
+      const {data:created}=await supabase
+        .from('surplus_kardex_movements')
+        .select('reference_no')
+        .eq('id',String(data))
+        .maybeSingle()
+      generatedCode=String(created?.reference_no||'')
+    }
     setShowManualEntry(false)
-    setMessage(`Ingreso manual registrado para el embarque ${manualForm.shipment_no.trim().toUpperCase()}.`)
+    setMessage(`Ingreso manual registrado. Código: ${generatedCode || 'generado automáticamente'} · Embarque ${manualForm.shipment_no.trim().toUpperCase()}.`)
     await reload()
   }
+
+  async function openMaterialHistory(materialNo: string, warehouse: string, description = '', stockCode = '') {
+    setHistoryTarget({
+      materialNo: materialNo.toUpperCase(),
+      warehouse: warehouse.toUpperCase(),
+      description,
+      stockCode,
+    })
+    setHistoryRows([])
+    setHistoryShipment('TODOS')
+    setHistoryBox('TODOS')
+    setHistoryError('')
+    setHistoryLoading(true)
+
+    const { data, error } = await supabase.rpc('get_surplus_material_history', {
+      p_material_no: materialNo.toUpperCase(),
+      p_warehouse: warehouse.toUpperCase(),
+    })
+
+    setHistoryLoading(false)
+    if (error) {
+      setHistoryError(error.message)
+      return
+    }
+    setHistoryRows((data ?? []) as HistoryMovement[])
+  }
+
+  const historyShipments = useMemo(
+    () => Array.from(new Set(historyRows.map((row)=>row.shipment_no).filter(Boolean) as string[])).sort(),
+    [historyRows]
+  )
+
+  const historyBoxes = useMemo(
+    () => Array.from(new Set(historyRows.map((row)=>row.box_no).filter(Boolean) as string[])).sort(),
+    [historyRows]
+  )
+
+  const filteredHistory = useMemo(
+    () => historyRows.filter((row)=>
+      (historyShipment==='TODOS' || row.shipment_no===historyShipment)
+      && (historyBox==='TODOS' || row.box_no===historyBox)
+    ),
+    [historyRows,historyShipment,historyBox]
+  )
+
+  const historyLedger = useMemo(() => {
+    let balance = 0
+    return [...filteredHistory]
+      .sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())
+      .map((row)=>{
+        const qty=Number(row.quantity||0)
+        balance += row.movement_type==='ENTRADA' ? qty : -qty
+        return {
+          ...row,
+          entry: row.movement_type==='ENTRADA' ? qty : 0,
+          exit: row.movement_type==='SALIDA' ? qty : 0,
+          runningBalance: balance,
+        }
+      })
+      .reverse()
+  },[filteredHistory])
+
+  const historyTotals = useMemo(() => {
+    const entries=filteredHistory.filter((row)=>row.movement_type==='ENTRADA').reduce((sum,row)=>sum+Number(row.quantity||0),0)
+    const exits=filteredHistory.filter((row)=>row.movement_type==='SALIDA').reduce((sum,row)=>sum+Number(row.quantity||0),0)
+    return { entries, exits, balance: entries-exits, movements: filteredHistory.length }
+  },[filteredHistory])
 
   async function downloadInitialTemplate() {
     const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
@@ -927,13 +1040,13 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
                 <thead><tr><th>Material</th><th>SC</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Caja</th><th>Embarque</th><th>Inicial</th><th>Entradas</th><th>Salidas</th><th>Saldo</th><th>Acciones</th></tr></thead>
                 <tbody>{visibleBalances.slice(0,500).map((row)=>(
                   <tr key={row.key}>
-                    <td><b>{row.material_no}</b><small>{row.stock_type}</small></td>
+                    <td><button className="kardex-material-link" onClick={()=>openMaterialHistory(row.material_no,row.warehouse,row.description||'',row.stock_code||'')}><b>{row.material_no}</b><small>{row.stock_type} · Ver historial</small></button></td>
                     <td>{row.stock_code || '—'}</td><td>{row.description || '—'}</td><td>{row.center || '—'}</td><td>{row.warehouse}</td>
                     <td><b>{row.location || '—'}</b><small>{[row.storage_type,row.storage_section].filter(Boolean).join(' · ')}</small></td>
                     <td>{row.box_no || '—'}</td><td>{row.shipment_no || '—'}</td>
                     <td>{fmtQty(row.initial)}</td><td className="kardex-positive">+{fmtQty(row.entries)}</td><td className="kardex-negative">−{fmtQty(row.exits)}</td>
                     <td><b className="kardex-balance-number">{fmtQty(row.balance)} {row.unit}</b></td>
-                    <td>{canMove && <div className="row-actions"><button className="secondary-button" onClick={()=>openAction(row,'withdrawal')}><MinusCircle size={14}/> Retiro</button><button className="secondary-button" onClick={()=>openAction(row,'transfer')}><ArrowRightLeft size={14}/> Mover</button></div>}</td>
+                    <td><div className="row-actions"><button className="secondary-button" onClick={()=>openMaterialHistory(row.material_no,row.warehouse,row.description||'',row.stock_code||'')}><History size={14}/> Historial</button>{canMove && <><button className="secondary-button" onClick={()=>openAction(row,'withdrawal')}><MinusCircle size={14}/> Retiro</button><button className="secondary-button" onClick={()=>openAction(row,'transfer')}><ArrowRightLeft size={14}/> Mover</button></>}</div></td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -1054,7 +1167,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
                     <td>{fmt(row.created_at)}</td>
                     <td><b>{row.reference_no || '—'}</b></td>
                     <td><span className={row.movement_type==='ENTRADA'?'status-pill success':'status-pill warning'}>{row.movement_type}</span></td>
-                    <td><b>{row.material_no}</b><small>{row.description || ''}</small></td>
+                    <td><button className="kardex-material-link" onClick={()=>openMaterialHistory(row.material_no,row.warehouse,row.description||'',row.stock_code||'')}><b>{row.material_no}</b><small>{row.description || 'Ver historial del material'}</small></button></td>
                     <td>{row.stock_code || '—'}</td>
                     <td>{row.shipment_no || '—'}</td>
                     <td>{row.box_no || '—'}</td>
@@ -1070,6 +1183,76 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
             </div>
           </section>
         </>
+      )}
+
+      {historyTarget && (
+        <div className="modal-backdrop kardex-history-backdrop" onMouseDown={(e)=>e.target===e.currentTarget && setHistoryTarget(null)}>
+          <section className="modal kardex-history-modal">
+            <div className="modal-head">
+              <div>
+                <span className="kardex-eyebrow">TRAZABILIDAD POR MATERIAL</span>
+                <h2>{historyTarget.materialNo}</h2>
+                <p>{historyTarget.description || 'Sin descripción'} · {historyTarget.warehouse}{historyTarget.stockCode ? ` · SC ${historyTarget.stockCode}` : ''}</p>
+              </div>
+              <button type="button" className="icon-button" onClick={()=>setHistoryTarget(null)}><X size={19}/></button>
+            </div>
+
+            <div className="kardex-history-kpis">
+              <div><span>Entradas</span><b className="positive">+{fmtQty(historyTotals.entries)}</b></div>
+              <div><span>Salidas</span><b className="negative">−{fmtQty(historyTotals.exits)}</b></div>
+              <div><span>Saldo</span><b>{fmtQty(historyTotals.balance)}</b></div>
+              <div><span>Movimientos</span><b>{historyTotals.movements}</b></div>
+            </div>
+
+            <div className="kardex-history-filters">
+              <label>Embarque
+                <select value={historyShipment} onChange={(e)=>setHistoryShipment(e.target.value)}>
+                  <option value="TODOS">Todos</option>
+                  {historyShipments.map((value)=><option key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>Caja
+                <select value={historyBox} onChange={(e)=>setHistoryBox(e.target.value)}>
+                  <option value="TODOS">Todas</option>
+                  {historyBoxes.map((value)=><option key={value}>{value}</option>)}
+                </select>
+              </label>
+            </div>
+
+            {historyLoading ? (
+              <div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando historial…</p></div>
+            ) : historyError ? (
+              <div className="inline-message">{historyError}</div>
+            ) : (
+              <div className="table-wrap kardex-history-table">
+                <table>
+                  <thead><tr><th>Fecha / Hora</th><th>Código</th><th>Movimiento</th><th>Origen</th><th>Embarque</th><th>Caja</th><th>Ubicación</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Usuario</th><th>Observación</th></tr></thead>
+                  <tbody>{historyLedger.map((row)=>(
+                    <tr key={row.movement_id}>
+                      <td>{fmt(row.created_at)}</td>
+                      <td><b>{row.reference_no || '—'}</b></td>
+                      <td><span className={row.movement_type==='ENTRADA'?'status-pill success':'status-pill warning'}>{row.movement_type}</span></td>
+                      <td>{row.source_type.replaceAll('_',' ')}</td>
+                      <td>{row.shipment_no || '—'}</td>
+                      <td>{row.box_no || '—'}</td>
+                      <td><b>{row.location || '—'}</b></td>
+                      <td className="kardex-entry-cell">{row.entry ? '+'+fmtQty(row.entry) : '—'}</td>
+                      <td className="kardex-exit-cell">{row.exit ? '−'+fmtQty(row.exit) : '—'}</td>
+                      <td><b>{fmtQty(row.runningBalance)} {row.unit}</b></td>
+                      <td><b>{row.created_by_name}</b></td>
+                      <td>{row.notes || '—'}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+                {!historyLedger.length && <div className="empty-work"><History size={25}/><b>Sin movimientos</b><p>No existen movimientos para los filtros seleccionados.</p></div>}
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={()=>setHistoryTarget(null)}>Cerrar historial</button>
+            </div>
+          </section>
+        </div>
       )}
 
       {showManualEntry && (
@@ -1092,7 +1275,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
               <label>Ubicación / Bin<input value={manualForm.location} onChange={(e)=>setManualForm({...manualForm,location:e.target.value})} placeholder="Ej. SOB-01"/></label>
               <label>Cantidad<input required type="number" min="0.001" step="any" value={manualForm.quantity} onChange={(e)=>setManualForm({...manualForm,quantity:e.target.value})}/></label>
               <label>UM<input value={manualForm.unit} onChange={(e)=>setManualForm({...manualForm,unit:e.target.value})}/></label>
-              <label>Referencia<input value={manualForm.reference_no} onChange={(e)=>setManualForm({...manualForm,reference_no:e.target.value})} placeholder="Ej. AJU-001"/></label>
+              <div className="auto-code-note"><b>Código automático</b><span>Se generará un código ING-AAAAMMDD-###### al registrar.</span></div>
               <label className="span-2">Observación<textarea rows={3} value={manualForm.notes} onChange={(e)=>setManualForm({...manualForm,notes:e.target.value})}/></label>
             </div>
             <div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowManualEntry(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving?<RefreshCw className="spin" size={15}/>:<Plus size={15}/>} Registrar entrada</button></div>
@@ -1113,7 +1296,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
             </div>
             <div className="form-grid">
               <label>Cantidad<input autoFocus required type="number" min="0.001" max={selected.balance} step="any" value={quantity} onChange={(e)=>setQuantity(e.target.value)}/></label>
-              <label>Referencia / vale<input value={reference} onChange={(e)=>setReference(e.target.value)} placeholder={selectedAction==='withdrawal'?'Ej. RET-001':'Ej. TRF-001'}/></label>
+              <div className="auto-code-note"><b>Código automático</b><span>{selectedAction==='withdrawal'?'Se generará RET-AAAAMMDD-######':'Se generará TRF-AAAAMMDD-######'}</span></div>
               {selectedAction==='transfer' && <label className="span-2">Nueva ubicación / Bin<input required value={destinationLocation} onChange={(e)=>setDestinationLocation(e.target.value)} placeholder="Ej. SOB-04"/></label>}
               <label className="span-2">Motivo / observación<textarea rows={3} value={notes} onChange={(e)=>setNotes(e.target.value)} placeholder={selectedAction==='withdrawal'?'Indica para qué se retira el sobrante.':'Indica el motivo de la reubicación.'}/></label>
             </div>
