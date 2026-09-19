@@ -4668,3 +4668,46 @@ table tbody tr:hover td {
     font-size: 6.5px;
   }
 }
+
+
+/* Maestro de Materiales: trazabilidad de ubicación */
+.material-change-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #6b8194;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.location-change-preview {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #cfe3f0;
+  background: #eef7fc;
+  border-radius: 10px;
+  padding: 9px 11px;
+  color: #4d7089;
+}
+.location-change-preview > div {
+  display: grid;
+  gap: 2px;
+}
+.location-change-preview b {
+  font-size: 10px;
+  color: #355d7b;
+}
+.location-change-preview span {
+  font-size: 9px;
+}
+.materials-panel .table-wrap table {
+  min-width: 1250px;
+}
+@media (max-width: 620px) {
+  .materials-panel .table-wrap table {
+    min-width: 1180px;
+  }
+  .location-change-preview {
+    align-items: flex-start;
+  }
+}
