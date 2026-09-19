@@ -83,6 +83,19 @@ type Notification = {
   error_message: string | null
 }
 
+type AppNotification = {
+  id: string
+  user_id: string
+  notification_type: string
+  title: string
+  message: string | null
+  task_id: string | null
+  created_by: string | null
+  read_at: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
 const emptyForm = {
   incident_type: 'FALTANTE',
   guide_no: '',
@@ -292,6 +305,9 @@ function Workspace({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([])
+  const [notificationOpen, setNotificationOpen] = useState(false)
+  const [taskToOpen, setTaskToOpen] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showIncidentForm, setShowIncidentForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -307,15 +323,17 @@ function Workspace({ session }: { session: Session }) {
 
   async function reload() {
     setLoading(true)
-    const [profileRes, incidentsRes, notificationsRes] = await Promise.all([
+    const [profileRes, incidentsRes, notificationsRes, appNotificationRes] = await Promise.all([
       supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('email_notifications').select('*').order('created_at', { ascending: false }).limit(100),
+      supabase.from('app_notifications').select('*').order('created_at', { ascending: false }).limit(100),
     ])
 
     if (profileRes.data) setProfile(profileRes.data as Profile)
     setIncidents((incidentsRes.data ?? []) as Incident[])
     setNotifications((notificationsRes.data ?? []) as Notification[])
+    setAppNotifications((appNotificationRes.data ?? []) as AppNotification[])
     setLoading(false)
   }
 
@@ -333,6 +351,52 @@ function Workspace({ session }: { session: Session }) {
     const timer = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(async () => {
+      const { data } = await supabase
+        .from('app_notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (data) setAppNotifications(data as AppNotification[])
+    }, 30_000)
+    return () => window.clearInterval(timer)
+  }, [user.id])
+
+  const unreadAppNotifications = appNotifications.filter((item) => !item.read_at).length
+
+  async function openAppNotification(item: AppNotification) {
+    if (!item.read_at) {
+      await supabase
+        .from('app_notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', item.id)
+      setAppNotifications((current) =>
+        current.map((row) => row.id === item.id ? { ...row, read_at: new Date().toISOString() } : row)
+      )
+    }
+
+    setNotificationOpen(false)
+
+    if (item.task_id) {
+      setTaskToOpen(item.task_id)
+      setTab('mi-trabajo')
+      setOpenSections((current) => current.includes('INICIO') ? current : [...current, 'INICIO'])
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  async function markAllNotificationsRead() {
+    const unread = appNotifications.filter((item) => !item.read_at)
+    if (!unread.length) return
+    const nowIso = new Date().toISOString()
+    await supabase
+      .from('app_notifications')
+      .update({ read_at: nowIso })
+      .is('read_at', null)
+    setAppNotifications((current) => current.map((item) => item.read_at ? item : { ...item, read_at: nowIso }))
+  }
 
   const counts = useMemo(() => {
     return {
@@ -713,7 +777,44 @@ function Workspace({ session }: { session: Session }) {
           </div>
           <div className="top-actions">
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={19} /></button>
-            <button className="icon-button" title="Notificaciones"><Bell size={19} /></button>
+            <div className="notification-center">
+              <button
+                className={unreadAppNotifications ? 'icon-button notification-bell has-unread' : 'icon-button notification-bell'}
+                title="Notificaciones"
+                onClick={() => setNotificationOpen((value) => !value)}
+              >
+                <Bell size={19} />
+                {unreadAppNotifications > 0 && <span>{unreadAppNotifications > 99 ? '99+' : unreadAppNotifications}</span>}
+              </button>
+              {notificationOpen && (
+                <div className="notification-panel">
+                  <div className="notification-panel-head">
+                    <div><b>Notificaciones</b><span>{unreadAppNotifications} sin leer</span></div>
+                    {unreadAppNotifications > 0 && <button onClick={markAllNotificationsRead}>Marcar todas</button>}
+                  </div>
+                  <div className="notification-panel-list">
+                    {appNotifications.slice(0, 20).map((item) => (
+                      <button
+                        key={item.id}
+                        className={item.read_at ? 'notification-item' : 'notification-item unread'}
+                        onClick={() => openAppNotification(item)}
+                      >
+                        <i />
+                        <div>
+                          <b>{item.title}</b>
+                          {item.message && <p>{item.message}</p>}
+                          <span>{formatDate(item.created_at)}</span>
+                        </div>
+                        <ChevronRight size={16} />
+                      </button>
+                    ))}
+                    {!appNotifications.length && (
+                      <div className="notification-empty"><Bell size={24} /><span>No tienes notificaciones.</span></div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -845,6 +946,8 @@ function Workspace({ session }: { session: Session }) {
                   mode={tab as typeof taskTabs[number]}
                   userId={user.id}
                   profile={profile}
+                  initialTaskId={taskToOpen}
+                  onInitialTaskOpened={() => setTaskToOpen(null)}
                 />
               )}
 
