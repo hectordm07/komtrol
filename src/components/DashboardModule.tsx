@@ -318,20 +318,29 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
       ...data.tasks.map((row)=>row.warehouse).filter(Boolean) as string[],
       ...data.guides.map((row)=>row.warehouse).filter(Boolean) as string[],
       ...data.outbound.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.inventories.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.transits.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.damaged.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.consignments.map((row)=>row.warehouse).filter(Boolean) as string[],
       ...data.incidents.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.kpis.map((row)=>row.warehouse).filter((value)=>Boolean(value) && value !== 'GLOBAL') as string[],
     ])).sort()
 
     return names.map((name)=>{
       const tasks = data.tasks.filter((row)=>row.warehouse===name && dateInPeriod(row.created_at,year,month)).length
       const guides = data.guides.filter((row)=>row.warehouse===name && dateInPeriod(row.created_at,year,month)).length
       const outbound = data.outbound.filter((row)=>row.warehouse===name && dateInPeriod(row.movement_date,year,month)).length
+      const inventories = data.inventories.filter((row)=>row.warehouse===name && row.year===year && row.month===month).length
+      const transits = data.transits.filter((row)=>row.warehouse===name && dateInPeriod(row.transit_date,year,month)).length
+      const damaged = data.damaged.filter((row)=>row.warehouse===name && dateInPeriod(row.event_date,year,month)).length
+      const consignments = data.consignments.filter((row)=>row.warehouse===name && dateInPeriod(row.entry_date,year,month)).length
       const incidents = data.incidents.filter((row)=>row.warehouse===name && dateInPeriod(row.created_at,year,month)).length
       const kpis = data.kpis.filter((row)=>row.warehouse===name).length
       return {
         key:name,
         label:name,
-        value:tasks+guides+outbound+incidents+kpis,
-        detail:`Tareas: ${tasks} · Guías: ${guides} · Outbound: ${outbound} · Incidencias: ${incidents} · KPI: ${kpis}`,
+        value:tasks+guides+outbound+inventories+transits+damaged+consignments+incidents+kpis,
+        detail:`Tareas: ${tasks} · Guías: ${guides} · Outbound: ${outbound} · Inventarios: ${inventories} · Tránsitos: ${transits} · Dañados: ${damaged} · Consignaciones: ${consignments} · Incidencias: ${incidents} · KPI: ${kpis}`,
       }
     }).sort((a,b)=>b.value-a.value)
   },[data,year,month])
@@ -418,20 +427,22 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
 
       <div className="professional-dashboard-grid">
         <ProfessionalBarChart
-          title="Comparativo por almacén"
-          subtitle="Actividad consolidada del período"
+          title="Actividad nacional por almacén"
+          subtitle="Todos los almacenes · haz clic en una barra para filtrar y vuelve a pulsarla para regresar al consolidado"
           data={warehouseOverview}
-          selected={warehouseFilter}
-          onSelect={(role==='SUPERVISOR'||role==='ADMINISTRADOR') ? (key)=>setWarehouseFilter(key) : undefined}
+          selected={warehouseFilter === 'TODOS' ? undefined : warehouseFilter}
+          onSelect={(role==='SUPERVISOR'||role==='ADMINISTRADOR')
+            ? (key)=>setWarehouseFilter((current)=>current===key ? 'TODOS' : key)
+            : undefined}
         />
         <ProfessionalDonutChart
-          title="Mix operacional"
-          subtitle="Distribución de registros visibles"
+          title="Distribución del dashboard"
+          subtitle={warehouseFilter === 'TODOS' ? 'Consolidado nacional' : `Almacén: ${warehouseFilter}`}
           segments={mixSegments}
         />
         <ProfessionalTrendChart
           title="Tendencia mensual"
-          subtitle="Actividad agrupada por semana"
+          subtitle={warehouseFilter === 'TODOS' ? 'Actividad nacional agrupada por semana' : `Actividad de ${warehouseFilter} agrupada por semana`}
           points={monthTrend}
         />
       </div>
