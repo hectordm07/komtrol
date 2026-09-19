@@ -9,6 +9,8 @@ import {
   Truck,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 type Supplier = 'KOMATSU' | 'CUMMINS' | 'POR_VALIDAR'
 
@@ -69,6 +71,19 @@ function fmtDate(value?: string | null) {
   if (!value) return '—'
   const date = new Date(value.length === 10 ? value + 'T12:00:00' : value)
   return new Intl.DateTimeFormat('es-PE').format(date)
+}
+
+function savePdfBlob(doc: jsPDF, filename: string) {
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 2500)
 }
 
 function flattenIngress(
@@ -298,18 +313,11 @@ async function exportIngressExcel(
   )
 }
 
-async function exportIngressPdf(
+function exportIngressPdf(
   ingress: Ingress,
   rows: FlatLine[],
   sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS'
 ) {
-  const jspdfUrl = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm'
-  const autoTableUrl = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/+esm'
-  const jspdfModule: any = await import(/* @vite-ignore */ jspdfUrl)
-  const autoTableModule: any = await import(/* @vite-ignore */ autoTableUrl)
-  const jsPDF = jspdfModule.jsPDF
-  const autoTable = autoTableModule.default
-
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
@@ -435,7 +443,8 @@ async function exportIngressPdf(
     },
   })
 
-  doc.save(
+  savePdfBlob(
+    doc,
     `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${sapFilter}_${ingress.ingress_date}.pdf`
   )
 }

@@ -22,6 +22,8 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type Mode = 'dashboard' | 'incidents' | 'boxes'
@@ -145,14 +147,20 @@ function downloadCsv(name: string, rows: unknown[][]) {
   URL.revokeObjectURL(url)
 }
 
-async function exportBoxPdf(box: InboundBox) {
-  const jspdfUrl = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm'
-  const autoTableUrl = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/+esm'
-  const jspdfModule: any = await import(/* @vite-ignore */ jspdfUrl)
-  const autoTableModule: any = await import(/* @vite-ignore */ autoTableUrl)
-  const jsPDF = jspdfModule.jsPDF
-  const autoTable = autoTableModule.default
+function savePdfBlob(doc: jsPDF, filename: string) {
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 2500)
+}
 
+function exportBoxPdf(box: InboundBox) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const totalQty = (box.inbound_box_items ?? []).reduce((sum,item)=>sum+Number(item.quantity || 0),0)
   const generated = new Intl.DateTimeFormat('es-PE', { dateStyle:'medium', timeStyle:'short' }).format(new Date())
@@ -253,7 +261,7 @@ async function exportBoxPdf(box: InboundBox) {
     doc.text(`Página ${page} de ${pages}`,287,204,{align:'right'})
   }
 
-  doc.save(`KOMTROL_${box.box_no}_${box.shipment_no || 'SIN_EMBARQUE'}.pdf`)
+  savePdfBlob(doc, `KOMTROL_${box.box_no}_${box.shipment_no || 'SIN_EMBARQUE'}.pdf`)
 }
 
 export function InboundModule({ mode, userId, profile }: Props) {

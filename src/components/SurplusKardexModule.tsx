@@ -16,6 +16,8 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type KardexView = 'dashboard' | 'initial' | 'movements'
@@ -238,6 +240,19 @@ function downloadCsv(name: string, rows: unknown[][]) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+function savePdfBlob(doc: jsPDF, filename: string) {
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 2500)
 }
 
 export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) {
@@ -715,7 +730,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     }
   }
 
-  async function exportKardexPdf() {
+  function exportKardexPdf() {
     if (!movementLedger.length) {
       setMessage('No hay movimientos para exportar con los filtros actuales.')
       return
@@ -723,12 +738,6 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
 
     setMessage('')
     try {
-      const jspdfUrl = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm'
-      const autoTableUrl = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/+esm'
-      const jspdfModule: any = await import(/* @vite-ignore */ jspdfUrl)
-      const autoTableModule: any = await import(/* @vite-ignore */ autoTableUrl)
-      const jsPDF = jspdfModule.jsPDF
-      const autoTable = autoTableModule.default
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
       const pageWidth = 297
@@ -844,7 +853,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       }
 
       const dateStamp=new Date().toISOString().slice(0,10)
-      doc.save(`KOMTROL_Kardex_Sobrantes_${scope || 'TODOS'}_${dateStamp}.pdf`)
+      savePdfBlob(doc, `KOMTROL_Kardex_Sobrantes_${scope || 'TODOS'}_${dateStamp}.pdf`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo generar el PDF del Kardex.')
     }
