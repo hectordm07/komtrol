@@ -10,6 +10,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { ProfessionalBarChart, ProfessionalDonutChart, ProfessionalTrendChart } from './DashboardVisuals'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type Profile = {
@@ -65,16 +66,19 @@ function fmt(value?:string|null) {
   return new Intl.DateTimeFormat('es-PE',{dateStyle:'short',timeStyle:'short'}).format(new Date(value))
 }
 
-export function MainDashboardModule({ profile, role, scope = 'REMOTE' }:Props) {
+export function MainDashboardModule({ profile, role, scope = 'ALL' }:Props) {
   const [tasks,setTasks]=useState<Task[]>([])
   const [incidents,setIncidents]=useState<Incident[]>([])
   const [guides,setGuides]=useState<Guide[]>([])
   const [boxes,setBoxes]=useState<Box[]>([])
   const [warehouses,setWarehouses]=useState<string[]>([])
+  const canViewAll = role === 'SUPERVISOR' || role === 'ADMINISTRADOR'
   const initialWarehouse =
-    scope === 'REMOTE'
-      ? (profile?.warehouse && profile.warehouse !== 'CALLAO' ? profile.warehouse : 'TODOS_REMOTOS')
-      : (profile?.warehouse || 'TODOS')
+    canViewAll
+      ? (scope === 'REMOTE' ? 'TODOS_REMOTOS' : 'TODOS')
+      : (scope === 'REMOTE'
+          ? (profile?.warehouse && profile.warehouse !== 'CALLAO' ? profile.warehouse : 'TODOS_REMOTOS')
+          : (profile?.warehouse || 'TODOS'))
   const [warehouse,setWarehouse]=useState(initialWarehouse)
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
@@ -101,14 +105,14 @@ export function MainDashboardModule({ profile, role, scope = 'REMOTE' }:Props) {
   useEffect(()=>{ reload() },[])
 
   useEffect(()=>{
-    if (role !== 'ADMINISTRADOR') {
+    if (!canViewAll) {
       setWarehouse(
         scope === 'REMOTE'
           ? (profile?.warehouse && profile.warehouse !== 'CALLAO' ? profile.warehouse : 'TODOS_REMOTOS')
           : (profile?.warehouse || 'TODOS')
       )
     }
-  },[profile?.warehouse,role,scope])
+  },[profile?.warehouse,role,scope,canViewAll])
 
   const scoped=useMemo(()=>{
     const keep=(value:string|null|undefined)=>{
@@ -146,33 +150,76 @@ export function MainDashboardModule({ profile, role, scope = 'REMOTE' }:Props) {
     return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,12)
   },[scoped])
 
+  const warehouseActivity=useMemo(()=>{
+    const names=Array.from(new Set([
+      ...warehouses,
+      ...tasks.map((x)=>x.warehouse).filter(Boolean) as string[],
+      ...incidents.map((x)=>x.warehouse).filter(Boolean) as string[],
+      ...guides.map((x)=>x.warehouse).filter(Boolean) as string[],
+      ...boxes.map((x)=>x.warehouse).filter(Boolean) as string[],
+    ])).filter((name)=>scope!=='REMOTE' || name!=='CALLAO').sort()
+
+    return names.map((name)=>{
+      const taskCount=tasks.filter((x)=>x.warehouse===name).length
+      const incidentCount=incidents.filter((x)=>x.warehouse===name).length
+      const guideCount=guides.filter((x)=>x.warehouse===name).length
+      const boxCount=boxes.filter((x)=>x.warehouse===name).length
+      return {
+        key:name,
+        label:name,
+        value:taskCount+incidentCount+guideCount+boxCount,
+        detail:`Tareas: ${taskCount} · Incidencias: ${incidentCount} · Guías: ${guideCount} · Cajas: ${boxCount}`,
+      }
+    }).sort((a,b)=>b.value-a.value)
+  },[warehouses,tasks,incidents,guides,boxes,scope])
+
+  const statusSegments=useMemo(()=>[
+    {label:'Tareas pendientes',value:stats.taskPending},
+    {label:'Tareas cerradas',value:stats.taskClosed},
+    {label:'Incidencias abiertas',value:stats.incidentOpen},
+    {label:'Incidencias notificadas',value:stats.incidentNotified},
+  ],[stats])
+
+  const trendPoints=useMemo(()=>{
+    const days=Array.from({length:7},(_,index)=>{
+      const d=new Date()
+      d.setHours(0,0,0,0)
+      d.setDate(d.getDate()-(6-index))
+      return {key:d.toISOString().slice(0,10),label:new Intl.DateTimeFormat('es-PE',{weekday:'short'}).format(d).replace('.',''),value:0}
+    })
+    const byKey=new Map(days.map((row)=>[row.key,row]))
+    const add=(value:string)=>{
+      const key=new Date(value).toISOString().slice(0,10)
+      const row=byKey.get(key)
+      if(row) row.value+=1
+    }
+    scoped.tasks.forEach((x)=>add(x.updated_at))
+    scoped.incidents.forEach((x)=>add(x.created_at))
+    scoped.guides.forEach((x)=>add(x.created_at))
+    return days.map(({label,value})=>({label,value}))
+  },[scoped])
+
   if (loading) return <section className="panel"><div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando dashboard principal…</p></div></section>
 
   return <div className="main-dashboard">
-    <section className="panel main-dashboard-hero">
+    <section className="panel dashboard-control-strip">
       <div>
-        <span className="status-pill"><CheckCircle2 size={14}/> Operación conectada</span>
-        <h2>{scope === 'REMOTE' ? 'Dashboard Almacenes Remotos' : 'Resumen del almacén'}</h2>
-        <p>
-          {scope === 'REMOTE'
-            ? (warehouse === 'TODOS_REMOTOS' ? 'Todos los almacenes excepto Callao' : warehouse)
-            : (profile?.warehouse || 'Sin almacén')}
-          {profile?.group_name ? ` · ${profile.group_name}` : ''}
-          {profile?.shift_name ? ` · ${profile.shift_name}` : ''}
-        </p>
+        <span className="dashboard-control-kicker">VISIÓN NACIONAL</span>
+        <h2>{scope === 'REMOTE' ? 'Dashboard de Almacenes' : 'Dashboard General de Almacenes'}</h2>
+        <p>{warehouse === 'TODOS' || warehouse === 'TODOS_REMOTOS' ? 'Consolidado de todos los almacenes disponibles para tu perfil.' : `Vista filtrada: ${warehouse}`}</p>
       </div>
       <div className="main-dashboard-filter">
-        {role === 'ADMINISTRADOR' && <label>Almacén
+        {canViewAll && <label>Almacén
           <select value={warehouse} onChange={(e)=>setWarehouse(e.target.value)}>
             {scope === 'REMOTE'
-              ? <option value="TODOS_REMOTOS">Todos los remotos</option>
-              : <option value="TODOS">Todos</option>}
+              ? <option value="TODOS_REMOTOS">Todos los almacenes</option>
+              : <option value="TODOS">Todos los almacenes</option>}
             {warehouses
               .filter((name)=>scope !== 'REMOTE' || name !== 'CALLAO')
               .map((name)=><option key={name} value={name}>{name}</option>)}
           </select>
         </label>}
-        <button className="icon-button" onClick={reload}><RefreshCw size={18}/></button>
+        <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18}/></button>
       </div>
     </section>
 
@@ -186,6 +233,26 @@ export function MainDashboardModule({ profile, role, scope = 'REMOTE' }:Props) {
       <DashCard icon={<PackageCheck/>} label="Incidencias notificadas" value={stats.incidentNotified}/>
       <DashCard icon={<Truck/>} label="Guías registradas" value={stats.guideCount}/>
       <DashCard icon={<Boxes/>} label="Cajas abiertas" value={stats.boxOpen}/>
+    </div>
+
+    <div className="professional-dashboard-grid">
+      <ProfessionalBarChart
+        title="Actividad por almacén"
+        subtitle="Tareas + incidencias + guías + cajas registradas"
+        data={warehouseActivity}
+        selected={warehouse}
+        onSelect={canViewAll ? (key)=>setWarehouse(key) : undefined}
+      />
+      <ProfessionalDonutChart
+        title="Estado operacional"
+        subtitle="Distribución de tareas e incidencias"
+        segments={statusSegments}
+      />
+      <ProfessionalTrendChart
+        title="Tendencia operativa"
+        subtitle="Actividad registrada durante los últimos 7 días"
+        points={trendPoints}
+      />
     </div>
 
     <section className="panel">

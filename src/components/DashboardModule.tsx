@@ -10,6 +10,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { ProfessionalBarChart, ProfessionalDonutChart, ProfessionalTrendChart } from './DashboardVisuals'
 
 type DashboardMode =
   | 'dashboard-operacion'
@@ -92,6 +93,7 @@ type Consignment = {
 
 type Incident = {
   id: string
+  warehouse: string | null
   incident_type: string
   status: string
   created_at: string
@@ -245,7 +247,7 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
       supabase.from('transits').select('id,status,value_amount,transit_date,warehouse').limit(5000),
       supabase.from('damaged_materials').select('id,quantity,status,warehouse,event_date').limit(5000),
       supabase.from('consignment_entries').select('id,quantity,status,warehouse,entry_date').limit(5000),
-      supabase.from('incidents').select('id,incident_type,status,created_at').limit(5000),
+      supabase.from('incidents').select('id,warehouse,incident_type,status,created_at').limit(5000),
       supabase.from('kpi_records').select('id,indicator,year,month,warehouse,value,amount,unit,source').eq('year', year).eq('month', month).limit(1000),
       supabase.from('kpi_targets').select('id,indicator,year,month,warehouse,target,unit').eq('year', year).eq('month', month).limit(1000),
       supabase.from('warehouses').select('name').eq('active', true).order('name'),
@@ -304,11 +306,60 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
       transits: transitRows,
       damaged: damagedRows,
       consignments: consignRows,
-      incidents: data.incidents.filter((row) => dateInPeriod(row.created_at, year, month)),
+      incidents: data.incidents.filter((row) => dateInPeriod(row.created_at, year, month) && selectedWarehouse(row.warehouse, warehouseFilter)),
       kpis: kpiRows,
       targets: targetRows,
     }
   }, [data, year, month, warehouseFilter])
+
+  const warehouseOverview = useMemo(() => {
+    const names = Array.from(new Set([
+      ...data.warehouses,
+      ...data.tasks.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.guides.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.outbound.map((row)=>row.warehouse).filter(Boolean) as string[],
+      ...data.incidents.map((row)=>row.warehouse).filter(Boolean) as string[],
+    ])).sort()
+
+    return names.map((name)=>{
+      const tasks = data.tasks.filter((row)=>row.warehouse===name && dateInPeriod(row.created_at,year,month)).length
+      const guides = data.guides.filter((row)=>row.warehouse===name && dateInPeriod(row.created_at,year,month)).length
+      const outbound = data.outbound.filter((row)=>row.warehouse===name && dateInPeriod(row.movement_date,year,month)).length
+      const incidents = data.incidents.filter((row)=>row.warehouse===name && dateInPeriod(row.created_at,year,month)).length
+      const kpis = data.kpis.filter((row)=>row.warehouse===name).length
+      return {
+        key:name,
+        label:name,
+        value:tasks+guides+outbound+incidents+kpis,
+        detail:`Tareas: ${tasks} · Guías: ${guides} · Outbound: ${outbound} · Incidencias: ${incidents} · KPI: ${kpis}`,
+      }
+    }).sort((a,b)=>b.value-a.value)
+  },[data,year,month])
+
+  const mixSegments = useMemo(() => [
+    { label:'Tareas', value:scoped.tasks.length },
+    { label:'Guías', value:scoped.guides.length },
+    { label:'Outbound', value:scoped.outbound.length },
+    { label:'Incidencias', value:scoped.incidents.length },
+    { label:'KPI', value:scoped.kpis.length },
+  ],[scoped])
+
+  const monthTrend = useMemo(() => {
+    const buckets = Array.from({length:5},(_,index)=>({label:`S${index+1}`,value:0}))
+    const add=(dateValue:string|null|undefined)=>{
+      if(!dateValue) return
+      const d=new Date(dateValue.length===10 ? dateValue+'T12:00:00' : dateValue)
+      if(d.getFullYear()!==year || d.getMonth()+1!==month) return
+      const week=Math.min(4,Math.floor((d.getDate()-1)/7))
+      buckets[week].value+=1
+    }
+    scoped.tasks.forEach((row)=>add(row.created_at))
+    scoped.guides.forEach((row)=>add(row.created_at))
+    scoped.outbound.forEach((row)=>add(row.movement_date))
+    scoped.incidents.forEach((row)=>add(row.created_at))
+    scoped.transits.forEach((row)=>add(row.transit_date))
+    return buckets
+  },[scoped,year,month])
 
   const kpiBy = (searchTerms: string[]) => {
     const upper = searchTerms.map((term) => term.toUpperCase())
@@ -353,14 +404,42 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
   }
 
   return (
-    <section className="panel dashboard-module">
-      <div className="panel-title">
-        <div><h3>{MODE_TITLE[mode]}</h3><p>Datos reales registrados en KOMTROL · {String(month).padStart(2, '0')}/{year}</p></div>
+    <div className="dashboard-module professional-dashboard-module">
+      <section className="panel dashboard-control-strip">
+        <div>
+          <span className="dashboard-control-kicker">DASHBOARD NACIONAL</span>
+          <h2>{MODE_TITLE[mode]}</h2>
+          <p>Todos los almacenes · Datos reales KOMTROL · {String(month).padStart(2, '0')}/{year}</p>
+        </div>
         {selector}
-      </div>
+      </section>
+
       {message && <div className="inline-message">{message}</div>}
-      <DashboardContent mode={mode} scoped={scoped} kpiBy={kpiBy} targetFor={targetFor} />
-    </section>
+
+      <div className="professional-dashboard-grid">
+        <ProfessionalBarChart
+          title="Comparativo por almacén"
+          subtitle="Actividad consolidada del período"
+          data={warehouseOverview}
+          selected={warehouseFilter}
+          onSelect={(role==='SUPERVISOR'||role==='ADMINISTRADOR') ? (key)=>setWarehouseFilter(key) : undefined}
+        />
+        <ProfessionalDonutChart
+          title="Mix operacional"
+          subtitle="Distribución de registros visibles"
+          segments={mixSegments}
+        />
+        <ProfessionalTrendChart
+          title="Tendencia mensual"
+          subtitle="Actividad agrupada por semana"
+          points={monthTrend}
+        />
+      </div>
+
+      <section className="panel dashboard-detail-panel">
+        <DashboardContent mode={mode} scoped={scoped} kpiBy={kpiBy} targetFor={targetFor} />
+      </section>
+    </div>
   )
 }
 

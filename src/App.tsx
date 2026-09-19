@@ -435,7 +435,7 @@ function Workspace({ session }: { session: Session }) {
     {
       section: 'INICIO',
       items: [
-        { id: 'inicio' as Tab, label: 'Dashboard Almacenes Remotos', icon: BarChart3 },
+        { id: 'inicio' as Tab, label: 'Dashboard General', icon: BarChart3 },
         { id: 'mi-trabajo' as Tab, label: 'Mi trabajo', icon: ClipboardList },
         { id: 'alertas' as Tab, label: 'Alertas', icon: Bell },
       ],
@@ -491,7 +491,7 @@ function Workspace({ session }: { session: Session }) {
       ],
     },
     {
-      section: 'INDICADORES REMOTOS',
+      section: 'DASHBOARDS',
       items: [
         { id: 'dashboard-operacion' as Tab, label: 'Operación', icon: BarChart3 },
         { id: 'inbound-outbound' as Tab, label: 'Inbound / Outbound', icon: BarChart3 },
@@ -742,7 +742,7 @@ function Workspace({ session }: { session: Session }) {
           ) : (
             <>
               {tab === 'inicio' && (
-                <MainDashboardModule profile={profile} role={role} scope="REMOTE" />
+                <MainDashboardModule profile={profile} role={role} scope="ALL" />
               )}
 
               {tab === 'incidencias' && (

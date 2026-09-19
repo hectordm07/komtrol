@@ -664,14 +664,12 @@ export function InboundModule({ mode, userId, profile }: Props) {
 
     return (
       <div className="inbound-module inbound-figma-dashboard">
-        <section className="panel inbound-hero figma-inbound-hero">
-          <div>
-            <span className="inbound-live-tag">CALLAO · INBOUND</span>
-            <h3>Control visual de Incidencias, Cajas y Kardex</h3>
-            <p>Los sobrantes se agrupan automáticamente por embarque y caja abierta antes de ingresar al Kardex.</p>
-          </div>
-          <span className="inbound-live-badge"><CheckCircle2 size={14}/> Operación en tiempo real</span>
-        </section>
+
+
+        <div className="dashboard-inline-actions">
+          <span>CALLAO · INBOUND · actualización en tiempo real</span>
+          <button className="icon-button" onClick={reload} title="Actualizar dashboard"><RefreshCw size={17}/></button>
+        </div>
 
         {message && <div className="inline-message">{message}</div>}
 
@@ -687,7 +685,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
           <section className="panel inbound-chart-card incident-type-chart">
             <div className="chart-heading"><h3>Incidencias por tipo</h3><p>Distribución actual</p></div>
             <div className="donut-layout">
-              <div className="inbound-donut" style={{background:`conic-gradient(#45a47f 0deg ${surplusDeg}deg,#e9942f ${surplusDeg}deg ${faltanteDeg}deg,#d35353 ${faltanteDeg}deg 360deg)`}}>
+              <div className="inbound-donut" style={{background:`conic-gradient(#33439a 0deg ${surplusDeg}deg,#5570d8 ${surplusDeg}deg ${faltanteDeg}deg,#9ca9ee ${faltanteDeg}deg 360deg)`}}>
                 <div><b>{counts.surplus+counts.faltante+counts.damaged}</b><span>Total</span></div>
               </div>
               <div className="chart-legend">

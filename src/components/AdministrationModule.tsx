@@ -133,7 +133,7 @@ function parseLine(line: string, delimiter: string) {
 
 function parseDelimited(text: string) {
   const lines = text.replace(/\r/g, '').split('\n').filter((line) => line.trim())
-  if (lines.length < 2) return { headers: [] as string[], rows: [] as Record<string, string>[] }
+  if (lines.length < 2) return { headers: [] as string[], rows: [] as Record<string, string>[], delimiter: '\t' }
   const first = lines[0]
   const delimiter = [
     { value: '\t', count: (first.match(/\t/g) ?? []).length },
@@ -148,7 +148,7 @@ function parseDelimited(text: string) {
     headers.forEach((header, index) => { row[header] = cells[index] ?? '' })
     return row
   })
-  return { headers, rows }
+  return { headers, rows, delimiter }
 }
 
 function toIsoDate(value: string) {
@@ -565,6 +565,7 @@ function BulkImports({ userId }: { userId: string }) {
   const [fileName, setFileName] = useState('datos_komtrol.csv')
   const [importing, setImporting] = useState(false)
   const [message, setMessage] = useState('')
+  const [showErrors, setShowErrors] = useState(true)
 
   const parsed = useMemo(() => parseDelimited(text), [text])
   const preview = useMemo(() => validateImport(type, parsed.headers, parsed.rows), [type, parsed])
@@ -660,38 +661,117 @@ function BulkImports({ userId }: { userId: string }) {
     }
   }
 
-  async function confirmImport() {
-    if (!preview.length || errorCount) {
-      setMessage('Corrige las filas inválidas antes de importar.')
+  function errorField(error: string) {
+    const text = error.toUpperCase()
+    if (text.includes('MATERIAL')) return 'MATERIAL'
+    if (text.includes('DESCRIP')) return 'DESCRIPCION'
+    if (text.includes('CENTRO')) return 'CENTRO'
+    if (text.includes('ALMAC')) return 'ALMACEN'
+    if (text.includes('PRECIO')) return 'PRECIO'
+    if (text.includes('GUIA') || text.includes('GUÍA')) return 'GUIA'
+    if (text.includes('REFERENCIA')) return 'REFERENCIA'
+    if (text.includes('PROVEEDOR')) return 'PROVEEDOR'
+    if (text.includes('CANTIDAD')) return 'CANTIDAD'
+    if (text.includes('FECHA')) return 'FECHA_EMISION'
+    if (text.includes('LINEA') || text.includes('LÍNEA')) return 'LINEA'
+    if (text.includes('LINEAS') || text.includes('LÍNEAS')) return 'LINEAS'
+    if (text.includes('INDICADOR')) return 'INDICADOR'
+    if (text.includes('AÑO') || text.includes('ANO')) return 'ANO'
+    if (text.includes('MES')) return 'MES'
+    if (text.includes('VALOR')) return 'VALOR'
+    if (text.includes('UM')) return 'UM'
+    return ''
+  }
+
+  function updatePreviewCell(rowNumber: number, header: string, value: string) {
+    const lines = text.replace(/\r/g,'').split('\n').filter((line)=>line.trim())
+    if (!lines.length || !header) return
+    const headerIndex = parsed.headers.indexOf(header)
+    const lineIndex = rowNumber - 1
+    if (headerIndex < 0 || lineIndex < 1 || lineIndex >= lines.length) return
+    const cells = parseLine(lines[lineIndex], parsed.delimiter)
+    while (cells.length < parsed.headers.length) cells.push('')
+    cells[headerIndex] = value
+    const quote = (cell:string) => {
+      const raw=String(cell ?? '')
+      return raw.includes(parsed.delimiter) || /["\n]/.test(raw) ? '"' + raw.replace(/"/g,'""') + '"' : raw
+    }
+    lines[lineIndex] = cells.map(quote).join(parsed.delimiter)
+    setText(lines.join('\n'))
+  }
+
+  function downloadErrors() {
+    const errors = preview.filter((row)=>!row.valid)
+    if (!errors.length) return
+    downloadCsv(
+      `KOMTROL_Errores_${type}.csv`,
+      [
+        ['FILA','ERROR','CAMPO',...IMPORT_HEADERS[type]],
+        ...errors.map((row)=>[
+          String(row.row),
+          row.error,
+          errorField(row.error),
+          ...IMPORT_HEADERS[type].map((header)=>row.values[header] || ''),
+        ]),
+      ]
+    )
+  }
+
+  async function confirmImport(allowErrors = false) {
+    if (!preview.length) {
+      setMessage('No hay registros para importar.')
+      return
+    }
+    const validRows = preview.filter((row)=>row.valid)
+    if (!allowErrors && errorCount) {
+      setMessage('Hay filas con error. Puedes corregirlas o usar “Importar válidos y omitir errores”.')
+      setShowErrors(true)
+      return
+    }
+    if (!validRows.length) {
+      setMessage('No hay filas válidas para importar.')
+      setShowErrors(true)
       return
     }
     setImporting(true)
     setMessage('')
     try {
-      const result = await executeImport(type, preview, userId)
+      const rowsToImport = allowErrors ? validRows : preview
+      const result = await executeImport(type, rowsToImport, userId)
+      const skippedErrors = allowErrors
+        ? preview.filter((row)=>!row.valid).map((row)=>({ row:row.row, error:row.error, field:errorField(row.error) }))
+        : []
       await supabase.from('bulk_imports').insert({
         import_type: type,
         file_name: fileName,
         total_rows: preview.length,
         valid_rows: result.imported,
-        error_rows: result.errors,
+        error_rows: allowErrors ? errorCount : result.errors,
         duplicate_rows: result.duplicates,
-        status: result.errors ? 'CON_ERRORES' : 'COMPLETADO',
-        details: result,
+        status: allowErrors && errorCount ? 'PARCIAL_CON_ERRORES' : (result.errors ? 'CON_ERRORES' : 'COMPLETADO'),
+        details: { ...result, skipped_errors: skippedErrors },
         created_by: userId,
       })
       await writeAudit(userId, 'BULK_IMPORT', type, {
         file_name: fileName,
         total: preview.length,
+        valid_input_rows: validRows.length,
+        skipped_error_rows: allowErrors ? errorCount : 0,
         ...result,
       })
-      setMessage(`Importación completada: ${result.imported} procesados, ${result.duplicates} duplicados/actualizados, ${result.errors} errores.`)
+      setMessage(
+        allowErrors && errorCount
+          ? `Carga parcial completada: ${result.imported} procesados y ${errorCount} fila(s) con error omitidas. Revisa la bitácora o descarga el detalle de errores.`
+          : `Importación completada: ${result.imported} procesados, ${result.duplicates} duplicados/actualizados, ${result.errors} errores.`
+      )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la importación.')
     } finally {
       setImporting(false)
     }
   }
+
+
 
   return (
     <section className="panel bulk-import-admin">
@@ -732,14 +812,64 @@ function BulkImports({ userId }: { userId: string }) {
             <p><CheckCircle2 size={16} /> Duplicados controlados</p>
             <p><CheckCircle2 size={16} /> Bitácora de importación</p>
           </div>
-          <button className="primary-button full" disabled={!preview.length || Boolean(errorCount) || importing} onClick={confirmImport}>
-            {importing ? <RefreshCw className="spin" size={17} /> : <Upload size={17} />}
-            {importing ? 'Importando…' : `Importar ${validCount} registros`}
-          </button>
+          <div className="bulk-import-actions">
+            <button className="primary-button full" disabled={!preview.length || Boolean(errorCount) || importing} onClick={()=>confirmImport(false)}>
+              {importing ? <RefreshCw className="spin" size={17} /> : <Upload size={17} />}
+              {importing ? 'Importando…' : `Importar ${validCount} registros`}
+            </button>
+            {errorCount > 0 && validCount > 0 && (
+              <button className="secondary-button full bulk-partial-button" disabled={importing} onClick={()=>confirmImport(true)}>
+                <Upload size={17} /> Importar {validCount} válidos y omitir {errorCount} errores
+              </button>
+            )}
+            {errorCount > 0 && (
+              <button className="secondary-button full" onClick={()=>setShowErrors((value)=>!value)}>
+                <XCircle size={16}/> {showErrors ? 'Ocultar' : 'Ver'} detalle de errores
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {message && <div className="inline-message">{message}</div>}
+
+      {errorCount > 0 && showErrors && (
+        <section className="bulk-error-panel">
+          <div className="bulk-error-head">
+            <div>
+              <span className="status-pill danger"><XCircle size={14}/> {errorCount} errores detectados</span>
+              <h4>Detalle y corrección de errores</h4>
+              <p>Puedes corregir directamente el campo observado. La validación se actualiza automáticamente. También puedes importar solo las filas válidas.</p>
+            </div>
+            <button className="secondary-button" onClick={downloadErrors}><Download size={15}/> Descargar errores CSV</button>
+          </div>
+          <div className="bulk-error-list">
+            {preview.filter((row)=>!row.valid).slice(0,100).map((row)=>{
+              const field=errorField(row.error)
+              return <article key={row.row} className="bulk-error-row">
+                <div className="bulk-error-meta">
+                  <b>Fila {row.row}</b>
+                  <span>{row.error}</span>
+                  <small>{field ? `Campo afectado: ${field}` : 'Error estructural: revisa columnas de la plantilla.'}</small>
+                </div>
+                {field && parsed.headers.includes(field) ? (
+                  <label>
+                    Corregir {field}
+                    <input
+                      value={row.values[field] || ''}
+                      onChange={(e)=>updatePreviewCell(row.row,field,e.target.value)}
+                      placeholder={`Nuevo valor para ${field}`}
+                    />
+                  </label>
+                ) : (
+                  <div className="bulk-error-help">Usa la plantilla oficial y conserva todos los encabezados requeridos.</div>
+                )}
+              </article>
+            })}
+          </div>
+          {errorCount>100&&<div className="table-note">Mostrando 100 de {errorCount} errores. Descarga el CSV para revisar el total.</div>}
+        </section>
+      )}
 
       {preview.length > 0 && (
         <div className="table-wrap preview-table">
