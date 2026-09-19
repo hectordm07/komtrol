@@ -67,6 +67,8 @@ type Props = {
   scopeProject?: string
   scopeGroup?: string
   scopeShift?: string
+  initialTaskId?: string | null
+  onInitialTaskOpened?: () => void
 }
 
 const emptyForm = {
@@ -123,6 +125,8 @@ export function TasksModule({
   scopeProject,
   scopeGroup,
   scopeShift,
+  initialTaskId,
+  onInitialTaskOpened,
 }: Props) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -158,6 +162,14 @@ export function TasksModule({
   useEffect(() => {
     reload()
   }, [userId])
+
+  useEffect(() => {
+    if (!initialTaskId || !tasks.length) return
+    const target = tasks.find((task) => task.id === initialTaskId)
+    if (!target) return
+    setSelectedTask(target)
+    onInitialTaskOpened?.()
+  }, [initialTaskId, tasks])
 
   useEffect(() => {
     setForm((prev) => ({
