@@ -29,6 +29,9 @@ create index if not exists material_location_history_material_idx
 create index if not exists material_location_history_material_no_idx
   on public.material_location_history(material_no, changed_at desc);
 
+create index if not exists material_location_history_changed_by_idx
+  on public.material_location_history(changed_by);
+
 drop policy if exists "material_location_history_admin_select"
   on public.material_location_history;
 
