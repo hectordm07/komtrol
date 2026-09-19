@@ -559,7 +559,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Escanea o escribe: KT1822936D5 o 1822936D5"
+              placeholder="Escanea o escribe el material"
               autoComplete="off"
             />
             {search && <button type="button" className="material-search-clear" onClick={() => setSearch('')}><X size={16} /></button>}
@@ -615,31 +615,76 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       {loading ? (
         <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando materiales…</p></div>
       ) : (
-        <div className="table-wrap materials-responsive-table">
-          <table>
-            <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio</th><th>Estado</th><th>Acciones</th>{mode === 'master' && isAdmin && <th>Editar</th>}</tr></thead>
-            <tbody>
-              {filtered.slice(0, 250).map((material) => (
-                <tr key={material.id}>
-                  <td data-label="Material"><b>{material.material_no}</b></td>
-                  <td data-label="Stock Code">{material.stock_code || '—'}</td>
-                  <td data-label="Descripción">{material.description}</td>
-                  <td data-label="Centro">{material.center || '—'}</td>
-                  <td data-label="Almacén">{material.warehouse || '—'}</td>
-                  <td data-label="Ubicación"><b>{material.location || '—'}</b></td>
-                  <td data-label="Ubicación anterior">{material.previous_location || '—'}</td>
-                  <td data-label="Último cambio"><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(material.location_changed_at)}</span></td>
-                  <td data-label="Precio">{material.price == null ? '—' : Number(material.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</td>
-                  <td data-label="Estado"><span className={material.status === 'ACTIVO' ? 'status-pill' : material.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{material.status}</span></td>
-                  <td data-label="Acciones"><button className="icon-button material-more-button" onClick={() => openActions(material)} title="Acciones"><MoreHorizontal size={17} /></button></td>
-                  {mode === 'master' && isAdmin && <td data-label="Editar"><button className="icon-button small-icon" onClick={() => openEdit(material)}><Edit3 size={15} /></button></td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!filtered.length && <div className="empty-work"><Boxes size={30} /><b>Sin materiales</b><p>No hay registros que coincidan con la búsqueda.</p></div>}
-          {filtered.length > 250 && <div className="table-note">Mostrando 250 de {filtered.length}. Refina la búsqueda para reducir resultados.</div>}
-        </div>
+        <>
+          <div className="table-wrap materials-responsive-table materials-desktop-list">
+            <table>
+              <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio</th><th>Estado</th><th>Acciones</th>{mode === 'master' && isAdmin && <th>Editar</th>}</tr></thead>
+              <tbody>
+                {filtered.slice(0, 250).map((material) => (
+                  <tr key={material.id}>
+                    <td><b>{material.material_no}</b></td>
+                    <td>{material.stock_code || '—'}</td>
+                    <td>{material.description}</td>
+                    <td>{material.center || '—'}</td>
+                    <td>{material.warehouse || '—'}</td>
+                    <td><b>{material.location || '—'}</b></td>
+                    <td>{material.previous_location || '—'}</td>
+                    <td><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(material.location_changed_at)}</span></td>
+                    <td>{material.price == null ? '—' : Number(material.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</td>
+                    <td><span className={material.status === 'ACTIVO' ? 'status-pill' : material.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{material.status}</span></td>
+                    <td><button className="icon-button material-more-button" onClick={() => openActions(material)} title="Acciones"><MoreHorizontal size={17} /></button></td>
+                    {mode === 'master' && isAdmin && <td><button className="icon-button small-icon" onClick={() => openEdit(material)}><Edit3 size={15} /></button></td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!filtered.length && <div className="empty-work"><Boxes size={30} /><b>Sin materiales</b><p>No hay registros que coincidan con la búsqueda.</p></div>}
+            {filtered.length > 250 && <div className="table-note">Mostrando 250 de {filtered.length}. Refina la búsqueda para reducir resultados.</div>}
+          </div>
+
+          <div className="materials-mobile-list">
+            {filtered.slice(0, 250).map((material) => (
+              <article className="material-mobile-card" key={material.id}>
+                <div className="material-mobile-card-head">
+                  <div>
+                    <small>MATERIAL</small>
+                    <b>{material.material_no}</b>
+                  </div>
+                  <span className={material.status === 'ACTIVO' ? 'status-pill' : material.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{material.status}</span>
+                </div>
+
+                <p className="material-mobile-description">{material.description || 'Sin descripción'}</p>
+
+                <div className="material-mobile-data">
+                  <div><span>Stock Code</span><b>{material.stock_code || '—'}</b></div>
+                  <div><span>Centro</span><b>{material.center || '—'}</b></div>
+                  <div><span>Almacén</span><b>{material.warehouse || '—'}</b></div>
+                  <div><span>Ubicación</span><b>{material.location || '—'}</b></div>
+                  <div><span>Ubicación anterior</span><b>{material.previous_location || '—'}</b></div>
+                  <div><span>Precio</span><b>{material.price == null ? '—' : Number(material.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</b></div>
+                </div>
+
+                <div className="material-mobile-change">
+                  <Clock3 size={14} />
+                  <span>{formatDateTime(material.location_changed_at)}</span>
+                </div>
+
+                <div className="material-mobile-actions">
+                  <button className="secondary-button" onClick={() => openActions(material)}>
+                    <MoreHorizontal size={17} /> Acciones
+                  </button>
+                  {mode === 'master' && isAdmin && (
+                    <button className="secondary-button" onClick={() => openEdit(material)}>
+                      <Edit3 size={16} /> Editar
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+            {!filtered.length && <div className="empty-work"><Boxes size={30} /><b>Sin materiales</b><p>No hay registros que coincidan con la búsqueda.</p></div>}
+            {filtered.length > 250 && <div className="table-note">Mostrando 250 de {filtered.length}. Refina la búsqueda para reducir resultados.</div>}
+          </div>
+        </>
       )}
 
       {actionMaterial && (
