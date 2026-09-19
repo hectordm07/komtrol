@@ -89,7 +89,7 @@ type ImportPreview = {
 }
 
 const IMPORT_HEADERS: Record<ImportType, string[]> = {
-  MASTER_MATERIALES: ['MATERIAL','STOCK_CODE','DESCRIPCION','UBICACION','ALMACEN','PRECIO','OBSERVACION','ESTADO'],
+  MASTER_MATERIALES: ['MATERIAL','STOCK_CODE','DESCRIPCION','CENTRO','ALMACEN','UBICACION','PRECIO','OBSERVACION','ESTADO'],
   REPOSICION: ['GUIA','REFERENCIA','FECHA_EMISION','N_DOCUMENTO','PROVEEDOR','LINEA','MATERIAL','DESCRIPCION','CANTIDAD','UM','ALMACEN','OBSERVACION'],
   INBOUND: ['GUIA','REFERENCIA','FECHA_EMISION','N_DOCUMENTO','LINEAS','ALMACEN','OBSERVACION'],
   ORDEN_COMPRA: ['GUIA','REFERENCIA','FECHA_EMISION','N_DOCUMENTO','LINEAS','ALMACEN','OBSERVACION'],
@@ -574,7 +574,7 @@ function BulkImports({ userId }: { userId: string }) {
     const headers = IMPORT_HEADERS[type]
     const example =
       type === 'MASTER_MATERIALES'
-        ? ['RH018753','1100176102','DESCRIPCION MATERIAL','PHPB001A','ANTAMINA','0','','ACTIVO']
+        ? ['RH018753','1100176102','DESCRIPCION MATERIAL','C029','ANTAMINA','PHPB001A','0','','ACTIVO']
         : type === 'REPOSICION'
           ? ['T062-00001445','8910501730',new Date().toISOString().slice(0,10),'','KOMATSU','1','19T6066D5','PIN, BOOM BUMPER - PHLB01A01','4.000','UND','ANTAMINA','']
         : type === 'KPI'
@@ -690,7 +690,7 @@ function BulkImports({ userId }: { userId: string }) {
 
 function validateImport(type: ImportType, headers: string[], rows: Record<string, string>[]): ImportPreview[] {
   const required =
-    type === 'MASTER_MATERIALES' ? ['MATERIAL','DESCRIPCION','ALMACEN'] :
+    type === 'MASTER_MATERIALES' ? ['MATERIAL','DESCRIPCION','CENTRO','ALMACEN'] :
     type === 'REPOSICION' ? ['GUIA','REFERENCIA','PROVEEDOR','MATERIAL','DESCRIPCION','CANTIDAD','UM','ALMACEN'] :
     type === 'KPI' ? ['INDICADOR','ANO','MES','ALMACEN','VALOR'] :
     ['GUIA','REFERENCIA','LINEAS','ALMACEN']
@@ -704,6 +704,7 @@ function validateImport(type: ImportType, headers: string[], rows: Record<string
     if (type === 'MASTER_MATERIALES') {
       if (!values.MATERIAL?.trim()) error = 'Material requerido'
       else if (!values.DESCRIPCION?.trim()) error = 'Descripción requerida'
+      else if (!values.CENTRO?.trim()) error = 'Centro requerido'
       else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
       else if (values.PRECIO && Number.isNaN(Number(values.PRECIO.replace(',', '.')))) error = 'Precio inválido'
     } else if (type === 'REPOSICION') {
@@ -741,8 +742,9 @@ async function executeImport(type: ImportType, preview: ImportPreview[], userId:
       material_no: values.MATERIAL.trim().toUpperCase(),
       stock_code: values.STOCK_CODE?.trim() || null,
       description: values.DESCRIPCION.trim(),
+      center: values.CENTRO.trim().toUpperCase(),
+      warehouse: values.ALMACEN.trim().toUpperCase(),
       location: values.UBICACION?.trim().toUpperCase() || null,
-      warehouse: values.ALMACEN.trim(),
       price: values.PRECIO ? Number(values.PRECIO.replace(',', '.')) : null,
       notes: values.OBSERVACION?.trim() || null,
       status: ['ACTIVO','INACTIVO','OBSERVADO'].includes((values.ESTADO || '').toUpperCase()) ? values.ESTADO.toUpperCase() : 'ACTIVO',
