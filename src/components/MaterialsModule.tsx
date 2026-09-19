@@ -40,6 +40,17 @@ const emptyForm = {
   status: 'ACTIVO' as Material['status'],
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return 'Sin cambio registrado'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('es-PE', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(date)
+}
+
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows.map((row) => row.map((value) => {
     const v = String(value ?? '')
