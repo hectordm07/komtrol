@@ -326,7 +326,7 @@ export function TasksModule({
     mode === 'mi-trabajo' ? 'Mi trabajo' :
     mode === 'relevos' ? 'Relevos' :
     mode === 'area-personal' ? 'Área Personal' :
-    mode === 'tablero' ? 'Tablero' :
+    mode === 'tablero' ? 'Flujo de tareas' :
     mode === 'calendario' ? 'Calendario' :
     mode === 'lista' ? 'Lista de trabajo' :
     'Tareas'
@@ -358,7 +358,7 @@ export function TasksModule({
         <div className="task-toolbar">
           <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo, categoría…" /></div>
           <div className="view-hint">
-            {mode === 'tablero' ? <><Columns3 size={16} /> Tablero</> : mode === 'calendario' ? <><CalendarDays size={16} /> Calendario</> : <><List size={16} /> Lista</>}
+            {mode === 'tablero' ? <><Columns3 size={16} /> Vista Kanban</> : mode === 'calendario' ? <><CalendarDays size={16} /> Calendario</> : <><List size={16} /> Lista</>}
           </div>
         </div>
 
