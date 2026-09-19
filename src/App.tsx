@@ -742,7 +742,25 @@ function Workspace({ session }: { session: Session }) {
           ) : (
             <>
               {tab === 'inicio' && (
-                <MainDashboardModule profile={profile} role={role} scope="ALL" />
+                <MainDashboardModule
+                  profile={profile}
+                  role={role}
+                  scope="ALL"
+                  onNavigate={(targetTab) => {
+                    const target = flatNav.find((item) => item.id === targetTab)
+                    if (!target) {
+                      setToast('Este reporte no está disponible para tu perfil.')
+                      return
+                    }
+                    setTab(targetTab)
+                    setOpenSections((current) =>
+                      current.includes(target.section)
+                        ? current
+                        : [...current, target.section]
+                    )
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                />
               )}
 
               {tab === 'incidencias' && (
