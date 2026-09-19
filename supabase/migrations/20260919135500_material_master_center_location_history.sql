@@ -40,6 +40,20 @@ using ((select private.current_user_komtrol_role()) = 'ADMINISTRADOR');
 
 grant select on public.material_location_history to authenticated;
 
+drop policy if exists "material_location_history_admin_insert"
+  on public.material_location_history;
+
+create policy "material_location_history_admin_insert"
+on public.material_location_history
+for insert
+to authenticated
+with check (
+  (select private.current_user_komtrol_role()) = 'ADMINISTRADOR'
+  and changed_by = (select auth.uid())
+);
+
+grant insert on public.material_location_history to authenticated;
+
 create or replace function private.track_material_location_change()
 returns trigger
 language plpgsql
