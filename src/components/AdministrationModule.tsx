@@ -660,7 +660,7 @@ function BulkImports({ userId }: { userId: string }) {
     }
   }
 
-  async function confirmImport()  async function confirmImport() {
+  async function confirmImport() {
     if (!preview.length || errorCount) {
       setMessage('Corrige las filas inválidas antes de importar.')
       return
