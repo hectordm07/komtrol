@@ -154,22 +154,52 @@ async function exportBoxPdf(box: InboundBox) {
   const autoTable = autoTableModule.default
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  doc.setTextColor(20, 54, 74)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text('KOMTROL · CAJA DE SOBRANTES INBOUND', 10, 14)
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Caja: ${box.box_no}`, 10, 22)
-  doc.text(`Embarque: ${box.shipment_no || 'SIN EMBARQUE'}`, 68, 22)
-  doc.text(`Almacén: ${box.warehouse}`, 145, 22)
-  doc.text(`Estado: ${box.status}`, 205, 22)
-  doc.text(`Creación: ${fmt(box.created_at)}`, 10, 28)
-  if (box.title) doc.text(`Detalle: ${box.title}`, 68, 28)
+  const totalQty = (box.inbound_box_items ?? []).reduce((sum,item)=>sum+Number(item.quantity || 0),0)
+  const generated = new Intl.DateTimeFormat('es-PE', { dateStyle:'medium', timeStyle:'short' }).format(new Date())
+
+  doc.setFillColor(31,64,84)
+  doc.rect(0,0,297,29,'F')
+  doc.setTextColor(255,255,255)
+  doc.setFont('helvetica','bold')
+  doc.setFontSize(15)
+  doc.text('KOMTROL · CAJA DE SOBRANTES INBOUND', 10, 11)
+  doc.setFont('helvetica','normal')
+  doc.setFontSize(8)
+  doc.text(`Caja: ${box.box_no} · Embarque: ${box.shipment_no || 'SIN EMBARQUE'} · Almacén: ${box.warehouse}`,10,18)
+  doc.text(`Estado: ${box.status} · Apertura: ${fmt(box.opened_at || box.created_at)}`,10,24)
+  doc.text(`Generado: ${generated}`,287,18,{align:'right'})
+
+  const cards = [
+    ['ÍTEMS', String(box.inbound_box_items?.length ?? 0)],
+    ['UNIDADES', totalQty.toLocaleString('es-PE',{maximumFractionDigits:3})],
+    ['ESTADO', box.status],
+  ]
+  cards.forEach((card,index)=>{
+    const x=10+index*57
+    doc.setDrawColor(219,232,240)
+    doc.setFillColor(249,252,255)
+    doc.roundedRect(x,34,51,15,2,2,'FD')
+    doc.setFont('helvetica','bold')
+    doc.setFontSize(6.5)
+    doc.setTextColor(99,125,143)
+    doc.text(card[0],x+4,40)
+    doc.setFontSize(9)
+    doc.setTextColor(31,64,84)
+    doc.text(card[1],x+4,46)
+  })
+
+  if (box.title || box.notes) {
+    doc.setFont('helvetica','normal')
+    doc.setFontSize(7)
+    doc.setTextColor(90,105,115)
+    const detail=[box.title,box.notes].filter(Boolean).join(' · ')
+    const lines=doc.splitTextToSize(detail,108)
+    doc.text(lines,184,39)
+  }
 
   autoTable(doc, {
-    startY: 34,
-    head: [['N°','MATERIAL','STOCK CODE','DESCRIPCIÓN','CANT.','UM','UBICACIÓN','OBSERVACIÓN']],
+    startY: 55,
+    head: [['N°','MATERIAL','STOCK CODE','DESCRIPCIÓN','CANT.','UM','UBICACIÓN / BIN','OBSERVACIÓN']],
     body: (box.inbound_box_items ?? []).map((item,index) => [
       index + 1,
       item.material_no || '—',
@@ -180,15 +210,49 @@ async function exportBoxPdf(box: InboundBox) {
       item.location || '—',
       item.notes || '',
     ]),
-    styles: { font: 'helvetica', fontSize: 8, cellPadding: 2, lineColor: [215,224,230], lineWidth: 0.15 },
-    headStyles: { fillColor: [23,56,74], textColor: [255,255,255], fontStyle: 'bold' },
-    columnStyles: { 0:{cellWidth:10},1:{cellWidth:32},2:{cellWidth:30},3:{cellWidth:88},4:{cellWidth:18},5:{cellWidth:15},6:{cellWidth:32},7:{cellWidth:55} },
+    styles: {
+      font: 'helvetica',
+      fontSize: 7,
+      cellPadding: 1.8,
+      lineColor: [219,232,240],
+      lineWidth: 0.12,
+      textColor:[31,64,84],
+      valign:'middle',
+      overflow:'linebreak',
+    },
+    headStyles: {
+      fillColor: [31,64,84],
+      textColor: [255,255,255],
+      fontStyle: 'bold',
+      fontSize:6.8,
+      halign:'center',
+    },
+    alternateRowStyles:{fillColor:[248,252,254]},
+    columnStyles: {
+      0:{cellWidth:9,halign:'center'},
+      1:{cellWidth:30},
+      2:{cellWidth:27},
+      3:{cellWidth:72},
+      4:{cellWidth:18,halign:'right'},
+      5:{cellWidth:13,halign:'center'},
+      6:{cellWidth:31},
+      7:{cellWidth:64},
+    },
+    margin:{left:10,right:10,bottom:14},
   })
 
-  const y = Math.min((doc as any).lastAutoTable?.finalY + 12 || 185, 190)
-  doc.setFontSize(8)
-  doc.setTextColor(90, 105, 115)
-  doc.text('Documento generado por KOMTROL · Control de sobrantes por embarque', 10, y)
+  const pages=doc.getNumberOfPages()
+  for(let page=1;page<=pages;page++){
+    doc.setPage(page)
+    doc.setDrawColor(219,232,240)
+    doc.line(10,199,287,199)
+    doc.setFont('helvetica','normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(105,125,137)
+    doc.text('KOMTROL · Control de sobrantes por embarque',10,204)
+    doc.text(`Página ${page} de ${pages}`,287,204,{align:'right'})
+  }
+
   doc.save(`KOMTROL_${box.box_no}_${box.shipment_no || 'SIN_EMBARQUE'}.pdf`)
 }
 

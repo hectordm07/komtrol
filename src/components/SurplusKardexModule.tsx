@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Download,
   FileSpreadsheet,
+  FileText,
   LayoutDashboard,
   List,
   MinusCircle,
@@ -69,6 +70,12 @@ type BalanceRow = {
   exits: number
   balance: number
   lastMovement: Movement
+}
+
+type LedgerRow = Movement & {
+  entry: number
+  exit: number
+  runningBalance: number
 }
 
 type InitialRow = {
@@ -380,6 +387,30 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     )
   }, [activeWarehouseMovements, q])
 
+  const movementLedger = useMemo(() => {
+    const balanceByKey = new Map<string, number>()
+    const chronological = [...visibleMovements].sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())
+    const rows: LedgerRow[] = chronological.map((movement)=>{
+      const key = [
+        movement.warehouse,
+        movement.material_no,
+        movement.stock_code || '',
+        movement.location || '',
+        movement.box_no || '',
+        movement.shipment_no || '',
+        movement.stock_type || 'SOBRANTE',
+        movement.unit || 'UND',
+      ].join('|')
+      const qty = Number(movement.quantity || 0)
+      const entry = movement.movement_type === 'ENTRADA' ? qty : 0
+      const exit = movement.movement_type === 'SALIDA' ? qty : 0
+      const runningBalance = (balanceByKey.get(key) || 0) + entry - exit
+      balanceByKey.set(key, runningBalance)
+      return { ...movement, entry, exit, runningBalance }
+    })
+    return rows.reverse()
+  }, [visibleMovements])
+
   const totals = useMemo(() => {
     let initial = 0
     let entries = 0
@@ -684,6 +715,141 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     }
   }
 
+  async function exportKardexPdf() {
+    if (!movementLedger.length) {
+      setMessage('No hay movimientos para exportar con los filtros actuales.')
+      return
+    }
+
+    setMessage('')
+    try {
+      const jspdfUrl = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm'
+      const autoTableUrl = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/+esm'
+      const jspdfModule: any = await import(/* @vite-ignore */ jspdfUrl)
+      const autoTableModule: any = await import(/* @vite-ignore */ autoTableUrl)
+      const jsPDF = jspdfModule.jsPDF
+      const autoTable = autoTableModule.default
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+      const pageWidth = 297
+      const generated = new Intl.DateTimeFormat('es-PE', { dateStyle:'medium', timeStyle:'short' }).format(new Date())
+      const scope = fixedWarehouse || (!isAdmin ? profile?.warehouse || 'TODOS' : warehouseFilter)
+      const oldest = [...movementLedger].sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())[0]
+      const newest = movementLedger[0]
+      const period = oldest && newest
+        ? `${new Intl.DateTimeFormat('es-PE',{dateStyle:'short'}).format(new Date(oldest.created_at))} – ${new Intl.DateTimeFormat('es-PE',{dateStyle:'short'}).format(new Date(newest.created_at))}`
+        : 'Sin período'
+
+      doc.setFillColor(31,64,84)
+      doc.rect(0,0,pageWidth,28,'F')
+      doc.setTextColor(255,255,255)
+      doc.setFont('helvetica','bold')
+      doc.setFontSize(15)
+      doc.text('KOMTROL · KARDEX DE SOBRANTES',12,11)
+      doc.setFont('helvetica','normal')
+      doc.setFontSize(8)
+      doc.text(`Almacén: ${scope || 'TODOS'} · Período: ${period}`,12,18)
+      doc.text(`Filtro: ${q || 'Sin filtro adicional'}`,12,23)
+      doc.text(`Generado: ${generated}`,285,18,{align:'right'})
+
+      const cards = [
+        ['ENTRADAS', fmtQty(totals.entries), [48,148,110]],
+        ['SALIDAS', fmtQty(totals.exits), [205,82,82]],
+        ['SALDO ACTUAL', fmtQty(totals.balance), [38,115,166]],
+        ['MOVIMIENTOS', String(movementLedger.length), [115,99,199]],
+      ] as const
+      cards.forEach((card,index)=>{
+        const x=12+index*68
+        doc.setDrawColor(219,232,240)
+        doc.setFillColor(249,252,255)
+        doc.roundedRect(x,33,62,16,2,2,'FD')
+        doc.setFontSize(6.5)
+        doc.setTextColor(99,125,143)
+        doc.setFont('helvetica','bold')
+        doc.text(card[0],x+4,39)
+        doc.setFontSize(10)
+        doc.setTextColor(card[2][0],card[2][1],card[2][2])
+        doc.text(card[1],x+4,46)
+      })
+
+      autoTable(doc, {
+        startY: 55,
+        head: [[
+          'FECHA / HORA','DOCUMENTO / REF.','MOVIMIENTO','MATERIAL','STOCK CODE',
+          'EMBARQUE','CAJA','UBICACIÓN / BIN','ENTRADA','SALIDA','SALDO','ORIGEN'
+        ]],
+        body: movementLedger.map((row)=>[
+          fmt(row.created_at),
+          row.reference_no || '—',
+          row.movement_type,
+          row.material_no,
+          row.stock_code || '—',
+          row.shipment_no || '—',
+          row.box_no || '—',
+          row.location || '—',
+          row.entry ? fmtQty(row.entry) : '—',
+          row.exit ? fmtQty(row.exit) : '—',
+          fmtQty(row.runningBalance),
+          row.source_type.replaceAll('_',' '),
+        ]),
+        styles: {
+          font:'helvetica',
+          fontSize:6.6,
+          cellPadding:1.6,
+          lineColor:[222,231,236],
+          lineWidth:.12,
+          textColor:[31,64,84],
+          valign:'middle',
+          overflow:'linebreak',
+        },
+        headStyles: {
+          fillColor:[31,64,84],
+          textColor:[255,255,255],
+          fontStyle:'bold',
+          fontSize:6.5,
+          halign:'center',
+        },
+        alternateRowStyles:{ fillColor:[248,252,254] },
+        columnStyles:{
+          0:{cellWidth:24},
+          1:{cellWidth:27},
+          2:{cellWidth:22,halign:'center'},
+          3:{cellWidth:26},
+          4:{cellWidth:21},
+          5:{cellWidth:30},
+          6:{cellWidth:29},
+          7:{cellWidth:25},
+          8:{cellWidth:16,halign:'right'},
+          9:{cellWidth:16,halign:'right'},
+          10:{cellWidth:17,halign:'right',fontStyle:'bold'},
+          11:{cellWidth:27},
+        },
+        didParseCell:(data:any)=>{
+          if(data.section==='body' && data.column.index===8 && data.cell.text?.[0]!=='—') data.cell.styles.textColor=[48,148,110]
+          if(data.section==='body' && data.column.index===9 && data.cell.text?.[0]!=='—') data.cell.styles.textColor=[205,82,82]
+        },
+        margin:{left:10,right:10,bottom:14},
+      })
+
+      const pages=doc.getNumberOfPages()
+      for(let page=1;page<=pages;page++){
+        doc.setPage(page)
+        doc.setDrawColor(219,232,240)
+        doc.line(10,199,287,199)
+        doc.setFont('helvetica','normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(105,125,137)
+        doc.text('KOMTROL · Kardex de Sobrantes · Trazabilidad de movimientos',10,204)
+        doc.text(`Página ${page} de ${pages}`,287,204,{align:'right'})
+      }
+
+      const dateStamp=new Date().toISOString().slice(0,10)
+      doc.save(`KOMTROL_Kardex_Sobrantes_${scope || 'TODOS'}_${dateStamp}.pdf`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo generar el PDF del Kardex.')
+    }
+  }
+
   function exportKardex() {
     downloadCsv('KOMTROL_Kardex_Sobrantes.csv', [
       ['CENTRO','ALMACEN','TIPO_ALMACENAMIENTO','SECCION','FECHA','MOVIMIENTO','ORIGEN','REFERENCIA','CAJA','EMBARQUE','MATERIAL','STOCK_CODE','DESCRIPCION','UBICACION','TIPO_STOCK','CANTIDAD','UM','OBSERVACION'],
@@ -708,7 +874,8 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
           </div>
           <div className="button-row">
             {canMove && <button className="primary-button" onClick={openManualEntry}><Plus size={15}/> Agregar sobrante</button>}
-            <button className="secondary-button" onClick={exportKardex}><Download size={15}/> Exportar</button>
+            <button className="secondary-button" onClick={exportKardexPdf}><FileText size={15}/> PDF Kardex</button>
+            <button className="secondary-button" onClick={exportKardex}><Download size={15}/> CSV</button>
             <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
           </div>
         </div>
@@ -832,26 +999,68 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       )}
 
       {view === 'movements' && (
-        <section className="panel">
-          <div className="panel-title"><div><h3>Movimientos</h3><p>Historial completo de saldo inicial, ingresos, retiros, ajustes y transferencias.</p></div></div>
-          <div className="task-toolbar kardex-toolbar">
-            <div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar movimiento, caja, embarque, material…"/></div>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Fecha</th><th>Centro</th><th>Almacén</th><th>Movimiento</th><th>Origen</th><th>Referencia</th><th>Caja</th><th>Embarque</th><th>Material</th><th>Ubicación</th><th>Cantidad</th><th>Saldo/Tipo</th></tr></thead>
-              <tbody>{visibleMovements.slice(0,1000).map((row)=>(
-                <tr key={row.id}>
-                  <td>{fmt(row.created_at)}</td><td>{row.center || '—'}</td><td>{row.warehouse}</td>
-                  <td><span className={row.movement_type==='ENTRADA'?'status-pill success':'status-pill warning'}>{row.movement_type}</span></td>
-                  <td>{row.source_type.replaceAll('_',' ')}</td><td>{row.reference_no || '—'}</td><td>{row.box_no || '—'}</td><td>{row.shipment_no || '—'}</td>
-                  <td><b>{row.material_no}</b><small>{row.description || ''}</small></td><td>{row.location || '—'}</td>
-                  <td><b>{row.movement_type==='ENTRADA'?'+':'−'}{fmtQty(Number(row.quantity))} {row.unit}</b></td><td>{row.stock_type}</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </section>
+        <>
+          <section className="panel kardex-ledger-summary">
+            <div className="panel-title">
+              <div>
+                <span className="kardex-eyebrow">KARDEX PROFESIONAL · INVENTARIO PERPETUO</span>
+                <h3>Libro de Entradas y Salidas</h3>
+                <p>Cada movimiento conserva referencia, origen, embarque, caja, ubicación y saldo acumulado por material.</p>
+              </div>
+              <button className="primary-button" onClick={exportKardexPdf}><FileText size={15}/> Exportar PDF</button>
+            </div>
+            <div className="kardex-ledger-kpis">
+              <div><span>Entradas</span><b className="positive">+{fmtQty(totals.entries)}</b><small>Unidades</small></div>
+              <div><span>Salidas</span><b className="negative">−{fmtQty(totals.exits)}</b><small>Unidades</small></div>
+              <div><span>Saldo actual</span><b>{fmtQty(totals.balance)}</b><small>Unidades</small></div>
+              <div><span>Movimientos</span><b>{movementLedger.length}</b><small>Registros visibles</small></div>
+            </div>
+          </section>
+
+          <section className="panel kardex-ledger-panel">
+            <div className="task-toolbar kardex-toolbar">
+              <div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar documento, material, caja, embarque, ubicación…"/></div>
+              {isAdmin && !fixedWarehouse && (
+                <select value={warehouseFilter} onChange={(e)=>setWarehouseFilter(e.target.value)}>
+                  <option value="TODOS">Todos los almacenes</option>
+                  {warehouses.map((warehouse)=><option key={warehouse}>{warehouse}</option>)}
+                </select>
+              )}
+            </div>
+            <div className="kardex-ledger-guide">
+              <span><i className="entry-dot"/> Entrada aumenta stock</span>
+              <span><i className="exit-dot"/> Salida reduce stock</span>
+              <span><i className="transfer-dot"/> Transferencia conserva saldo total y cambia ubicación</span>
+            </div>
+            <div className="table-wrap professional-kardex-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha / Hora</th><th>Documento / Ref.</th><th>Movimiento</th><th>Material</th><th>Stock Code</th>
+                    <th>Embarque</th><th>Caja</th><th>Ubicación / Bin</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Origen</th>
+                  </tr>
+                </thead>
+                <tbody>{movementLedger.slice(0,1500).map((row)=>(
+                  <tr key={row.id}>
+                    <td>{fmt(row.created_at)}</td>
+                    <td><b>{row.reference_no || '—'}</b></td>
+                    <td><span className={row.movement_type==='ENTRADA'?'status-pill success':'status-pill warning'}>{row.movement_type}</span></td>
+                    <td><b>{row.material_no}</b><small>{row.description || ''}</small></td>
+                    <td>{row.stock_code || '—'}</td>
+                    <td>{row.shipment_no || '—'}</td>
+                    <td>{row.box_no || '—'}</td>
+                    <td><b>{row.location || '—'}</b><small>{[row.storage_type,row.storage_section].filter(Boolean).join(' · ')}</small></td>
+                    <td className="kardex-entry-cell">{row.entry ? '+'+fmtQty(row.entry) : '—'}</td>
+                    <td className="kardex-exit-cell">{row.exit ? '−'+fmtQty(row.exit) : '—'}</td>
+                    <td><b className="kardex-running-balance">{fmtQty(row.runningBalance)} {row.unit}</b></td>
+                    <td>{row.source_type.replaceAll('_',' ')}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              {!movementLedger.length && <div className="empty-work"><List size={24}/><b>Sin movimientos</b><p>No hay registros con los filtros actuales.</p></div>}
+            </div>
+          </section>
+        </>
       )}
 
       {showManualEntry && (

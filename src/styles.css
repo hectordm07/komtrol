@@ -5632,3 +5632,193 @@ table tbody tr:hover td {
     width: min(100%, 760px);
   }
 }
+
+
+/* Kardex profesional: referencia visual enterprise WM / libro perpetuo */
+.kardex-ledger-summary {
+  border-radius: 16px;
+  border-color: #dbe8f0;
+  background: linear-gradient(180deg,#fbfdff 0%,#f7fbfe 100%);
+  box-shadow: 0 6px 18px rgba(66,115,145,.07);
+}
+.kardex-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #e5f5fc;
+  color: #2673a6;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .055em;
+}
+.kardex-ledger-summary .panel-title h3 {
+  margin: 8px 0 4px;
+  color: #1f4054;
+  font-size: 18px;
+}
+.kardex-ledger-summary .panel-title p {
+  max-width: 760px;
+  color: #637d8f;
+  font-size: 10px;
+}
+.kardex-ledger-kpis {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+.kardex-ledger-kpis > div {
+  min-height: 82px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #dbe8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.kardex-ledger-kpis span {
+  color: #6f8593;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+.kardex-ledger-kpis b {
+  color: #245f7d;
+  font-size: 21px;
+  line-height: 1;
+}
+.kardex-ledger-kpis b.positive { color:#30946e; }
+.kardex-ledger-kpis b.negative { color:#cf5252; }
+.kardex-ledger-kpis small {
+  color: #8a9aa3;
+  font-size: 7px;
+}
+.kardex-ledger-panel {
+  border-radius: 16px;
+  border-color: #dbe8f0;
+  box-shadow: 0 6px 18px rgba(66,115,145,.07);
+}
+.kardex-ledger-guide {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 10px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid #e5edf2;
+  border-radius: 10px;
+  background: #f9fcfe;
+}
+.kardex-ledger-guide span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b808d;
+  font-size: 8px;
+}
+.kardex-ledger-guide i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.kardex-ledger-guide .entry-dot { background:#30946e; }
+.kardex-ledger-guide .exit-dot { background:#d35353; }
+.kardex-ledger-guide .transfer-dot { background:#7363c7; }
+.professional-kardex-table table {
+  min-width: 1330px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.professional-kardex-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 10px 9px;
+  border-bottom: 1px solid #cbdbe5;
+  background: #1f4054;
+  color: #fff;
+  font-size: 8px;
+  letter-spacing: .025em;
+  text-transform: uppercase;
+}
+.professional-kardex-table tbody td {
+  padding: 10px 9px;
+  border-bottom: 1px solid #edf2f5;
+  color: #284b5e;
+  font-size: 9px;
+  vertical-align: middle;
+}
+.professional-kardex-table tbody tr:nth-child(even) td {
+  background: #fbfdfe;
+}
+.professional-kardex-table tbody tr:hover td {
+  background: #f3f9fc;
+}
+.professional-kardex-table td small {
+  display: block;
+  margin-top: 3px;
+  max-width: 240px;
+  color: #8395a0;
+  font-size: 7px;
+  line-height: 1.25;
+}
+.kardex-entry-cell {
+  color: #30946e !important;
+  font-weight: 800;
+  text-align: right;
+}
+.kardex-exit-cell {
+  color: #cf5252 !important;
+  font-weight: 800;
+  text-align: right;
+}
+.kardex-running-balance {
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 66px;
+  color: #1f4054;
+  font-size: 10px;
+}
+@media (max-width: 700px) {
+  .kardex-ledger-summary {
+    padding: 11px;
+  }
+  .kardex-ledger-summary .panel-title {
+    align-items: stretch;
+  }
+  .kardex-ledger-summary .panel-title .primary-button {
+    width: 100%;
+  }
+  .kardex-ledger-summary .panel-title h3 {
+    font-size: 15px;
+  }
+  .kardex-ledger-summary .panel-title p {
+    font-size: 8px;
+    line-height: 1.4;
+  }
+  .kardex-ledger-kpis {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 6px;
+  }
+  .kardex-ledger-kpis > div {
+    min-height: 68px;
+    padding: 9px;
+  }
+  .kardex-ledger-kpis b { font-size: 18px; }
+  .kardex-ledger-guide {
+    display: grid;
+    gap: 6px;
+  }
+  .professional-kardex-table table {
+    min-width: 1180px;
+  }
+  .professional-kardex-table thead th,
+  .professional-kardex-table tbody td {
+    padding: 8px 7px;
+    font-size: 8px;
+  }
+}
