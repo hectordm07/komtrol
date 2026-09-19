@@ -8847,3 +8847,167 @@ table tbody tr:hover td {
     font-size: 7px;
   }
 }
+
+
+/* =========================================================
+   MATERIALS MOBILE CARDS · FIX VISIBILIDAD
+   Reemplaza la conversión CSS de tabla por cards reales.
+   ========================================================= */
+.materials-mobile-list {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .materials-panel > .panel-title {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    align-items: start;
+    gap: 10px;
+  }
+  .materials-panel > .panel-title > div:first-child {
+    min-width: 0;
+  }
+  .materials-panel > .panel-title .button-row {
+    width: auto;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+  }
+  .materials-panel > .panel-title .button-row > button {
+    width: auto;
+  }
+  .materials-panel > .panel-title .icon-button {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    flex: 0 0 44px;
+  }
+
+  .materials-desktop-list {
+    display: none !important;
+  }
+  .materials-mobile-list {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+  }
+  .material-mobile-card {
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--kt-blue-200);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: var(--kt-shadow-xs);
+  }
+  .material-mobile-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--kt-border-soft);
+  }
+  .material-mobile-card-head > div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  .material-mobile-card-head small {
+    color: var(--kt-muted-2);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .08em;
+  }
+  .material-mobile-card-head b {
+    color: var(--kt-blue-900);
+    font-size: 15px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .material-mobile-description {
+    margin: 10px 0;
+    color: var(--kt-ink-2);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .material-mobile-data {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 7px;
+  }
+  .material-mobile-data > div {
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid var(--kt-border-soft);
+    border-radius: 10px;
+    background: var(--kt-blue-50);
+    display: grid;
+    gap: 2px;
+  }
+  .material-mobile-data span {
+    color: var(--kt-muted-2);
+    font-size: 8px;
+    font-weight: 800;
+  }
+  .material-mobile-data b {
+    min-width: 0;
+    color: var(--kt-ink-2);
+    font-size: 10px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .material-mobile-change {
+    margin-top: 8px;
+    min-height: 34px;
+    padding: 7px 8px;
+    border-radius: 9px;
+    background: var(--kt-blue-75);
+    color: var(--kt-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+  }
+  .material-mobile-change svg {
+    flex: 0 0 auto;
+    color: var(--kt-blue-600);
+  }
+  .material-mobile-actions {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 7px;
+    margin-top: 9px;
+  }
+  .material-mobile-actions > button:only-child {
+    grid-column: 1 / -1;
+  }
+  .material-mobile-actions .secondary-button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .material-smart-search {
+    top: 58px;
+  }
+  .material-search-rule {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 5px;
+  }
+  .material-search-rule span {
+    text-align: center;
+  }
+}
+
+@media (max-width: 390px) {
+  .material-mobile-data {
+    grid-template-columns: 1fr;
+  }
+  .material-mobile-actions {
+    grid-template-columns: 1fr;
+  }
+}
