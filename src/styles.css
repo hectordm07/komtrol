@@ -8566,3 +8566,284 @@ table tbody tr:hover td {
     border-color: #b8c2f2 !important;
   }
 }
+
+
+/* =========================================================
+   MOBILE FIT HARDENING · 2026-09-19
+   Ajuste visual global para 320–430 px y tablets.
+   Evita desbordes horizontales y prioriza Scanner de Guías.
+   ========================================================= */
+@media (max-width: 980px) {
+  html,
+  body,
+  #root,
+  .app-shell,
+  .main-area,
+  .content {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .main-area,
+  .content {
+    overflow-x: clip;
+  }
+
+  .content > *,
+  .scanner-module,
+  .scanner-module > *,
+  .panel,
+  .panel-title,
+  .panel-title > *,
+  .scanner-actions,
+  .scan-action,
+  .scan-action > *,
+  .scan-file-card,
+  .scan-file-card > *,
+  .validation-header,
+  .validation-header > *,
+  .form-grid,
+  .form-grid > *,
+  .guide-form,
+  .guide-lines,
+  .scanner-footer,
+  .task-toolbar,
+  .toolbar,
+  .search,
+  .user-greeting-inner,
+  .user-greeting-copy {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .panel,
+  .scanner-panel,
+  .guide-list-panel {
+    overflow: hidden;
+  }
+
+  .panel-title {
+    flex-wrap: wrap;
+  }
+
+  .panel-title > div:first-child {
+    min-width: 0;
+  }
+
+  .panel-title h3,
+  .panel-title p {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  /* Cabecera del Scanner: título + Limpiar sin salir del viewport */
+  .scanner-panel > .panel-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px;
+  }
+
+  .scanner-panel > .panel-title > .secondary-button {
+    width: auto;
+    max-width: 100%;
+    align-self: start;
+    white-space: nowrap;
+  }
+
+  .scanner-actions {
+    width: 100%;
+  }
+
+  .scan-action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .scan-action span {
+    min-width: 0;
+  }
+
+  .scan-action b,
+  .scan-action small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .scan-file-card > div:nth-child(2) {
+    min-width: 0;
+  }
+
+  .scan-file-card b {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .scan-file-card small {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .validation-header > div,
+  .validation-header span {
+    min-width: 0;
+  }
+
+  .validation-header b,
+  .validation-header small {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .guide-form label,
+  .guide-form input,
+  .guide-form select,
+  .guide-form textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .table-wrap {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .user-greeting-copy strong {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-bottom-nav {
+    max-width: calc(100vw - 14px);
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .content {
+    padding-left: max(7px, env(safe-area-inset-left));
+    padding-right: max(7px, env(safe-area-inset-right));
+  }
+
+  .scanner-panel,
+  .guide-list-panel {
+    padding: 10px;
+  }
+
+  .scanner-panel > .panel-title {
+    margin-bottom: 10px;
+  }
+
+  .scanner-panel > .panel-title > .secondary-button {
+    min-height: 38px;
+    padding-inline: 10px;
+  }
+
+  .scanner-actions {
+    gap: 10px;
+  }
+
+  .scan-action {
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  .scan-action svg {
+    flex: 0 0 auto;
+  }
+
+  .validation-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .confidence-badge {
+    align-self: flex-start;
+  }
+
+  .guide-form {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px;
+  }
+
+  .guide-form .span-2 {
+    grid-column: auto;
+  }
+
+  .guide-form input,
+  .guide-form select,
+  .guide-form textarea {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .guide-lines .compact-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px;
+  }
+
+  .guide-lines .compact-title > .secondary-button {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .rule-hints {
+    gap: 5px;
+  }
+
+  .scanner-footer {
+    margin-top: 10px;
+  }
+
+  .scanner-footer .primary-button {
+    min-height: 48px;
+  }
+
+  .user-greeting-inner {
+    min-width: 0;
+    min-height: 80px;
+  }
+
+  .user-greeting-date {
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .user-greeting-copy strong {
+    font-size: clamp(17px, 5.1vw, 19px);
+  }
+
+  .topbar p {
+    max-width: calc(100vw - 150px);
+  }
+}
+
+@media (max-width: 380px) {
+  .scanner-panel > .panel-title,
+  .guide-lines .compact-title {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scanner-panel > .panel-title > .secondary-button,
+  .guide-lines .compact-title > .secondary-button {
+    width: auto;
+    justify-self: start;
+  }
+
+  .user-greeting-date {
+    font-size: 7.5px;
+    letter-spacing: .045em;
+  }
+
+  .mobile-bottom-nav button span {
+    font-size: 7px;
+  }
+}
