@@ -150,6 +150,61 @@ function downloadCsv(filename: string, rows: unknown[][]) {
   URL.revokeObjectURL(url)
 }
 
+function normalizeMaterialCode(value: unknown) {
+  return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+function materialBaseCode(value: unknown) {
+  return normalizeMaterialCode(value).replace(/^[A-Z]{1,4}(?=\d)/, '')
+}
+
+function materialDistance(left: string, right: string) {
+  if (left === right) return 0
+  if (!left.length) return right.length
+  if (!right.length) return left.length
+
+  let prev = Array.from({ length: right.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= left.length; i++) {
+    const next = [i]
+    for (let j = 1; j <= right.length; j++) {
+      next[j] = Math.min(
+        next[j - 1] + 1,
+        prev[j] + 1,
+        prev[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1)
+      )
+    }
+    prev = next
+  }
+  return prev[right.length]
+}
+
+function materialSimilarity(left: string, right: string) {
+  const a = normalizeMaterialCode(left)
+  const b = normalizeMaterialCode(right)
+  if (!a || !b) return 0
+  return Math.max(0, Math.round((1 - materialDistance(a, b) / Math.max(a.length, b.length)) * 100))
+}
+
+function scoreMaterialMatch(material: Material, rawCode: string) {
+  const query = normalizeMaterialCode(rawCode)
+  const full = normalizeMaterialCode(material.material_no)
+  const base = materialBaseCode(material.material_no)
+  const queryBase = materialBaseCode(query)
+
+  if (!query || !full) return { score: 0, kind: 'SIN_COINCIDENCIA' }
+  if (full === query) return { score: 100, kind: 'EXACTA' }
+  if (base && base === query) return { score: 99, kind: 'SIN_PREFIJO' }
+  if (queryBase && base === queryBase) return { score: 98, kind: 'PREFIJO_PARCIAL' }
+  if (full.endsWith(query) && query.length >= 5) return { score: 97, kind: 'SUFIJO' }
+
+  const fuzzy = Math.max(
+    materialSimilarity(query, full),
+    materialSimilarity(query, base),
+    materialSimilarity(queryBase, base)
+  )
+  return { score: fuzzy, kind: 'APROXIMADA' }
+}
+
 function labelEmailStatus(value: Incident['auto_email_status']) {
   if (value === 'ENVIADO') return 'Correo enviado'
   if (value === 'ENVIANDO') return 'Enviando correo'
@@ -385,57 +440,126 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
     setLookingMaterial(true)
     setMessage('')
 
+    const normalized = normalizeMaterialCode(code)
+    const base = materialBaseCode(normalized)
     const fields = 'material_no,stock_code,description,location,warehouse'
-    let { data, error } = await supabase
+
+    let rows: Material[] = []
+    let lookupError: { message?: string } | null = null
+
+    // 1) Coincidencia exacta por número de parte (sin distinguir mayúsculas/minúsculas).
+    const exactResult = await supabase
       .from('materials')
       .select(fields)
       .eq('status', 'ACTIVO')
-      .eq('material_no', code)
-      .limit(10)
+      .ilike('material_no', normalized)
+      .limit(20)
 
-    if ((!data || !data.length) && !error) {
+    if (exactResult.error) lookupError = exactResult.error
+    rows = (exactResult.data ?? []) as Material[]
+
+    // 2) Coincidencia exacta por Stock Code.
+    if (!rows.length && !lookupError) {
       const stockResult = await supabase
         .from('materials')
         .select(fields)
         .eq('status', 'ACTIVO')
-        .eq('stock_code', code)
-        .limit(10)
-      data = stockResult.data
-      error = stockResult.error
+        .ilike('stock_code', normalized)
+        .limit(20)
+      if (stockResult.error) lookupError = stockResult.error
+      rows = (stockResult.data ?? []) as Material[]
+    }
+
+    // 3) El scanner puede omitir total o parcialmente el prefijo.
+    // Ej.: R54639F1 debe encontrar KTR54639F1.
+    if (!rows.length && !lookupError && base.length >= 4) {
+      const partialResult = await supabase
+        .from('materials')
+        .select(fields)
+        .eq('status', 'ACTIVO')
+        .ilike('material_no', `%${base}%`)
+        .limit(100)
+      if (partialResult.error) lookupError = partialResult.error
+      rows = (partialResult.data ?? []) as Material[]
+    }
+
+    // 4) Si todavía no hay candidatos, usar los últimos caracteres para recuperar
+    // posibles lecturas incompletas y evaluar similitud en el cliente.
+    if (!rows.length && !lookupError && normalized.length >= 5) {
+      const tail = normalized.slice(-Math.min(6, normalized.length))
+      const tailResult = await supabase
+        .from('materials')
+        .select(fields)
+        .eq('status', 'ACTIVO')
+        .ilike('material_no', `%${tail}%`)
+        .limit(150)
+      if (tailResult.error) lookupError = tailResult.error
+      rows = (tailResult.data ?? []) as Material[]
+    }
+
+    // 5) Último recurso: evaluar el Master activo completo. Actualmente el Master
+    // tiene pocos miles de registros, por lo que esta ruta solo se usa si las
+    // búsquedas anteriores no devolvieron candidatos.
+    if (!rows.length && !lookupError && normalized.length >= 5) {
+      const masterResult = await supabase
+        .from('materials')
+        .select(fields)
+        .eq('status', 'ACTIVO')
+        .limit(5000)
+      if (masterResult.error) lookupError = masterResult.error
+      rows = (masterResult.data ?? []) as Material[]
     }
 
     setLookingMaterial(false)
 
-    if (error) {
-      setMessage(error.message)
+    if (lookupError) {
+      setMessage(lookupError.message || 'No se pudo consultar el Master de Materiales.')
       return
     }
 
-    const rows = (data ?? []) as Material[]
-    const material =
-      rows.find((row) => row.warehouse === warehouse) ??
-      rows.find((row) => !row.warehouse) ??
-      rows[0]
+    const ranked = rows
+      .map((material) => ({ material, ...scoreMaterialMatch(material, code) }))
+      .filter((item) => item.score >= 72)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        const aWarehouse = a.material.warehouse === warehouse ? 1 : 0
+        const bWarehouse = b.material.warehouse === warehouse ? 1 : 0
+        if (bWarehouse !== aWarehouse) return bWarehouse - aWarehouse
+        return a.material.material_no.localeCompare(b.material.material_no)
+      })
 
-    if (!material) {
+    const best = ranked[0]
+
+    if (!best) {
       setForm((prev) => ({
         ...prev,
         barcode_value: rawCode ? code : prev.barcode_value,
-        material_no: code,
+        material_no: code.toUpperCase(),
       }))
-      setMessage('Código leído, pero no existe en el Master de Materiales. Puedes completar el material manualmente.')
+      setMessage(`No se encontró una coincidencia confiable para “${code}” en el Master. Revisa el código o completa el material manualmente.`)
       return
     }
 
     setForm((prev) => ({
       ...prev,
       barcode_value: rawCode ? code : prev.barcode_value,
-      material_no: material.material_no,
-      stock_code: material.stock_code || '',
-      description: material.description || '',
-      location: material.location || '',
+      material_no: best.material.material_no,
+      stock_code: best.material.stock_code || '',
+      description: best.material.description || '',
+      location: best.material.location || '',
     }))
-    setMessage(`Material ${material.material_no} cargado desde el Master.`)
+
+    if (best.score >= 95) {
+      setMessage(
+        best.kind === 'EXACTA'
+          ? `Material ${best.material.material_no} cargado desde el Master.`
+          : `Coincidencia validada: “${code}” → ${best.material.material_no} (${best.score}%). Datos completados desde el Master.`
+      )
+    } else {
+      setMessage(
+        `Coincidencia aproximada: “${code}” → ${best.material.material_no} (${best.score}%). Verifica el material antes de registrar la incidencia.`
+      )
+    }
   }
 
   function stopScanner() {
