@@ -238,10 +238,10 @@ export function MainDashboardModule({ profile, role, scope = 'ALL' }:Props) {
     <div className="professional-dashboard-grid">
       <ProfessionalBarChart
         title="Actividad por almacén"
-        subtitle="Tareas + incidencias + guías + cajas registradas"
+        subtitle="Todos los almacenes visibles · haz clic para filtrar y vuelve a pulsar para regresar al consolidado"
         data={warehouseActivity}
         selected={warehouse}
-        onSelect={canViewAll ? (key)=>setWarehouse(key) : undefined}
+        onSelect={canViewAll ? (key)=>setWarehouse((current)=>current===key ? (scope === 'REMOTE' ? 'TODOS_REMOTOS' : 'TODOS') : key) : undefined}
       />
       <ProfessionalDonutChart
         title="Estado operacional"
