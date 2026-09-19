@@ -51,6 +51,7 @@ type Movement = {
   notes: string | null
   cut_off_date: string | null
   created_by: string
+  created_by_name?: string | null
   created_at: string
 }
 
@@ -650,17 +651,39 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     setHistoryError('')
     setHistoryLoading(true)
 
-    const { data, error } = await supabase.rpc('get_surplus_material_history', {
-      p_material_no: materialNo.toUpperCase(),
-      p_warehouse: warehouse.toUpperCase(),
-    })
+    const { data, error } = await supabase
+      .from('surplus_kardex_movements')
+      .select('id,warehouse,center,movement_type,source_type,reference_no,shipment_no,box_no,material_no,stock_code,description,location,quantity,unit,notes,created_by,created_by_name,created_at')
+      .eq('warehouse', warehouse.toUpperCase())
+      .eq('material_no', materialNo.toUpperCase())
+      .order('created_at', { ascending: false })
+      .limit(5000)
 
     setHistoryLoading(false)
     if (error) {
       setHistoryError(error.message)
       return
     }
-    setHistoryRows((data ?? []) as HistoryMovement[])
+    setHistoryRows((data ?? []).map((row)=>({
+      movement_id: String(row.id),
+      warehouse: String(row.warehouse),
+      center: row.center,
+      movement_type: row.movement_type as 'ENTRADA' | 'SALIDA',
+      source_type: String(row.source_type),
+      reference_no: row.reference_no,
+      shipment_no: row.shipment_no,
+      box_no: row.box_no,
+      material_no: String(row.material_no),
+      stock_code: row.stock_code,
+      description: row.description,
+      location: row.location,
+      quantity: Number(row.quantity || 0),
+      unit: String(row.unit || 'UND'),
+      notes: row.notes,
+      created_by: String(row.created_by),
+      created_by_name: String(row.created_by_name || 'Usuario KOMTROL'),
+      created_at: String(row.created_at),
+    })))
   }
 
   const historyShipments = useMemo(
