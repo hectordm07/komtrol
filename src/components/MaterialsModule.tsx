@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Boxes, Download, Edit3, MapPin, Plus, Printer, RefreshCw, Search, X } from 'lucide-react'
+import { Boxes, Clock3, Download, Edit3, MapPin, Plus, Printer, RefreshCw, Search, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 type Material = {
@@ -7,8 +7,11 @@ type Material = {
   material_no: string
   stock_code: string | null
   description: string
-  location: string | null
+  center: string | null
   warehouse: string | null
+  location: string | null
+  previous_location: string | null
+  location_changed_at: string | null
   price: number | null
   notes: string | null
   status: 'ACTIVO' | 'INACTIVO' | 'OBSERVADO'
@@ -29,8 +32,9 @@ const emptyForm = {
   material_no: '',
   stock_code: '',
   description: '',
-  location: '',
+  center: '',
   warehouse: '',
+  location: '',
   price: '',
   notes: '',
   status: 'ACTIVO' as Material['status'],
@@ -71,7 +75,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
 
   async function reload() {
     setLoading(true)
-    const { data, error } = await supabase.from('materials').select('*').order('description').limit(3000)
+    const { data, error } = await supabase.from('materials').select('*').order('description').limit(5000)
     if (error) setMessage(error.message)
     setMaterials((data ?? []) as Material[])
     setLoading(false)
@@ -84,7 +88,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
     if (!q) return materials
-    return materials.filter((m) => [m.material_no, m.stock_code, m.description, m.location, m.warehouse, m.status]
+    return materials.filter((m) => [m.material_no, m.stock_code, m.description, m.center, m.warehouse, m.location, m.previous_location, m.status]
       .some((v) => String(v ?? '').toLowerCase().includes(q)))
   }, [materials, search])
 
@@ -100,8 +104,9 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       material_no: material.material_no,
       stock_code: material.stock_code || '',
       description: material.description,
-      location: material.location || '',
+      center: material.center || '',
       warehouse: material.warehouse || '',
+      location: material.location || '',
       price: material.price == null ? '' : String(material.price),
       notes: material.notes || '',
       status: material.status,
@@ -116,8 +121,9 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       material_no: form.material_no.trim().toUpperCase(),
       stock_code: form.stock_code.trim() || null,
       description: form.description.trim(),
+      center: form.center.trim().toUpperCase() || null,
+      warehouse: form.warehouse.trim().toUpperCase() || null,
       location: form.location.trim().toUpperCase() || null,
-      warehouse: form.warehouse.trim() || null,
       price: form.price ? Number(form.price) : null,
       notes: form.notes.trim() || null,
       status: form.status,
@@ -125,8 +131,8 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       updated_at: new Date().toISOString(),
     }
 
-    if (!payload.material_no || !payload.description) {
-      setMessage('Material y descripción son obligatorios.')
+    if (!payload.material_no || !payload.description || !payload.center || !payload.warehouse) {
+      setMessage('Material, descripción, centro y almacén son obligatorios.')
       return
     }
 
@@ -135,8 +141,11 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         material_no: editing.material_no,
         stock_code: editing.stock_code,
         description: editing.description,
-        location: editing.location,
+        center: editing.center,
         warehouse: editing.warehouse,
+        location: editing.location,
+        previous_location: editing.previous_location,
+        location_changed_at: editing.location_changed_at,
         price: editing.price,
         notes: editing.notes,
         status: editing.status,
@@ -183,8 +192,9 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         quantity: row.quantity,
         stock_code: found?.stock_code || '',
         description: found?.description || '',
-        location: found?.location || '',
+        center: found?.center || '',
         warehouse: found?.warehouse || '',
+        location: found?.location || '',
         found: Boolean(found),
       }
     })
@@ -192,8 +202,8 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
 
   function exportLocation() {
     downloadCsv('KOMTROL_Hoja_Ubicacion.csv', [
-      ['MATERIAL', 'STOCK CODE', 'DESCRIPCION', 'CANTIDAD', 'UBICACION', 'ALMACEN'],
-      ...locationRows.map((r) => [r.material_no, r.stock_code, r.description, r.quantity, r.location, r.warehouse]),
+      ['MATERIAL', 'STOCK CODE', 'DESCRIPCION', 'CANTIDAD', 'CENTRO', 'ALMACEN', 'UBICACION'],
+      ...locationRows.map((r) => [r.material_no, r.stock_code, r.description, r.quantity, r.center, r.warehouse, r.location]),
     ])
   }
 
@@ -216,7 +226,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         />
         <div className="table-wrap location-table">
           <table>
-            <thead><tr><th>Material</th><th>SC</th><th>Descripción</th><th>Cantidad</th><th>Ubicación</th><th>Almacén</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Material</th><th>SC</th><th>Descripción</th><th>Cantidad</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Estado</th></tr></thead>
             <tbody>
               {locationRows.map((row, index) => (
                 <tr key={index} className={!row.found ? 'overdue-row' : ''}>
@@ -224,8 +234,9 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                   <td>{row.stock_code || '—'}</td>
                   <td>{row.description || 'No encontrado en Master'}</td>
                   <td>{row.quantity}</td>
-                  <td><b>{row.location || '—'}</b></td>
+                  <td>{row.center || '—'}</td>
                   <td>{row.warehouse || '—'}</td>
+                  <td><b>{row.location || '—'}</b></td>
                   <td><span className={row.found ? 'status-pill' : 'status-pill danger'}>{row.found ? 'ENCONTRADO' : 'REVISAR'}</span></td>
                 </tr>
               ))}
@@ -241,8 +252,8 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
     <section className="panel materials-panel">
       <div className="panel-title">
         <div>
-          <h3>{mode === 'master' ? 'Master de Materiales' : 'Materiales'}</h3>
-          <p>{mode === 'master' ? 'Administración central de material, SC, ubicación, precio y estado.' : 'Consulta rápida por número de parte, SC, descripción o ubicación.'}</p>
+          <h3>{mode === 'master' ? 'Maestro de Materiales' : 'Materiales'}</h3>
+          <p>{mode === 'master' ? 'Administración central por Centro, Almacén y Ubicación, con trazabilidad del último cambio.' : 'Consulta rápida por número de parte, SC, descripción, centro, almacén o ubicación.'}</p>
         </div>
         <div className="button-row">
           <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
@@ -251,7 +262,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       </div>
 
       <div className="task-toolbar">
-        <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar material, SC, descripción, ubicación…" /></div>
+        <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar material, SC, descripción, centro, almacén, ubicación…" /></div>
         <span className="view-hint"><Boxes size={16} /> {filtered.length} materiales</span>
       </div>
       {message && <div className="inline-message">{message}</div>}
@@ -260,15 +271,18 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       ) : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Ubicación</th><th>Almacén</th><th>Precio</th><th>Estado</th>{mode === 'master' && isAdmin && <th></th>}</tr></thead>
+            <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio</th><th>Estado</th>{mode === 'master' && isAdmin && <th></th>}</tr></thead>
             <tbody>
               {filtered.map((m) => (
                 <tr key={m.id}>
                   <td><b>{m.material_no}</b></td>
                   <td>{m.stock_code || '—'}</td>
                   <td>{m.description}</td>
-                  <td><b>{m.location || '—'}</b></td>
+                  <td>{m.center || '—'}</td>
                   <td>{m.warehouse || '—'}</td>
+                  <td><b>{m.location || '—'}</b></td>
+                  <td>{m.previous_location || '—'}</td>
+                  <td><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(m.location_changed_at)}</span></td>
                   <td>{m.price == null ? '—' : Number(m.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</td>
                   <td><span className={m.status === 'ACTIVO' ? 'status-pill' : m.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{m.status}</span></td>
                   {mode === 'master' && isAdmin && <td><button className="icon-button small-icon" onClick={() => openEdit(m)}><Edit3 size={15} /></button></td>}
@@ -284,7 +298,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowForm(false)}>
           <form className="modal" onSubmit={saveMaterial}>
             <div className="modal-head">
-              <div><h2>{editing ? 'Editar material' : 'Nuevo material'}</h2><p>Los cambios de ubicación y datos quedan en historial.</p></div>
+              <div><h2>{editing ? 'Editar material' : 'Nuevo material'}</h2><p>Al cambiar la ubicación, KOMTROL conserva la ubicación anterior y registra automáticamente la fecha del cambio.</p></div>
               <button type="button" className="icon-button" onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
             <div className="form-grid">
@@ -297,12 +311,27 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
               <label className="span-2">Descripción
                 <input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </label>
-              <label>Ubicación
-                <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+              <label>Centro
+                <input required value={form.center} onChange={(e) => setForm({ ...form, center: e.target.value })} placeholder="Ej. C029" />
               </label>
               <label>Almacén
-                <input value={form.warehouse} onChange={(e) => setForm({ ...form, warehouse: e.target.value })} />
+                <input required value={form.warehouse} onChange={(e) => setForm({ ...form, warehouse: e.target.value })} placeholder="Ej. ANTAMINA" />
               </label>
+              <label>Ubicación
+                <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Ej. PALA-01-B03" />
+              </label>
+              <label>Ubicación anterior
+                <input disabled value={editing?.previous_location || 'Sin cambio registrado'} />
+              </label>
+              {editing && editing.location !== (form.location.trim().toUpperCase() || null) && (
+                <div className="location-change-preview span-2">
+                  <MapPin size={16} />
+                  <div>
+                    <b>Cambio de ubicación detectado</b>
+                    <span>{editing.location || 'Sin ubicación'} → {form.location.trim().toUpperCase() || 'Sin ubicación'}</span>
+                  </div>
+                </div>
+              )}
               <label>Precio
                 <input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               </label>
