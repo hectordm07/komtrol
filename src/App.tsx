@@ -39,6 +39,7 @@ import { InboundModule } from './components/InboundModule'
 import { MainDashboardModule } from './components/MainDashboardModule'
 import { ReceivingIncidentModule } from './components/ReceivingIncidentModule'
 import { IncidentEmailSettings } from './components/IncidentEmailSettings'
+import { SurplusKardexModule } from './components/SurplusKardexModule'
 
 type Tab = string
 
@@ -435,6 +436,7 @@ function Workspace({ session }: { session: Session }) {
             { id: 'inbound-tareas' as Tab, label: 'Asignar tareas', icon: ClipboardList },
             { id: 'inbound-incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
             { id: 'inbound-cajas' as Tab, label: 'Sobrantes / Cajas', icon: Boxes },
+            { id: 'inbound-kardex' as Tab, label: 'Kardex de Sobrantes', icon: ClipboardList },
           ],
         }]
       : []),
@@ -444,7 +446,6 @@ function Workspace({ session }: { session: Session }) {
         { id: 'scanner-guias' as Tab, label: 'Scanner de Guías', icon: PackageCheck },
         { id: 'seguimiento-guias' as Tab, label: 'Seguimiento de Guías', icon: Search },
         { id: 'ingresos-reposicion' as Tab, label: 'Ingresos de Reposición', icon: PackageCheck },
-        { id: 'ingresos-consignacion' as Tab, label: 'Ingresos de Consignación', icon: PackageCheck },
         { id: 'oc-cargos' as Tab, label: 'OC / Cargos Directos', icon: ClipboardList },
         { id: 'os-prestamos' as Tab, label: 'OS / Préstamos', icon: Boxes },
         { id: 'outbound' as Tab, label: 'Consumos / Outbound', icon: Send },
@@ -456,6 +457,7 @@ function Workspace({ session }: { session: Session }) {
       section: 'CONTROL',
       items: [
         { id: 'materiales' as Tab, label: 'Materiales', icon: Boxes },
+        { id: 'kardex-sobrantes' as Tab, label: 'Kardex de Sobrantes', icon: ClipboardList },
         { id: 'inventarios' as Tab, label: 'Inventarios', icon: ClipboardList },
         { id: 'transitos' as Tab, label: 'Tránsitos', icon: RefreshCw },
         { id: 'danados' as Tab, label: 'Dañados', icon: AlertTriangle },
@@ -516,7 +518,7 @@ function Workspace({ session }: { session: Session }) {
         .map((group) => ({
           ...group,
           items: group.items.filter((item) =>
-            ['inbound-dashboard','inbound-personal','inbound-tareas','inbound-incidencias','inbound-cajas'].includes(item.id)
+            ['inbound-dashboard','inbound-personal','inbound-tareas','inbound-incidencias','inbound-cajas','inbound-kardex'].includes(item.id)
           ),
         }))
       : isCallaoSupervisor
@@ -525,7 +527,7 @@ function Workspace({ session }: { session: Session }) {
           .map((group) => ({
             ...group,
             items: group.items.filter((item) =>
-              ['inbound-dashboard','inbound-incidencias','inbound-cajas'].includes(item.id)
+              ['inbound-dashboard','inbound-incidencias','inbound-cajas','inbound-kardex'].includes(item.id)
             ),
           }))
         : isCallaoWorker
@@ -534,7 +536,7 @@ function Workspace({ session }: { session: Session }) {
             .map((group) => ({
               ...group,
               items: group.items.filter((item) =>
-                ['inbound-dashboard','inbound-personal','inbound-incidencias','inbound-cajas'].includes(item.id)
+                ['inbound-dashboard','inbound-personal','inbound-incidencias','inbound-cajas','inbound-kardex'].includes(item.id)
               ),
             }))
           : allNavSections.filter((group) =>
@@ -557,7 +559,7 @@ function Workspace({ session }: { session: Session }) {
       ? 'incidencias'
       : null
   const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
-  const inboundTabs = ['inbound-dashboard', 'inbound-personal', 'inbound-tareas', 'inbound-incidencias', 'inbound-cajas'] as const
+  const inboundTabs = ['inbound-dashboard', 'inbound-personal', 'inbound-tareas', 'inbound-incidencias', 'inbound-cajas', 'inbound-kardex'] as const
   const isInboundTab = inboundTabs.includes(tab as typeof inboundTabs[number])
   const isTaskTab = taskTabs.includes(tab as typeof taskTabs[number])
   const guideTabs = ['scanner-guias', 'seguimiento-guias'] as const
@@ -573,10 +575,9 @@ function Workspace({ session }: { session: Session }) {
   const materialMode =
     tab === 'master-materiales' ? 'master' :
     'consulta'
-  const operationsControlTabs = ['ingresos-consignacion', 'os-prestamos', 'outbound', 'inventarios', 'transitos', 'danados', 'activos'] as const
+  const operationsControlTabs = ['os-prestamos', 'outbound', 'inventarios', 'transitos', 'danados', 'activos'] as const
   const isOperationsControlTab = operationsControlTabs.includes(tab as typeof operationsControlTabs[number])
   const operationsControlMode =
-    tab === 'ingresos-consignacion' ? 'consignacion' :
     tab === 'os-prestamos' ? 'prestamos' :
     tab === 'outbound' ? 'outbound' :
     tab === 'inventarios' ? 'inventarios' :
@@ -587,6 +588,7 @@ function Workspace({ session }: { session: Session }) {
   const isDashboardTab = dashboardTabs.includes(tab as typeof dashboardTabs[number])
   const adminTabs = ['proyectos', 'cargas-masivas', 'almacenes', 'categorias', 'metas-kpi', 'periodos', 'auditoria'] as const
   const isAdminModuleTab = adminTabs.includes(tab as typeof adminTabs[number])
+  const isKardexTab = tab === 'kardex-sobrantes' || tab === 'inbound-kardex'
 
   useEffect(() => {
     const allowed = flatNav.map((item) => item.id)
@@ -756,6 +758,10 @@ function Workspace({ session }: { session: Session }) {
                 <InboundModule mode="boxes" userId={user.id} profile={profile} />
               )}
 
+              {isInboundTab && tab === 'inbound-kardex' && (
+                <SurplusKardexModule userId={user.id} profile={profile} fixedWarehouse="CALLAO" />
+              )}
+
               {isInboundTab && tab === 'inbound-personal' && (
                 <TasksModule
                   mode="area-personal"
@@ -817,6 +823,10 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {tab === 'kardex-sobrantes' && (
+                <SurplusKardexModule userId={user.id} profile={profile} />
+              )}
+
               {isOperationsControlTab && (
                 <OperationsControlModule
                   mode={operationsControlMode}
@@ -849,7 +859,7 @@ function Workspace({ session }: { session: Session }) {
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !isKardexTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}

@@ -570,7 +570,7 @@ function BulkImports({ userId }: { userId: string }) {
   const validCount = preview.filter((row) => row.valid).length
   const errorCount = preview.length - validCount
 
-  function template() {
+  async function template() {
     const headers = IMPORT_HEADERS[type]
     const example =
       type === 'MASTER_MATERIALES'
@@ -580,18 +580,62 @@ function BulkImports({ userId }: { userId: string }) {
         : type === 'KPI'
           ? ['ERI',String(new Date().getFullYear()),String(new Date().getMonth() + 1),'ANTAMINA','99.8','','%']
           : ['T098-00005674','8910542095',new Date().toISOString().slice(0,10),'DOC-001','1','ANTAMINA','']
-    downloadCsv(`KOMTROL_Plantilla_${type}.csv`, [headers, example])
+
+    const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
+    const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
+    const ws = XLSX.utils.aoa_to_sheet([headers, example])
+    ws['!cols'] = headers.map((header) => ({ wch: Math.max(14, Math.min(38, header.length + 8)) }))
+    headers.forEach((_header, index) => {
+      const address = XLSX.utils.encode_cell({ r: 0, c: index })
+      if (!ws[address]) return
+      ws[address].s = {
+        fill: { fgColor: { rgb: 'DDEFF8' } },
+        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: '17384A' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        border: {
+          top: { style: 'thin', color: { rgb: 'B7CAD5' } },
+          bottom: { style: 'thin', color: { rgb: 'B7CAD5' } },
+          left: { style: 'thin', color: { rgb: 'B7CAD5' } },
+          right: { style: 'thin', color: { rgb: 'B7CAD5' } },
+        },
+      }
+    })
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, type === 'MASTER_MATERIALES' ? 'Maestro Materiales' : type)
+    XLSX.writeFile(wb, `KOMTROL_Plantilla_${type}.xlsx`)
   }
 
   async function onFile(file?: File) {
     if (!file) return
-    if (!/\.(csv|txt)$/i.test(file.name)) {
-      setMessage('Guarda el Excel como CSV o copia y pega las filas directamente desde Excel.')
-      return
-    }
     setFileName(file.name)
-    setText(await file.text())
     setMessage('')
+
+    try {
+      if (/\.(xlsx|xls)$/i.test(file.name)) {
+        const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
+        const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
+        const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true })
+        const firstSheet = workbook.SheetNames[0]
+        if (!firstSheet) throw new Error('El Excel no contiene hojas.')
+        const worksheet = workbook.Sheets[firstSheet]
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false }) as unknown[][]
+        const tabText = rows
+          .filter((row) => row.some((cell) => String(cell ?? '').trim()))
+          .map((row) => row.map((cell) => String(cell ?? '').replace(/\t/g, ' ')).join('\t'))
+          .join('\n')
+        setText(tabText)
+        return
+      }
+
+      if (/\.(csv|txt)$/i.test(file.name)) {
+        setText(await file.text())
+        return
+      }
+
+      setMessage('Formato no compatible. Usa .XLSX, .XLS, .CSV o .TXT.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.')
+    }
   }
 
   async function confirmImport() {
@@ -630,15 +674,15 @@ function BulkImports({ userId }: { userId: string }) {
   return (
     <section className="panel bulk-import-admin">
       <div className="panel-title">
-        <div><h3>Cargas Masivas</h3><p>Data Master, Reposición, Inbound, OC, Cargos Directos y KPI desde Excel/CSV.</p></div>
-        <button className="secondary-button" onClick={template}><Download size={16} /> Plantilla</button>
+        <div><h3>Cargas Masivas</h3><p>Maestro de Materiales, Reposición, Inbound, OC, Cargos Directos y KPI desde Excel o CSV.</p></div>
+        <button className="secondary-button" onClick={template}><Download size={16} /> Descargar plantilla Excel</button>
       </div>
 
       <div className="bulk-import-grid">
         <div>
           <label className="field-label">Tipo de información
             <select value={type} onChange={(e) => { setType(e.target.value as ImportType); setText(''); setMessage('') }}>
-              <option value="MASTER_MATERIALES">Master de Materiales</option>
+              <option value="MASTER_MATERIALES">Maestro de Materiales</option>
               <option value="REPOSICION">Reposición (detalle por material)</option>
               <option value="INBOUND">Inbound / Guías (clasificación automática)</option>
               <option value="ORDEN_COMPRA">Orden de Compra</option>
@@ -648,8 +692,8 @@ function BulkImports({ userId }: { userId: string }) {
           </label>
           <label className="upload-box compact-upload">
             <FileUp size={20} />
-            <span><b>Cargar CSV</b><small>O copia las filas directamente desde Excel.</small></span>
-            <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={(e) => onFile(e.target.files?.[0])} />
+            <span><b>Cargar Excel / CSV</b><small>Admite .XLSX, .XLS, .CSV y pegado directo desde Excel.</small></span>
+            <input type="file" accept=".xlsx,.xls,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain" onChange={(e) => onFile(e.target.files?.[0])} />
           </label>
           <textarea className="bulk-textarea" rows={9} value={text} onChange={(e) => setText(e.target.value)} placeholder={IMPORT_HEADERS[type].join('\t') + '\n...'} />
         </div>

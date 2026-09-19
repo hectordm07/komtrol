@@ -4711,3 +4711,76 @@ table tbody tr:hover td {
     align-items: flex-start;
   }
 }
+
+
+/* Kardex de Sobrantes */
+.kardex-toolbar { gap: 10px; }
+.kardex-toolbar > select { min-width: 190px; }
+.kardex-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 260px));
+  gap: 10px;
+  margin: 14px 0;
+}
+.kardex-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px solid #dce8ee;
+  border-radius: 12px;
+  background: #f7fbfd;
+}
+.kardex-summary span { display: grid; gap: 2px; }
+.kardex-summary b { font-size: 20px; color: #23485e; }
+.kardex-summary small { color: #718793; }
+.kardex-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
+  gap: 12px;
+}
+.kardex-balance-card {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid #dce8ee;
+  border-radius: 14px;
+  background: #fff;
+}
+.kardex-balance-card p { margin: 0; color: #5d7180; min-height: 32px; }
+.kardex-balance-head, .kardex-balance-footer, .kardex-balance-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.kardex-balance-meta { justify-content: flex-start; flex-wrap: wrap; color: #718793; font-size: 11px; }
+.kardex-balance-meta span { padding: 5px 8px; border-radius: 8px; background: #f1f7fa; }
+.kardex-balance-footer > div { display: grid; gap: 2px; }
+.kardex-balance-footer > div > b { color: #1f607d; font-size: 17px; }
+.kardex-balance-footer small { color: #7c8e99; }
+.surplus-withdrawal-summary {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: #eef7fc;
+}
+.surplus-withdrawal-summary > b { font-size: 24px; color: #1f607d; }
+.surplus-withdrawal-summary > span,
+.surplus-withdrawal-summary > small { color: #617987; }
+.kardex-withdrawal-modal { max-width: 620px; }
+
+@media (max-width: 720px) {
+  .kardex-summary { grid-template-columns: 1fr 1fr; }
+  .kardex-summary > div { min-width: 0; padding: 10px; }
+  .kardex-summary b { font-size: 17px; }
+  .kardex-balance-grid { grid-template-columns: 1fr; }
+  .kardex-balance-card { padding: 13px; }
+  .kardex-balance-footer { align-items: flex-end; }
+  .kardex-balance-footer .primary-button { min-height: 44px; }
+  .kardex-toolbar { align-items: stretch; }
+  .kardex-toolbar > select { width: 100%; }
+}

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   Edit3,
+  FileText,
   Mail,
   PackagePlus,
   Plus,
@@ -41,6 +42,8 @@ type Incident = {
   purchase_order: string | null
   material_no: string | null
   description: string | null
+  stock_code: string | null
+  location: string | null
   qty_expected: number | null
   qty_received: number | null
   notes: string | null
@@ -72,6 +75,7 @@ type InboundBox = {
   id: string
   box_no: string
   warehouse: string
+  shipment_no: string | null
   title: string | null
   status: 'ABIERTA' | 'CERRADA' | 'DESPACHADA' | 'ANULADA'
   notes: string | null
@@ -110,11 +114,11 @@ function incidentNumber() {
   return `INB-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${Math.random().toString(36).slice(2,5).toUpperCase()}`
 }
 
-function boxNumber() {
+function boxNumber(sequence = 1) {
   const d = new Date()
   const ymd = d.toISOString().slice(0,10).replaceAll('-','')
   const hms = d.toTimeString().slice(0,8).replaceAll(':','')
-  return `CX-CALLAO-${ymd}-${hms}`
+  return `CX-CALLAO-${ymd}-${hms}-${String(sequence).padStart(2,'0')}`
 }
 
 function fmt(value?: string | null) {
@@ -138,6 +142,53 @@ function downloadCsv(name: string, rows: unknown[][]) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+async function exportBoxPdf(box: InboundBox) {
+  const jspdfUrl = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm'
+  const autoTableUrl = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/+esm'
+  const jspdfModule: any = await import(/* @vite-ignore */ jspdfUrl)
+  const autoTableModule: any = await import(/* @vite-ignore */ autoTableUrl)
+  const jsPDF = jspdfModule.jsPDF
+  const autoTable = autoTableModule.default
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  doc.setTextColor(20, 54, 74)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text('KOMTROL · CAJA DE SOBRANTES INBOUND', 10, 14)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Caja: ${box.box_no}`, 10, 22)
+  doc.text(`Embarque: ${box.shipment_no || 'SIN EMBARQUE'}`, 68, 22)
+  doc.text(`Almacén: ${box.warehouse}`, 145, 22)
+  doc.text(`Estado: ${box.status}`, 205, 22)
+  doc.text(`Creación: ${fmt(box.created_at)}`, 10, 28)
+  if (box.title) doc.text(`Detalle: ${box.title}`, 68, 28)
+
+  autoTable(doc, {
+    startY: 34,
+    head: [['N°','MATERIAL','STOCK CODE','DESCRIPCIÓN','CANT.','UM','UBICACIÓN','OBSERVACIÓN']],
+    body: (box.inbound_box_items ?? []).map((item,index) => [
+      index + 1,
+      item.material_no || '—',
+      item.stock_code || '—',
+      item.description || '—',
+      Number(item.quantity).toLocaleString('es-PE',{maximumFractionDigits:3}),
+      item.unit || 'UND',
+      item.location || '—',
+      item.notes || '',
+    ]),
+    styles: { font: 'helvetica', fontSize: 8, cellPadding: 2, lineColor: [215,224,230], lineWidth: 0.15 },
+    headStyles: { fillColor: [23,56,74], textColor: [255,255,255], fontStyle: 'bold' },
+    columnStyles: { 0:{cellWidth:10},1:{cellWidth:32},2:{cellWidth:30},3:{cellWidth:88},4:{cellWidth:18},5:{cellWidth:15},6:{cellWidth:32},7:{cellWidth:55} },
+  })
+
+  const y = Math.min((doc as any).lastAutoTable?.finalY + 12 || 185, 190)
+  doc.setFontSize(8)
+  doc.setTextColor(90, 105, 115)
+  doc.text('Documento generado por KOMTROL · Control de sobrantes por embarque', 10, y)
+  doc.save(`KOMTROL_${box.box_no}_${box.shipment_no || 'SIN_EMBARQUE'}.pdf`)
 }
 
 export function InboundModule({ mode, userId, profile }: Props) {
@@ -344,48 +395,69 @@ export function InboundModule({ mode, userId, profile }: Props) {
       return
     }
 
+    const byShipment = new Map<string, Incident[]>()
+    for (const incident of selected) {
+      const shipment = (incident.document_no || incident.guide_no || 'SIN-EMBARQUE').trim().toUpperCase()
+      const rows = byShipment.get(shipment) ?? []
+      rows.push(incident)
+      byShipment.set(shipment, rows)
+    }
+
     setSaving(true)
-    const { data: box, error } = await supabase
-      .from('inbound_boxes')
-      .insert({
-        box_no: boxNumber(),
-        warehouse: WAREHOUSE,
-        title: `Sobrantes Inbound · ${new Date().toLocaleDateString('es-PE')}`,
-        status: 'ABIERTA',
-        created_by: userId,
-      })
-      .select('*')
-      .single()
+    let createdCount = 0
+    let itemCount = 0
+    let sequence = 1
 
-    if (error || !box) {
-      setSaving(false)
-      setMessage(error?.message || 'No se pudo crear la caja.')
-      return
-    }
+    for (const [shipmentNo, shipmentIncidents] of byShipment.entries()) {
+      const { data: box, error } = await supabase
+        .from('inbound_boxes')
+        .insert({
+          box_no: boxNumber(sequence++),
+          warehouse: WAREHOUSE,
+          shipment_no: shipmentNo,
+          title: `Sobrantes Inbound · Embarque ${shipmentNo}`,
+          status: 'ABIERTA',
+          created_by: userId,
+        })
+        .select('*')
+        .single()
 
-    const items = selected.map((incident) => {
-      const expected = Number(incident.qty_expected || 0)
-      const received = Number(incident.qty_received || 0)
-      const difference = Math.max(received - expected, 0)
-      return {
-        box_id: box.id,
-        incident_id: incident.id,
-        material_no: incident.material_no,
-        description: incident.description,
-        quantity: difference || received || 1,
-        unit: 'UND',
-        notes: incident.notes,
+      if (error || !box) {
+        setSaving(false)
+        setMessage(error?.message || 'No se pudo crear la caja.')
+        return
       }
-    })
 
-    const { error: itemError } = await supabase.from('inbound_box_items').insert(items)
-    setSaving(false)
-    if (itemError) {
-      setMessage(itemError.message)
-      return
+      const items = shipmentIncidents.map((incident) => {
+        const expected = Number(incident.qty_expected || 0)
+        const received = Number(incident.qty_received || 0)
+        const difference = Math.max(received - expected, 0)
+        return {
+          box_id: box.id,
+          incident_id: incident.id,
+          material_no: incident.material_no,
+          stock_code: incident.stock_code,
+          description: incident.description,
+          quantity: difference || received || 1,
+          unit: 'UND',
+          location: incident.location,
+          notes: incident.notes,
+        }
+      })
+
+      const { error: itemError } = await supabase.from('inbound_box_items').insert(items)
+      if (itemError) {
+        setSaving(false)
+        setMessage(itemError.message)
+        return
+      }
+      createdCount += 1
+      itemCount += items.length
     }
+
+    setSaving(false)
     setSelectedSurplus([])
-    setMessage(`${box.box_no} creada con ${items.length} sobrante(s).`)
+    setMessage(`${createdCount} caja(s) creada(s) por embarque con ${itemCount} sobrante(s). Los ingresos ya figuran en el Kardex.`)
     await reload()
   }
 
@@ -462,9 +534,9 @@ export function InboundModule({ mode, userId, profile }: Props) {
 
   function exportBox(box: InboundBox) {
     downloadCsv(`${box.box_no}.csv`, [
-      ['CAJA','ESTADO','MATERIAL','STOCK CODE','DESCRIPCION','CANTIDAD','UM','UBICACION','OBSERVACION'],
+      ['CAJA','EMBARQUE','ESTADO','MATERIAL','STOCK CODE','DESCRIPCION','CANTIDAD','UM','UBICACION','OBSERVACION'],
       ...(box.inbound_box_items ?? []).map((item) => [
-        box.box_no,box.status,item.material_no,item.stock_code,item.description,item.quantity,item.unit,item.location,item.notes,
+        box.box_no,box.shipment_no,box.status,item.material_no,item.stock_code,item.description,item.quantity,item.unit,item.location,item.notes,
       ]),
     ])
   }
@@ -540,13 +612,13 @@ export function InboundModule({ mode, userId, profile }: Props) {
     <div className="inbound-module">
       <section className="panel">
         <div className="panel-title">
-          <div><h3>Cajas de Sobrantes · Callao</h3><p>Consolida sobrantes en cajas, actualiza detalle y exporta.</p></div>
+          <div><h3>Cajas de Sobrantes · Callao</h3><p>Consolida automáticamente una caja por embarque, imprime PDF y alimenta el Kardex de Sobrantes.</p></div>
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
         </div>
         {message && <div className="inline-message">{message}</div>}
         <div className="table-wrap">
-          <table><thead><tr><th>Caja</th><th>Título</th><th>Estado</th><th>Ítems</th><th>Creación</th><th>Acciones</th></tr></thead>
-          <tbody>{boxes.map((box) => <tr key={box.id}><td><b>{box.box_no}</b></td><td>{box.title || '—'}</td><td><span className="status-pill">{box.status}</span></td><td>{box.inbound_box_items?.length ?? 0}</td><td>{fmt(box.created_at)}</td><td><div className="row-actions"><button className="secondary-button" onClick={()=>openBox(box)}><Edit3 size={14}/> {readOnly ? 'Ver detalle' : 'Ver / Editar'}</button><button className="secondary-button" onClick={()=>exportBox(box)}><Download size={14}/></button>{!readOnly && <button className="icon-button danger-icon" onClick={()=>deleteBox(box)}><Trash2 size={15}/></button>}</div></td></tr>)}</tbody></table>
+          <table><thead><tr><th>Caja</th><th>Embarque</th><th>Título</th><th>Estado</th><th>Ítems</th><th>Creación</th><th>Acciones</th></tr></thead>
+          <tbody>{boxes.map((box) => <tr key={box.id}><td><b>{box.box_no}</b></td><td><b>{box.shipment_no || 'SIN EMBARQUE'}</b></td><td>{box.title || '—'}</td><td><span className="status-pill">{box.status}</span></td><td>{box.inbound_box_items?.length ?? 0}</td><td>{fmt(box.created_at)}</td><td><div className="row-actions"><button className="secondary-button" onClick={()=>openBox(box)}><Edit3 size={14}/> {readOnly ? 'Ver detalle' : 'Ver / Editar'}</button><button className="secondary-button" onClick={()=>exportBoxPdf(box)}><FileText size={14}/> PDF</button><button className="secondary-button" title="Exportar CSV" onClick={()=>exportBox(box)}><Download size={14}/></button>{!readOnly && <button className="icon-button danger-icon" onClick={()=>deleteBox(box)}><Trash2 size={15}/></button>}</div></td></tr>)}</tbody></table>
           {!boxes.length && <div className="empty-work"><Boxes size={28}/><b>Sin cajas</b><p>Selecciona incidencias tipo SOBRANTE para generar la primera caja.</p></div>}
         </div>
       </section>
@@ -554,7 +626,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
       {selectedBox && boxDraft && (
         <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget && setSelectedBox(null)}>
           <section className="modal inbound-box-modal">
-            <div className="modal-head"><div><h2>{boxDraft.box_no}</h2><p>Detalle editable de sobrantes.</p></div><button className="icon-button" onClick={()=>setSelectedBox(null)}><X size={19}/></button></div>
+            <div className="modal-head"><div><h2>{boxDraft.box_no}</h2><p>Embarque: <b>{boxDraft.shipment_no || 'SIN EMBARQUE'}</b> · Detalle de sobrantes.</p></div><button className="icon-button" onClick={()=>setSelectedBox(null)}><X size={19}/></button></div>
             <div className="form-grid">
               <label>Título<input disabled={readOnly} value={boxDraft.title || ''} onChange={(e)=>setBoxDraft({...boxDraft,title:e.target.value})}/></label>
               <label>Estado<select disabled={readOnly} value={boxDraft.status} onChange={(e)=>setBoxDraft({...boxDraft,status:e.target.value as InboundBox['status']})}><option>ABIERTA</option><option>CERRADA</option><option>DESPACHADA</option><option>ANULADA</option></select></label>
@@ -570,7 +642,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
                 <td>{!readOnly && <button className="icon-button danger-icon" onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button>}</td>
               </tr>)}
             </tbody></table></div>
-            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBox(boxDraft)}><Download size={15}/> Exportar</button>{!readOnly && <button className="primary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}</div>
+            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBoxPdf(boxDraft)}><FileText size={15}/> PDF imprimible</button><button className="secondary-button" onClick={()=>exportBox(boxDraft)}><Download size={15}/> CSV</button>{!readOnly && <button className="primary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}</div>
           </section>
         </div>
       )}
