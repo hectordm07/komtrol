@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type ClipboardEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AtSign,
   Bell,
@@ -296,7 +296,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, onClose, 
     setFiles((current) => [...current, ...accepted].slice(0, 8))
   }
 
-  function handlePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     const pasted: File[] = []
     for (const item of Array.from(event.clipboardData.items)) {
       if (item.kind !== 'file') continue
