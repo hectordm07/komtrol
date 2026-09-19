@@ -725,13 +725,13 @@ export function InboundModule({ mode, userId, profile }: Props) {
             <div className="chart-heading"><h3>Tendencia de incidencias</h3><p>Últimos 7 días</p></div>
             <div className="trend-svg-wrap">
               <svg viewBox="0 0 100 86" preserveAspectRatio="none" aria-label="Tendencia de incidencias">
-                <defs><linearGradient id="inboundTrendFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#5ba4cb" stopOpacity=".26"/><stop offset="100%" stopColor="#5ba4cb" stopOpacity=".02"/></linearGradient></defs>
+                <defs><linearGradient id="inboundTrendFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#5570d8" stopOpacity=".24"/><stop offset="100%" stopColor="#5570d8" stopOpacity=".02"/></linearGradient></defs>
                 <polyline points={`8,82 ${trendPoints} 92,82`} fill="url(#inboundTrendFill)" stroke="none"/>
-                <polyline points={trendPoints} fill="none" stroke="#3f8fba" strokeWidth="2.2" vectorEffect="non-scaling-stroke"/>
+                <polyline points={trendPoints} fill="none" stroke="#33439a" strokeWidth="2.2" vectorEffect="non-scaling-stroke"/>
                 {trendData.map((row,index)=>{
                   const x=8+(index*(84/Math.max(trendData.length-1,1)))
                   const y=78-((row.value/maxTrend)*62)
-                  return <circle key={row.key} cx={x} cy={y} r="2.2" fill="#3f8fba"/>
+                  return <circle key={row.key} cx={x} cy={y} r="2.2" fill="#5570d8"/>
                 })}
               </svg>
               <div className="trend-labels">{trendData.map((row)=><span key={row.key}>{row.label}</span>)}</div>
