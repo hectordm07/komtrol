@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   List,
   MinusCircle,
+  Plus,
   RefreshCw,
   Search,
   Upload,
@@ -246,6 +247,23 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
   const [notes, setNotes] = useState('')
   const [destinationLocation, setDestinationLocation] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showManualEntry, setShowManualEntry] = useState(false)
+  const [manualForm, setManualForm] = useState({
+    warehouse: fixedWarehouse || profile?.warehouse || '',
+    center: '',
+    storage_type: 'SOBRANTES',
+    storage_section: '',
+    shipment_no: '',
+    box_no: '',
+    material_no: '',
+    stock_code: '',
+    description: '',
+    location: '',
+    quantity: '',
+    unit: 'UND',
+    reference_no: '',
+    notes: '',
+  })
 
   const [initialFileName, setInitialFileName] = useState('')
   const [initialRows, setInitialRows] = useState<InitialRow[]>([])
@@ -474,6 +492,59 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     await reload()
   }
 
+  function openManualEntry() {
+    setManualForm({
+      warehouse: fixedWarehouse || profile?.warehouse || (warehouseFilter !== 'TODOS' ? warehouseFilter : ''),
+      center: '',
+      storage_type: 'SOBRANTES',
+      storage_section: '',
+      shipment_no: '',
+      box_no: '',
+      material_no: '',
+      stock_code: '',
+      description: '',
+      location: '',
+      quantity: '',
+      unit: 'UND',
+      reference_no: '',
+      notes: '',
+    })
+    setMessage('')
+    setShowManualEntry(true)
+  }
+
+  async function registerManualEntry(event: FormEvent) {
+    event.preventDefault()
+    const qty=Number(manualForm.quantity)
+    if(!manualForm.warehouse.trim()){setMessage('Almacén requerido.');return}
+    if(!manualForm.shipment_no.trim()){setMessage('Embarque requerido.');return}
+    if(!manualForm.material_no.trim()){setMessage('Material requerido.');return}
+    if(!(qty>0)){setMessage('Cantidad inválida.');return}
+
+    setSaving(true)
+    const {error}=await supabase.rpc('register_surplus_manual_entry',{
+      p_warehouse:manualForm.warehouse.trim().toUpperCase(),
+      p_center:manualForm.center.trim().toUpperCase(),
+      p_storage_type:manualForm.storage_type.trim().toUpperCase(),
+      p_storage_section:manualForm.storage_section.trim().toUpperCase(),
+      p_shipment_no:manualForm.shipment_no.trim().toUpperCase(),
+      p_box_no:manualForm.box_no.trim().toUpperCase(),
+      p_material_no:manualForm.material_no.trim().toUpperCase(),
+      p_stock_code:manualForm.stock_code.trim(),
+      p_description:manualForm.description.trim(),
+      p_location:manualForm.location.trim().toUpperCase(),
+      p_quantity:qty,
+      p_unit:manualForm.unit.trim().toUpperCase()||'UND',
+      p_reference_no:manualForm.reference_no.trim()||null,
+      p_notes:manualForm.notes.trim()||null,
+    })
+    setSaving(false)
+    if(error){setMessage(error.message);return}
+    setShowManualEntry(false)
+    setMessage(`Ingreso manual registrado para el embarque ${manualForm.shipment_no.trim().toUpperCase()}.`)
+    await reload()
+  }
+
   async function downloadInitialTemplate() {
     const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
     const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
@@ -636,6 +707,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
             <p>Modelo WM: Centro → Almacén → Tipo → Sección → Ubicación/Bin → Caja → Embarque → Material.</p>
           </div>
           <div className="button-row">
+            {canMove && <button className="primary-button" onClick={openManualEntry}><Plus size={15}/> Agregar sobrante</button>}
             <button className="secondary-button" onClick={exportKardex}><Download size={15}/> Exportar</button>
             <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
           </div>
@@ -780,6 +852,34 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
             </table>
           </div>
         </section>
+      )}
+
+      {showManualEntry && (
+        <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget && setShowManualEntry(false)}>
+          <form className="modal kardex-manual-modal" onSubmit={registerManualEntry}>
+            <div className="modal-head">
+              <div><h2>Agregar sobrante manual</h2><p>Registra una ENTRADA directamente al Kardex y asígnala a un embarque.</p></div>
+              <button type="button" className="icon-button" onClick={()=>setShowManualEntry(false)}><X size={19}/></button>
+            </div>
+            <div className="form-grid">
+              <label>Almacén<input required disabled={Boolean(fixedWarehouse || (!isAdmin && profile?.warehouse))} value={manualForm.warehouse} onChange={(e)=>setManualForm({...manualForm,warehouse:e.target.value})}/></label>
+              <label>Centro<input value={manualForm.center} onChange={(e)=>setManualForm({...manualForm,center:e.target.value})} placeholder="Ej. C029"/></label>
+              <label>Tipo almacenamiento<input value={manualForm.storage_type} onChange={(e)=>setManualForm({...manualForm,storage_type:e.target.value})}/></label>
+              <label>Sección<input value={manualForm.storage_section} onChange={(e)=>setManualForm({...manualForm,storage_section:e.target.value})} placeholder="Ej. INBOUND"/></label>
+              <label>N° Embarque<input required value={manualForm.shipment_no} onChange={(e)=>setManualForm({...manualForm,shipment_no:e.target.value})} placeholder="Ej. 7653545725MIA"/></label>
+              <label>N° Caja<input value={manualForm.box_no} onChange={(e)=>setManualForm({...manualForm,box_no:e.target.value})} placeholder="Opcional"/></label>
+              <label>Material<input required value={manualForm.material_no} onChange={(e)=>setManualForm({...manualForm,material_no:e.target.value})}/></label>
+              <label>Stock Code<input value={manualForm.stock_code} onChange={(e)=>setManualForm({...manualForm,stock_code:e.target.value})}/></label>
+              <label className="span-2">Descripción<input value={manualForm.description} onChange={(e)=>setManualForm({...manualForm,description:e.target.value})}/></label>
+              <label>Ubicación / Bin<input value={manualForm.location} onChange={(e)=>setManualForm({...manualForm,location:e.target.value})} placeholder="Ej. SOB-01"/></label>
+              <label>Cantidad<input required type="number" min="0.001" step="any" value={manualForm.quantity} onChange={(e)=>setManualForm({...manualForm,quantity:e.target.value})}/></label>
+              <label>UM<input value={manualForm.unit} onChange={(e)=>setManualForm({...manualForm,unit:e.target.value})}/></label>
+              <label>Referencia<input value={manualForm.reference_no} onChange={(e)=>setManualForm({...manualForm,reference_no:e.target.value})} placeholder="Ej. AJU-001"/></label>
+              <label className="span-2">Observación<textarea rows={3} value={manualForm.notes} onChange={(e)=>setManualForm({...manualForm,notes:e.target.value})}/></label>
+            </div>
+            <div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowManualEntry(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving?<RefreshCw className="spin" size={15}/>:<Plus size={15}/>} Registrar entrada</button></div>
+          </form>
+        </div>
       )}
 
       {selected && selectedAction && (

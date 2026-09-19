@@ -11,6 +11,10 @@ import {
   PackagePlus,
   Plus,
   RefreshCw,
+  TrendingUp,
+  ArrowRight,
+  Lock,
+  Unlock,
   Save,
   Search,
   Send,
@@ -56,6 +60,7 @@ type Incident = {
   created_by: string
   created_at: string
   updated_at: string
+  inbound_box_id?: string | null
 }
 
 type BoxItem = {
@@ -82,6 +87,9 @@ type InboundBox = {
   created_by: string
   created_at: string
   updated_at: string
+  opened_at?: string | null
+  closed_at?: string | null
+  closed_by?: string | null
   inbound_box_items?: BoxItem[]
 }
 
@@ -112,13 +120,6 @@ function incidentNumber() {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   return `INB-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${Math.random().toString(36).slice(2,5).toUpperCase()}`
-}
-
-function boxNumber(sequence = 1) {
-  const d = new Date()
-  const ymd = d.toISOString().slice(0,10).replaceAll('-','')
-  const hms = d.toTimeString().slice(0,8).replaceAll(':','')
-  return `CX-CALLAO-${ymd}-${hms}-${String(sequence).padStart(2,'0')}`
 }
 
 function fmt(value?: string | null) {
@@ -206,12 +207,17 @@ export function InboundModule({ mode, userId, profile }: Props) {
   const [boxDraft, setBoxDraft] = useState<InboundBox | null>(null)
   const [saving, setSaving] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
+  const [kardexBalance, setKardexBalance] = useState(0)
+  const [showOpenBox, setShowOpenBox] = useState(false)
+  const [newBoxShipment, setNewBoxShipment] = useState('')
+  const [newBoxNotes, setNewBoxNotes] = useState('')
   const readOnly = profile?.role === 'SUPERVISOR'
+  const canOperateBoxes = profile?.role !== 'SUPERVISOR'
 
   async function reload() {
     setLoading(true)
     setMessage('')
-    const [incidentRes, boxRes, profileRes] = await Promise.all([
+    const [incidentRes, boxRes, profileRes, kardexRes] = await Promise.all([
       supabase
         .from('incidents')
         .select('*')
@@ -231,13 +237,19 @@ export function InboundModule({ mode, userId, profile }: Props) {
         .eq('active', true)
         .eq('warehouse', WAREHOUSE)
         .order('full_name'),
+      supabase
+        .from('surplus_kardex_movements')
+        .select('movement_type,quantity')
+        .eq('warehouse', WAREHOUSE)
+        .limit(10000),
     ])
-    if (incidentRes.error || boxRes.error || profileRes.error) {
-      setMessage(incidentRes.error?.message || boxRes.error?.message || profileRes.error?.message || 'No se pudo cargar Inbound.')
+    if (incidentRes.error || boxRes.error || profileRes.error || kardexRes.error) {
+      setMessage(incidentRes.error?.message || boxRes.error?.message || profileRes.error?.message || kardexRes.error?.message || 'No se pudo cargar Inbound.')
     }
     setIncidents((incidentRes.data ?? []) as Incident[])
     setBoxes((boxRes.data ?? []) as InboundBox[])
     setProfiles((profileRes.data ?? []) as Profile[])
+    setKardexBalance((kardexRes.data ?? []).reduce((sum,row)=>sum+(row.movement_type==='ENTRADA'?Number(row.quantity||0):-Number(row.quantity||0)),0))
     setLoading(false)
   }
 
@@ -255,10 +267,47 @@ export function InboundModule({ mode, userId, profile }: Props) {
   const counts = useMemo(() => ({
     total: incidents.length,
     open: incidents.filter((x) => x.status !== 'CERRADO').length,
-    surplus: incidents.filter((x) => x.incident_type === 'SOBRANTE' && x.status !== 'CERRADO').length,
+    surplus: incidents.filter((x) => x.incident_type === 'SOBRANTE').length,
+    faltante: incidents.filter((x) => x.incident_type === 'FALTANTE').length,
+    damaged: incidents.filter((x) => x.incident_type === 'DANADO').length,
     notified: incidents.filter((x) => x.status === 'NOTIFICADO').length,
     boxes: boxes.length,
+    openBoxes: boxes.filter((x) => x.status === 'ABIERTA').length,
+    closedBoxes: boxes.filter((x) => x.status === 'CERRADA').length,
   }), [incidents, boxes])
+
+  const shipmentBars = useMemo(() => {
+    const map = new Map<string, number>()
+    incidents.filter((x)=>x.incident_type==='SOBRANTE').forEach((row)=>{
+      const shipment=(row.document_no || row.guide_no || 'SIN-EMBARQUE').toUpperCase()
+      const diff=Math.max(Number(row.qty_received||0)-Number(row.qty_expected||0),0)
+      map.set(shipment,(map.get(shipment)||0)+diff)
+    })
+    return Array.from(map.entries())
+      .map(([shipment,quantity])=>({shipment,quantity}))
+      .sort((a,b)=>b.quantity-a.quantity)
+      .slice(0,5)
+  },[incidents])
+
+  const trendData = useMemo(() => {
+    const days = Array.from({length:7},(_,index)=>{
+      const d=new Date()
+      d.setHours(0,0,0,0)
+      d.setDate(d.getDate()-(6-index))
+      return {key:d.toISOString().slice(0,10),label:new Intl.DateTimeFormat('es-PE',{weekday:'short'}).format(d).replace('.',''),value:0}
+    })
+    const byKey=new Map(days.map((day)=>[day.key,day]))
+    incidents.forEach((row)=>{
+      const key=new Date(row.created_at).toISOString().slice(0,10)
+      const target=byKey.get(key)
+      if(target) target.value+=1
+    })
+    return days
+  },[incidents])
+
+  const maxShipment = Math.max(1,...shipmentBars.map((row)=>row.quantity))
+  const maxTrend = Math.max(1,...trendData.map((row)=>row.value))
+
 
   const profileName = (id?: string | null) =>
     profiles.find((x) => x.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
@@ -389,77 +438,56 @@ export function InboundModule({ mode, userId, profile }: Props) {
   }
 
   async function createBoxFromSurplus() {
-    const selected = incidents.filter((x) => selectedSurplus.includes(x.id) && x.incident_type === 'SOBRANTE')
-    if (!selected.length) {
-      setMessage('Selecciona al menos un sobrante para generar una caja.')
-      return
-    }
-
-    const byShipment = new Map<string, Incident[]>()
-    for (const incident of selected) {
-      const shipment = (incident.document_no || incident.guide_no || 'SIN-EMBARQUE').trim().toUpperCase()
-      const rows = byShipment.get(shipment) ?? []
-      rows.push(incident)
-      byShipment.set(shipment, rows)
-    }
-
-    setSaving(true)
-    let createdCount = 0
-    let itemCount = 0
-    let sequence = 1
-
-    for (const [shipmentNo, shipmentIncidents] of byShipment.entries()) {
-      const { data: box, error } = await supabase
-        .from('inbound_boxes')
-        .insert({
-          box_no: boxNumber(sequence++),
-          warehouse: WAREHOUSE,
-          shipment_no: shipmentNo,
-          title: `Sobrantes Inbound · Embarque ${shipmentNo}`,
-          status: 'ABIERTA',
-          created_by: userId,
-        })
-        .select('*')
-        .single()
-
-      if (error || !box) {
-        setSaving(false)
-        setMessage(error?.message || 'No se pudo crear la caja.')
-        return
-      }
-
-      const items = shipmentIncidents.map((incident) => {
-        const expected = Number(incident.qty_expected || 0)
-        const received = Number(incident.qty_received || 0)
-        const difference = Math.max(received - expected, 0)
-        return {
-          box_id: box.id,
-          incident_id: incident.id,
-          material_no: incident.material_no,
-          stock_code: incident.stock_code,
-          description: incident.description,
-          quantity: difference || received || 1,
-          unit: 'UND',
-          location: incident.location,
-          notes: incident.notes,
-        }
-      })
-
-      const { error: itemError } = await supabase.from('inbound_box_items').insert(items)
-      if (itemError) {
-        setSaving(false)
-        setMessage(itemError.message)
-        return
-      }
-      createdCount += 1
-      itemCount += items.length
-    }
-
-    setSaving(false)
+    setMessage('Las incidencias SOBRANTE ya crean o alimentan automáticamente la caja abierta de su embarque.')
     setSelectedSurplus([])
-    setMessage(`${createdCount} caja(s) creada(s) por embarque con ${itemCount} sobrante(s). Los ingresos ya figuran en el Kardex.`)
     await reload()
   }
+
+  async function openNewBox(event: FormEvent) {
+    event.preventDefault()
+    const shipment=newBoxShipment.trim().toUpperCase()
+    if(!shipment){ setMessage('Ingresa el N° de embarque.'); return }
+    setSaving(true)
+    const {error}=await supabase.rpc('open_inbound_surplus_box',{
+      p_warehouse:WAREHOUSE,
+      p_shipment_no:shipment,
+      p_title:`Sobrantes Inbound · Embarque ${shipment}`,
+      p_notes:newBoxNotes.trim()||null,
+    })
+    setSaving(false)
+    if(error){ setMessage(error.message); return }
+    setShowOpenBox(false)
+    setNewBoxShipment('')
+    setNewBoxNotes('')
+    setMessage(`Caja abierta para el embarque ${shipment}. Los próximos sobrantes se agregarán automáticamente.`)
+    await reload()
+  }
+
+  async function closeBox(box: InboundBox) {
+    if(!window.confirm(`¿Cerrar la caja ${box.box_no}? Al confirmar, todos sus sobrantes ingresarán al Kardex.`)) return
+    setSaving(true)
+    const {data,error}=await supabase.rpc('close_inbound_surplus_box',{p_box_id:box.id,p_notes:box.notes||null})
+    setSaving(false)
+    if(error){ setMessage(error.message); return }
+    setMessage(`Caja ${box.box_no} cerrada. ${Number(data?.movements_created||0)} movimiento(s) ingresaron al Kardex.`)
+    setSelectedBox(null)
+    setBoxDraft(null)
+    await reload()
+  }
+
+  async function reopenBox(box: InboundBox) {
+    if(profile?.role!=='ADMINISTRADOR') return
+    if(!window.confirm(`¿Reabrir ${box.box_no}? Se revertirán del Kardex los ingresos creados por el cierre.`)) return
+    setSaving(true)
+    const {error}=await supabase.rpc('reopen_inbound_surplus_box',{p_box_id:box.id})
+    setSaving(false)
+    if(error){ setMessage(error.message); return }
+    setMessage(`Caja ${box.box_no} reabierta.`)
+    setSelectedBox(null)
+    setBoxDraft(null)
+    await reload()
+  }
+
 
   function openBox(box: InboundBox) {
     const clone = JSON.parse(JSON.stringify(box)) as InboundBox
@@ -469,12 +497,15 @@ export function InboundModule({ mode, userId, profile }: Props) {
 
   async function saveBox() {
     if (!boxDraft) return
+    if (boxDraft.status !== 'ABIERTA') {
+      setMessage('Las cajas cerradas son de solo lectura. Solo el Administrador puede reabrirlas.')
+      return
+    }
     setSaving(true)
     const { error } = await supabase
       .from('inbound_boxes')
       .update({
         title: boxDraft.title,
-        status: boxDraft.status,
         notes: boxDraft.notes,
         updated_at:new Date().toISOString(),
       })
@@ -511,6 +542,10 @@ export function InboundModule({ mode, userId, profile }: Props) {
   }
 
   async function deleteBox(box: InboundBox) {
+    if (box.status !== 'ABIERTA') {
+      setMessage('No se puede eliminar una caja cerrada. El Administrador puede reabrirla primero.')
+      return
+    }
     if (!window.confirm(`¿Eliminar la caja ${box.box_no} y todo su detalle?`)) return
     const { error } = await supabase.from('inbound_boxes').delete().eq('id', box.id)
     if (error) setMessage(error.message)
@@ -546,46 +581,113 @@ export function InboundModule({ mode, userId, profile }: Props) {
   }
 
   if (mode === 'dashboard') {
+    const donutTotal=Math.max(1,counts.surplus+counts.faltante+counts.damaged)
+    const surplusDeg=(counts.surplus/donutTotal)*360
+    const faltanteDeg=((counts.surplus+counts.faltante)/donutTotal)*360
+    const trendPoints=trendData.map((row,index)=>{
+      const x=8+(index*(84/Math.max(trendData.length-1,1)))
+      const y=78-((row.value/maxTrend)*62)
+      return `${x},${y}`
+    }).join(' ')
+
     return (
-      <div className="inbound-module">
-        <section className="panel inbound-hero">
-          <div><span className="status-pill">CALLAO · INBOUND</span><h3>Dashboard de Incidencias Inbound</h3><p>Seguimiento de incidencias, sobrantes, notificaciones y cajas operativas.</p></div>
-          <span className="status-pill"><CheckCircle2 size={14}/> Registro desde Incidencias</span>
+      <div className="inbound-module inbound-figma-dashboard">
+        <section className="panel inbound-hero figma-inbound-hero">
+          <div>
+            <span className="inbound-live-tag">CALLAO · INBOUND</span>
+            <h3>Control visual de Incidencias, Cajas y Kardex</h3>
+            <p>Los sobrantes se agrupan automáticamente por embarque y caja abierta antes de ingresar al Kardex.</p>
+          </div>
+          <span className="inbound-live-badge"><CheckCircle2 size={14}/> Operación en tiempo real</span>
         </section>
+
         {message && <div className="inline-message">{message}</div>}
-        <div className="inbound-kpis">
-          <div><BarChart3/><span><b>{counts.total}</b><small>Total incidencias</small></span></div>
-          <div><AlertTriangle/><span><b>{counts.open}</b><small>Pendientes</small></span></div>
-          <div><PackagePlus/><span><b>{counts.surplus}</b><small>Sobrantes</small></span></div>
-          <div><Mail/><span><b>{counts.notified}</b><small>Notificadas</small></span></div>
-          <div><Boxes/><span><b>{counts.boxes}</b><small>Cajas</small></span></div>
+
+        <div className="inbound-figma-kpis">
+          <article><BarChart3/><span><small>INCIDENCIAS</small><b>{counts.total}</b><em>Últimos registros</em></span></article>
+          <article className="warning"><AlertTriangle/><span><small>PENDIENTES</small><b>{counts.open}</b><em>Requieren gestión</em></span></article>
+          <article className="success"><PackagePlus/><span><small>SOBRANTES</small><b>{counts.surplus}</b><em>Detectados</em></span></article>
+          <article className="purple"><Boxes/><span><small>CAJAS ABIERTAS</small><b>{counts.openBoxes}</b><em>{counts.closedBoxes} cerradas</em></span></article>
+          <article><TrendingUp/><span><small>SALDO KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:3})}</b><em>UND disponibles</em></span></article>
         </div>
-        <section className="panel inbound-recent-panel">
-          <div className="panel-title"><div><h3>Actividad reciente</h3><p>Últimas incidencias de Callao Inbound.</p></div></div>
-          <div className="inbound-recent-list">
-            {incidents.slice(0,5).map((row) => {
-              const diff = Number(row.qty_received || 0) - Number(row.qty_expected || 0)
-              return (
-                <article className="inbound-recent-card" key={row.id}>
+
+        <div className="inbound-chart-grid">
+          <section className="panel inbound-chart-card incident-type-chart">
+            <div className="chart-heading"><h3>Incidencias por tipo</h3><p>Distribución actual</p></div>
+            <div className="donut-layout">
+              <div className="inbound-donut" style={{background:`conic-gradient(#45a47f 0deg ${surplusDeg}deg,#e9942f ${surplusDeg}deg ${faltanteDeg}deg,#d35353 ${faltanteDeg}deg 360deg)`}}>
+                <div><b>{counts.surplus+counts.faltante+counts.damaged}</b><span>Total</span></div>
+              </div>
+              <div className="chart-legend">
+                <div><i className="green"/><span>Sobrantes</span><b>{counts.surplus}</b></div>
+                <div><i className="orange"/><span>Faltantes</span><b>{counts.faltante}</b></div>
+                <div><i className="red"/><span>Dañados</span><b>{counts.damaged}</b></div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel inbound-chart-card shipment-chart">
+            <div className="chart-heading"><h3>Sobrantes por embarque</h3><p>Unidades detectadas</p></div>
+            <div className="shipment-bars">
+              {shipmentBars.map((row,index)=>(
+                <div className="shipment-bar-row" key={row.shipment}>
+                  <span title={row.shipment}>{row.shipment}</span>
+                  <div><i style={{width:`${Math.max(5,(row.quantity/maxShipment)*100)}%`}} className={index===0?'top':''}/></div>
+                  <b>{row.quantity.toLocaleString('es-PE',{maximumFractionDigits:3})}</b>
+                </div>
+              ))}
+              {!shipmentBars.length && <div className="chart-empty">Sin sobrantes por embarque.</div>}
+            </div>
+          </section>
+
+          <section className="panel inbound-chart-card box-status-chart">
+            <div className="chart-heading"><h3>Estado de cajas</h3><p>Flujo por embarque</p></div>
+            <div className="box-status-list">
+              <div><i className="purple"/><span>Abiertas</span><b>{counts.openBoxes}</b></div>
+              <div><i className="green"/><span>Cerradas / Kardex</span><b>{counts.closedBoxes}</b></div>
+              <div><i className="orange"/><span>Total cajas</span><b>{counts.boxes}</b></div>
+            </div>
+          </section>
+        </div>
+
+        <div className="inbound-bottom-grid">
+          <section className="panel inbound-chart-card trend-chart">
+            <div className="chart-heading"><h3>Tendencia de incidencias</h3><p>Últimos 7 días</p></div>
+            <div className="trend-svg-wrap">
+              <svg viewBox="0 0 100 86" preserveAspectRatio="none" aria-label="Tendencia de incidencias">
+                <defs><linearGradient id="inboundTrendFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#5ba4cb" stopOpacity=".26"/><stop offset="100%" stopColor="#5ba4cb" stopOpacity=".02"/></linearGradient></defs>
+                <polyline points={`8,82 ${trendPoints} 92,82`} fill="url(#inboundTrendFill)" stroke="none"/>
+                <polyline points={trendPoints} fill="none" stroke="#3f8fba" strokeWidth="2.2" vectorEffect="non-scaling-stroke"/>
+                {trendData.map((row,index)=>{
+                  const x=8+(index*(84/Math.max(trendData.length-1,1)))
+                  const y=78-((row.value/maxTrend)*62)
+                  return <circle key={row.key} cx={x} cy={y} r="2.2" fill="#3f8fba"/>
+                })}
+              </svg>
+              <div className="trend-labels">{trendData.map((row)=><span key={row.key}>{row.label}</span>)}</div>
+            </div>
+          </section>
+
+          <section className="panel inbound-recent-panel figma-recent">
+            <div className="panel-title"><div><h3>Actividad reciente</h3><p>Incidencias y cajas de Callao.</p></div></div>
+            <div className="inbound-recent-list">
+              {incidents.slice(0,4).map((row)=>{
+                const diff=Number(row.qty_received||0)-Number(row.qty_expected||0)
+                const relatedBox=boxes.find((box)=>box.id===row.inbound_box_id)
+                return <article className="inbound-recent-card" key={row.id}>
                   <div className="inbound-recent-main">
-                    <span className={row.incident_type === 'SOBRANTE' ? 'status-pill warning' : row.incident_type === 'FALTANTE' ? 'status-pill danger' : 'status-pill'}>
-                      {row.incident_type.replaceAll('_',' ')}
-                    </span>
-                    <b>{row.material_no || 'Sin material'}</b>
-                    <small>{row.description || row.guide_no || row.purchase_order || 'Sin descripción'}</small>
+                    <span className={row.incident_type==='SOBRANTE'?'status-pill success':row.incident_type==='FALTANTE'?'status-pill warning':'status-pill danger'}>{row.incident_type}</span>
+                    <b>{row.document_no || row.material_no || row.incident_no}</b>
+                    <small>{relatedBox ? `Caja ${relatedBox.box_no} · ${relatedBox.status}` : row.description || 'Sin caja asociada'}</small>
                   </div>
-                  <div className="inbound-recent-meta">
-                    <b>{diff === 0 ? '—' : diff.toLocaleString('es-PE',{maximumFractionDigits:3})}</b>
-                    <small>Diferencia</small>
-                  </div>
+                  <div className="inbound-recent-meta"><b>{diff===0?'—':diff.toLocaleString('es-PE',{maximumFractionDigits:3})}</b><small>Diferencia</small></div>
                   <time>{fmt(row.created_at)}</time>
                 </article>
-              )
-            })}
-            {!incidents.length && <div className="empty-work"><CheckCircle2 size={25}/><b>Sin actividad reciente</b></div>}
-          </div>
-        </section>
-        {showIncidentForm && <IncidentModal form={incidentForm} setForm={setIncidentForm} profiles={profiles} editing={editingIncident} saving={saving} onClose={() => setShowIncidentForm(false)} onSubmit={saveIncident}/>}
+              })}
+              {!incidents.length && <div className="empty-work"><CheckCircle2 size={25}/><b>Sin actividad reciente</b></div>}
+            </div>
+          </section>
+        </div>
       </div>
     )
   }
@@ -601,7 +703,7 @@ export function InboundModule({ mode, userId, profile }: Props) {
           <div className="task-toolbar"><div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar incidencia, guía, OC o material…"/></div></div>
           {message && <div className="inline-message">{message}</div>}
           <IncidentRows rows={visibleIncidents} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={readOnly}/>
-          {!readOnly && selectedSurplus.length > 0 && <div className="floating-selection"><b>{selectedSurplus.length} sobrante(s) seleccionado(s)</b><button className="primary-button" disabled={saving} onClick={createBoxFromSurplus}><Boxes size={16}/> Generar caja</button></div>}
+          {!readOnly && selectedSurplus.length > 0 && <div className="floating-selection"><b>{selectedSurplus.length} sobrante(s)</b><button className="secondary-button" disabled={saving} onClick={createBoxFromSurplus}><Boxes size={16}/> Ver caja automática</button></div>}
         </section>
         {showIncidentForm && <IncidentModal form={incidentForm} setForm={setIncidentForm} profiles={profiles} editing={editingIncident} saving={saving} onClose={() => setShowIncidentForm(false)} onSubmit={saveIncident}/>}
       </div>
@@ -609,40 +711,90 @@ export function InboundModule({ mode, userId, profile }: Props) {
   }
 
   return (
-    <div className="inbound-module">
-      <section className="panel">
+    <div className="inbound-module inbound-boxes-view">
+      <section className="panel inbound-boxes-hero">
         <div className="panel-title">
-          <div><h3>Cajas de Sobrantes · Callao</h3><p>Consolida automáticamente una caja por embarque, imprime PDF y alimenta el Kardex de Sobrantes.</p></div>
-          <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
+          <div>
+            <span className="inbound-live-tag">SOBRANTES · CALLAO</span>
+            <h3>Cajas por Embarque</h3>
+            <p>Cada SOBRANTE detectado se agrega automáticamente a la caja ABIERTA de su embarque. Al cerrar la caja, ingresa al Kardex.</p>
+          </div>
+          <div className="button-row">
+            {canOperateBoxes && <button className="primary-button" onClick={()=>setShowOpenBox(true)}><Plus size={15}/> Abrir caja</button>}
+            <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
+          </div>
         </div>
-        {message && <div className="inline-message">{message}</div>}
-        <div className="table-wrap">
-          <table><thead><tr><th>Caja</th><th>Embarque</th><th>Título</th><th>Estado</th><th>Ítems</th><th>Creación</th><th>Acciones</th></tr></thead>
-          <tbody>{boxes.map((box) => <tr key={box.id}><td><b>{box.box_no}</b></td><td><b>{box.shipment_no || 'SIN EMBARQUE'}</b></td><td>{box.title || '—'}</td><td><span className="status-pill">{box.status}</span></td><td>{box.inbound_box_items?.length ?? 0}</td><td>{fmt(box.created_at)}</td><td><div className="row-actions"><button className="secondary-button" onClick={()=>openBox(box)}><Edit3 size={14}/> {readOnly ? 'Ver detalle' : 'Ver / Editar'}</button><button className="secondary-button" onClick={()=>exportBoxPdf(box)}><FileText size={14}/> PDF</button><button className="secondary-button" title="Exportar CSV" onClick={()=>exportBox(box)}><Download size={14}/></button>{!readOnly && <button className="icon-button danger-icon" onClick={()=>deleteBox(box)}><Trash2 size={15}/></button>}</div></td></tr>)}</tbody></table>
-          {!boxes.length && <div className="empty-work"><Boxes size={28}/><b>Sin cajas</b><p>Selecciona incidencias tipo SOBRANTE para generar la primera caja.</p></div>}
+        <div className="box-flow-strip">
+          <span><AlertTriangle size={14}/> Incidencia SOBRANTE</span><ArrowRight size={14}/><span><Unlock size={14}/> Caja abierta</span><ArrowRight size={14}/><span><Lock size={14}/> Cierre</span><ArrowRight size={14}/><span><TrendingUp size={14}/> Kardex</span>
         </div>
       </section>
+
+      {message && <div className="inline-message">{message}</div>}
+
+      <div className="inbound-box-summary">
+        <article><b>{counts.openBoxes}</b><span>Cajas abiertas</span></article>
+        <article><b>{counts.closedBoxes}</b><span>Cajas cerradas</span></article>
+        <article><b>{boxes.reduce((sum,box)=>sum+(box.inbound_box_items?.length||0),0)}</b><span>Ítems en cajas</span></article>
+      </div>
+
+      <div className="inbound-box-grid">
+        {boxes.map((box)=>{
+          const totalQty=(box.inbound_box_items??[]).reduce((sum,item)=>sum+Number(item.quantity||0),0)
+          return <article className={`panel inbound-box-card ${box.status==='ABIERTA'?'open':'closed'}`} key={box.id}>
+            <div className="box-card-head">
+              <div><small>CAJA</small><h3>{box.box_no}</h3><p>Embarque <b>{box.shipment_no || 'SIN EMBARQUE'}</b></p></div>
+              <span className={box.status==='ABIERTA'?'status-pill warning':'status-pill success'}>{box.status}</span>
+            </div>
+            <div className="box-card-metrics">
+              <span><b>{box.inbound_box_items?.length ?? 0}</b><small>Ítems</small></span>
+              <span><b>{totalQty.toLocaleString('es-PE',{maximumFractionDigits:3})}</b><small>UND</small></span>
+              <span><b>{box.status==='ABIERTA'?'Pendiente':'Ingresado'}</b><small>Kardex</small></span>
+            </div>
+            <div className="box-card-times"><span>Apertura {fmt(box.opened_at || box.created_at)}</span>{box.closed_at && <span>Cierre {fmt(box.closed_at)}</span>}</div>
+            <div className="box-card-actions">
+              <button className="secondary-button" onClick={()=>openBox(box)}><Edit3 size={14}/> Detalle</button>
+              <button className="secondary-button" onClick={()=>exportBoxPdf(box)}><FileText size={14}/> PDF</button>
+              {canOperateBoxes && box.status==='ABIERTA' && <button className="primary-button" disabled={saving} onClick={()=>closeBox(box)}><Lock size={14}/> Cerrar caja</button>}
+              {profile?.role==='ADMINISTRADOR' && box.status==='CERRADA' && <button className="secondary-button" disabled={saving} onClick={()=>reopenBox(box)}><Unlock size={14}/> Reabrir</button>}
+            </div>
+          </article>
+        })}
+        {!boxes.length && <div className="panel empty-work"><Boxes size={28}/><b>Sin cajas</b><p>La primera incidencia SOBRANTE abrirá automáticamente una caja por embarque.</p></div>}
+      </div>
+
+      {showOpenBox && (
+        <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget && setShowOpenBox(false)}>
+          <form className="modal inbound-open-box-modal" onSubmit={openNewBox}>
+            <div className="modal-head"><div><h2>Abrir nueva caja</h2><p>Se generará automáticamente el correlativo EMBARQUE-0001, -0002…</p></div><button type="button" className="icon-button" onClick={()=>setShowOpenBox(false)}><X size={19}/></button></div>
+            <div className="form-grid">
+              <label className="span-2">N° Embarque<input autoFocus required value={newBoxShipment} onChange={(e)=>setNewBoxShipment(e.target.value)} placeholder="Ej. 7653545725MIA"/></label>
+              <label className="span-2">Observación<textarea rows={3} value={newBoxNotes} onChange={(e)=>setNewBoxNotes(e.target.value)} placeholder="Opcional"/></label>
+            </div>
+            <div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowOpenBox(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving?<RefreshCw className="spin" size={15}/>:<Unlock size={15}/>} Abrir caja</button></div>
+          </form>
+        </div>
+      )}
 
       {selectedBox && boxDraft && (
         <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget && setSelectedBox(null)}>
           <section className="modal inbound-box-modal">
             <div className="modal-head"><div><h2>{boxDraft.box_no}</h2><p>Embarque: <b>{boxDraft.shipment_no || 'SIN EMBARQUE'}</b> · Detalle de sobrantes.</p></div><button className="icon-button" onClick={()=>setSelectedBox(null)}><X size={19}/></button></div>
             <div className="form-grid">
-              <label>Título<input disabled={readOnly} value={boxDraft.title || ''} onChange={(e)=>setBoxDraft({...boxDraft,title:e.target.value})}/></label>
-              <label>Estado<select disabled={readOnly} value={boxDraft.status} onChange={(e)=>setBoxDraft({...boxDraft,status:e.target.value as InboundBox['status']})}><option>ABIERTA</option><option>CERRADA</option><option>DESPACHADA</option><option>ANULADA</option></select></label>
-              <label className="span-2">Observación<textarea disabled={readOnly} rows={2} value={boxDraft.notes || ''} onChange={(e)=>setBoxDraft({...boxDraft,notes:e.target.value})}/></label>
+              <label>Título<input disabled={readOnly || boxDraft.status!=='ABIERTA'} value={boxDraft.title || ''} onChange={(e)=>setBoxDraft({...boxDraft,title:e.target.value})}/></label>
+              <label>Estado<div className="box-status-readonly"><span className={boxDraft.status==='ABIERTA'?'status-pill warning':'status-pill success'}>{boxDraft.status}</span>{boxDraft.status==='CERRADA' && <small>Ingresada al Kardex</small>}</div></label>
+              <label className="span-2">Observación<textarea disabled={readOnly || boxDraft.status!=='ABIERTA'} rows={2} value={boxDraft.notes || ''} onChange={(e)=>setBoxDraft({...boxDraft,notes:e.target.value})}/></label>
             </div>
             <div className="table-wrap box-item-editor"><table><thead><tr><th>Material</th><th>Descripción</th><th>Cantidad</th><th>UM</th><th>Stock Code</th><th>Ubicación</th><th></th></tr></thead><tbody>
               {(boxDraft.inbound_box_items ?? []).map((item,index)=><tr key={item.id}>
                 <td><b>{item.material_no || '—'}</b></td><td>{item.description || '—'}</td>
-                <td><input disabled={readOnly} type="number" step="any" value={item.quantity} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,quantity:Number(e.target.value)}:x)})}/></td>
-                <td><input disabled={readOnly} value={item.unit} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,unit:e.target.value}:x)})}/></td>
-                <td><input disabled={readOnly} value={item.stock_code || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,stock_code:e.target.value}:x)})}/></td>
-                <td><input disabled={readOnly} value={item.location || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,location:e.target.value}:x)})}/></td>
-                <td>{!readOnly && <button className="icon-button danger-icon" onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button>}</td>
+                <td><input disabled={readOnly || boxDraft.status!=='ABIERTA'} type="number" step="any" value={item.quantity} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,quantity:Number(e.target.value)}:x)})}/></td>
+                <td><input disabled={readOnly || boxDraft.status!=='ABIERTA'} value={item.unit} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,unit:e.target.value}:x)})}/></td>
+                <td><input disabled={readOnly || boxDraft.status!=='ABIERTA'} value={item.stock_code || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,stock_code:e.target.value}:x)})}/></td>
+                <td><input disabled={readOnly || boxDraft.status!=='ABIERTA'} value={item.location || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,location:e.target.value}:x)})}/></td>
+                <td>{!readOnly && boxDraft.status==='ABIERTA' && <button className="icon-button danger-icon" onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button>}</td>
               </tr>)}
             </tbody></table></div>
-            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBoxPdf(boxDraft)}><FileText size={15}/> PDF imprimible</button><button className="secondary-button" onClick={()=>exportBox(boxDraft)}><Download size={15}/> CSV</button>{!readOnly && <button className="primary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}</div>
+            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBoxPdf(boxDraft)}><FileText size={15}/> PDF imprimible</button><button className="secondary-button" onClick={()=>exportBox(boxDraft)}><Download size={15}/> CSV</button>{!readOnly && boxDraft.status==='ABIERTA' && <button className="secondary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}{canOperateBoxes && boxDraft.status==='ABIERTA' && <button className="primary-button" disabled={saving} onClick={()=>closeBox(boxDraft)}><Lock size={15}/> Cerrar e ingresar al Kardex</button>}{profile?.role==='ADMINISTRADOR' && boxDraft.status==='CERRADA' && <button className="secondary-button" disabled={saving} onClick={()=>reopenBox(boxDraft)}><Unlock size={15}/> Reabrir caja</button>}</div>
           </section>
         </div>
       )}
