@@ -17,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import * as XLSX from 'xlsx'
 
 type Mode =
   | 'proyectos'
@@ -570,39 +571,45 @@ function BulkImports({ userId }: { userId: string }) {
   const validCount = preview.filter((row) => row.valid).length
   const errorCount = preview.length - validCount
 
-  async function template() {
-    const headers = IMPORT_HEADERS[type]
-    const example =
-      type === 'MASTER_MATERIALES'
-        ? ['RH018753','1100176102','DESCRIPCION MATERIAL','C029','ANTAMINA','PHPB001A','0','','ACTIVO']
-        : type === 'REPOSICION'
-          ? ['T062-00001445','8910501730',new Date().toISOString().slice(0,10),'','KOMATSU','1','19T6066D5','PIN, BOOM BUMPER - PHLB01A01','4.000','UND','ANTAMINA','']
-        : type === 'KPI'
-          ? ['ERI',String(new Date().getFullYear()),String(new Date().getMonth() + 1),'ANTAMINA','99.8','','%']
-          : ['T098-00005674','8910542095',new Date().toISOString().slice(0,10),'DOC-001','1','ANTAMINA','']
-
-    const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
-    const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
-    const ws = XLSX.utils.aoa_to_sheet([headers, example])
-    ws['!cols'] = headers.map((header) => ({ wch: Math.max(14, Math.min(38, header.length + 8)) }))
-    headers.forEach((_header, index) => {
-      const address = XLSX.utils.encode_cell({ r: 0, c: index })
-      if (!ws[address]) return
-      ws[address].s = {
-        fill: { fgColor: { rgb: 'DDEFF8' } },
-        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: '17384A' } },
-        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-        border: {
-          top: { style: 'thin', color: { rgb: 'B7CAD5' } },
-          bottom: { style: 'thin', color: { rgb: 'B7CAD5' } },
-          left: { style: 'thin', color: { rgb: 'B7CAD5' } },
-          right: { style: 'thin', color: { rgb: 'B7CAD5' } },
-        },
-      }
+  function downloadWorkbook(wb: XLSX.WorkBook, filename: string) {
+    const array = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true })
+    const blob = new Blob([array], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, type === 'MASTER_MATERIALES' ? 'Maestro Materiales' : type)
-    XLSX.writeFile(wb, `KOMTROL_Plantilla_${type}.xlsx`)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 2500)
+  }
+
+  function template() {
+    try {
+      const headers = IMPORT_HEADERS[type]
+      const example =
+        type === 'MASTER_MATERIALES'
+          ? ['RH018753','1100176102','DESCRIPCION MATERIAL','C029','ANTAMINA','PHPB001A','0','','ACTIVO']
+          : type === 'REPOSICION'
+            ? ['T062-00001445','8910501730',new Date().toISOString().slice(0,10),'','KOMATSU','1','19T6066D5','PIN, BOOM BUMPER - PHLB01A01','4.000','UND','ANTAMINA','']
+            : type === 'KPI'
+              ? ['ERI',String(new Date().getFullYear()),String(new Date().getMonth() + 1),'ANTAMINA','99.8','','%']
+              : ['T098-00005674','8910542095',new Date().toISOString().slice(0,10),'DOC-001','1','ANTAMINA','']
+
+      const ws = XLSX.utils.aoa_to_sheet([headers, example])
+      ws['!cols'] = headers.map((header) => ({ wch: Math.max(14, Math.min(38, header.length + 8)) }))
+      ws['!autofilter'] = { ref: XLSX.utils.encode_range({ r: 0, c: 0 }, { r: 1, c: headers.length - 1 }) }
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, type === 'MASTER_MATERIALES' ? 'Maestro Materiales' : type)
+      downloadWorkbook(wb, `KOMTROL_Plantilla_${type}.xlsx`)
+      setMessage('Plantilla Excel descargada. Completa los datos sin cambiar los encabezados.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo generar la plantilla Excel.')
+    }
   }
 
   async function onFile(file?: File) {
@@ -612,33 +619,48 @@ function BulkImports({ userId }: { userId: string }) {
 
     try {
       if (/\.(xlsx|xls)$/i.test(file.name)) {
-        const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
-        const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
-        const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true })
+        const workbook = XLSX.read(await file.arrayBuffer(), {
+          type: 'array',
+          cellDates: true,
+          dense: false,
+        })
         const firstSheet = workbook.SheetNames[0]
         if (!firstSheet) throw new Error('El Excel no contiene hojas.')
         const worksheet = workbook.Sheets[firstSheet]
-        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false }) as unknown[][]
+        const rows = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+          defval: '',
+          raw: false,
+          blankrows: false,
+        }) as unknown[][]
+
+        if (rows.length < 2) throw new Error('El Excel no contiene registros para importar.')
+
         const tabText = rows
           .filter((row) => row.some((cell) => String(cell ?? '').trim()))
           .map((row) => row.map((cell) => String(cell ?? '').replace(/\t/g, ' ')).join('\t'))
           .join('\n')
+
         setText(tabText)
+        setMessage(`Archivo leído correctamente: ${Math.max(rows.length - 1, 0)} fila(s). Revisa la validación antes de importar.`)
         return
       }
 
       if (/\.(csv|txt)$/i.test(file.name)) {
-        setText(await file.text())
+        const content = await file.text()
+        setText(content)
+        setMessage('Archivo leído correctamente. Revisa la validación antes de importar.')
         return
       }
 
       setMessage('Formato no compatible. Usa .XLSX, .XLS, .CSV o .TXT.')
     } catch (error) {
+      setText('')
       setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.')
     }
   }
 
-  async function confirmImport() {
+  async function confirmImport()  async function confirmImport() {
     if (!preview.length || errorCount) {
       setMessage('Corrige las filas inválidas antes de importar.')
       return
@@ -746,43 +768,7 @@ function validateImport(type: ImportType, headers: string[], rows: Record<string
   return rows.map((values, index) => {
     let error = ''
     if (type === 'MASTER_MATERIALES') {
-      if (!values.MATERIAL?.trim()) error = 'Material requerido'
-      else if (!values.DESCRIPCION?.trim()) error = 'Descripción requerida'
-      else if (!values.CENTRO?.trim()) error = 'Centro requerido'
-      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
-      else if (values.PRECIO && Number.isNaN(Number(values.PRECIO.replace(',', '.')))) error = 'Precio inválido'
-    } else if (type === 'REPOSICION') {
-      const provider = (values.PROVEEDOR || '').trim().toUpperCase()
-      if (!values.GUIA?.trim()) error = 'Guía requerida'
-      else if (!values.REFERENCIA?.trim().startsWith('89')) error = 'La referencia de Reposición debe iniciar con 89'
-      else if (!['KOMATSU','CUMMINS'].includes(provider)) error = 'Proveedor debe ser KOMATSU o CUMMINS'
-      else if (!values.MATERIAL?.trim()) error = 'Material requerido'
-      else if (!values.DESCRIPCION?.trim()) error = 'Descripción requerida'
-      else if (Number.isNaN(Number((values.CANTIDAD || '').replace(',', '.')))) error = 'Cantidad inválida'
-      else if (!values.UM?.trim()) error = 'UM requerida'
-      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
-      else if (values.FECHA_EMISION && !toIsoDate(values.FECHA_EMISION)) error = 'Fecha inválida'
-      else if (values.LINEA && !(Number(values.LINEA) >= 1)) error = 'Línea inválida'
-    } else if (type === 'KPI') {
-      if (!values.INDICADOR?.trim()) error = 'Indicador requerido'
-      else if (!/^\d{4}$/.test(values.ANO || '')) error = 'Año inválido'
-      else if (!(Number(values.MES) >= 1 && Number(values.MES) <= 12)) error = 'Mes inválido'
-      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
-      else if (Number.isNaN(Number((values.VALOR || '').replace(',', '.')))) error = 'Valor inválido'
-    } else {
-      if (!values.GUIA?.trim()) error = 'Guía requerida'
-      else if (!values.REFERENCIA?.trim()) error = 'Referencia requerida'
-      else if (!(Number(values.LINEAS) >= 1)) error = 'Líneas inválidas'
-      else if (!values.ALMACEN?.trim()) error = 'Almacén requerido'
-      else if (values.FECHA_EMISION && !toIsoDate(values.FECHA_EMISION)) error = 'Fecha inválida'
-    }
-    return { row: index + 2, values, valid: !error, error }
-  })
-}
-
-async function executeImport(type: ImportType, preview: ImportPreview[], userId: string) {
-  if (type === 'MASTER_MATERIALES') {
-    const rows = preview.map(({ values }) => ({
+    const mappedRows = preview.map(({ values }) => ({
       material_no: values.MATERIAL.trim().toUpperCase(),
       stock_code: values.STOCK_CODE?.trim() || null,
       description: values.DESCRIPCION.trim(),
@@ -795,12 +781,41 @@ async function executeImport(type: ImportType, preview: ImportPreview[], userId:
       updated_by: userId,
       updated_at: new Date().toISOString(),
     }))
-    const { data: existing } = await supabase.from('materials').select('material_no,warehouse').limit(10000)
+
+    // Deduplicar dentro del mismo Excel: prevalece la última fila del material/almacén.
+    const uniqueMap = new Map<string, typeof mappedRows[number]>()
+    let internalDuplicates = 0
+    for (const row of mappedRows) {
+      const key = `${row.material_no}|${row.warehouse}`
+      if (uniqueMap.has(key)) internalDuplicates += 1
+      uniqueMap.set(key, row)
+    }
+    const rows = Array.from(uniqueMap.values())
+
+    const { data: existing, error: existingError } = await supabase
+      .from('materials')
+      .select('material_no,warehouse')
+      .limit(50000)
+    if (existingError) throw existingError
+
     const keys = new Set((existing ?? []).map((row) => `${row.material_no}|${row.warehouse}`))
-    const duplicates = rows.filter((row) => keys.has(`${row.material_no}|${row.warehouse}`)).length
-    const { error } = await supabase.from('materials').upsert(rows, { onConflict: 'material_no,warehouse' })
-    if (error) throw error
-    return { imported: rows.length, duplicates, errors: 0 }
+    const existingDuplicates = rows.filter((row) => keys.has(`${row.material_no}|${row.warehouse}`)).length
+
+    // Subir por lotes para soportar maestros grandes sin exceder el tamaño de una sola solicitud.
+    const chunkSize = 500
+    for (let index = 0; index < rows.length; index += chunkSize) {
+      const chunk = rows.slice(index, index + chunkSize)
+      const { error } = await supabase
+        .from('materials')
+        .upsert(chunk, { onConflict: 'material_no,warehouse' })
+      if (error) throw error
+    }
+
+    return {
+      imported: rows.length,
+      duplicates: internalDuplicates + existingDuplicates,
+      errors: 0,
+    }
   }
 
   if (type === 'REPOSICION') {
