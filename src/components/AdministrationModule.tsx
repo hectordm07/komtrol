@@ -683,6 +683,46 @@ function BulkImports({ userId }: { userId: string }) {
     return ''
   }
 
+  function errorImpact(error: string) {
+    const text = error.toUpperCase()
+    if (text.includes('FECHA')) {
+      return {
+        level: 'ADVERTENCIA' as const,
+        scope: 'Afecta la trazabilidad temporal y los filtros por periodo. Si aceptas la carga, la fila queda observada hasta corregir la fecha.',
+      }
+    }
+    if (text.includes('PRECIO')) {
+      return {
+        level: 'ADVERTENCIA' as const,
+        scope: 'Afecta valorizaciones y reportes económicos. La fila queda observada y no pasa al maestro operativo hasta corregir el valor.',
+      }
+    }
+    if (
+      text.includes('CANTIDAD') ||
+      text.includes('VALOR') ||
+      text.includes('LINEA') ||
+      text.includes('LÍNEA') ||
+      text.includes('MES') ||
+      text.includes('AÑO') ||
+      text.includes('ANO')
+    ) {
+      return {
+        level: 'BLOQUEANTE' as const,
+        scope: 'Afecta cantidades, cálculos o el periodo del registro. Debe corregirse antes de que esta fila ingrese al módulo operativo.',
+      }
+    }
+    if (text.includes('FALTA COLUMNA')) {
+      return {
+        level: 'BLOQUEANTE' as const,
+        scope: 'La estructura no coincide con la plantilla. El lote puede aceptarse con errores, pero estas filas quedan observadas hasta recuperar la columna.',
+      }
+    }
+    return {
+      level: 'BLOQUEANTE' as const,
+      scope: 'El dato identifica o relaciona el registro dentro de KOMTROL. La fila se conserva en bitácora, pero no se publica al módulo operativo hasta corregirla.',
+    }
+  }
+
   function updatePreviewCell(rowNumber: number, header: string, value: string) {
     const lines = text.replace(/\r/g,'').split('\n').filter((line)=>line.trim())
     if (!lines.length || !header) return
@@ -717,51 +757,80 @@ function BulkImports({ userId }: { userId: string }) {
     )
   }
 
-  async function confirmImport(allowErrors = false) {
+  async function confirmImport(acceptErrors = false) {
     if (!preview.length) {
       setMessage('No hay registros para importar.')
       return
     }
-    const validRows = preview.filter((row)=>row.valid)
-    if (!allowErrors && errorCount) {
-      setMessage('Hay filas con error. Puedes corregirlas o usar “Importar válidos y omitir errores”.')
+
+    const validRows = preview.filter((row) => row.valid)
+    const invalidRows = preview.filter((row) => !row.valid)
+
+    if (!acceptErrors && errorCount) {
+      setMessage('Hay filas con error. Puedes corregirlas o usar “Aceptar carga con errores”.')
       setShowErrors(true)
       return
     }
-    if (!validRows.length) {
+
+    if (!validRows.length && !acceptErrors) {
       setMessage('No hay filas válidas para importar.')
       setShowErrors(true)
       return
     }
+
     setImporting(true)
     setMessage('')
+
     try {
-      const rowsToImport = allowErrors ? validRows : preview
-      const result = await executeImport(type, rowsToImport, userId)
-      const skippedErrors = allowErrors
-        ? preview.filter((row)=>!row.valid).map((row)=>({ row:row.row, error:row.error, field:errorField(row.error) }))
+      const result = validRows.length
+        ? await executeImport(type, acceptErrors ? validRows : preview, userId)
+        : { imported: 0, duplicates: 0, errors: 0 }
+
+      const acceptedErrors = acceptErrors
+        ? invalidRows.map((row) => {
+            const impact = errorImpact(row.error)
+            return {
+              row: row.row,
+              error: row.error,
+              field: errorField(row.error),
+              impact: impact.level,
+              scope: impact.scope,
+              values: row.values,
+            }
+          })
         : []
-      await supabase.from('bulk_imports').insert({
+
+      const acceptedWithErrors = acceptErrors && errorCount > 0
+
+      const { error: logError } = await supabase.from('bulk_imports').insert({
         import_type: type,
         file_name: fileName,
         total_rows: preview.length,
         valid_rows: result.imported,
-        error_rows: allowErrors ? errorCount : result.errors,
+        error_rows: acceptedWithErrors ? errorCount : result.errors,
         duplicate_rows: result.duplicates,
-        status: allowErrors && errorCount ? 'PARCIAL_CON_ERRORES' : (result.errors ? 'CON_ERRORES' : 'COMPLETADO'),
-        details: { ...result, skipped_errors: skippedErrors },
+        status: acceptedWithErrors ? 'ACEPTADO_CON_ERRORES' : (result.errors ? 'CON_ERRORES' : 'COMPLETADO'),
+        details: {
+          ...result,
+          accepted_with_errors: acceptedWithErrors,
+          accepted_error_rows: acceptedErrors,
+        },
         created_by: userId,
       })
+
+      if (logError) throw logError
+
       await writeAudit(userId, 'BULK_IMPORT', type, {
         file_name: fileName,
         total: preview.length,
         valid_input_rows: validRows.length,
-        skipped_error_rows: allowErrors ? errorCount : 0,
+        accepted_error_rows: acceptedWithErrors ? errorCount : 0,
         ...result,
       })
+
       setMessage(
-        allowErrors && errorCount
-          ? `Carga parcial completada: ${result.imported} procesados y ${errorCount} fila(s) con error omitidas. Revisa la bitácora o descarga el detalle de errores.`
+        acceptedWithErrors
+          ? `Carga aceptada con errores: ${result.imported} registro(s) procesado(s) y ${errorCount} fila(s) observada(s) guardadas en la bitácora para corrección. Ninguna fila observada se pierde.`
           : `Importación completada: ${result.imported} procesados, ${result.duplicates} duplicados/actualizados, ${result.errors} errores.`
       )
     } catch (error) {
@@ -817,9 +886,9 @@ function BulkImports({ userId }: { userId: string }) {
               {importing ? <RefreshCw className="spin" size={17} /> : <Upload size={17} />}
               {importing ? 'Importando…' : `Importar ${validCount} registros`}
             </button>
-            {errorCount > 0 && validCount > 0 && (
+            {errorCount > 0 && (
               <button className="secondary-button full bulk-partial-button" disabled={importing} onClick={()=>confirmImport(true)}>
-                <Upload size={17} /> Importar {validCount} válidos y omitir {errorCount} errores
+                <Upload size={17} /> Aceptar carga con errores · {validCount} válidos / {errorCount} observados
               </button>
             )}
             {errorCount > 0 && (
@@ -839,18 +908,23 @@ function BulkImports({ userId }: { userId: string }) {
             <div>
               <span className="status-pill danger"><XCircle size={14}/> {errorCount} errores detectados</span>
               <h4>Detalle y corrección de errores</h4>
-              <p>Puedes corregir directamente el campo observado. La validación se actualiza automáticamente. También puedes importar solo las filas válidas.</p>
+              <p>Revisa el alcance de cada error y corrige el campo directamente. También puedes aceptar el lote con errores: KOMTROL procesa las filas válidas y conserva las observadas completas en la bitácora para corregirlas después.</p>
             </div>
             <button className="secondary-button" onClick={downloadErrors}><Download size={15}/> Descargar errores CSV</button>
           </div>
           <div className="bulk-error-list">
             {preview.filter((row)=>!row.valid).slice(0,100).map((row)=>{
               const field=errorField(row.error)
+              const impact=errorImpact(row.error)
               return <article key={row.row} className="bulk-error-row">
                 <div className="bulk-error-meta">
                   <b>Fila {row.row}</b>
                   <span>{row.error}</span>
                   <small>{field ? `Campo afectado: ${field}` : 'Error estructural: revisa columnas de la plantilla.'}</small>
+                  <div className={impact.level === 'BLOQUEANTE' ? 'bulk-error-impact blocking' : 'bulk-error-impact warning'}>
+                    <strong>{impact.level}</strong>
+                    <em>{impact.scope}</em>
+                  </div>
                 </div>
                 {field && parsed.headers.includes(field) ? (
                   <label>
