@@ -4,6 +4,7 @@ import {
   BarChart3,
   Boxes,
   CheckCircle2,
+  ChevronRight,
   ClipboardList,
   PackageCheck,
   RefreshCw,
@@ -23,7 +24,7 @@ type Profile = {
   shift_name?:string|null
 }
 
-type Props = { profile:Profile|null; role:Role; scope?: 'REMOTE' | 'ALL' }
+type Props = { profile:Profile|null; role:Role; scope?: 'REMOTE' | 'ALL'; onNavigate?:(tab:string)=>void }
 
 type Task = {
   id:string
@@ -66,7 +67,7 @@ function fmt(value?:string|null) {
   return new Intl.DateTimeFormat('es-PE',{dateStyle:'short',timeStyle:'short'}).format(new Date(value))
 }
 
-export function MainDashboardModule({ profile, role, scope = 'ALL' }:Props) {
+export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }:Props) {
   const [tasks,setTasks]=useState<Task[]>([])
   const [incidents,setIncidents]=useState<Incident[]>([])
   const [guides,setGuides]=useState<Guide[]>([])
@@ -226,14 +227,46 @@ export function MainDashboardModule({ profile, role, scope = 'ALL' }:Props) {
     {message && <div className="inline-message">{message}</div>}
 
     <div className="main-dashboard-kpis">
-      <DashCard icon={<ClipboardList/>} label="Tareas pendientes" value={stats.taskPending}/>
-      <DashCard icon={<CheckCircle2/>} label="Tareas cerradas" value={stats.taskClosed}/>
-      <DashCard icon={<BarChart3/>} label="Avance promedio" value={`${stats.progress}%`}/>
-      <DashCard icon={<AlertTriangle/>} label="Incidencias abiertas" value={stats.incidentOpen}/>
-      <DashCard icon={<PackageCheck/>} label="Incidencias notificadas" value={stats.incidentNotified}/>
-      <DashCard icon={<Truck/>} label="Guías registradas" value={stats.guideCount}/>
-      <DashCard icon={<Boxes/>} label="Cajas abiertas" value={stats.boxOpen}/>
+      <DashCard icon={<ClipboardList/>} label="Tareas pendientes" value={stats.taskPending} onClick={onNavigate ? ()=>onNavigate('lista') : undefined}/>
+      <DashCard icon={<CheckCircle2/>} label="Tareas cerradas" value={stats.taskClosed} onClick={onNavigate ? ()=>onNavigate('lista') : undefined}/>
+      <DashCard icon={<BarChart3/>} label="Avance promedio" value={`${stats.progress}%`} onClick={onNavigate ? ()=>onNavigate('dashboard-operacion') : undefined}/>
+      <DashCard icon={<AlertTriangle/>} label="Incidencias abiertas" value={stats.incidentOpen} onClick={onNavigate ? ()=>onNavigate('incidencias') : undefined}/>
+      <DashCard icon={<PackageCheck/>} label="Incidencias notificadas" value={stats.incidentNotified} onClick={onNavigate ? ()=>onNavigate('incidencias') : undefined}/>
+      <DashCard icon={<Truck/>} label="Guías registradas" value={stats.guideCount} onClick={onNavigate ? ()=>onNavigate('seguimiento-guias') : undefined}/>
+      <DashCard icon={<Boxes/>} label="Cajas abiertas" value={stats.boxOpen} onClick={onNavigate ? ()=>onNavigate(role==='ADMINISTRADOR' || profile?.warehouse==='CALLAO' ? 'inbound-cajas' : 'kardex-sobrantes') : undefined}/>
     </div>
+
+    {onNavigate && (
+      <section className="panel dashboard-report-panel">
+        <div className="panel-title">
+          <div>
+            <h3>Reportes</h3>
+            <p>Selecciona un reporte para abrir su detalle.</p>
+          </div>
+        </div>
+        <div className="dashboard-report-links">
+          {[
+            ['dashboard-operacion','Operación'],
+            ['inbound-outbound','Inbound / Outbound'],
+            ['eri','ERI'],
+            ['sobrantes-faltantes','Sobrantes / Faltantes'],
+            ['diferencias-inventario','Diferencias inventario'],
+            ['dashboard-transitos','Tránsitos'],
+            ['uca','UCA'],
+            ['ahorros','Ahorros'],
+            ['perfect-ship','Perfect Ship'],
+            ['consignaciones','Consignaciones'],
+            ['vhs','VHS'],
+            ['safe','SAFE'],
+          ].map(([id,label])=>(
+            <button key={id} type="button" onClick={()=>onNavigate(id)}>
+              <span><BarChart3 size={17}/><b>{label}</b></span>
+              <ChevronRight size={17}/>
+            </button>
+          ))}
+        </div>
+      </section>
+    )}
 
     <div className="professional-dashboard-grid">
       <ProfessionalBarChart
@@ -265,6 +298,16 @@ export function MainDashboardModule({ profile, role, scope = 'ALL' }:Props) {
   </div>
 }
 
-function DashCard({icon,label,value}:{icon:React.ReactNode;label:string;value:string|number}) {
+function DashCard({icon,label,value,onClick}:{icon:React.ReactNode;label:string;value:string|number;onClick?:()=>void}) {
+  if (onClick) {
+    return (
+      <button type="button" className="main-dashboard-card main-dashboard-card-link" onClick={onClick}>
+        <div>{icon}</div>
+        <span>{label}</span>
+        <b>{value}</b>
+        <ChevronRight className="dashboard-card-arrow" size={16}/>
+      </button>
+    )
+  }
   return <div className="main-dashboard-card"><div>{icon}</div><span>{label}</span><b>{value}</b></div>
 }
