@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   List,
   MinusCircle,
+  MoreHorizontal,
   Plus,
   RefreshCw,
   Search,
@@ -265,6 +266,61 @@ function downloadCsv(name: string, rows: unknown[][]) {
   URL.revokeObjectURL(url)
 }
 
+function normalizePart(value: unknown) {
+  return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+function partBase(value: unknown) {
+  return normalizePart(value).replace(/^[A-Z]{1,4}(?=\d)/, '')
+}
+
+function partDistance(left: string, right: string) {
+  if (left === right) return 0
+  if (!left.length) return right.length
+  if (!right.length) return left.length
+  let prev = Array.from({ length: right.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= left.length; i++) {
+    const next = [i]
+    for (let j = 1; j <= right.length; j++) {
+      next[j] = Math.min(
+        next[j - 1] + 1,
+        prev[j] + 1,
+        prev[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1)
+      )
+    }
+    prev = next
+  }
+  return prev[right.length]
+}
+
+function partSimilarity(left: string, right: string) {
+  const a = normalizePart(left)
+  const b = normalizePart(right)
+  if (!a || !b) return 0
+  return Math.max(0, Math.round((1 - partDistance(a, b) / Math.max(a.length, b.length)) * 100))
+}
+
+function balanceMatchScore(row: BalanceRow, raw: string) {
+  const query = normalizePart(raw)
+  if (!query) return 0
+  const full = normalizePart(row.material_no)
+  const base = partBase(row.material_no)
+  const queryBase = partBase(query)
+
+  if (full === query) return 100
+  if (base && base === query) return 99
+  if (queryBase && base === queryBase) return 97
+  if (full.endsWith(query) && query.length >= 5) return 96
+
+  const fuzzy = Math.max(partSimilarity(query, full), partSimilarity(query, base))
+  if (query.length >= 5 && fuzzy >= 72) return fuzzy
+
+  const text = raw.trim().toLowerCase()
+  if ([row.stock_code,row.description,row.location,row.box_no,row.shipment_no,row.warehouse]
+    .some((value)=>String(value ?? '').toLowerCase().includes(text))) return 70
+  return 0
+}
+
 function savePdfBlob(doc: jsPDF, filename: string) {
   const blob = doc.output('blob')
   const url = URL.createObjectURL(blob)
@@ -286,6 +342,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
   const [search, setSearch] = useState('')
   const [warehouseFilter, setWarehouseFilter] = useState(fixedWarehouse || profile?.warehouse || 'TODOS')
   const [selected, setSelected] = useState<BalanceRow | null>(null)
+  const [quickActions, setQuickActions] = useState<BalanceRow | null>(null)
   const [selectedAction, setSelectedAction] = useState<'withdrawal' | 'transfer' | null>(null)
   const [quantity, setQuantity] = useState('')
   const [notes, setNotes] = useState('')
@@ -411,14 +468,19 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
   const q = search.trim().toLowerCase()
 
   const visibleBalances = useMemo(() => {
-    if (!q) return balances
-    return balances.filter((row) =>
-      [
-        row.warehouse,row.center,row.material_no,row.stock_code,row.description,row.location,
-        row.box_no,row.shipment_no,row.storage_type,row.storage_section,row.stock_type,
-      ].some((value) => String(value ?? '').toLowerCase().includes(q))
-    )
-  }, [balances, q])
+    if (!search.trim()) return balances
+    return balances
+      .map((row)=>({ row, score: balanceMatchScore(row, search) }))
+      .filter((item)=>item.score > 0)
+      .sort((a,b)=>b.score-a.score || a.row.material_no.localeCompare(b.row.material_no,'es',{numeric:true}))
+      .map((item)=>item.row)
+  }, [balances, search])
+
+  const bestBalanceMatch = useMemo(() => {
+    if (!search.trim() || !visibleBalances.length) return null
+    const row = visibleBalances[0]
+    return { row, score: balanceMatchScore(row, search) }
+  }, [visibleBalances, search])
 
   const visibleMovements = useMemo(() => {
     if (!q) return activeWarehouseMovements
@@ -427,8 +489,10 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
         row.warehouse,row.center,row.material_no,row.stock_code,row.description,row.location,
         row.box_no,row.shipment_no,row.reference_no,row.source_type,row.storage_type,row.storage_section,
       ].some((value) => String(value ?? '').toLowerCase().includes(q))
+      || normalizePart(row.material_no).endsWith(normalizePart(search))
+      || partBase(row.material_no) === normalizePart(search)
     )
-  }, [activeWarehouseMovements, q])
+  }, [activeWarehouseMovements, q, search])
 
   const movementLedger = useMemo(() => {
     const balanceByKey = new Map<string, number>()
@@ -1038,7 +1102,10 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
         <>
           <section className="panel">
             <div className="task-toolbar kardex-toolbar">
-              <div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar material, SC, caja, embarque, ubicación…"/></div>
+              <label className="kardex-smart-search">N° parte / material
+                <div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Escanea código completo o sin prefijo…"/></div>
+                {bestBalanceMatch && search.trim() && <small className={bestBalanceMatch.score >= 95 ? 'match-high' : bestBalanceMatch.score >= 80 ? 'match-medium' : 'match-low'}>Mejor coincidencia: {bestBalanceMatch.row.material_no} · {bestBalanceMatch.score}%</small>}
+              </label>
               {isAdmin && !fixedWarehouse && (
                 <select value={warehouseFilter} onChange={(e)=>setWarehouseFilter(e.target.value)}>
                   <option value="TODOS">Todos los almacenes</option>
@@ -1069,7 +1136,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
                     <td>{row.box_no || '—'}</td><td>{row.shipment_no || '—'}</td>
                     <td>{fmtQty(row.initial)}</td><td className="kardex-positive">+{fmtQty(row.entries)}</td><td className="kardex-negative">−{fmtQty(row.exits)}</td>
                     <td><b className="kardex-balance-number">{fmtQty(row.balance)} {row.unit}</b></td>
-                    <td><div className="row-actions"><button className="secondary-button" onClick={()=>openMaterialHistory(row.material_no,row.warehouse,row.description||'',row.stock_code||'')}><History size={14}/> Historial</button>{canMove && <><button className="secondary-button" onClick={()=>openAction(row,'withdrawal')}><MinusCircle size={14}/> Retiro</button><button className="secondary-button" onClick={()=>openAction(row,'transfer')}><ArrowRightLeft size={14}/> Mover</button></>}</div></td>
+                    <td><button className="kardex-action-trigger" onClick={()=>setQuickActions(row)}><MoreHorizontal size={16}/><span>Acciones</span></button></td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -1206,6 +1273,28 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
             </div>
           </section>
         </>
+      )}
+
+      {quickActions && (
+        <div className="kardex-quick-backdrop" onMouseDown={(e)=>e.target===e.currentTarget && setQuickActions(null)}>
+          <section className="kardex-quick-sheet">
+            <div className="kardex-quick-head">
+              <div><small>MATERIAL</small><h3>{quickActions.material_no}</h3><p>{quickActions.description || 'Sin descripción'} · {fmtQty(quickActions.balance)} {quickActions.unit}</p></div>
+              <button className="icon-button" onClick={()=>setQuickActions(null)}><X size={18}/></button>
+            </div>
+            <div className="kardex-quick-grid">
+              <button onClick={()=>{const row=quickActions;setQuickActions(null);openMaterialHistory(row.material_no,row.warehouse,row.description||'',row.stock_code||'')}}>
+                <History size={21}/><span><b>Historial</b><small>Ver cambios y movimientos</small></span>
+              </button>
+              {canMove && <button onClick={()=>{const row=quickActions;setQuickActions(null);openAction(row,'withdrawal')}}>
+                <MinusCircle size={21}/><span><b>Retiro</b><small>Registrar salida de material</small></span>
+              </button>}
+              {canMove && <button onClick={()=>{const row=quickActions;setQuickActions(null);openAction(row,'transfer')}}>
+                <ArrowRightLeft size={21}/><span><b>Mover</b><small>Cambiar ubicación / Bin</small></span>
+              </button>}
+            </div>
+          </section>
+        </div>
       )}
 
       {historyTarget && (
