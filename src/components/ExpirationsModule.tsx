@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Download,
   Edit3,
+  FileSpreadsheet,
+  FileText,
   GraduationCap,
   Mail,
   Plus,
@@ -15,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type ExpirationType = 'EMOA' | 'CURSO' | 'LICENCIA_INTERNA'
@@ -308,6 +311,71 @@ export function ExpirationsModule({type,userId,profile}:Props) {
     return {total:active.length,expired,next30,next60}
   },[visible])
 
+  const expirationExportRows=visible.map((row)=>{
+    const status=statusFor(row)
+    const days=daysRemaining(row.due_date)
+    return {
+      person:personName(row.user_id),
+      detail:row.title,
+      issuer:row.issuer||'',
+      certificate:row.certificate_no||'',
+      issue_date:dateOnly(row.issue_date),
+      due_date:dateOnly(row.due_date),
+      days:days<0?`${Math.abs(days)} días vencido`:`${days} días`,
+      status:status.label,
+      warehouse:row.warehouse||'',
+      project:row.project||'',
+      group:row.group_name||'',
+      shift:row.shift_name||'',
+    }
+  })
+
+  const expirationExcelColumns=[
+    {header:'PERSONA',key:'person',width:30},
+    {header:'DETALLE',key:'detail',width:34},
+    {header:'EMISOR',key:'issuer',width:24},
+    {header:'CERTIFICADO',key:'certificate',width:20},
+    {header:'EMISIÓN',key:'issue_date',width:14},
+    {header:'VENCIMIENTO',key:'due_date',width:14},
+    {header:'DÍAS',key:'days',width:18},
+    {header:'ESTADO',key:'status',width:16},
+    {header:'ALMACÉN',key:'warehouse',width:18},
+    {header:'PROYECTO',key:'project',width:22},
+    {header:'GRUPO',key:'group',width:18},
+    {header:'GUARDIA',key:'shift',width:14},
+  ]
+
+  const expirationPdfColumns=[
+    {header:'PERSONA',key:'person'},
+    {header:'DETALLE',key:'detail'},
+    {header:'EMISOR',key:'issuer'},
+    {header:'CERT.',key:'certificate'},
+    {header:'VENCE',key:'due_date'},
+    {header:'DÍAS',key:'days'},
+    {header:'ESTADO',key:'status'},
+    {header:'GUARDIA',key:'shift'},
+  ]
+
+  function exportExpirationExcel(){
+    exportRowsToExcel(
+      `KOMTROL_Vencimientos_${type}`,
+      'Vencimientos',
+      expirationExcelColumns,
+      expirationExportRows,
+      [['Tipo',config.title],['Registros',expirationExportRows.length],['Vencidos',counts.expired]]
+    )
+  }
+
+  function exportExpirationPdf(){
+    exportRowsToPdfPortrait(
+      `KOMTROL_Vencimientos_${type}`,
+      `KOMTROL · ${config.title}`,
+      expirationPdfColumns,
+      expirationExportRows,
+      {subtitle:config.subtitle,summary:[['Registros',expirationExportRows.length],['Vencidos',counts.expired]]}
+    )
+  }
+
   function openNew() {
     setForm({
       user_id: canRegisterOthers ? (form.user_id || userId) : userId,
@@ -476,6 +544,8 @@ export function ExpirationsModule({type,userId,profile}:Props) {
             <div><h3>{config.title}</h3><p>{config.subtitle}</p></div>
           </div>
           <div className="button-row">
+            <button className="secondary-button" disabled={!visible.length} onClick={exportExpirationPdf}><FileText size={16}/> PDF</button>
+            <button className="secondary-button" disabled={!visible.length} onClick={exportExpirationExcel}><FileSpreadsheet size={16}/> Excel</button>
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={17}/></button>
             <button className="primary-button" onClick={openNew}><Plus size={16}/> Registrar</button>
           </div>
