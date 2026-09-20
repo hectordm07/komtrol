@@ -15833,3 +15833,363 @@ table tbody tr:hover td {
   background: linear-gradient(135deg,var(--kt-danger-soft),#fff 70%) !important;
   box-shadow: inset 3px 0 0 var(--kt-danger),var(--kt-shadow-xs) !important;
 }
+
+
+/* =========================================================
+   DASHBOARD / SUMMARY BOXES V3 · UNIFORMIDAD TOTAL KOMTROL
+   KPI, cuadros, gráficos y resúmenes de todos los módulos.
+   ========================================================= */
+
+/* 1. Base común para TODAS las cajas de indicadores/resumen */
+:is(
+  .expiration-kpis > div,
+  .outlook-course-summary > div,
+  .task-kpis > div,
+  .oc-cargo-kpis > div,
+  .alert-kpis > button,
+  .universal-operational-kpis > button,
+  .scorecard-kpis > article,
+  .inbound-figma-kpis > .inbound-kpi-link,
+  .kardex-kpi-grid > div,
+  .kardex-initial-kpis > div,
+  .kardex-ledger-kpis > div,
+  .kardex-history-kpis > div,
+  .dashboard-stats-grid > .dashboard-stat,
+  .main-dashboard-kpis > .main-dashboard-card,
+  .dashboard-inbound-kpis > button,
+  .kpi-record-grid > .kpi-record-card,
+  .mini-kpis > *,
+  .migration-status-grid > *,
+  .remote-group-summary > button
+) {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--kt-blue-300) !important;
+  border-radius: 13px !important;
+  color: var(--kt-ink) !important;
+  box-shadow: var(--kt-shadow-xs) !important;
+  transition:
+    transform .14s ease,
+    border-color .16s ease,
+    box-shadow .16s ease,
+    background .16s ease !important;
+}
+
+/* 2. Ciclo visual: azul principal / profundo / suave */
+:is(
+  .expiration-kpis,
+  .outlook-course-summary,
+  .task-kpis,
+  .oc-cargo-kpis,
+  .alert-kpis,
+  .universal-operational-kpis,
+  .scorecard-kpis,
+  .inbound-figma-kpis,
+  .kardex-kpi-grid,
+  .kardex-initial-kpis,
+  .kardex-ledger-kpis,
+  .kardex-history-kpis,
+  .dashboard-stats-grid,
+  .main-dashboard-kpis,
+  .dashboard-inbound-kpis,
+  .kpi-record-grid,
+  .mini-kpis,
+  .migration-status-grid,
+  .remote-group-summary
+) > :nth-child(3n+1) {
+  background: var(--kt-dash-tone-1-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-600),var(--kt-shadow-xs) !important;
+}
+
+:is(
+  .expiration-kpis,
+  .outlook-course-summary,
+  .task-kpis,
+  .oc-cargo-kpis,
+  .alert-kpis,
+  .universal-operational-kpis,
+  .scorecard-kpis,
+  .inbound-figma-kpis,
+  .kardex-kpi-grid,
+  .kardex-initial-kpis,
+  .kardex-ledger-kpis,
+  .kardex-history-kpis,
+  .dashboard-stats-grid,
+  .main-dashboard-kpis,
+  .dashboard-inbound-kpis,
+  .kpi-record-grid,
+  .mini-kpis,
+  .migration-status-grid,
+  .remote-group-summary
+) > :nth-child(3n+2) {
+  background: var(--kt-dash-tone-2-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-800),var(--kt-shadow-xs) !important;
+}
+
+:is(
+  .expiration-kpis,
+  .outlook-course-summary,
+  .task-kpis,
+  .oc-cargo-kpis,
+  .alert-kpis,
+  .universal-operational-kpis,
+  .scorecard-kpis,
+  .inbound-figma-kpis,
+  .kardex-kpi-grid,
+  .kardex-initial-kpis,
+  .kardex-ledger-kpis,
+  .kardex-history-kpis,
+  .dashboard-stats-grid,
+  .main-dashboard-kpis,
+  .dashboard-inbound-kpis,
+  .kpi-record-grid,
+  .mini-kpis,
+  .migration-status-grid,
+  .remote-group-summary
+) > :nth-child(3n) {
+  background: var(--kt-dash-tone-3-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs) !important;
+}
+
+/* 3. Hover unificado para cajas interactivas */
+:is(
+  .alert-kpis > button,
+  .universal-operational-kpis > button,
+  .inbound-figma-kpis > .inbound-kpi-link,
+  .main-dashboard-kpis > .main-dashboard-card-link,
+  .dashboard-inbound-kpis > button,
+  .remote-group-summary > button
+):hover {
+  border-color: var(--kt-blue-400) !important;
+  background: linear-gradient(135deg,var(--kt-blue-50),var(--kt-blue-150)) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-700),var(--kt-shadow-sm) !important;
+  transform: translateY(-1px);
+}
+
+/* 4. Tipografía de KPI */
+:is(
+  .expiration-kpis,
+  .outlook-course-summary,
+  .task-kpis,
+  .oc-cargo-kpis,
+  .alert-kpis,
+  .scorecard-kpis,
+  .kardex-kpi-grid,
+  .kardex-initial-kpis,
+  .kardex-ledger-kpis,
+  .kardex-history-kpis,
+  .dashboard-stats-grid,
+  .main-dashboard-kpis,
+  .dashboard-inbound-kpis,
+  .mini-kpis
+) b {
+  color: var(--kt-blue-950) !important;
+}
+
+:is(
+  .expiration-kpis,
+  .outlook-course-summary,
+  .task-kpis,
+  .oc-cargo-kpis,
+  .alert-kpis,
+  .scorecard-kpis,
+  .kardex-kpi-grid,
+  .kardex-initial-kpis,
+  .kardex-ledger-kpis,
+  .kardex-history-kpis,
+  .dashboard-stats-grid,
+  .main-dashboard-kpis,
+  .dashboard-inbound-kpis,
+  .mini-kpis
+) :is(span,small,em) {
+  color: var(--kt-muted) !important;
+}
+
+/* 5. Iconos dentro de KPI */
+.task-kpis > div:nth-child(3n+1) > svg,
+.oc-cargo-kpis > div:nth-child(3n+1) > svg,
+.alert-kpis > button:nth-child(3n+1) > svg,
+.dashboard-inbound-kpis > button:nth-child(3n+1) > svg:first-child {
+  color: var(--kt-blue-600) !important;
+}
+.task-kpis > div:nth-child(3n+2) > svg,
+.oc-cargo-kpis > div:nth-child(3n+2) > svg,
+.alert-kpis > button:nth-child(3n+2) > svg,
+.dashboard-inbound-kpis > button:nth-child(3n+2) > svg:first-child {
+  color: var(--kt-blue-800) !important;
+}
+.task-kpis > div:nth-child(3n) > svg,
+.oc-cargo-kpis > div:nth-child(3n) > svg,
+.alert-kpis > button:nth-child(3n) > svg,
+.dashboard-inbound-kpis > button:nth-child(3n) > svg:first-child {
+  color: var(--kt-blue-500) !important;
+}
+
+/* 6. Cuadros de gráficos: ya no quedan blancos planos */
+:is(
+  .pro-chart-card,
+  .scorecard-chart-card,
+  .inbound-chart-card,
+  .dashboard-detail-panel,
+  .dashboard-report-panel,
+  .dashboard-inbound-integrated,
+  .universal-upcoming,
+  .inbound-recent-panel,
+  .kardex-ledger-summary,
+  .expiration-data-panel,
+  .scorecard-data-panel,
+  .scorecard-viewer-empty
+) {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--kt-blue-200) !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(180deg,#ffffff 0%,var(--kt-blue-50) 100%) !important;
+  box-shadow: var(--kt-shadow-xs) !important;
+}
+
+/* Línea azul superior en cuadros/gráficos */
+:is(
+  .pro-chart-card,
+  .scorecard-chart-card,
+  .inbound-chart-card,
+  .dashboard-detail-panel,
+  .dashboard-report-panel,
+  .dashboard-inbound-integrated,
+  .universal-upcoming,
+  .inbound-recent-panel,
+  .kardex-ledger-summary
+)::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,var(--kt-blue-800),var(--kt-blue-600),var(--kt-blue-400));
+  pointer-events: none;
+}
+
+:is(
+  .dashboard-chart-link,
+  .scorecard-chart-slot,
+  .indicator-clickable
+):hover > :is(.pro-chart-card,.scorecard-chart-card),
+.inbound-chart-card.indicator-clickable:hover {
+  border-color: var(--kt-blue-300) !important;
+  box-shadow: var(--kt-shadow-sm) !important;
+}
+
+/* 7. Cajas de acceso a reportes */
+.dashboard-report-links > button {
+  border-color: var(--kt-blue-300) !important;
+  border-radius: 11px !important;
+}
+.dashboard-report-links > button:nth-child(3n+1) {
+  background: var(--kt-dash-tone-1-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-600),var(--kt-shadow-xs);
+}
+.dashboard-report-links > button:nth-child(3n+2) {
+  background: var(--kt-dash-tone-2-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-800),var(--kt-shadow-xs);
+}
+.dashboard-report-links > button:nth-child(3n) {
+  background: var(--kt-dash-tone-3-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs);
+}
+
+/* 8. Resúmenes operativos que no viven dentro de un grid KPI */
+:is(
+  .bulk-summary-card,
+  .oc-followup-summary,
+  .material-match-summary,
+  .ingress-detail-summary,
+  .inbound-box-summary,
+  .surplus-withdrawal-summary,
+  .task-detail-summary,
+  .scanner-validation-card,
+  .sap-validation-card,
+  .inventory-verification-card,
+  .barcode-material-card,
+  .material-context-card,
+  .email-destination-card
+) {
+  border: 1px solid var(--kt-blue-200) !important;
+  border-radius: 13px !important;
+  background: linear-gradient(135deg,#fff 0%,var(--kt-blue-50) 100%) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs) !important;
+}
+
+/* 9. Métricas del detalle de tareas */
+.task-detail-metrics > * {
+  border: 1px solid var(--kt-blue-200) !important;
+  border-radius: 11px !important;
+  background: var(--kt-dash-tone-3-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs) !important;
+}
+
+/* 10. Estados críticos mantienen semántica roja */
+.expiration-kpis > .danger,
+.task-kpis > .danger-kpi,
+.universal-kpi.critical,
+.status-pill.danger {
+  border-color: var(--kt-danger-border) !important;
+  background: linear-gradient(135deg,var(--kt-danger-soft),#fff 72%) !important;
+  box-shadow: inset 3px 0 0 var(--kt-danger),var(--kt-shadow-xs) !important;
+}
+.expiration-kpis > .danger b,
+.task-kpis > .danger-kpi b {
+  color: var(--kt-danger) !important;
+}
+
+/* Próximos a vencer: señal visual fuerte, pero dentro de la familia azul */
+.expiration-kpis > .warning {
+  border-color: var(--kt-blue-300) !important;
+  background: var(--kt-dash-tone-2-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-800),var(--kt-shadow-xs) !important;
+}
+
+/* Alertas: urgente sí conserva rojo; alta/media permanecen en azules */
+.alert-kpis > button:first-child {
+  border-color: var(--kt-danger-border) !important;
+  background: linear-gradient(135deg,var(--kt-danger-soft),#fff 75%) !important;
+  box-shadow: inset 3px 0 0 var(--kt-danger),var(--kt-shadow-xs) !important;
+}
+.alert-kpis > button:first-child > svg,
+.alert-kpis > button:first-child b {
+  color: var(--kt-danger) !important;
+}
+
+/* 11. Active de filtros KPI: destacar sin cambiar de lenguaje visual */
+.alert-kpis > button.active,
+.remote-group-summary > button.active {
+  border-color: var(--kt-blue-600) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-800),var(--kt-focus) !important;
+}
+
+/* 12. Móvil: conservar profundidad sin saturar */
+@media (max-width:760px) {
+  :is(
+    .expiration-kpis > div,
+    .outlook-course-summary > div,
+    .task-kpis > div,
+    .oc-cargo-kpis > div,
+    .alert-kpis > button,
+    .scorecard-kpis > article,
+    .kardex-kpi-grid > div,
+    .dashboard-stats-grid > .dashboard-stat,
+    .main-dashboard-kpis > .main-dashboard-card,
+    .dashboard-inbound-kpis > button
+  ) {
+    border-radius: 11px !important;
+    box-shadow: inset 2px 0 0 var(--kt-blue-500),var(--kt-shadow-xs) !important;
+  }
+
+  .expiration-kpis > .danger,
+  .task-kpis > .danger-kpi,
+  .alert-kpis > button:first-child {
+    box-shadow: inset 2px 0 0 var(--kt-danger),var(--kt-shadow-xs) !important;
+  }
+}
