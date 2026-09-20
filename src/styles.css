@@ -14177,3 +14177,57 @@ table tbody tr:hover td {
     grid-column: auto;
   }
 }
+
+
+/* =========================================================
+   SCANNER VALIDATION V8 · CONFIRMACIÓN Y CANTIDADES ENTERAS
+   ========================================================= */
+.integer-quantity-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--kt-blue-950);
+}
+
+.scanner-footer-left {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.scanner-confirmation-issue {
+  min-height: 27px;
+  padding: 4px 7px;
+  border: 1px solid #efdba7;
+  border-radius: 8px;
+  background: #fff9ea;
+  color: #80600b;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.scanner-confirmation-issue svg {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .scanner-footer-left {
+    order: 2;
+  }
+
+  .scanner-confirmation-issue {
+    width: 100%;
+    min-height: 34px;
+    font-size: 10px;
+  }
+
+  .integer-quantity-input {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+}
