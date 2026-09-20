@@ -408,6 +408,14 @@ export function GuidesModule({ mode, userId, profile }: Props) {
   })
   const [lines, setLines] = useState<GuideLine[]>([emptyLine()])
   const [saving, setSaving] = useState(false)
+  const [duplicateGuide, setDuplicateGuide] = useState<{
+    id: string
+    guide_no: string
+    reference: string
+    created_at: string
+    warehouse: string | null
+    status: string
+  } | null>(null)
 
   async function reload() {
     setLoading(true)
@@ -436,6 +444,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
     setPreviewUrl('')
     setFile(null)
     setScanProgress(0)
+    setDuplicateGuide(null)
     setForm({
       guide_no: '',
       document_no: '',
@@ -458,6 +467,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
   async function selectFile(nextFile?: File) {
     if (!nextFile) return
     setMessage('')
+    setDuplicateGuide(null)
     setFile(nextFile)
 
     // Cada documento empieza limpio. Evita que una guía nueva herede
@@ -705,6 +715,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
 
   function onReference(value: string) {
     const reference = value.replace(/\s/g, '')
+    setDuplicateGuide(null)
     setForm((prev) => ({ ...prev, reference, guide_type: classifyReference(reference) }))
   }
 
@@ -727,6 +738,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
 
   async function saveGuide(acceptWithWarnings = false) {
     setMessage('')
+    setDuplicateGuide(null)
 
     if (!form.guide_no.trim()) {
       setMessage('Falta el Número de guía. Complétalo antes de confirmar.')
@@ -792,7 +804,8 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       .maybeSingle()
 
     if (duplicate) {
-      setMessage(`Esta guía ya se encuentra registrada: ${duplicate.guide_no} / ${duplicate.reference} · ${fmtDate(duplicate.created_at)}.`)
+      setDuplicateGuide(duplicate)
+      setMessage(`Registro duplicado: ${duplicate.guide_no} / ${duplicate.reference} ya existe en KOMTROL y no se volverá a insertar.`)
       return
     }
 
@@ -1128,8 +1141,22 @@ export function GuidesModule({ mode, userId, profile }: Props) {
               <span><b>80…</b> Orden de Compra</span>
               <span><b>Otros</b> Cargo Directo</span>
             </div>
-            {confirmationIssue && <div className="scanner-confirmation-issue"><AlertTriangle size={14}/><span>{confirmationIssue}</span></div>}
+            {duplicateGuide ? (
+              <div className="scanner-duplicate-warning">
+                <AlertTriangle size={16}/>
+                <div>
+                  <b>Registro ya existente</b>
+                  <span>{duplicateGuide.guide_no} · Ref. {duplicateGuide.reference} · {duplicateGuide.warehouse || 'Sin almacén'} · {fmtDate(duplicateGuide.created_at)}</span>
+                  <small>No se creó un duplicado. Limpia el formulario para escanear otra guía.</small>
+                </div>
+              </div>
+            ) : confirmationIssue ? (
+              <div className="scanner-confirmation-issue"><AlertTriangle size={14}/><span>{confirmationIssue}</span></div>
+            ) : null}
           </div>
+          {!duplicateGuide && message && /no se pudo|error|obligatori|revisa|falta|duplicad|ya se encuentra/i.test(message) && (
+            <div className="scanner-footer-feedback"><AlertTriangle size={14}/><span>{message}</span></div>
+          )}
           <div className="scanner-footer-actions">
             <button className="secondary-button" type="button" onClick={resetForm}><X size={16}/> Cancelar</button>
             {showOcrWarning && (
