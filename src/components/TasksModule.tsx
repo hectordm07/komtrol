@@ -3,6 +3,9 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  Download,
+  FileSpreadsheet,
+  FileText,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -15,6 +18,9 @@ import {
   UserRound,
   X,
 } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { TaskDetailModal } from './TaskDetailModal'
 
@@ -172,6 +178,10 @@ export function TasksModule({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'TODOS' | Task['status']>('TODOS')
+  const [priorityFilter, setPriorityFilter] = useState<'TODAS' | Task['priority']>('TODAS')
+  const [categoryFilter, setCategoryFilter] = useState('TODAS')
+  const [responsibleFilter, setResponsibleFilter] = useState('TODOS')
   const [workArea, setWorkArea] = useState<'MI_TRABAJO' | 'TAREAS' | 'RELEVOS'>(
     mode === 'relevos' ? 'RELEVOS' : mode === 'tareas' ? 'TAREAS' : 'MI_TRABAJO'
   )
@@ -268,6 +278,11 @@ export function TasksModule({
       data = data.filter((t) => t.work_type === 'RELEVO')
     }
 
+    if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
+    if (priorityFilter !== 'TODAS') data = data.filter((t) => t.priority === priorityFilter)
+    if (categoryFilter !== 'TODAS') data = data.filter((t) => t.category === categoryFilter)
+    if (responsibleFilter !== 'TODOS') data = data.filter((t) => t.responsible_id === responsibleFilter)
+
     const q = search.toLowerCase().trim()
     if (q) {
       data = data.filter((t) =>
@@ -286,7 +301,10 @@ export function TasksModule({
       )
     }
     return data
-  }, [tasks, mode, search, userId, scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea])
+  }, [
+    tasks, mode, search, userId, scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea,
+    statusFilter, priorityFilter, categoryFilter, responsibleFilter,
+  ])
 
   const counts = useMemo(() => {
     const total = filtered.length
@@ -302,6 +320,158 @@ export function TasksModule({
   const profileName = (id?: string | null) =>
     profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
 
+
+  const activeFilterSummary = useMemo(() => {
+    const parts = [
+      mode === 'tareas' ? 'Tareas' : mode === 'relevos' ? 'Relevos' : mode === 'area-personal' ? 'Área personal' : 'Mi trabajo',
+      statusFilter !== 'TODOS' ? `Estado: ${statusFilter.replaceAll('_',' ')}` : '',
+      priorityFilter !== 'TODAS' ? `Prioridad: ${priorityFilter}` : '',
+      categoryFilter !== 'TODAS' ? `Categoría: ${categoryFilter}` : '',
+      responsibleFilter !== 'TODOS' ? `Responsable: ${profileName(responsibleFilter)}` : '',
+      search.trim() ? `Búsqueda: ${search.trim()}` : '',
+      scopeWarehouse ? `Almacén: ${scopeWarehouse}` : '',
+      scopeProject ? `Proyecto: ${scopeProject}` : '',
+      scopeGroup ? `Grupo: ${scopeGroup}` : '',
+    ].filter(Boolean)
+    return parts.join(' · ')
+  }, [
+    mode,statusFilter,priorityFilter,categoryFilter,responsibleFilter,search,
+    scopeWarehouse,scopeProject,scopeGroup,profiles,
+  ])
+
+  function taskExportRows() {
+    return filtered.map((task) => ({
+      ID: task.task_no,
+      Tipo: task.work_type,
+      Título: task.title,
+      Descripción: task.description || '',
+      Proyecto: task.project || '',
+      Almacén: task.warehouse || '',
+      Grupo: task.group_name || '',
+      Responsable: profileName(task.responsible_id),
+      Categoría: task.category || '',
+      Etiquetas: (task.tags || []).join(', '),
+      Prioridad: task.priority,
+      Estado: effectiveStatus(task).replaceAll('_',' '),
+      Avance: `${task.progress}%`,
+      'Fecha inicio': task.start_at ? new Date(task.start_at).toLocaleString('es-PE') : '',
+      'Fecha límite': task.due_at ? new Date(task.due_at).toLocaleString('es-PE') : '',
+      'Fecha cierre': task.closed_at ? new Date(task.closed_at).toLocaleString('es-PE') : '',
+      'Duración estimada (h)': task.estimated_hours ?? '',
+      'Asunto correo': task.email_subject || '',
+      'Fecha creación': new Date(task.created_at).toLocaleString('es-PE'),
+    }))
+  }
+
+  function exportTasksExcel() {
+    if (!filtered.length) {
+      setMessage('No hay tareas en el filtro actual para exportar.')
+      return
+    }
+
+    const workbook = XLSX.utils.book_new()
+    const rows = taskExportRows()
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    worksheet['!cols'] = [
+      {wch:18},{wch:11},{wch:36},{wch:48},{wch:20},{wch:16},{wch:20},{wch:24},
+      {wch:18},{wch:30},{wch:11},{wch:16},{wch:10},{wch:20},{wch:20},{wch:20},
+      {wch:20},{wch:42},{wch:20},
+    ]
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tareas')
+
+    const summarySheet = XLSX.utils.aoa_to_sheet([
+      ['KOMTROL - Reporte de Tareas'],
+      ['Generado', new Date().toLocaleString('es-PE')],
+      ['Filtros aplicados', activeFilterSummary || 'Sin filtros adicionales'],
+      ['Registros', filtered.length],
+      [],
+      ['Indicador','Valor'],
+      ['Total', counts.total],
+      ['Pendientes', counts.pending],
+      ['Vencidas', counts.overdue],
+      ['Cerradas', counts.closed],
+      ['Avance promedio', `${counts.average}%`],
+    ])
+    summarySheet['!cols']=[{wch:24},{wch:70}]
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen')
+
+    const stamp = new Date().toISOString().slice(0,10)
+    XLSX.writeFile(workbook, `KOMTROL_Tareas_${stamp}.xlsx`)
+  }
+
+  function exportTasksPdf() {
+    if (!filtered.length) {
+      setMessage('No hay tareas en el filtro actual para exportar.')
+      return
+    }
+
+    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    doc.setFillColor(51,67,154)
+    doc.rect(0,0,pageWidth,20,'F')
+    doc.setTextColor(255,255,255)
+    doc.setFontSize(15)
+    doc.setFont('helvetica','bold')
+    doc.text('KOMTROL · Reporte de Tareas', 12, 9)
+    doc.setFontSize(8)
+    doc.setFont('helvetica','normal')
+    doc.text(`Generado: ${new Date().toLocaleString('es-PE')}`,12,15)
+
+    doc.setTextColor(32,42,85)
+    doc.setFontSize(8)
+    const filterLines=doc.splitTextToSize(`Filtros: ${activeFilterSummary || 'Sin filtros adicionales'}`,pageWidth-24)
+    doc.text(filterLines,12,26)
+
+    autoTable(doc,{
+      startY: 31 + Math.max(0,(filterLines.length-1)*3),
+      head:[['ID','Tipo','Título','Proyecto / Almacén','Responsable','Categoría / Etiquetas','Prioridad','Estado','Avance','Vence']],
+      body:filtered.map((task)=>[
+        task.task_no,
+        task.work_type,
+        task.title,
+        [task.project,task.warehouse].filter(Boolean).join(' / ') || '—',
+        profileName(task.responsible_id),
+        [task.category,(task.tags||[]).join(', ')].filter(Boolean).join(' · ') || '—',
+        task.priority,
+        effectiveStatus(task).replaceAll('_',' '),
+        `${task.progress}%`,
+        task.due_at ? new Date(task.due_at).toLocaleDateString('es-PE') : '—',
+      ]),
+      theme:'grid',
+      styles:{
+        font:'helvetica',
+        fontSize:6.5,
+        cellPadding:1.8,
+        textColor:[51,64,120],
+        lineColor:[216,222,248],
+        lineWidth:.2,
+        overflow:'linebreak',
+        valign:'middle',
+      },
+      headStyles:{
+        fillColor:[51,67,154],
+        textColor:[255,255,255],
+        fontStyle:'bold',
+        fontSize:6.7,
+      },
+      alternateRowStyles:{fillColor:[247,248,255]},
+      columnStyles:{
+        0:{cellWidth:24},1:{cellWidth:15},2:{cellWidth:48},3:{cellWidth:36},
+        4:{cellWidth:33},5:{cellWidth:40},6:{cellWidth:17},7:{cellWidth:22},
+        8:{cellWidth:14},9:{cellWidth:20},
+      },
+      didDrawPage:()=>{
+        const pageHeight=doc.internal.pageSize.getHeight()
+        doc.setFontSize(7)
+        doc.setTextColor(109,120,158)
+        doc.text(`KOMTROL · ${filtered.length} registro(s)`,12,pageHeight-6)
+        doc.text(`Página ${doc.getNumberOfPages()}`,pageWidth-12,pageHeight-6,{align:'right'})
+      },
+    })
+
+    const stamp = new Date().toISOString().slice(0,10)
+    doc.save(`KOMTROL_Tareas_${stamp}.pdf`)
+  }
 
   async function createCategory() {
     const name = newCategory.trim().toUpperCase()
@@ -485,19 +655,7 @@ export function TasksModule({
   return (
     <div className="work-module">
       <section className="panel compact-panel work-panel">
-        <div className="work-command-bar">
-          <div className="work-area-tabs" aria-label="Área de trabajo">
-            <button type="button" className={workArea === 'MI_TRABAJO' ? 'active' : ''} onClick={() => setWorkArea('MI_TRABAJO')}>
-              <UserRound size={16} /> Mi trabajo
-            </button>
-            <button type="button" className={workArea === 'TAREAS' ? 'active' : ''} onClick={() => setWorkArea('TAREAS')}>
-              <ClipboardList size={16} /> Tareas
-            </button>
-            <button type="button" className={workArea === 'RELEVOS' ? 'active' : ''} onClick={() => setWorkArea('RELEVOS')}>
-              <RefreshCw size={16} /> Relevos
-            </button>
-          </div>
-
+        <div className="work-command-bar work-command-bar-actions-only">
           <div className="work-command-actions">
             <button type="button" className="secondary-button compact-action" onClick={() => setShowCategoryCreator((value) => !value)}><Plus size={14} /> Categoría</button>
             <button type="button" className="secondary-button compact-action" onClick={() => setShowLabelCreator((value) => !value)}><Tag size={14} /> Etiqueta</button>
@@ -554,14 +712,39 @@ export function TasksModule({
           <div><Columns3 size={17} /><span><b>{counts.average}%</b><small>Avance</small></span></div>
         </div>
 
-        <div className="task-toolbar">
-          <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo, categoría…" /></div>
-          <div className="view-hint">
-            {workView === 'TABLERO'
-              ? <><Columns3 size={16} /> Tablero</>
-              : workView === 'CALENDARIO'
-                ? <><CalendarDays size={16} /> Calendario</>
-                : <><List size={16} /> Lista</>}
+        <div className="task-toolbar task-filter-toolbar">
+          <div className="search task-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo, categoría…" /></div>
+
+          <select aria-label="Filtrar por estado" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value as 'TODOS' | Task['status'])}>
+            <option value="TODOS">Todos los estados</option>
+            <option value="PENDIENTE">Pendiente</option>
+            <option value="EN_PROCESO">En proceso</option>
+            <option value="BLOQUEADO">Bloqueado</option>
+            <option value="CERRADO">Cerrado</option>
+            <option value="VENCIDA">Vencida</option>
+          </select>
+
+          <select aria-label="Filtrar por prioridad" value={priorityFilter} onChange={(e)=>setPriorityFilter(e.target.value as 'TODAS' | Task['priority'])}>
+            <option value="TODAS">Todas las prioridades</option>
+            <option value="BAJA">Baja</option>
+            <option value="MEDIA">Media</option>
+            <option value="ALTA">Alta</option>
+            <option value="URGENTE">Urgente</option>
+          </select>
+
+          <select aria-label="Filtrar por categoría" value={categoryFilter} onChange={(e)=>setCategoryFilter(e.target.value)}>
+            <option value="TODAS">Todas las categorías</option>
+            {categories.map((category)=><option key={category} value={category}>{category}</option>)}
+          </select>
+
+          <select aria-label="Filtrar por responsable" value={responsibleFilter} onChange={(e)=>setResponsibleFilter(e.target.value)}>
+            <option value="TODOS">Todos los responsables</option>
+            {scopedProfiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}
+          </select>
+
+          <div className="task-export-actions">
+            <button type="button" className="secondary-button" onClick={exportTasksPdf} title="Exportar filtro actual a PDF"><FileText size={16}/> PDF</button>
+            <button type="button" className="secondary-button" onClick={exportTasksExcel} title="Exportar filtro actual a Excel"><FileSpreadsheet size={16}/> Excel</button>
           </div>
         </div>
 
