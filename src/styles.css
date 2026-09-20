@@ -11799,3 +11799,223 @@ table tbody tr:hover td {
     width: 100%;
   }
 }
+
+
+/* =========================================================
+   DASHBOARD GENERAL · INBOUND INTEGRADO
+   ========================================================= */
+.dashboard-inbound-integrated {
+  padding: 10px;
+}
+.dashboard-inbound-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.dashboard-inbound-head > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.dashboard-inbound-head span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .05em;
+}
+.dashboard-inbound-head b {
+  color: var(--kt-blue-950);
+  font-size: 11px;
+}
+.dashboard-inbound-head small {
+  color: var(--kt-muted);
+  font-size: 8px;
+}
+.dashboard-inbound-kpis {
+  display: grid;
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 6px;
+}
+.dashboard-inbound-kpis > button {
+  min-width: 0;
+  min-height: 56px;
+  padding: 7px 8px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--kt-blue-700);
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+.dashboard-inbound-kpis > button:hover {
+  background: var(--kt-blue-50);
+  border-color: var(--kt-blue-300);
+}
+.dashboard-inbound-kpis > button > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.dashboard-inbound-kpis small {
+  color: var(--kt-muted);
+  font-size: 7px;
+  font-weight: 900;
+}
+.dashboard-inbound-kpis b {
+  color: var(--kt-blue-950);
+  font-size: 16px;
+}
+.dashboard-inbound-kpis > button > svg:last-child {
+  color: var(--kt-blue-400);
+}
+
+/* =========================================================
+   PRIORIDAD · SELECT NEUTRO + INDICADOR SEMÁFORO
+   ========================================================= */
+.priority-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.priority-field > .priority-dot {
+  position: absolute;
+  left: 12px;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.priority-field .priority-select {
+  width: 100%;
+  padding-left: 30px !important;
+  background: #fff !important;
+  color: var(--kt-ink) !important;
+  border-color: var(--kt-blue-200) !important;
+  font-weight: 800;
+}
+.priority-field .priority-select:hover {
+  border-color: var(--kt-blue-300) !important;
+}
+.priority-field .priority-select:focus {
+  border-color: var(--kt-blue-600) !important;
+  box-shadow: var(--kt-focus) !important;
+}
+
+/* Anula estilos antiguos que coloreaban todo el select */
+.priority-select.p-baja,
+.priority-select.p-media,
+.priority-select.p-alta,
+.priority-select.p-urgente {
+  background: #fff !important;
+  color: var(--kt-ink) !important;
+  border-color: var(--kt-blue-200) !important;
+}
+
+/* =========================================================
+   ETIQUETAS · COLOR CONFIGURABLE
+   ========================================================= */
+.label-color-picker {
+  width: 40px !important;
+  min-width: 40px;
+  height: 34px;
+  min-height: 34px !important;
+  padding: 3px !important;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+.label-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.label-color-picker::-webkit-color-swatch {
+  border: 0;
+  border-radius: 5px;
+}
+.work-inline-create.label-create {
+  grid-template-columns: auto minmax(160px,1fr) 42px 120px auto auto;
+}
+.form-inline-creator.label {
+  grid-template-columns: minmax(0,1fr) 42px 110px auto;
+}
+.task-card-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 5px 0;
+}
+.task-card-tags span {
+  min-height: 20px;
+  padding: 2px 6px;
+  border: 1px solid;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+/* =========================================================
+   ÁREA DE TRABAJO · TABS DENTRO DEL PANEL
+   ========================================================= */
+.work-panel {
+  padding-top: 7px;
+}
+.work-command-bar {
+  margin: -2px -2px 7px;
+  padding: 6px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 11px;
+  background: linear-gradient(180deg,#fff,var(--kt-blue-50));
+}
+.work-area-tabs {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.work-area-tabs button {
+  border: 1px solid transparent;
+}
+.work-area-tabs button.active {
+  border-color: var(--kt-blue-200);
+  background: #fff;
+}
+
+@media (max-width: 900px) {
+  .dashboard-inbound-kpis {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .work-inline-create.label-create {
+    grid-template-columns: 1fr 42px 120px auto auto;
+  }
+}
+@media (max-width: 760px) {
+  .dashboard-inbound-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .dashboard-inbound-kpis {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .work-command-bar {
+    margin-inline: 0;
+  }
+  .work-inline-create.label-create,
+  .form-inline-creator.label {
+    grid-template-columns: 1fr;
+  }
+  .label-color-picker {
+    width: 100% !important;
+    min-width: 0;
+  }
+}
