@@ -618,7 +618,7 @@ export function TasksModule({
                 </select>
               </label>
               <label>Prioridad
-                <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Task['priority'] })}>
+                <select className={`priority-select p-${form.priority.toLowerCase()}`} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Task['priority'] })}>
                   <option value="BAJA">Baja</option>
                   <option value="MEDIA">Media</option>
                   <option value="ALTA">Alta</option>
@@ -651,8 +651,14 @@ export function TasksModule({
                   <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                     {categories.map((category) => <option key={category} value={category}>{category}</option>)}
                   </select>
-                  <button type="button" className="icon-button" title="Nueva categoría" onClick={() => setShowCategoryCreator(true)}><Plus size={16}/></button>
+                  <button type="button" className="icon-button" title="Nueva categoría" onClick={() => setShowCategoryCreator((value)=>!value)}><Plus size={16}/></button>
                 </div>
+                {showCategoryCreator && (
+                  <div className="form-inline-creator">
+                    <input value={newCategory} onChange={(e)=>setNewCategory(e.target.value)} placeholder="Nueva categoría" />
+                    <button type="button" className="primary-button" disabled={!newCategory.trim()} onClick={createCategory}>Crear</button>
+                  </div>
+                )}
               </label>
               <label>Fecha límite
                 <input type="datetime-local" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} />
@@ -677,8 +683,18 @@ export function TasksModule({
                       ))}
                     {!labels.length && <span>Sin etiquetas creadas.</span>}
                   </div>
-                  <button type="button" className="secondary-button" onClick={() => setShowLabelCreator(true)}><Plus size={14}/> Nueva etiqueta</button>
+                  <button type="button" className="secondary-button" onClick={() => setShowLabelCreator((value)=>!value)}><Plus size={14}/> Nueva etiqueta</button>
                 </div>
+                {showLabelCreator && (
+                  <div className="form-inline-creator label">
+                    <input value={newLabel} onChange={(e)=>setNewLabel(e.target.value)} placeholder="Nueva etiqueta" />
+                    <select value={labelScope} onChange={(e)=>setLabelScope(e.target.value as 'PROYECTO' | 'PERSONAL')}>
+                      <option value="PROYECTO">Proyecto</option>
+                      <option value="PERSONAL">Personal</option>
+                    </select>
+                    <button type="button" className="primary-button" disabled={!newLabel.trim()} onClick={createLabel}>Crear</button>
+                  </div>
+                )}
               </label>
               <label className="span-2">Asunto del correo
                 <input value={form.email_subject} onChange={(e) => setForm({ ...form, email_subject: e.target.value })} placeholder="Solo si existe un correo asociado" />
