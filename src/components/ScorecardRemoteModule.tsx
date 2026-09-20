@@ -5,6 +5,7 @@ import {
   Database,
   Edit3,
   FileSpreadsheet,
+  FileText,
   RefreshCw,
   Save,
   Upload,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 export type ScorecardMode =
   | 'scorecard-carga'
@@ -444,6 +446,55 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
   const summaryFields=(report?.fields||[]).slice(0,6)
 
+  const scorecardExportRows=useMemo(()=> {
+    if(!report) return [] as Record<string,unknown>[]
+    return scopedRows.map((row)=>({
+      site_name:row.site_name,
+      warehouse:row.warehouse,
+      status:row.row_status||row.detail||'',
+      ...Object.fromEntries(report.fields.map((field)=>[
+        field.key,
+        fmtValue(row.data?.[field.key],field.type),
+      ])),
+    }))
+  },[report,scopedRows])
+
+  const scorecardExportColumns=useMemo(()=> {
+    if(!report) return []
+    return [
+      {header:'PROYECTO / SEDE',key:'site_name',width:26},
+      {header:'ALMACÉN',key:'warehouse',width:18},
+      ...(report.status_field?[{header:'ESTADO / DETALLE',key:'status',width:28}]:[]),
+      ...report.fields.map((field)=>({
+        header:field.label,
+        key:field.key,
+        width:field.type==='text'?30:16,
+      })),
+    ]
+  },[report])
+
+  function exportScorecardExcel(){
+    if(!report||!scorecardExportRows.length) return
+    exportRowsToExcel(
+      `KOMTROL_Scorecard_${report.code}_${year}_${String(month).padStart(2,'0')}`,
+      report.short_name || report.name,
+      scorecardExportColumns,
+      scorecardExportRows,
+      [['Reporte',report.name],['Periodo',`${MONTHS[month-1]} ${year}`],['Registros',scorecardExportRows.length]]
+    )
+  }
+
+  function exportScorecardPdf(){
+    if(!report||!scorecardExportRows.length) return
+    exportRowsToPdfPortrait(
+      `KOMTROL_Scorecard_${report.code}_${year}_${String(month).padStart(2,'0')}`,
+      `KOMTROL · ${report.name}`,
+      scorecardExportColumns,
+      scorecardExportRows,
+      {subtitle:`${MONTHS[month-1]} ${year} · ${warehouseFilter==='TODOS'?'Todos los proyectos':warehouseFilter}`,summary:[['Registros',scorecardExportRows.length]]}
+    )
+  }
+
   async function saveRow(row:ScorecardRow) {
     const editableData={...row.data}
     const {data,error}=await supabase
@@ -725,6 +776,8 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           <select value={year} onChange={(event)=>setYear(Number(event.target.value))}>{[2024,2025,2026,2027].map((value)=><option key={value} value={value}>{value}</option>)}</select>
           <select value={month} onChange={(event)=>setMonth(Number(event.target.value))}>{MONTHS.map((label,index)=><option key={label} value={index+1}>{label}</option>)}</select>
           {(role==='ADMINISTRADOR'||role==='SUPERVISOR')&&<select value={warehouseFilter} onChange={(event)=>setWarehouseFilter(event.target.value)}><option value="TODOS">Todos los proyectos</option>{warehouses.map((warehouse)=><option key={warehouse} value={warehouse}>{warehouse}</option>)}</select>}
+          <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardPdf}><FileText size={16}/> PDF</button>
+          <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
         </div>
       </section>
