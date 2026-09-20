@@ -709,10 +709,14 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
       description: editForm.description.trim() || null,
       priority: editForm.priority,
       category: editForm.category.trim() || null,
-      assignment_type: editForm.assignment_type,
-      assigned_user_id: editForm.assignment_type === 'PERSONA' ? editForm.assigned_user_id : null,
-      assigned_group: editForm.assignment_type === 'GRUPO' ? editForm.assigned_group : null,
-      assigned_shift: editForm.assignment_type === 'GUARDIA' ? editForm.assigned_shift : null,
+      assignment_type: task.work_type === 'PERSONAL' ? 'PERSONAL' : editForm.assignment_type,
+      assigned_user_id: task.work_type === 'PERSONAL'
+        ? (task.assigned_user_id || task.responsible_id || task.created_by)
+        : editForm.assignment_type === 'PERSONA'
+          ? editForm.assigned_user_id
+          : null,
+      assigned_group: task.work_type !== 'PERSONAL' && editForm.assignment_type === 'GRUPO' ? editForm.assigned_group : null,
+      assigned_shift: task.work_type !== 'PERSONAL' && editForm.assignment_type === 'GUARDIA' ? editForm.assigned_shift : null,
       tags: editForm.tags.split(',').map((item) => item.trim()).filter(Boolean),
       due_at: editForm.due_at ? new Date(editForm.due_at).toISOString() : null,
       email_subject: editForm.email_subject.trim() || null,
@@ -886,37 +890,46 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
                 </select>
               </label>
               <label>Categoría<input value={editForm.category} onChange={(event) => setEditForm({ ...editForm, category: event.target.value })} /></label>
-              <label>Asignar a
-                <select value={editForm.assignment_type} onChange={(event) => setEditForm({ ...editForm, assignment_type: event.target.value as SubtaskAssignmentType })}>
-                  <option value="PERSONA">Una persona específica</option>
-                  <option value="GRUPO">Grupo de almacén</option>
-                  <option value="GUARDIA">Una guardia del almacén</option>
-                </select>
-              </label>
-              {editForm.assignment_type === 'PERSONA' && (
-                <label>Persona
-                  <select value={editForm.assigned_user_id} onChange={(event)=>setEditForm({...editForm,assigned_user_id:event.target.value})}>
-                    {scopedProfiles.map((profile)=><option key={profile.user_id} value={profile.user_id}>{profile.full_name}</option>)}
-                  </select>
+              {task.work_type === 'PERSONAL' ? (
+                <label>Asignación
+                  <input value={profileName(task.assigned_user_id || task.responsible_id || task.created_by)} disabled />
+                  <small>Las tareas de Mi trabajo permanecen asignadas al propio usuario.</small>
                 </label>
-              )}
-              {editForm.assignment_type === 'GRUPO' && (
-                <label>Grupo
-                  <select value={editForm.assigned_group} onChange={(event)=>setEditForm({...editForm,assigned_group:event.target.value})}>
-                    <option value="">Seleccionar</option>
-                    {scopedGroups.map((group)=><option key={group} value={group}>{group}</option>)}
-                  </select>
-                </label>
-              )}
-              {editForm.assignment_type === 'GUARDIA' && (
-                <label>Guardia
-                  <select value={editForm.assigned_shift} onChange={(event)=>setEditForm({...editForm,assigned_shift:event.target.value})}>
-                    <option value="">Seleccionar</option>
-                    {scopedShifts.map((shift)=><option key={shift} value={shift}>{shift}</option>)}
-                    {!scopedShifts.includes('GUARDIA A')&&<option value="GUARDIA A">GUARDIA A</option>}
-                    {!scopedShifts.includes('GUARDIA B')&&<option value="GUARDIA B">GUARDIA B</option>}
-                  </select>
-                </label>
+              ) : (
+                <>
+                  <label>Asignar a
+                    <select value={editForm.assignment_type} onChange={(event) => setEditForm({ ...editForm, assignment_type: event.target.value as SubtaskAssignmentType })}>
+                      <option value="PERSONA">Una persona específica</option>
+                      <option value="GRUPO">Grupo de almacén</option>
+                      <option value="GUARDIA">Una guardia del almacén</option>
+                    </select>
+                  </label>
+                  {editForm.assignment_type === 'PERSONA' && (
+                    <label>Persona
+                      <select value={editForm.assigned_user_id} onChange={(event)=>setEditForm({...editForm,assigned_user_id:event.target.value})}>
+                        {scopedProfiles.map((profile)=><option key={profile.user_id} value={profile.user_id}>{profile.full_name}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {editForm.assignment_type === 'GRUPO' && (
+                    <label>Grupo
+                      <select value={editForm.assigned_group} onChange={(event)=>setEditForm({...editForm,assigned_group:event.target.value})}>
+                        <option value="">Seleccionar</option>
+                        {scopedGroups.map((group)=><option key={group} value={group}>{group}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {editForm.assignment_type === 'GUARDIA' && (
+                    <label>Guardia
+                      <select value={editForm.assigned_shift} onChange={(event)=>setEditForm({...editForm,assigned_shift:event.target.value})}>
+                        <option value="">Seleccionar</option>
+                        {scopedShifts.map((shift)=><option key={shift} value={shift}>{shift}</option>)}
+                        {!scopedShifts.includes('GUARDIA A')&&<option value="GUARDIA A">GUARDIA A</option>}
+                        {!scopedShifts.includes('GUARDIA B')&&<option value="GUARDIA B">GUARDIA B</option>}
+                      </select>
+                    </label>
+                  )}
+                </>
               )}
               <label>Fecha de término<input type="datetime-local" value={editForm.due_at} onChange={(event) => setEditForm({ ...editForm, due_at: event.target.value })} /></label>
               <label className="span-2">Etiquetas<input value={editForm.tags} onChange={(event) => setEditForm({ ...editForm, tags: event.target.value })} placeholder="OC OBSERVADAS, URGENTE" /></label>
