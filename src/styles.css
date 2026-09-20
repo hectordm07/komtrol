@@ -16193,3 +16193,347 @@ table tbody tr:hover td {
     box-shadow: inset 2px 0 0 var(--kt-danger),var(--kt-shadow-xs) !important;
   }
 }
+
+
+/* =========================================================
+   TASK FORM COLOR SYSTEM V4 · formulario + revisión de fechas
+   Misma familia visual de dashboards KOMTROL.
+   ========================================================= */
+.task-modal {
+  border: 1px solid var(--kt-blue-200);
+  background:
+    radial-gradient(circle at 100% 0%,rgba(113,133,223,.10),transparent 28%),
+    linear-gradient(180deg,#ffffff 0%,var(--kt-blue-50) 100%);
+  box-shadow: var(--kt-shadow-lg);
+}
+.task-modal .modal-head {
+  margin: -1px -1px 10px;
+  padding: 15px 16px 13px;
+  border-bottom: 1px solid var(--kt-blue-200);
+  border-radius: 18px 18px 12px 12px;
+  background: linear-gradient(135deg,var(--kt-blue-75),#fff 64%);
+}
+.task-modal .modal-head h2 {
+  color: var(--kt-blue-950);
+}
+.task-modal .modal-head p {
+  color: var(--kt-muted);
+}
+
+/* Cada casilla del formulario recibe uno de los tres tonos del sistema. */
+.task-modal .form-grid > label {
+  min-width: 0;
+  padding: 9px 10px 10px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--kt-blue-950);
+  font-size: 10px;
+  font-weight: 900;
+  box-shadow: var(--kt-shadow-xs);
+}
+.task-modal .form-grid > label:nth-of-type(3n+1) {
+  border-color: var(--kt-blue-300);
+  background: var(--kt-dash-tone-1-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-600),var(--kt-shadow-xs);
+}
+.task-modal .form-grid > label:nth-of-type(3n+2) {
+  border-color: var(--kt-blue-300);
+  background: var(--kt-dash-tone-2-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-800),var(--kt-shadow-xs);
+}
+.task-modal .form-grid > label:nth-of-type(3n) {
+  border-color: var(--kt-blue-200);
+  background: var(--kt-dash-tone-3-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs);
+}
+.task-modal .form-grid > label:focus-within {
+  border-color: var(--kt-blue-500);
+  box-shadow: inset 3px 0 0 var(--kt-blue-700),var(--kt-focus);
+}
+.task-modal .form-grid > label > input,
+.task-modal .form-grid > label > textarea,
+.task-modal .form-grid > label > select,
+.task-modal .form-grid > label .priority-select,
+.task-modal .form-grid > label .ai-title-field > input,
+.task-modal .form-grid > label .form-inline-select > select {
+  background: rgba(255,255,255,.90) !important;
+  border-color: var(--kt-blue-200) !important;
+  color: var(--kt-ink) !important;
+}
+.task-modal .form-grid > label > input:disabled {
+  background: rgba(233,238,255,.72) !important;
+  color: var(--kt-blue-900) !important;
+  opacity: 1;
+}
+.task-modal .field-help {
+  color: var(--kt-muted);
+  font-size: 7.5px;
+  font-weight: 700;
+}
+.task-modal .task-form-tag-list {
+  background: rgba(255,255,255,.86);
+}
+.task-modal .relevo-route-preview {
+  border: 1px solid var(--kt-blue-300);
+  background: linear-gradient(135deg,var(--kt-blue-75),var(--kt-blue-150));
+  box-shadow: inset 3px 0 0 var(--kt-blue-700),var(--kt-shadow-xs);
+}
+.task-modal .modal-actions {
+  margin: 12px -1px -1px;
+  padding: 11px 1px 1px;
+  border-top: 1px solid var(--kt-blue-200);
+}
+
+/* Popup inteligente de revisión de fechas. */
+.date-review-backdrop {
+  z-index: 135;
+}
+.date-review-modal {
+  width: min(960px,calc(100vw - 28px));
+  max-height: min(88dvh,760px);
+  overflow: auto;
+  padding: 0;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 100% 0%,rgba(113,133,223,.12),transparent 30%),
+    #fff;
+  box-shadow: var(--kt-shadow-lg);
+}
+.date-review-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: 0;
+  padding: 15px 16px 13px;
+  border-bottom: 1px solid var(--kt-blue-200);
+  background: rgba(247,248,255,.96);
+  backdrop-filter: blur(12px);
+}
+.date-review-head h2 {
+  margin: 4px 0 2px;
+  color: var(--kt-blue-950);
+  font-size: 21px;
+}
+.date-review-head p {
+  margin: 0;
+  color: var(--kt-muted);
+  font-size: 9px;
+}
+.date-review-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kt-blue-700);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.date-review-layout {
+  display: grid;
+  grid-template-columns: minmax(260px,.85fr) minmax(0,1.35fr);
+  gap: 10px;
+  padding: 12px;
+}
+.date-review-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.date-review-list > button {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 12px;
+  background: var(--kt-dash-tone-3-bg);
+  color: var(--kt-ink);
+  text-align: left;
+  display: grid;
+  gap: 3px;
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs);
+}
+.date-review-list > button:nth-child(3n+1) {
+  background: var(--kt-dash-tone-1-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-600),var(--kt-shadow-xs);
+}
+.date-review-list > button:nth-child(3n+2) {
+  background: var(--kt-dash-tone-2-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-800),var(--kt-shadow-xs);
+}
+.date-review-list > button.active {
+  border-color: var(--kt-blue-600);
+  box-shadow: inset 4px 0 0 var(--kt-blue-800),var(--kt-focus);
+}
+.date-review-list > button b {
+  color: var(--kt-blue-950);
+  font-size: 10px;
+  line-height: 1.3;
+}
+.date-review-list > button small {
+  color: var(--kt-muted);
+  font-size: 7.5px;
+}
+.date-review-list > button em {
+  width: fit-content;
+  margin-top: 2px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 900;
+}
+.date-review-list > button em.overdue {
+  background: var(--kt-danger-soft);
+  color: var(--kt-danger);
+}
+.date-review-list > button em.without-date {
+  background: var(--kt-blue-150);
+  color: var(--kt-blue-900);
+}
+.date-review-type {
+  width: fit-content;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 6.5px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.date-review-type.type-personal {
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-700);
+}
+.date-review-type.type-tarea {
+  background: var(--kt-blue-150);
+  color: var(--kt-blue-900);
+}
+.date-review-type.type-relevo {
+  background: var(--kt-blue-75);
+  color: var(--kt-blue-600);
+}
+.date-review-form {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.date-review-summary,
+.date-review-form > label {
+  padding: 11px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 12px;
+  background: var(--kt-dash-tone-1-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-600),var(--kt-shadow-xs);
+}
+.date-review-form > label:nth-of-type(1) {
+  background: var(--kt-dash-tone-2-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-800),var(--kt-shadow-xs);
+}
+.date-review-form > label:nth-of-type(2) {
+  background: var(--kt-dash-tone-3-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs);
+}
+.date-review-summary > span {
+  color: var(--kt-blue-700);
+  font-size: 7px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.date-review-summary h3 {
+  margin: 4px 0;
+  color: var(--kt-blue-950);
+  font-size: 15px;
+}
+.date-review-summary p {
+  margin: 0 0 9px;
+  color: var(--kt-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+.date-review-summary > div {
+  display: grid;
+  gap: 2px;
+}
+.date-review-summary > div small {
+  color: var(--kt-muted);
+  font-size: 7px;
+  font-weight: 800;
+}
+.date-review-summary > div b {
+  color: var(--kt-blue-900);
+  font-size: 10px;
+}
+.date-review-form > label {
+  gap: 5px;
+  color: var(--kt-blue-950);
+  font-size: 9px;
+  font-weight: 900;
+}
+.date-review-form > label input,
+.date-review-form > label textarea {
+  background: rgba(255,255,255,.92) !important;
+  border-color: var(--kt-blue-200) !important;
+}
+.date-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+.date-review-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  min-height: 48px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--kt-blue-200);
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.date-review-footer span {
+  color: var(--kt-muted);
+  font-size: 8px;
+}
+
+@media (max-width:760px) {
+  .task-modal .form-grid > label {
+    padding: 8px;
+    border-radius: 11px;
+    box-shadow: inset 2px 0 0 var(--kt-blue-500),var(--kt-shadow-xs);
+  }
+  .date-review-modal {
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 18px 18px 0 0;
+  }
+  .date-review-layout {
+    grid-template-columns: 1fr;
+    padding: 8px;
+  }
+  .date-review-list {
+    max-height: 205px;
+  }
+  .date-review-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .date-review-actions > button {
+    width: 100%;
+  }
+  .date-review-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .date-review-footer .secondary-button {
+    width: 100%;
+  }
+}
