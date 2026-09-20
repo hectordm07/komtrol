@@ -290,8 +290,8 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
     {message && <div className="inline-message">{message}</div>}
 
     <div className="main-dashboard-kpis">
-      <DashCard icon={<ClipboardList/>} label="Tareas pendientes" value={stats.taskPending} onClick={onNavigate ? ()=>onNavigate('lista') : undefined}/>
-      <DashCard icon={<CheckCircle2/>} label="Tareas cerradas" value={stats.taskClosed} onClick={onNavigate ? ()=>onNavigate('lista') : undefined}/>
+      <DashCard icon={<ClipboardList/>} label="Tareas pendientes" value={stats.taskPending} onClick={onNavigate ? ()=>onNavigate('mi-trabajo') : undefined}/>
+      <DashCard icon={<CheckCircle2/>} label="Tareas cerradas" value={stats.taskClosed} onClick={onNavigate ? ()=>onNavigate('mi-trabajo') : undefined}/>
       <DashCard icon={<BarChart3/>} label="Avance promedio" value={`${stats.progress}%`} onClick={onNavigate ? ()=>onNavigate('dashboard-operacion') : undefined}/>
       <DashCard icon={<AlertTriangle/>} label="Incidencias abiertas" value={stats.incidentOpen} onClick={onNavigate ? ()=>onNavigate('incidencias') : undefined}/>
       <DashCard icon={<PackageCheck/>} label="Incidencias notificadas" value={stats.incidentNotified} onClick={onNavigate ? ()=>onNavigate('incidencias') : undefined}/>
