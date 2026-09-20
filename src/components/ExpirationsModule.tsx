@@ -26,7 +26,9 @@ type Profile = {
   warehouse?: string | null
   project?: string | null
   group_name?: string | null
+  shift_name?: string | null
   corporate_email?: string | null
+  worker_access?: boolean
 }
 
 type Expiration = {
@@ -41,6 +43,8 @@ type Expiration = {
   status: 'ACTIVO' | 'RENOVADO' | 'VENCIDO' | 'ANULADO'
   warehouse: string | null
   project: string | null
+  group_name: string | null
+  shift_name: string | null
   notes: string | null
   created_by: string
   updated_by: string | null
@@ -139,6 +143,15 @@ export function ExpirationsModule({type,userId,profile}:Props) {
   const [profiles,setProfiles]=useState<Profile[]>([])
   const [loading,setLoading]=useState(true)
   const [search,setSearch]=useState('')
+  const [scopeMode,setScopeMode]=useState<'PERSONAL'|'TEAM'|'NATIONAL'>(
+    profile?.role==='ADMINISTRADOR'
+      ? 'NATIONAL'
+      : profile?.role==='COORDINADOR'||profile?.role==='SUPERVISOR'
+        ? 'TEAM'
+        : 'PERSONAL'
+  )
+  const [projectFilter,setProjectFilter]=useState('TODOS')
+  const [shiftFilter,setShiftFilter]=useState('TODAS')
   const [showForm,setShowForm]=useState(false)
   const [saving,setSaving]=useState(false)
   const [message,setMessage]=useState('')
@@ -167,14 +180,17 @@ export function ExpirationsModule({type,userId,profile}:Props) {
 
   const config=labels[type]
   const Icon=config.icon
-  const canManage=profile?.role !== 'TRABAJADOR'
+  const isAdmin=profile?.role==='ADMINISTRADOR'
+  const isCoordinator=profile?.role==='COORDINADOR'||profile?.role==='SUPERVISOR'
+  const canReviewTeam=isAdmin||isCoordinator
+  const canRegisterOthers=isAdmin&&scopeMode==='NATIONAL'
 
   async function reload() {
     setLoading(true)
     setMessage('')
     const [expirationRes,profileRes]=await Promise.all([
       supabase.from('compliance_expirations').select('*').eq('expiration_type',type).order('due_date',{ascending:true}).limit(2000),
-      supabase.from('user_profiles').select('user_id,full_name,role,warehouse,project,group_name,corporate_email').eq('active',true).order('full_name'),
+      supabase.from('user_profiles').select('user_id,full_name,role,warehouse,project,group_name,shift_name,corporate_email,worker_access').eq('active',true).order('full_name'),
     ])
     if (expirationRes.error || profileRes.error) {
       setMessage(expirationRes.error?.message || profileRes.error?.message || 'No se pudo cargar vencimientos.')
@@ -182,7 +198,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
     setRows((expirationRes.data ?? []) as Expiration[])
     setProfiles((profileRes.data ?? []) as Profile[])
 
-    if (type === 'CURSO' && canManage) {
+    if (type === 'CURSO' && isAdmin && scopeMode==='NATIONAL') {
       const {data:inboxData,error:inboxError}=await supabase
         .from('course_email_intake')
         .select('id,subject,sender_name,sender_address,received_at,body_preview,detection_status,confidence,detected_course_title,detected_participant_name,detected_participant_email,detected_issuer,detected_certificate_no,detected_issue_date,detected_due_date,matched_user_id,matched_by,parse_notes,attachment_names,expiration_id')
@@ -202,27 +218,99 @@ export function ExpirationsModule({type,userId,profile}:Props) {
 
   useEffect(()=>{reload()},[type,userId])
 
+  useEffect(()=>{
+    if(profile?.role==='ADMINISTRADOR'){
+      if(scopeMode!=='PERSONAL'&&scopeMode!=='NATIONAL') setScopeMode('NATIONAL')
+      return
+    }
+    if(profile?.role==='COORDINADOR'||profile?.role==='SUPERVISOR'){
+      if(scopeMode!=='PERSONAL'&&scopeMode!=='TEAM') setScopeMode('TEAM')
+      return
+    }
+    if(scopeMode!=='PERSONAL') setScopeMode('PERSONAL')
+  },[profile?.role])
+
+  const scopedProfiles=useMemo(()=>{
+    if(isAdmin) return profiles
+    if(isCoordinator){
+      return profiles.filter((p)=>
+        String(p.project||'').trim().toUpperCase()===String(profile?.project||'').trim().toUpperCase()
+      )
+    }
+    return profiles.filter((p)=>p.user_id===userId)
+  },[profiles,isAdmin,isCoordinator,profile?.project,userId])
+
+  const projectOptions=useMemo(()=>Array.from(new Set(
+    profiles.map((p)=>p.project).filter((value): value is string=>Boolean(value))
+  )).sort(),[profiles])
+
+  const shiftOptions=useMemo(()=>Array.from(new Set(
+    scopedProfiles.map((p)=>p.shift_name).filter((value): value is string=>Boolean(value))
+  )).sort(),[scopedProfiles])
+
   const visible=useMemo(()=>{
+    let data=[...rows]
+
+    if(scopeMode==='PERSONAL'){
+      data=data.filter((row)=>row.user_id===userId)
+    }else if(scopeMode==='TEAM'){
+      data=data.filter((row)=>
+        String(row.project||'').trim().toUpperCase()===String(profile?.project||'').trim().toUpperCase()
+      )
+    }
+
+    if(scopeMode==='NATIONAL'&&projectFilter!=='TODOS'){
+      data=data.filter((row)=>row.project===projectFilter)
+    }
+    if(shiftFilter!=='TODAS'){
+      data=data.filter((row)=>(row.shift_name||'SIN GUARDIA')===shiftFilter)
+    }
+
     const q=search.trim().toLowerCase()
-    if(!q) return rows
-    return rows.filter((row)=>{
-      const person=profiles.find((p)=>p.user_id===row.user_id)?.full_name
-      return [person,row.title,row.issuer,row.certificate_no,row.warehouse,row.project,row.notes]
-        .some((value)=>String(value ?? '').toLowerCase().includes(q))
+    if(q){
+      data=data.filter((row)=>{
+        const person=profiles.find((p)=>p.user_id===row.user_id)?.full_name
+        return [
+          person,row.title,row.issuer,row.certificate_no,row.warehouse,row.project,
+          row.group_name,row.shift_name,row.notes
+        ].some((value)=>String(value ?? '').toLowerCase().includes(q))
+      })
+    }
+
+    return data
+  },[rows,profiles,search,scopeMode,userId,profile?.project,projectFilter,shiftFilter])
+
+  const groupedVisible=useMemo(()=>{
+    if(scopeMode==='PERSONAL') return [] as {project:string;warehouse:string;shifts:{shift:string;rows:Expiration[]}[]}[]
+
+    const projectMap=new Map<string,{warehouse:string;shiftMap:Map<string,Expiration[]>}>()
+    visible.forEach((row)=>{
+      const project=row.project||'SIN PROYECTO'
+      const warehouse=row.warehouse||'SIN ALMACÉN'
+      if(!projectMap.has(project)) projectMap.set(project,{warehouse,shiftMap:new Map()})
+      const projectData=projectMap.get(project)!
+      const shift=row.shift_name||'SIN GUARDIA'
+      projectData.shiftMap.set(shift,[...(projectData.shiftMap.get(shift)||[]),row])
     })
-  },[rows,profiles,search])
+
+    return Array.from(projectMap.entries()).map(([project,data])=>({
+      project,
+      warehouse:data.warehouse,
+      shifts:Array.from(data.shiftMap.entries()).map(([shift,shiftRows])=>({shift,rows:shiftRows})).sort((a,b)=>a.shift.localeCompare(b.shift)),
+    })).sort((a,b)=>a.project.localeCompare(b.project))
+  },[visible,scopeMode])
 
   const counts=useMemo(()=>{
-    const active=rows.filter((row)=>row.status!=='ANULADO'&&row.status!=='RENOVADO')
+    const active=visible.filter((row)=>row.status!=='ANULADO'&&row.status!=='RENOVADO')
     const expired=active.filter((row)=>daysRemaining(row.due_date)<0).length
     const next30=active.filter((row)=>{const d=daysRemaining(row.due_date);return d>=0&&d<=30}).length
     const next60=active.filter((row)=>{const d=daysRemaining(row.due_date);return d>30&&d<=60}).length
     return {total:active.length,expired,next30,next60}
-  },[rows])
+  },[visible])
 
   function openNew() {
     setForm({
-      user_id: profile?.role==='TRABAJADOR' ? userId : userId,
+      user_id: canRegisterOthers ? (form.user_id || userId) : userId,
       title:'',
       issuer:'',
       certificate_no:'',
@@ -237,9 +325,10 @@ export function ExpirationsModule({type,userId,profile}:Props) {
     event.preventDefault()
     if(!form.due_date || !form.title.trim()) return
     setSaving(true)
-    const target=profiles.find((p)=>p.user_id===form.user_id)
+    const targetUserId=canRegisterOthers?form.user_id:userId
+    const target=profiles.find((p)=>p.user_id===targetUserId) || profile
     const {error}=await supabase.from('compliance_expirations').insert({
-      user_id:form.user_id,
+      user_id:targetUserId,
       expiration_type:type,
       title:form.title.trim(),
       issuer:form.issuer.trim()||null,
@@ -249,6 +338,8 @@ export function ExpirationsModule({type,userId,profile}:Props) {
       status:'ACTIVO',
       warehouse:target?.warehouse || profile?.warehouse || null,
       project:target?.project || profile?.project || null,
+      group_name:target?.group_name || null,
+      shift_name:target?.shift_name || null,
       notes:form.notes.trim()||null,
       created_by:userId,
       updated_by:userId,
@@ -325,6 +416,8 @@ export function ExpirationsModule({type,userId,profile}:Props) {
           status:'ACTIVO',
           warehouse:target?.warehouse || profile?.warehouse || null,
           project:target?.project || profile?.project || null,
+          group_name:target?.group_name || null,
+          shift_name:target?.shift_name || null,
           notes:`Validado desde correo Outlook: ${reviewRow.subject}`,
           created_by:userId,
           updated_by:userId,
@@ -396,7 +489,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
         </div>
       </section>
 
-      {type==='CURSO' && canManage && (
+      {type==='CURSO' && isAdmin && scopeMode==='NATIONAL' && (
         <section className="panel outlook-course-panel">
           <div className="panel-title">
             <div className="outlook-course-title">
@@ -468,36 +561,99 @@ export function ExpirationsModule({type,userId,profile}:Props) {
         </section>
       )}
 
-      <section className="panel">
-        <div className="task-toolbar">
+      <section className="panel expiration-data-panel">
+        <div className="expiration-scope-bar">
+          <div className="expiration-scope-tabs">
+            <button type="button" className={scopeMode==='PERSONAL'?'active':''} onClick={()=>setScopeMode('PERSONAL')}>
+              Mi información
+            </button>
+            {isCoordinator&&(
+              <button type="button" className={scopeMode==='TEAM'?'active':''} onClick={()=>setScopeMode('TEAM')}>
+                Equipo del proyecto
+              </button>
+            )}
+            {isAdmin&&(
+              <button type="button" className={scopeMode==='NATIONAL'?'active':''} onClick={()=>setScopeMode('NATIONAL')}>
+                Administración nacional
+              </button>
+            )}
+          </div>
+          <div className="expiration-scope-context">
+            {scopeMode==='PERSONAL'
+              ? <span>Vista Trabajador · {profile?.warehouse||'Sin almacén'} · {profile?.shift_name||'Sin guardia'}</span>
+              : scopeMode==='TEAM'
+                ? <span>Proyecto Minero · {profile?.warehouse||profile?.project||'Proyecto'} · Guardias del equipo</span>
+                : <span>Todos los proyectos · acceso Administrador</span>}
+          </div>
+        </div>
+
+        <div className="task-toolbar expiration-filter-toolbar">
           <div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar persona, curso, licencia, certificado…"/></div>
+          {scopeMode==='NATIONAL'&&(
+            <select value={projectFilter} onChange={(e)=>setProjectFilter(e.target.value)}>
+              <option value="TODOS">Todos los proyectos</option>
+              {projectOptions.map((project)=><option key={project} value={project}>{project}</option>)}
+            </select>
+          )}
+          {scopeMode!=='PERSONAL'&&(
+            <select value={shiftFilter} onChange={(e)=>setShiftFilter(e.target.value)}>
+              <option value="TODAS">Todas las guardias</option>
+              {shiftOptions.map((shift)=><option key={shift} value={shift}>{shift}</option>)}
+              <option value="SIN GUARDIA">Sin guardia</option>
+            </select>
+          )}
         </div>
         {message&&<div className="inline-message">{message}</div>}
         {loading ? (
           <div className="screen-center compact"><RefreshCw className="spin" size={20}/><p>Cargando vencimientos…</p></div>
         ) : (
           <>
-            <div className="table-wrap expiration-desktop-table">
+            <div className="table-wrap expiration-desktop-table expiration-hierarchy-table">
               <table>
                 <thead><tr><th>Persona</th><th>Detalle</th><th>Emisor</th><th>Certificado</th><th>Emisión</th><th>Vencimiento</th><th>Días</th><th>Estado</th></tr></thead>
-                <tbody>
-                  {visible.map((row)=>{
-                    const status=statusFor(row)
-                    const days=daysRemaining(row.due_date)
-                    return <tr key={row.id}>
-                      <td><b>{personName(row.user_id)}</b></td>
-                      <td>{row.title}</td>
-                      <td>{row.issuer||'—'}</td>
-                      <td>{row.certificate_no||'—'}</td>
-                      <td>{dateOnly(row.issue_date)}</td>
-                      <td><b>{dateOnly(row.due_date)}</b></td>
-                      <td>{days<0?`${Math.abs(days)} días vencido`:`${days} días`}</td>
-                      <td><span className={`status-pill ${status.kind==='danger'?'danger':status.kind==='warning'?'warning':''}`}>{status.label}</span></td>
-                    </tr>
-                  })}
-                </tbody>
+                {scopeMode==='PERSONAL' ? (
+                  <tbody>
+                    {visible.map((row)=>{
+                      const status=statusFor(row)
+                      const days=daysRemaining(row.due_date)
+                      return <tr key={row.id}>
+                        <td><b>{personName(row.user_id)}</b><small>{row.shift_name||profile?.shift_name||'Sin guardia'}</small></td>
+                        <td>{row.title}</td>
+                        <td>{row.issuer||'—'}</td>
+                        <td>{row.certificate_no||'—'}</td>
+                        <td>{dateOnly(row.issue_date)}</td>
+                        <td><b>{dateOnly(row.due_date)}</b></td>
+                        <td>{days<0?`${Math.abs(days)} días vencido`:`${days} días`}</td>
+                        <td><span className={`status-pill ${status.kind==='danger'?'danger':status.kind==='warning'?'warning':''}`}>{status.label}</span></td>
+                      </tr>
+                    })}
+                  </tbody>
+                ) : (
+                  groupedVisible.map((projectGroup)=>(
+                    <tbody key={projectGroup.project} className="expiration-project-group">
+                      <tr className="expiration-project-row"><td colSpan={8}><b>Proyecto Minero · {projectGroup.warehouse}</b><span>{projectGroup.project}</span></td></tr>
+                      {projectGroup.shifts.map((shiftGroup)=>[
+                        <tr className="expiration-shift-row" key={`${projectGroup.project}-${shiftGroup.shift}-head`}><td colSpan={8}><b>{shiftGroup.shift}</b><span>{new Set(shiftGroup.rows.map((row)=>row.user_id)).size} persona(s) · {shiftGroup.rows.length} registro(s)</span></td></tr>,
+                        ...shiftGroup.rows.map((row)=>{
+                          const status=statusFor(row)
+                          const days=daysRemaining(row.due_date)
+                          return <tr key={row.id}>
+                            <td><b>{personName(row.user_id)}</b><small>{row.group_name||'Sin grupo'}</small></td>
+                            <td>{row.title}</td>
+                            <td>{row.issuer||'—'}</td>
+                            <td>{row.certificate_no||'—'}</td>
+                            <td>{dateOnly(row.issue_date)}</td>
+                            <td><b>{dateOnly(row.due_date)}</b></td>
+                            <td>{days<0?`${Math.abs(days)} días vencido`:`${days} días`}</td>
+                            <td><span className={`status-pill ${status.kind==='danger'?'danger':status.kind==='warning'?'warning':''}`}>{status.label}</span></td>
+                          </tr>
+                        }),
+                      ])}
+                    </tbody>
+                  ))
+                )}
               </table>
-              {!visible.length&&<div className="empty-work"><CheckCircle2 size={28}/><b>Sin registros</b><p>No hay vencimientos registrados en esta categoría.</p></div>}
+              {!visible.length&&<div className="empty-work"><CheckCircle2 size={28}/><b>Sin registros</b><p>No hay vencimientos registrados para este alcance.</p></div>}
             </div>
 
             <div className="expiration-mobile-list">
@@ -509,7 +665,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
                     <div><small>{config.title.toUpperCase()}</small><b>{row.title}</b></div>
                     <span className={`status-pill ${status.kind==='danger'?'danger':status.kind==='warning'?'warning':''}`}>{status.label}</span>
                   </div>
-                  <p>{personName(row.user_id)}</p>
+                  <p>{personName(row.user_id)} · {row.project||profile?.project||'Sin proyecto'} · {row.shift_name||profile?.shift_name||'Sin guardia'}</p>
                   <div className="expiration-mobile-data">
                     <div><span>Vencimiento</span><b>{dateOnly(row.due_date)}</b></div>
                     <div><span>Días restantes</span><b>{days<0?`-${Math.abs(days)}`:days}</b></div>
@@ -566,9 +722,10 @@ export function ExpirationsModule({type,userId,profile}:Props) {
             <div className="modal-head"><div><h2>Registrar {config.title}</h2><p>El sistema calculará automáticamente los días restantes y el estado.</p></div><button type="button" className="icon-button" onClick={()=>setShowForm(false)}><X size={19}/></button></div>
             <div className="form-grid">
               <label className="span-2">Persona
-                <select value={form.user_id} onChange={(e)=>setForm({...form,user_id:e.target.value})} disabled={!canManage}>
-                  {profiles.filter((p)=>profile?.role==='ADMINISTRADOR'||profile?.role==='SUPERVISOR'||p.warehouse===profile?.warehouse||p.user_id===userId).map((p)=><option value={p.user_id} key={p.user_id}>{p.full_name}{p.warehouse?` · ${p.warehouse}`:''}</option>)}
+                <select value={canRegisterOthers?form.user_id:userId} onChange={(e)=>setForm({...form,user_id:e.target.value})} disabled={!canRegisterOthers}>
+                  {(canRegisterOthers?profiles:profiles.filter((p)=>p.user_id===userId)).map((p)=><option value={p.user_id} key={p.user_id}>{p.full_name}{p.warehouse?` · ${p.warehouse}`:''}{p.shift_name?` · ${p.shift_name}`:''}</option>)}
                 </select>
+                <small>{canRegisterOthers?'Administrador: puedes registrar para cualquier usuario.':'Cada usuario registra su propia información personal.'}</small>
               </label>
               <label className="span-2">Nombre / detalle<input required value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} placeholder={type==='CURSO'?'Ej. Trabajo en altura':type==='LICENCIA_INTERNA'?'Ej. Montacargas - Franja amarilla':'Ej. EMOA anual'}/></label>
               <label>Emisor / institución<input value={form.issuer} onChange={(e)=>setForm({...form,issuer:e.target.value})}/></label>
