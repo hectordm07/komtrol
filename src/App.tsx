@@ -509,8 +509,7 @@ function Workspace({ session }: { session: Session }) {
     {
       section: 'ÁREA DE TRABAJO',
       items: [
-        { id: 'mi-trabajo' as Tab, label: 'Mi trabajo', icon: ClipboardList },
-        { id: 'relevos' as Tab, label: 'Relevos', icon: RefreshCw },
+        { id: 'mi-trabajo' as Tab, label: 'Trabajo', icon: ClipboardList },
       ],
     },
     {
