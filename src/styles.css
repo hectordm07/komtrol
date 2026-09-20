@@ -14231,3 +14231,78 @@ table tbody tr:hover td {
     font-size: 16px !important;
   }
 }
+
+
+/* =========================================================
+   SCANNER DUPLICADOS / FEEDBACK V9
+   ========================================================= */
+.scanner-duplicate-warning,
+.scanner-footer-feedback {
+  min-height: 46px;
+  padding: 8px 10px;
+  border: 1px solid #efc98f;
+  border-radius: 10px;
+  background: #fff8e8;
+  color: #7a5909;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 620px;
+}
+
+.scanner-duplicate-warning svg,
+.scanner-footer-feedback svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.scanner-duplicate-warning > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.scanner-duplicate-warning b {
+  color: #6f4f00;
+  font-size: 10px;
+}
+
+.scanner-duplicate-warning span,
+.scanner-duplicate-warning small,
+.scanner-footer-feedback span {
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.scanner-duplicate-warning small {
+  color: #8a6c25;
+}
+
+.scanner-footer-feedback {
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .scanner-duplicate-warning,
+  .scanner-footer-feedback {
+    width: 100%;
+    max-width: none;
+  }
+
+  .scanner-duplicate-warning b {
+    font-size: 11px;
+  }
+
+  .scanner-duplicate-warning span,
+  .scanner-duplicate-warning small,
+  .scanner-footer-feedback span {
+    font-size: 10px;
+  }
+
+  .scanner-footer-feedback {
+    margin-left: 0;
+  }
+}
