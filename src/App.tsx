@@ -5,7 +5,6 @@ import {
   Bell,
   BadgeCheck,
   Boxes,
-  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -39,11 +38,11 @@ import { LocationSheetsModule } from './components/LocationSheetsModule'
 import { AlertsModule } from './components/AlertsModule'
 import { OcCargoTrackingModule } from './components/OcCargoTrackingModule'
 import { InboundModule } from './components/InboundModule'
-import { MainDashboardModule } from './components/MainDashboardModule'
 import { ReceivingIncidentModule } from './components/ReceivingIncidentModule'
 import { IncidentEmailSettings } from './components/IncidentEmailSettings'
 import { SurplusKardexModule } from './components/SurplusKardexModule'
 import { ExpirationsModule } from './components/ExpirationsModule'
+import { UniversalDashboardModule } from './components/UniversalDashboardModule'
 
 type Tab = string
 
@@ -840,9 +839,8 @@ function Workspace({ session }: { session: Session }) {
             </section>
           ) : (
             <>
-              {tab === 'inicio' && isCallaoProfile && (
-                <InboundModule
-                  mode="dashboard"
+              {tab === 'inicio' && (
+                <UniversalDashboardModule
                   userId={user.id}
                   profile={profile}
                   onNavigate={(targetTab) => {
@@ -858,28 +856,6 @@ function Workspace({ session }: { session: Session }) {
                         : [...current, target.section]
                     )
                     setMobileMenu(false)
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
-                />
-              )}
-
-              {tab === 'inicio' && !isCallaoProfile && (
-                <MainDashboardModule
-                  profile={profile}
-                  role={role}
-                  scope="REMOTE"
-                  onNavigate={(targetTab) => {
-                    const target = flatNav.find((item) => item.id === targetTab)
-                    if (!target) {
-                      setToast('Este reporte no está disponible para tu perfil.')
-                      return
-                    }
-                    setTab(targetTab)
-                    setOpenSections((current) =>
-                      current.includes(target.section)
-                        ? current
-                        : [...current, target.section]
-                    )
                     window.scrollTo({ top: 0, behavior: 'smooth' })
                   }}
                 />
