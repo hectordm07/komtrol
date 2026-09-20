@@ -458,11 +458,10 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
 
   return (
     <div className="dashboard-module professional-dashboard-module">
-      <section className="panel dashboard-control-strip">
-        <div>
+      <section className="panel dashboard-control-strip dashboard-compact-toolbar">
+        <div className="dashboard-context-strip">
           <span className="dashboard-control-kicker">ALMACENES REMOTOS</span>
-          <h2>{MODE_TITLE[mode]}</h2>
-          <p>Proyectos Mineros · Sucursales · Tiendas · Callao excluido · {String(month).padStart(2, '0')}/{year}</p>
+          <b>{MODE_TITLE[mode]}</b>
         </div>
         {selector}
       </section>
