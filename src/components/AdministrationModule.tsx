@@ -17,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel } from '../lib/exportUtils'
 import * as XLSX from 'xlsx'
 
 type Mode =
@@ -798,17 +799,28 @@ function BulkImports({ userId }: { userId: string }) {
   function downloadErrors() {
     const errors = preview.filter((row)=>!row.valid)
     if (!errors.length) return
-    downloadCsv(
-      `KOMTROL_Errores_${type}.csv`,
+    const dynamicColumns = IMPORT_HEADERS[type].map((header)=>({
+      header,
+      key: header,
+      width: header.length > 18 ? 28 : 18,
+    }))
+    const rows = errors.map((row)=>({
+      FILA: row.row,
+      ERROR: row.error,
+      CAMPO: errorField(row.error),
+      ...Object.fromEntries(IMPORT_HEADERS[type].map((header)=>[header,row.values[header] || ''])),
+    }))
+    exportRowsToExcel(
+      `KOMTROL_Errores_${type}`,
+      'Errores',
       [
-        ['FILA','ERROR','CAMPO',...IMPORT_HEADERS[type]],
-        ...errors.map((row)=>[
-          String(row.row),
-          row.error,
-          errorField(row.error),
-          ...IMPORT_HEADERS[type].map((header)=>row.values[header] || ''),
-        ]),
-      ]
+        {header:'FILA',key:'FILA',width:10},
+        {header:'ERROR',key:'ERROR',width:42},
+        {header:'CAMPO',key:'CAMPO',width:18},
+        ...dynamicColumns,
+      ],
+      rows,
+      [['Tipo de carga',type],['Filas con error',errors.length]]
     )
   }
 
@@ -965,7 +977,7 @@ function BulkImports({ userId }: { userId: string }) {
               <h4>Detalle y corrección de errores</h4>
               <p>Revisa el alcance de cada error y corrige el campo directamente. También puedes aceptar el lote con errores: KOMTROL procesa las filas válidas y conserva las observadas completas en la bitácora para corregirlas después.</p>
             </div>
-            <button className="secondary-button" onClick={downloadErrors}><Download size={15}/> Descargar errores CSV</button>
+            <button className="secondary-button" onClick={downloadErrors}><Download size={15}/> Descargar errores Excel</button>
           </div>
           <div className="bulk-error-list">
             {preview.filter((row)=>!row.valid).slice(0,100).map((row)=>{
@@ -996,7 +1008,7 @@ function BulkImports({ userId }: { userId: string }) {
               </article>
             })}
           </div>
-          {errorCount>100&&<div className="table-note">Mostrando 100 de {errorCount} errores. Descarga el CSV para revisar el total.</div>}
+          {errorCount>100&&<div className="table-note">Mostrando 100 de {errorCount} errores. Descarga el Excel para revisar el total.</div>}
         </section>
       )}
 
