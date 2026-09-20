@@ -217,7 +217,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
   const groupPending=groupTasks.filter(isOpen)
   const unread=notifications.filter((row)=>!row.read_at).length
   const operationalWarehouse=(profile.warehouse||'').toUpperCase()
-  const scopeWarehouse=<T extends {warehouse?:string|null}>(rows:T[])=>{
+  function scopeWarehouse<T extends {warehouse?:string|null}>(rows:T[]){
     if(profile.role==='ADMINISTRADOR' && !operationalWarehouse) return rows
     if(!operationalWarehouse) return rows
     return rows.filter((row)=>String(row.warehouse||'').toUpperCase()===operationalWarehouse)
