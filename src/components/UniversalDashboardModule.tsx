@@ -217,6 +217,10 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
   const groupTasks=useMemo(()=>tasks.filter((task)=>{
     if(task.work_type==='PERSONAL') return false
 
+    // Una tarea asignada directamente a una persona debe aparecer aunque
+    // provenga de otro almacén/proyecto: la asignación explícita tiene prioridad.
+    if(task.assignment_type==='PERSONA' && task.assigned_user_id===userId) return true
+
     const normalizedWarehouse=String(profile.warehouse||'').trim().toUpperCase()
     const normalizedProject=String(profile.project||'').trim().toUpperCase()
     const normalizedGroup=String(profile.group_name||'').trim().toUpperCase()
@@ -250,7 +254,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
     }
 
     return true
-  }),[tasks,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
+  }),[tasks,userId,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
 
   const openPersonal=personalTasks.filter(isOpen)
   const overduePersonal=personalTasks.filter(isOverdue)
