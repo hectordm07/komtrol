@@ -68,6 +68,8 @@ type ReportDef = {
   site_field: string | null
   group_field: string | null
   status_field: string | null
+  date_field: string
+  year_field: string
   fields: FieldDef[]
   chart_layout: ChartSpec[]
   description: string | null
@@ -557,8 +559,8 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     raw.forEach((source,index)=>{
       const siteRaw=source[def.site_field||''] ?? source['DETALLE'] ?? source['Proyecto'] ?? source['Proyectos Mineros'] ?? source['SEDE'] ?? source['NOMBRE'] ?? source['PROYECTO / PLACA']
       if(siteRaw===null||siteRaw===undefined||String(siteRaw).trim()==='') return
-      const date=excelDate(source['MES'])
-      const rowYear=Number(source['AÑO'] || date?.getFullYear() || year)
+      const date=excelDate(source[def.date_field || 'MES'])
+      const rowYear=Number(source[def.year_field || 'AÑO'] || date?.getFullYear() || year)
       const rowMonth=Number(date ? date.getMonth()+1 : month)
       if(!rowYear||!rowMonth||rowMonth<1||rowMonth>12) return
       const warehouse=canonicalWarehouse(siteRaw)
