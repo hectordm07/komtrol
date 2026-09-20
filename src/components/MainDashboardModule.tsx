@@ -162,6 +162,22 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
     return {taskPending,taskClosed,incidentOpen,incidentNotified,guideCount,boxOpen,progress}
   },[scoped])
 
+  const canSeeCallaoInbound = role === 'ADMINISTRADOR' || profile?.warehouse?.toUpperCase() === 'CALLAO'
+
+  const callaoStats=useMemo(()=>{
+    const callaoIncidents=incidents.filter((x)=>x.warehouse?.toUpperCase()==='CALLAO')
+    const callaoBoxes=boxes.filter((x)=>x.warehouse?.toUpperCase()==='CALLAO')
+    const callaoGuides=guides.filter((x)=>x.warehouse?.toUpperCase()==='CALLAO')
+    return {
+      incidents: callaoIncidents.length,
+      pending: callaoIncidents.filter((x)=>x.status!=='CERRADO').length,
+      notified: callaoIncidents.filter((x)=>x.status==='NOTIFICADO').length,
+      openBoxes: callaoBoxes.filter((x)=>x.status==='ABIERTA').length,
+      closedBoxes: callaoBoxes.filter((x)=>x.status==='CERRADA').length,
+      guides: callaoGuides.length,
+    }
+  },[incidents,boxes,guides])
+
   const activity=useMemo(()=>{
     const rows=[
       ...scoped.tasks.slice(0,10).map((x)=>({kind:'TAREA',title:x.title,status:x.status,date:x.updated_at})),
@@ -294,6 +310,45 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
       <DashCard icon={<Boxes/>} label="Cajas abiertas" value={stats.boxOpen} onClick={onNavigate ? ()=>onNavigate(role==='ADMINISTRADOR' || profile?.warehouse==='CALLAO' ? 'inbound-cajas' : 'kardex-sobrantes') : undefined}/>
     </div>
 
+    {canSeeCallaoInbound && onNavigate && (
+      <section className="panel dashboard-inbound-integrated">
+        <div className="dashboard-inbound-head">
+          <div>
+            <span>INBOUND · CALLAO</span>
+            <b>Resumen operativo</b>
+          </div>
+          <small>Integrado al Dashboard General</small>
+        </div>
+        <div className="dashboard-inbound-kpis">
+          <button type="button" onClick={()=>onNavigate('inbound-incidencias')}>
+            <AlertTriangle size={17}/>
+            <span><small>INCIDENCIAS</small><b>{callaoStats.incidents}</b></span>
+            <ChevronRight size={15}/>
+          </button>
+          <button type="button" onClick={()=>onNavigate('inbound-incidencias')}>
+            <ClipboardList size={17}/>
+            <span><small>PENDIENTES</small><b>{callaoStats.pending}</b></span>
+            <ChevronRight size={15}/>
+          </button>
+          <button type="button" onClick={()=>onNavigate('inbound-cajas')}>
+            <Boxes size={17}/>
+            <span><small>CAJAS ABIERTAS</small><b>{callaoStats.openBoxes}</b></span>
+            <ChevronRight size={15}/>
+          </button>
+          <button type="button" onClick={()=>onNavigate('inbound-kardex')}>
+            <PackageCheck size={17}/>
+            <span><small>KARDEX / CERRADAS</small><b>{callaoStats.closedBoxes}</b></span>
+            <ChevronRight size={15}/>
+          </button>
+          <button type="button" onClick={()=>onNavigate('seguimiento-guias')}>
+            <Truck size={17}/>
+            <span><small>GUÍAS</small><b>{callaoStats.guides}</b></span>
+            <ChevronRight size={15}/>
+          </button>
+        </div>
+      </section>
+    )}
+
     {onNavigate && (
       <section className="panel dashboard-report-panel">
         <div className="panel-title">
@@ -304,6 +359,11 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
         </div>
         <div className="dashboard-report-links">
           {[
+            ...(canSeeCallaoInbound ? [
+              ['inbound-incidencias','Inbound · Incidencias'],
+              ['inbound-cajas','Inbound · Cajas'],
+              ['inbound-kardex','Inbound · Kardex'],
+            ] : []),
             ['dashboard-operacion','Operación'],
             ['inbound-outbound','Inbound / Outbound'],
             ['eri','ERI'],
