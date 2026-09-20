@@ -841,20 +841,26 @@ function Workspace({ session }: { session: Session }) {
           ) : (
             <>
               {tab === 'inicio' && isCallaoProfile && (
-                <section className="panel central-dashboard-placeholder">
-                  <div className="module-placeholder-head">
-                    <div className="module-icon"><Boxes size={22} /></div>
-                    <div>
-                      <span className="eyebrow">ALMACENES CENTRALES</span>
-                      <h2>Dashboard · Callao</h2>
-                      <p>Callao pertenece a Almacenes Centrales. Su dashboard corporativo se configurará de forma independiente y no utiliza la información consolidada de Almacenes Remotos.</p>
-                    </div>
-                  </div>
-                  <div className="central-dashboard-status">
-                    <div><CheckCircle2 size={18}/><span><b>Perfil correctamente separado</b><small>Callao no tiene acceso al reporte de Almacenes Remotos.</small></span></div>
-                    <div><BarChart3 size={18}/><span><b>Dashboard propio</b><small>La estructura queda reservada para el tablero específico de Almacenes Centrales.</small></span></div>
-                  </div>
-                </section>
+                <InboundModule
+                  mode="dashboard"
+                  userId={user.id}
+                  profile={profile}
+                  onNavigate={(targetTab) => {
+                    const target = flatNav.find((item) => item.id === targetTab)
+                    if (!target) {
+                      setToast('Este indicador no está disponible para tu perfil.')
+                      return
+                    }
+                    setTab(targetTab)
+                    setOpenSections((current) =>
+                      current.includes(target.section)
+                        ? current
+                        : [...current, target.section]
+                    )
+                    setMobileMenu(false)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                />
               )}
 
               {tab === 'inicio' && !isCallaoProfile && (
