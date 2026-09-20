@@ -526,7 +526,6 @@ function Workspace({ session }: { session: Session }) {
           section: 'INBOUND · CALLAO',
           collapsible: true,
           items: [
-            { id: 'inbound-dashboard' as Tab, label: 'Dashboard Inbound', icon: BarChart3 },
             { id: 'inbound-incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
             { id: 'inbound-cajas' as Tab, label: 'Sobrantes / Cajas', icon: Boxes },
             { id: 'inbound-kardex' as Tab, label: 'Kardex de Sobrantes', icon: ClipboardList },
@@ -616,8 +615,8 @@ function Workspace({ session }: { session: Session }) {
 
           const allowedInbound =
             isCallaoSupervisor
-              ? ['inbound-dashboard','inbound-incidencias','inbound-cajas','inbound-kardex']
-              : ['inbound-dashboard','inbound-incidencias','inbound-cajas','inbound-kardex']
+              ? ['inbound-incidencias','inbound-cajas','inbound-kardex']
+              : ['inbound-incidencias','inbound-cajas','inbound-kardex']
 
           return {
             ...group,
@@ -650,7 +649,7 @@ function Workspace({ session }: { session: Session }) {
     tab === 'vencimientos-cursos' ? 'CURSO' :
     tab === 'vencimientos-licencias' ? 'LICENCIA_INTERNA' :
     'EMOA'
-  const inboundTabs = ['inbound-dashboard', 'inbound-personal', 'inbound-tareas', 'inbound-incidencias', 'inbound-cajas', 'inbound-kardex'] as const
+  const inboundTabs = ['inbound-personal', 'inbound-tareas', 'inbound-incidencias', 'inbound-cajas', 'inbound-kardex'] as const
   const isInboundTab = inboundTabs.includes(tab as typeof inboundTabs[number])
   const isTaskTab = taskTabs.includes(tab as typeof taskTabs[number])
   const guideTabs = ['scanner-guias', 'seguimiento-guias'] as const
@@ -893,29 +892,6 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                   )}
                 </section>
-              )}
-
-              {isInboundTab && tab === 'inbound-dashboard' && (
-                <InboundModule
-                  mode="dashboard"
-                  userId={user.id}
-                  profile={profile}
-                  onNavigate={(targetTab) => {
-                    const target = flatNav.find((item) => item.id === targetTab)
-                    if (!target) {
-                      setToast('Este indicador no está disponible para tu perfil.')
-                      return
-                    }
-                    setTab(targetTab)
-                    setOpenSections((current) =>
-                      current.includes(target.section)
-                        ? current
-                        : [...current, target.section]
-                    )
-                    setMobileMenu(false)
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
-                />
               )}
 
               {isInboundTab && tab === 'inbound-incidencias' && (
