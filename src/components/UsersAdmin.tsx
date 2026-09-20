@@ -15,6 +15,7 @@ type ProfileRow = {
   group_name: string | null
   shift_name: string | null
   position: string | null
+  corporate_email: string | null
   created_at: string
 }
 
@@ -27,6 +28,7 @@ type ImportUser = {
   group_name: string
   shift_name: string
   position: string
+  corporate_email: string
   pin: string
 }
 
@@ -38,6 +40,10 @@ type ImportResult = ImportUser & {
 }
 
 const ROLES: Role[] = ['TRABAJADOR', 'COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR']
+
+function validOptionalEmail(value: string) {
+  return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
 
 function normalizeHeader(value: string) {
   return value
@@ -109,6 +115,7 @@ function parseUsers(text: string): ImportUser[] {
     group: indexOf('GRUPO', 'GROUP'),
     shift: indexOf('GUARDIA', 'TURNO', 'SHIFT', 'SHIFT_NAME'),
     position: indexOf('CARGO', 'PUESTO', 'POSITION'),
+    email: indexOf('CORREO', 'EMAIL', 'CORREO_CORPORATIVO', 'CORPORATE_EMAIL'),
     pin: indexOf('PIN', 'CLAVE'),
   }
 
@@ -127,6 +134,7 @@ function parseUsers(text: string): ImportUser[] {
       group_name: indexes.group >= 0 ? String(cells[indexes.group] ?? '').trim() : '',
       shift_name: indexes.shift >= 0 ? String(cells[indexes.shift] ?? '').trim() : '',
       position: indexes.position >= 0 ? String(cells[indexes.position] ?? '').trim() : '',
+      corporate_email: indexes.email >= 0 ? String(cells[indexes.email] ?? '').trim().toLowerCase() : '',
       pin: indexes.pin >= 0 ? String(cells[indexes.pin] ?? '').replace(/\D/g, '').slice(0, 8) : '',
     }
   })
@@ -167,7 +175,8 @@ export function UsersAdmin() {
     const valid = parsed.filter((row) =>
       /^\d{8}$/.test(row.dni) &&
       Boolean(row.full_name) &&
-      (!row.pin || /^\d{4,8}$/.test(row.pin))
+      (!row.pin || /^\d{4,8}$/.test(row.pin)) &&
+      validOptionalEmail(row.corporate_email)
     )
     return {
       total: parsed.length,
@@ -180,7 +189,7 @@ export function UsersAdmin() {
     setLoading(true)
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,created_at')
+      .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,created_at')
       .order('full_name')
     if (error) setMessage(error.message)
     setProfiles((data ?? []) as ProfileRow[])
@@ -214,6 +223,7 @@ export function UsersAdmin() {
         group_name: 'INBOUND',
         shift_name: 'GUARDIA A',
         position: 'COORDINADOR ALMACEN CALLAO',
+        corporate_email: '',
         pin: '',
       },
       {
@@ -225,6 +235,7 @@ export function UsersAdmin() {
         group_name: 'INBOUND',
         shift_name: 'GUARDIA A',
         position: 'SUPERVISOR CALLAO',
+        corporate_email: '',
         pin: '',
       },
     ]
@@ -257,6 +268,7 @@ export function UsersAdmin() {
           project: row.project,
           group_name: row.group_name,
           role: row.role,
+          corporate_email: row.corporate_email || null,
           active: true,
         })
         .eq('dni', row.dni)
@@ -301,10 +313,12 @@ export function UsersAdmin() {
     setResults(resultRows)
 
     for (const row of parsed) {
-      if (!row.shift_name) continue
       await supabase
         .from('user_profiles')
-        .update({ shift_name: row.shift_name })
+        .update({
+          shift_name: row.shift_name || null,
+          corporate_email: row.corporate_email || null,
+        })
         .eq('dni', row.dni)
     }
 
@@ -314,9 +328,9 @@ export function UsersAdmin() {
 
   function downloadTemplate() {
     downloadCsv('KOMTROL_Plantilla_Usuarios.csv', [
-      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'CARGO', 'PIN'],
-      ['12345678', 'NOMBRE APELLIDO', 'TRABAJADOR', 'ANTAMINA', 'ALMACEN ANTAMINA', 'PALAS', 'GUARDIA A', 'ALMACENERO', ''],
-      ['87654321', 'NOMBRE APELLIDO', 'COORDINADOR', 'CALLAO', 'INBOUND CALLAO', 'INBOUND', 'GUARDIA A', 'COORDINADOR', ''],
+      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'CARGO', 'CORREO', 'PIN'],
+      ['12345678', 'NOMBRE APELLIDO', 'TRABAJADOR', 'ANTAMINA', 'ALMACEN ANTAMINA', 'PALAS', 'GUARDIA A', 'ALMACENERO', 'nombre@empresa.com', ''],
+      ['87654321', 'NOMBRE APELLIDO', 'COORDINADOR', 'CALLAO', 'INBOUND CALLAO', 'INBOUND', 'GUARDIA A', 'COORDINADOR', 'coordinador@empresa.com', ''],
     ])
   }
 
@@ -324,15 +338,15 @@ export function UsersAdmin() {
     const created = results.filter((r) => r.status === 'CREADO')
     if (!created.length) return
     downloadCsv('KOMTROL_Credenciales_Creadas.csv', [
-      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'PIN'],
-      ...created.map((r) => [r.dni, r.full_name, r.role, r.warehouse, r.project, r.group_name, r.shift_name || '', r.pin]),
+      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'CORREO', 'PIN'],
+      ...created.map((r) => [r.dni, r.full_name, r.role, r.warehouse, r.project, r.group_name, r.shift_name || '', r.corporate_email || '', r.pin]),
     ])
   }
 
   const visibleProfiles = profiles.filter((p) => {
     const q = search.toLowerCase().trim()
     if (!q) return true
-    return [p.dni, p.full_name, p.role, p.warehouse, p.project, p.group_name]
+    return [p.dni, p.full_name, p.role, p.warehouse, p.project, p.group_name, p.corporate_email]
       .some((value) => String(value ?? '').toLowerCase().includes(q))
   })
 
@@ -353,7 +367,7 @@ export function UsersAdmin() {
 
         <div className="bulk-user-grid">
           <div className="bulk-input-card">
-            <div className="bulk-step"><span>1</span><div><b>Copia desde Excel o carga CSV</b><small>Columnas: DNI, NOMBRE, ROL, ALMACEN, PROYECTO, GRUPO, GUARDIA, CARGO, PIN.</small></div></div>
+            <div className="bulk-step"><span>1</span><div><b>Copia desde Excel o carga CSV</b><small>Columnas: DNI, NOMBRE, ROL, ALMACEN, PROYECTO, GRUPO, GUARDIA, CARGO, CORREO, PIN.</small></div></div>
             <label className="upload-box compact-upload">
               <FileUp size={20} />
               <span><b>Seleccionar CSV</b><small>También puedes pegar directamente filas copiadas de Excel.</small></span>
@@ -364,7 +378,7 @@ export function UsersAdmin() {
               rows={9}
               value={importText}
               onChange={(e) => { setImportText(e.target.value); setResults([]); setMessage('') }}
-              placeholder={'DNI\tNOMBRE\tROL\tALMACEN\tPROYECTO\tGRUPO\tGUARDIA\tCARGO\tPIN\n12345678\tNOMBRE APELLIDO\tTRABAJADOR\tANTAMINA\tALMACEN ANTAMINA\tPALAS\tGUARDIA A\tALMACENERO\t'}
+              placeholder={'DNI\tNOMBRE\tROL\tALMACEN\tPROYECTO\tGRUPO\tGUARDIA\tCARGO\tCORREO\tPIN\n12345678\tNOMBRE APELLIDO\tTRABAJADOR\tANTAMINA\tALMACEN ANTAMINA\tPALAS\tGUARDIA A\tALMACENERO\tnombre@empresa.com\t'}
             />
             <small className="muted">Si PIN queda vacío, KOMTROL genera automáticamente un PIN de 6 dígitos y lo muestra una sola vez en el resultado.</small>
           </div>
@@ -394,10 +408,10 @@ export function UsersAdmin() {
         {parsed.length > 0 && (
           <div className="table-wrap preview-table">
             <table>
-              <thead><tr><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>PIN</th><th>Validación</th></tr></thead>
+              <thead><tr><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Correo</th><th>PIN</th><th>Validación</th></tr></thead>
               <tbody>
                 {parsed.slice(0, 30).map((row, index) => {
-                  const ok = /^\d{8}$/.test(row.dni) && Boolean(row.full_name) && (!row.pin || /^\d{4,8}$/.test(row.pin))
+                  const ok = /^\d{8}$/.test(row.dni) && Boolean(row.full_name) && (!row.pin || /^\d{4,8}$/.test(row.pin)) && validOptionalEmail(row.corporate_email)
                   return (
                     <tr key={index}>
                       <td><b>{row.dni || '—'}</b></td>
@@ -407,6 +421,7 @@ export function UsersAdmin() {
                       <td>{row.project || '—'}</td>
                       <td>{row.group_name || '—'}</td>
                       <td>{row.shift_name || '—'}</td>
+                      <td>{row.corporate_email || '—'}</td>
                       <td>{row.pin ? 'Definido' : 'Auto'}</td>
                       <td>{ok ? <span className="ok-text"><CheckCircle2 size={15} /> Válido</span> : <span className="error-text"><XCircle size={15} /> Revisar</span>}</td>
                     </tr>
@@ -447,21 +462,22 @@ export function UsersAdmin() {
 
       <section className="panel">
         <div className="panel-title">
-          <div><h3>Usuarios registrados</h3><p>{profiles.length} perfiles en KOMTROL.</p></div>
-          <div className="search users-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar DNI, nombre, rol, almacén…" /></div>
+          <div><h3>Usuarios registrados</h3><p>{profiles.length} perfiles en KOMTROL. El correo corporativo se usa para identificar automáticamente cursos recibidos por Outlook.</p></div>
+          <div className="search users-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar DNI, nombre, correo, rol, almacén…" /></div>
         </div>
         {loading ? (
           <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando usuarios…</p></div>
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Cargo</th></tr></thead>
+              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Cargo</th></tr></thead>
               <tbody>
                 {visibleProfiles.map((p) => (
                   <tr key={p.user_id}>
                     <td><span className={p.active ? 'status-pill' : 'status-pill danger'}>{p.active ? 'ACTIVO' : 'INACTIVO'}</span></td>
                     <td><b>{p.dni}</b></td>
                     <td>{p.full_name}</td>
+                    <td>{p.corporate_email || '—'}</td>
                     <td><span className="role-chip"><ShieldCheck size={13} /> {p.role}</span></td>
                     <td>{p.warehouse || '—'}</td>
                     <td>{p.project || '—'}</td>
