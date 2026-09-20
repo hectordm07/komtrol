@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Download, FileUp, RefreshCw, Search, ShieldCheck, Upload, Users, XCircle } from 'lucide-react'
+import { CheckCircle2, Download, FileUp, Pencil, RefreshCw, Save, Search, ShieldCheck, Upload, Users, X, XCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
@@ -168,6 +168,19 @@ export function UsersAdmin() {
   const [results, setResults] = useState<ImportResult[]>([])
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
+  const [editingProfile, setEditingProfile] = useState<ProfileRow | null>(null)
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    position: '',
+    role: 'TRABAJADOR' as Role,
+    warehouse: '',
+    project: '',
+    group_name: '',
+    shift_name: '',
+    corporate_email: '',
+    active: true,
+  })
+  const [savingProfile, setSavingProfile] = useState(false)
 
   const parsed = useMemo(() => parseUsers(importText), [importText])
 
@@ -343,10 +356,71 @@ export function UsersAdmin() {
     ])
   }
 
+  function openProfileEditor(profile: ProfileRow) {
+    setEditingProfile(profile)
+    setEditForm({
+      full_name: profile.full_name || '',
+      position: profile.position || '',
+      role: profile.role,
+      warehouse: profile.warehouse || '',
+      project: profile.project || '',
+      group_name: profile.group_name || '',
+      shift_name: profile.shift_name || '',
+      corporate_email: profile.corporate_email || '',
+      active: profile.active,
+    })
+    setMessage('')
+  }
+
+  async function saveProfileChanges() {
+    if (!editingProfile) return
+    const fullName = editForm.full_name.trim()
+    const email = editForm.corporate_email.trim().toLowerCase()
+
+    if (!fullName) {
+      setMessage('El nombre completo es obligatorio.')
+      return
+    }
+    if (!validOptionalEmail(email)) {
+      setMessage('El correo corporativo no tiene un formato válido.')
+      return
+    }
+
+    setSavingProfile(true)
+    setMessage('')
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        full_name: fullName,
+        position: editForm.position.trim() || null,
+        role: editForm.role,
+        warehouse: editForm.warehouse.trim() || null,
+        project: editForm.project.trim() || null,
+        group_name: editForm.group_name.trim() || null,
+        shift_name: editForm.shift_name.trim() || null,
+        corporate_email: email || null,
+        active: editForm.active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', editingProfile.user_id)
+
+    setSavingProfile(false)
+
+    if (error) {
+      setMessage(`No se pudo actualizar el usuario: ${error.message}`)
+      return
+    }
+
+    setMessage(`Perfil de ${fullName} actualizado correctamente.`)
+    setEditingProfile(null)
+    await loadProfiles()
+  }
+
   const visibleProfiles = profiles.filter((p) => {
     const q = search.toLowerCase().trim()
     if (!q) return true
-    return [p.dni, p.full_name, p.role, p.warehouse, p.project, p.group_name, p.corporate_email]
+    return [p.dni, p.full_name, p.position, p.role, p.warehouse, p.project, p.group_name, p.shift_name, p.corporate_email]
       .some((value) => String(value ?? '').toLowerCase().includes(q))
   })
 
@@ -470,20 +544,21 @@ export function UsersAdmin() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Cargo</th></tr></thead>
+              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Puesto / Cargo</th><th>Correo</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Acción</th></tr></thead>
               <tbody>
                 {visibleProfiles.map((p) => (
                   <tr key={p.user_id}>
                     <td><span className={p.active ? 'status-pill' : 'status-pill danger'}>{p.active ? 'ACTIVO' : 'INACTIVO'}</span></td>
-                    <td><b>{p.dni}</b></td>
-                    <td>{p.full_name}</td>
+                    <td><b>{p.dni || '—'}</b></td>
+                    <td><div className="user-name-cell"><b>{p.full_name}</b><small>{p.role === 'TRABAJADOR' ? (p.position || 'ALMACENERO') : p.role}</small></div></td>
+                    <td><b>{p.position || '—'}</b></td>
                     <td>{p.corporate_email || '—'}</td>
                     <td><span className="role-chip"><ShieldCheck size={13} /> {p.role}</span></td>
                     <td>{p.warehouse || '—'}</td>
                     <td>{p.project || '—'}</td>
                     <td>{p.group_name || '—'}</td>
                     <td>{p.shift_name || '—'}</td>
-                    <td>{p.position || '—'}</td>
+                    <td><button className="secondary-button user-edit-button" onClick={() => openProfileEditor(p)}><Pencil size={14}/> Editar</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -492,6 +567,75 @@ export function UsersAdmin() {
           </div>
         )}
       </section>
+
+      {editingProfile && (
+        <div className="modal-backdrop users-edit-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !savingProfile) setEditingProfile(null) }}>
+          <section className="modal-card user-profile-editor" role="dialog" aria-modal="true" aria-label="Editar usuario">
+            <div className="modal-head">
+              <div>
+                <h3>Editar usuario</h3>
+                <p>{editingProfile.dni || editingProfile.corporate_email || editingProfile.user_id}</p>
+              </div>
+              <button className="icon-button" onClick={() => !savingProfile && setEditingProfile(null)} title="Cerrar"><X size={18}/></button>
+            </div>
+
+            <div className="user-profile-editor-grid">
+              <label className="span-2">Nombre completo *
+                <input value={editForm.full_name} onChange={(e)=>setEditForm({...editForm,full_name:e.target.value})} placeholder="Nombres y apellidos"/>
+                <small>Este nombre se usa en el saludo, tareas, responsables y reportes.</small>
+              </label>
+
+              <label>Puesto / Cargo
+                <input value={editForm.position} onChange={(e)=>setEditForm({...editForm,position:e.target.value})} placeholder="Ej. Almacenero, Coordinador de Almacén"/>
+              </label>
+
+              <label>Rol de acceso
+                <select value={editForm.role} onChange={(e)=>setEditForm({...editForm,role:e.target.value as Role})}>
+                  {ROLES.map((role)=><option key={role} value={role}>{role}</option>)}
+                </select>
+                <small>El rol controla permisos; el Puesto/Cargo describe la función de la persona.</small>
+              </label>
+
+              <label>Almacén
+                <input value={editForm.warehouse} onChange={(e)=>setEditForm({...editForm,warehouse:e.target.value})} placeholder="ANTAMINA"/>
+              </label>
+
+              <label>Proyecto
+                <input value={editForm.project} onChange={(e)=>setEditForm({...editForm,project:e.target.value})} placeholder="ALMACEN ANTAMINA"/>
+              </label>
+
+              <label>Grupo / Área
+                <input value={editForm.group_name} onChange={(e)=>setEditForm({...editForm,group_name:e.target.value})} placeholder="PALAS"/>
+              </label>
+
+              <label>Guardia
+                <select value={editForm.shift_name} onChange={(e)=>setEditForm({...editForm,shift_name:e.target.value})}>
+                  <option value="">Sin guardia</option>
+                  <option value="GUARDIA A">GUARDIA A</option>
+                  <option value="GUARDIA B">GUARDIA B</option>
+                </select>
+              </label>
+
+              <label className="span-2">Correo corporativo
+                <input type="email" value={editForm.corporate_email} onChange={(e)=>setEditForm({...editForm,corporate_email:e.target.value})} placeholder="usuario@kmmp.com.pe"/>
+              </label>
+
+              <label className="user-active-toggle span-2">
+                <input type="checkbox" checked={editForm.active} onChange={(e)=>setEditForm({...editForm,active:e.target.checked})}/>
+                <span><b>Usuario activo</b><small>Si se desactiva, dejará de tener acceso operativo a KOMTROL.</small></span>
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button className="secondary-button" disabled={savingProfile} onClick={()=>setEditingProfile(null)}><X size={16}/> Cancelar</button>
+              <button className="primary-button" disabled={savingProfile || !editForm.full_name.trim()} onClick={saveProfileChanges}>
+                {savingProfile ? <RefreshCw size={16} className="spin"/> : <Save size={16}/>}
+                {savingProfile ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
