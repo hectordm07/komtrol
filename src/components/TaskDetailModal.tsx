@@ -110,6 +110,7 @@ type Props = {
   task: TaskDetailTask
   userId: string
   profiles: TaskDetailProfile[]
+  labelColors?: Record<string,string>
   onClose: () => void
   onTaskUpdated: (task: TaskDetailTask) => void
 }
@@ -175,7 +176,7 @@ function safeFileName(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
-export function TaskDetailModal({ task: initialTask, userId, profiles, onClose, onTaskUpdated }: Props) {
+export function TaskDetailModal({ task: initialTask, userId, profiles, labelColors = {}, onClose, onTaskUpdated }: Props) {
   const [task, setTask] = useState<TaskDetailTask>(initialTask)
   const [comments, setComments] = useState<TaskComment[]>([])
   const [history, setHistory] = useState<TaskHistory[]>([])
@@ -597,7 +598,10 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, onClose, 
             {task.category && <span className="detail-chip">{task.category}</span>}
             <span className={`priority-chip p-${task.priority.toLowerCase()}`}>{task.priority}</span>
             <span className="detail-chip">{task.status.replaceAll('_', ' ')}</span>
-            {(task.tags || []).map((tag) => <span className="detail-chip tag" key={tag}><Tag size={12} /> {tag}</span>)}
+            {(task.tags || []).map((tag) => {
+              const color = labelColors[tag] || '#5570D8'
+              return <span className="detail-chip tag" style={{color,borderColor:`${color}55`,background:`${color}14`}} key={tag}><Tag size={12} /> {tag}</span>
+            })}
           </div>
 
           <h3>{task.title}</h3>
