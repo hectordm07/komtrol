@@ -12760,3 +12760,89 @@ table tbody tr:hover td {
     grid-template-columns: 100px minmax(0,1fr);
   }
 }
+
+
+/* =========================================================
+   TASK FORM · TIPO AUTOMÁTICO + TÍTULO ASISTIDO
+   ========================================================= */
+.work-command-bar-actions-only {
+  justify-content: space-between !important;
+  align-items: center;
+}
+.work-command-bar-actions-only > .work-view-switch {
+  flex: 0 0 auto;
+}
+.work-command-bar-actions-only > .work-command-actions {
+  margin-left: auto;
+}
+
+.task-priority-label {
+  grid-column: 1;
+}
+.task-title-label {
+  grid-column: 2;
+}
+.ai-title-field {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.ai-title-field input {
+  min-width: 0;
+}
+.ai-title-button {
+  min-height: 40px;
+  padding: 7px 10px;
+  white-space: nowrap;
+  color: var(--kt-blue-800);
+  background: var(--kt-blue-100);
+  border-color: var(--kt-blue-200);
+}
+.ai-title-button:hover {
+  background: var(--kt-blue-150);
+}
+.ai-title-button:disabled {
+  opacity: .55;
+}
+.task-modal .task-priority-label .priority-field,
+.task-modal .task-title-label .ai-title-field {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .work-command-bar-actions-only {
+    align-items: stretch;
+    gap: 7px;
+  }
+  .work-command-bar-actions-only > .work-view-switch {
+    flex: 0 1 auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .work-command-bar-actions-only {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .work-command-bar-actions-only > .work-view-switch {
+    order: 1;
+    width: 100%;
+  }
+  .work-command-bar-actions-only > .work-command-actions {
+    order: 2;
+    width: 100%;
+    margin-left: 0;
+  }
+  .task-priority-label,
+  .task-title-label {
+    grid-column: auto;
+  }
+  .ai-title-field {
+    grid-template-columns: 1fr;
+  }
+  .ai-title-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
