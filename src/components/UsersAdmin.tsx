@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Download, FileUp, Pencil, RefreshCw, Save, Search, ShieldCheck, Upload, Users, X, XCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -350,10 +351,34 @@ export function UsersAdmin() {
   function downloadCredentials() {
     const created = results.filter((r) => r.status === 'CREADO')
     if (!created.length) return
-    downloadCsv('KOMTROL_Credenciales_Creadas.csv', [
-      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'CORREO', 'PIN'],
-      ...created.map((r) => [r.dni, r.full_name, r.role, r.warehouse, r.project, r.group_name, r.shift_name || '', r.corporate_email || '', r.pin]),
-    ])
+    const rows=created.map((r)=>({
+      dni:r.dni,
+      full_name:r.full_name,
+      role:r.role,
+      warehouse:r.warehouse,
+      project:r.project,
+      group_name:r.group_name,
+      shift_name:r.shift_name || '',
+      corporate_email:r.corporate_email || '',
+      pin:r.pin,
+    }))
+    exportRowsToExcel(
+      'KOMTROL_Credenciales_Creadas',
+      'Credenciales',
+      [
+        {header:'DNI',key:'dni',width:14},
+        {header:'NOMBRE',key:'full_name',width:32},
+        {header:'ROL',key:'role',width:18},
+        {header:'ALMACÉN',key:'warehouse',width:18},
+        {header:'PROYECTO',key:'project',width:22},
+        {header:'GRUPO',key:'group_name',width:18},
+        {header:'GUARDIA',key:'shift_name',width:14},
+        {header:'CORREO',key:'corporate_email',width:30},
+        {header:'PIN',key:'pin',width:12},
+      ],
+      rows,
+      [['Usuarios creados',rows.length]]
+    )
   }
 
   function openProfileEditor(profile: ProfileRow) {
