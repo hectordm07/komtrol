@@ -5,6 +5,8 @@ import {
   Clock3,
   Download,
   Edit3,
+  FileSpreadsheet,
+  FileText,
   History,
   MapPin,
   MinusCircle,
@@ -17,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type Material = {
   id: string
@@ -490,11 +493,34 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
     })
   }, [locationInput, materials])
 
-  function exportLocation() {
-    downloadCsv('KOMTROL_Hoja_Ubicacion.csv', [
-      ['MATERIAL', 'STOCK CODE', 'DESCRIPCION', 'CANTIDAD', 'CENTRO', 'ALMACEN', 'UBICACION'],
-      ...locationRows.map((row) => [row.material_no, row.stock_code, row.description, row.quantity, row.center, row.warehouse, row.location]),
-    ])
+  const locationExportColumns = [
+    { header: 'MATERIAL', key: 'material_no', width: 18 },
+    { header: 'STOCK CODE', key: 'stock_code', width: 16 },
+    { header: 'DESCRIPCIÓN', key: 'description', width: 42 },
+    { header: 'CANTIDAD', key: 'quantity', width: 12 },
+    { header: 'CENTRO', key: 'center', width: 14 },
+    { header: 'ALMACÉN', key: 'warehouse', width: 18 },
+    { header: 'UBICACIÓN', key: 'location', width: 18 },
+  ]
+
+  function exportLocationExcel() {
+    exportRowsToExcel(
+      'KOMTROL_Hoja_Ubicacion',
+      'Hoja Ubicacion',
+      locationExportColumns,
+      locationRows as unknown as Record<string, unknown>[],
+      [['Registros', locationRows.length]]
+    )
+  }
+
+  function exportLocationPdf() {
+    exportRowsToPdfPortrait(
+      'KOMTROL_Hoja_Ubicacion',
+      'KOMTROL · Hoja de Ubicación',
+      locationExportColumns,
+      locationRows as unknown as Record<string, unknown>[],
+      { subtitle: 'Materiales y ubicaciones obtenidos desde el Master.', summary: [['Registros', locationRows.length]] }
+    )
   }
 
   if (mode === 'ubicacion') {
@@ -503,8 +529,8 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         <div className="panel-title">
           <div><h3>Hoja de Ubicación</h3><p>Pega Material + Cantidad desde Excel y KOMTROL completa SC, descripción y ubicación desde el Master.</p></div>
           <div className="button-row">
-            <button className="secondary-button" disabled={!locationRows.length} onClick={() => window.print()}><Printer size={16} /> Imprimir</button>
-            <button className="secondary-button" disabled={!locationRows.length} onClick={exportLocation}><Download size={16} /> Excel/CSV</button>
+            <button className="secondary-button" disabled={!locationRows.length} onClick={exportLocationPdf}><FileText size={16} /> PDF</button>
+            <button className="secondary-button" disabled={!locationRows.length} onClick={exportLocationExcel}><FileSpreadsheet size={16} /> Excel</button>
           </div>
         </div>
         <textarea
