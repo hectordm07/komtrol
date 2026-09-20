@@ -9926,3 +9926,181 @@ table tbody tr:hover td {
     min-height: 76px;
   }
 }
+
+
+/* =========================================================
+   INBOUND INDICATORS · QUICK ACCESS
+   Todo KPI y gráfico abre su reporte relacionado.
+   ========================================================= */
+.inbound-figma-kpis .inbound-kpi-link {
+  position: relative;
+  min-width: 0;
+  min-height: 108px;
+  padding: 14px 34px 14px 14px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--kt-shadow-xs);
+  color: var(--kt-ink);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color .16s ease,
+    background .16s ease,
+    box-shadow .16s ease,
+    transform .12s ease;
+}
+.inbound-figma-kpis .inbound-kpi-link:hover,
+.indicator-clickable:hover {
+  border-color: var(--kt-blue-300);
+  background: var(--kt-blue-50);
+  box-shadow: var(--kt-shadow-sm);
+  transform: translateY(-1px);
+}
+.inbound-figma-kpis .inbound-kpi-link:active,
+.indicator-clickable:active {
+  transform: translateY(0);
+  background: var(--kt-blue-100);
+}
+.inbound-figma-kpis .inbound-kpi-link:focus-visible,
+.indicator-clickable:focus-visible {
+  outline: none;
+  box-shadow: var(--kt-focus), var(--kt-shadow-sm);
+}
+.inbound-figma-kpis .inbound-kpi-link > svg:not(.indicator-link-arrow) {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  color: var(--kt-blue-700);
+}
+.inbound-figma-kpis .inbound-kpi-link.warning > svg:not(.indicator-link-arrow),
+.inbound-figma-kpis .inbound-kpi-link.warning b,
+.inbound-figma-kpis .inbound-kpi-link.success > svg:not(.indicator-link-arrow),
+.inbound-figma-kpis .inbound-kpi-link.success b,
+.inbound-figma-kpis .inbound-kpi-link.purple > svg:not(.indicator-link-arrow),
+.inbound-figma-kpis .inbound-kpi-link.purple b {
+  color: var(--kt-blue-700);
+}
+.inbound-figma-kpis .inbound-kpi-link > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.inbound-figma-kpis .inbound-kpi-link small {
+  color: var(--kt-muted);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.inbound-figma-kpis .inbound-kpi-link b {
+  color: var(--kt-blue-900);
+  font-size: 24px;
+  line-height: 1;
+}
+.inbound-figma-kpis .inbound-kpi-link em {
+  color: var(--kt-muted-2);
+  font-size: 8px;
+  font-style: normal;
+}
+.indicator-link-arrow {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: var(--kt-blue-400);
+  transition: transform .16s ease, color .16s ease;
+}
+.inbound-kpi-link:hover .indicator-link-arrow {
+  color: var(--kt-blue-700);
+  transform: translateX(2px);
+}
+
+.indicator-clickable {
+  cursor: pointer;
+  transition:
+    border-color .16s ease,
+    background .16s ease,
+    box-shadow .16s ease,
+    transform .12s ease;
+}
+.indicator-clickable .chart-heading,
+.indicator-clickable > .panel-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 9px;
+}
+.indicator-clickable .chart-heading > div,
+.indicator-clickable > .panel-title > div {
+  min-width: 0;
+}
+.indicator-open-hint {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 4px 7px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 999px;
+  background: var(--kt-blue-50);
+  color: var(--kt-blue-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 7px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.indicator-clickable:hover .indicator-open-hint {
+  background: var(--kt-blue-100);
+  border-color: var(--kt-blue-300);
+  color: var(--kt-blue-900);
+}
+
+/* Las cajas internas conservan lectura visual pero la tarjeta completa es el acceso. */
+.indicator-clickable .chart-legend > div,
+.indicator-clickable .box-status-list > div,
+.indicator-clickable .shipment-bar-row,
+.indicator-clickable .inbound-recent-card {
+  pointer-events: none;
+}
+
+/* En móvil, toda la tarjeta conserva un área táctil amplia. */
+@media (max-width: 620px) {
+  .inbound-figma-kpis .inbound-kpi-link {
+    min-height: 88px;
+    padding: 10px 28px 10px 10px;
+    gap: 8px;
+    border-radius: 13px;
+  }
+  .inbound-figma-kpis .inbound-kpi-link:last-child {
+    grid-column: 1 / -1;
+  }
+  .inbound-figma-kpis .inbound-kpi-link > svg:not(.indicator-link-arrow) {
+    width: 19px;
+    height: 19px;
+    flex-basis: 19px;
+  }
+  .inbound-figma-kpis .inbound-kpi-link b {
+    font-size: 20px;
+  }
+  .inbound-figma-kpis .inbound-kpi-link small,
+  .inbound-figma-kpis .inbound-kpi-link em {
+    font-size: 7px;
+  }
+  .indicator-link-arrow {
+    top: 8px;
+    right: 8px;
+  }
+  .indicator-open-hint {
+    min-height: 24px;
+    padding: 3px 6px;
+    font-size: 0;
+  }
+  .indicator-open-hint svg {
+    width: 14px;
+    height: 14px;
+  }
+}
