@@ -16,6 +16,12 @@ import {
   Sparkles,
   Tag,
   UserRound,
+  Warehouse,
+  Layers3,
+  UsersRound,
+  Clock3,
+  Mail,
+  Flag,
   X,
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
@@ -1285,12 +1291,18 @@ export function TasksModule({
         <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowForm(false)}>
           <form className="modal task-modal" onSubmit={saveTask}>
             <div className="modal-head">
-              <div><h2>{form.work_type === 'RELEVO' ? 'Nuevo relevo' : form.work_type === 'PERSONAL' ? 'Nueva tarea personal' : 'Nueva tarea'}</h2><p>Registra una vez y da seguimiento desde KOMTROL.</p></div>
-              <button type="button" className="icon-button" onClick={() => setShowForm(false)}><X size={20} /></button>
+              <div className="task-modal-heading">
+                <span className="task-modal-title-icon"><Plus size={20}/></span>
+                <div>
+                  <h2>{form.work_type === 'RELEVO' ? 'Nuevo relevo' : form.work_type === 'PERSONAL' ? 'Nueva tarea personal' : 'Nueva tarea'}</h2>
+                  <p>Registra una vez y da seguimiento desde KOMTROL.</p>
+                </div>
+              </div>
+              <button type="button" className="icon-button task-modal-close" onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
 
             <div className="form-grid">
-              <label className="task-priority-label">Prioridad
+              <label className="task-priority-label"><span className="task-field-label"><Flag size={15}/> Prioridad</span>
                 <div className="priority-field">
                   <span className={`priority-dot p-${form.priority.toLowerCase()}`} />
                   <select className="priority-select" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Task['priority'] })}>
@@ -1301,7 +1313,7 @@ export function TasksModule({
                   </select>
                 </div>
               </label>
-              <label className="task-title-label">Título
+              <label className="task-title-label"><span className="task-field-label"><FileText size={15}/> Título</span>
                 <div className="ai-title-field">
                   <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Se generará desde la descripción" />
                   <button type="button" className="secondary-button ai-title-button" onClick={generateTaskTitle} disabled={titleGenerating || !form.description.trim()}>
@@ -1310,7 +1322,7 @@ export function TasksModule({
                   </button>
                 </div>
               </label>
-              <label className="span-2">Descripción
+              <label className="span-2"><span className="task-field-label"><ClipboardList size={15}/> Descripción</span>
                 <textarea
                   rows={3}
                   required
@@ -1320,25 +1332,25 @@ export function TasksModule({
                   placeholder="Describe la actividad; KOMTROL sugerirá el título automáticamente…"
                 />
               </label>
-              <label>Almacén
+              <label><span className="task-field-label"><Warehouse size={15}/> Almacén</span>
                 <input value={form.warehouse} onChange={(e) => setForm({ ...form, warehouse: e.target.value })} placeholder="Almacén" />
               </label>
-              <label>Proyecto
+              <label><span className="task-field-label"><Layers3 size={15}/> Proyecto</span>
                 <input value={form.project} onChange={(e) => setForm({ ...form, project: e.target.value })} placeholder="Proyecto" />
               </label>
-              <label>Grupo
+              <label><span className="task-field-label"><UsersRound size={15}/> Grupo</span>
                 <input value={form.group_name} onChange={(e) => setForm({ ...form, group_name: e.target.value })} placeholder="PALAS / CAMIONES" />
               </label>
               {form.work_type === 'RELEVO' && (
                 <>
-                  <label>Guardia que entrega *
+                  <label><span className="task-field-label"><RefreshCw size={15}/> Guardia que entrega *</span>
                     <select value={form.relevo_from_shift} onChange={(e) => setForm({ ...form, relevo_from_shift: e.target.value })}>
                       <option value="">Seleccionar</option>
                       <option value="GUARDIA A">Guardia A</option>
                       <option value="GUARDIA B">Guardia B</option>
                     </select>
                   </label>
-                  <label>Guardia que recibe *
+                  <label><span className="task-field-label"><RefreshCw size={15}/> Guardia que recibe *</span>
                     <select value={form.relevo_to_shift} onChange={(e) => setForm({ ...form, relevo_to_shift: e.target.value })}>
                       <option value="">Seleccionar</option>
                       <option value="GUARDIA A">Guardia A</option>
@@ -1352,14 +1364,14 @@ export function TasksModule({
                   </div>
                 </>
               )}
-              <label>Creado por / Responsable de gestión
+              <label><span className="task-field-label"><UserRound size={15}/> Creado por / Responsable de gestión</span>
                 <input value={profileName(userId)} disabled />
                 <small className="field-help">Se asigna automáticamente al usuario que crea la tarea.</small>
               </label>
 
               {form.work_type !== 'PERSONAL' ? (
                 <>
-                  <label>Asignar tarea a
+                  <label><span className="task-field-label"><UserRound size={15}/> Asignar tarea a</span>
                     <select
                       value={form.assignment_type}
                       onChange={(e)=>setForm({
@@ -1377,7 +1389,7 @@ export function TasksModule({
                   </label>
 
                   {form.assignment_type === 'PERSONA' && (
-                    <label>Persona asignada *
+                    <label><span className="task-field-label"><UserRound size={15}/> Persona asignada *</span>
                       <select value={form.assigned_user_id} onChange={(e)=>setForm({...form,assigned_user_id:e.target.value})}>
                         {scopedProfiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}{p.group_name ? ` · ${p.group_name}` : ''}{p.shift_name ? ` · ${p.shift_name}` : ''}</option>)}
                       </select>
@@ -1386,7 +1398,7 @@ export function TasksModule({
                   )}
 
                   {form.assignment_type === 'GRUPO' && (
-                    <label>Grupo asignado *
+                    <label><span className="task-field-label"><UsersRound size={15}/> Grupo asignado *</span>
                       <select value={form.assigned_group} onChange={(e)=>setForm({...form,assigned_group:e.target.value})}>
                         <option value="">Seleccionar grupo</option>
                         {assignmentGroups.map((group)=><option key={group} value={group}>{group}</option>)}
@@ -1396,7 +1408,7 @@ export function TasksModule({
                   )}
 
                   {form.assignment_type === 'GUARDIA' && (
-                    <label>Guardia asignada *
+                    <label><span className="task-field-label"><RefreshCw size={15}/> Guardia asignada *</span>
                       <select value={form.assigned_shift} onChange={(e)=>setForm({...form,assigned_shift:e.target.value})}>
                         <option value="">Seleccionar guardia</option>
                         {assignmentShifts.map((shift)=><option key={shift} value={shift}>{shift}</option>)}
@@ -1408,12 +1420,12 @@ export function TasksModule({
                   )}
                 </>
               ) : (
-                <label>Asignación
+                <label><span className="task-field-label"><UserRound size={15}/> Asignación</span>
                   <input value={profileName(userId)} disabled />
                   <small className="field-help">Mi trabajo siempre se asigna al propio usuario.</small>
                 </label>
               )}
-              <label>Categoría
+              <label><span className="task-field-label"><Tag size={15}/> Categoría</span>
                 <div className="form-inline-select">
                   <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                     {categories.map((category) => <option key={category} value={category}>{category}</option>)}
@@ -1427,13 +1439,13 @@ export function TasksModule({
                   </div>
                 )}
               </label>
-              <label>Fecha límite
+              <label><span className="task-field-label"><CalendarDays size={15}/> Fecha límite</span>
                 <input type="datetime-local" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} />
               </label>
-              <label>Duración estimada (horas)
+              <label><span className="task-field-label"><Clock3 size={15}/> Duración estimada (horas)</span>
                 <input type="number" min="0" step="0.5" value={form.estimated_hours} onChange={(e) => setForm({ ...form, estimated_hours: e.target.value })} />
               </label>
-              <label className="span-2">Etiquetas
+              <label className="span-2"><span className="task-field-label"><Tag size={15}/> Etiquetas</span>
                 <div className="task-form-tags">
                   <div className="task-form-tag-list">
                     {labels
@@ -1469,7 +1481,7 @@ export function TasksModule({
                   </div>
                 )}
               </label>
-              <label className="span-2">Asunto del correo
+              <label className="span-2"><span className="task-field-label"><Mail size={15}/> Asunto del correo</span>
                 <input value={form.email_subject} onChange={(e) => setForm({ ...form, email_subject: e.target.value })} placeholder="Solo si existe un correo asociado" />
               </label>
             </div>
