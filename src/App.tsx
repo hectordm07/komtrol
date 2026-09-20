@@ -56,6 +56,7 @@ type Profile = {
   project?: string | null
   group_name?: string | null
   shift_name?: string | null
+  position?: string | null
   worker_access?: boolean
 }
 
@@ -382,7 +383,7 @@ function Workspace({ session }: { session: Session }) {
     setNotificationOpen(false)
     setTaskToOpen(null)
     setToast(next === 'TRABAJADOR'
-      ? 'Vista Trabajador / Almacenero activada. Tu rol real sigue siendo Administrador.'
+      ? 'Vista Almacenero activada. Tu rol real sigue siendo Administrador.'
       : 'Vista Administrador restaurada.')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -866,12 +867,12 @@ function Workspace({ session }: { session: Session }) {
                   onClick={() => changeAccessView('TRABAJADOR')}
                 >
                   <ClipboardList size={14} />
-                  Trabajador / Almacenero
+                  Almacenero
                 </button>
               </div>
               {isWorkerPreview && (
                 <div className="access-preview-note">
-                  Estás viendo KOMTROL como Trabajador. Cambia a Administrador para recuperar todos los módulos.
+                  Estás viendo KOMTROL como Almacenero. Cambia a Administrador para recuperar todos los módulos.
                 </div>
               )}
             </div>
@@ -881,7 +882,7 @@ function Workspace({ session }: { session: Session }) {
             <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
             <div>
               <b>{displayName}</b>
-              <span>{isWorkerPreview ? 'TRABAJADOR · VISTA DE PRUEBA' : role}</span>
+              <span>{isWorkerPreview ? `${profile?.position || 'ALMACENERO'} · VISTA DE PRUEBA` : role}</span>
             </div>
           </div>
           <button className="logout-button" onClick={logout}><LogOut size={17} /> Salir</button>
@@ -902,9 +903,9 @@ function Workspace({ session }: { session: Session }) {
           <div className="topbar-title-block">
             <div className="topbar-title-line">
               <h1>{currentNav?.label ?? 'KOMTROL'}</h1>
-              {isWorkerPreview && <span className="access-preview-badge">Vista Trabajador / Almacenero</span>}
+              {isWorkerPreview && <span className="access-preview-badge">Vista Almacenero</span>}
             </div>
-            <p>{displayName} · {role}{profile?.warehouse ? ` · ${profile.warehouse}` : ''}{profile?.group_name ? ` · ${profile.group_name}` : ''}{profile?.shift_name ? ` · ${profile.shift_name}` : ''}</p>
+            <p>{displayName} · {isWorkerPreview ? (profile?.position || 'ALMACENERO') : role}{profile?.warehouse ? ` · ${profile.warehouse}` : ''}{profile?.group_name ? ` · ${profile.group_name}` : ''}{profile?.shift_name ? ` · ${profile.shift_name}` : ''}</p>
           </div>
           <div className="top-actions">
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={19} /></button>
@@ -955,7 +956,7 @@ function Workspace({ session }: { session: Session }) {
               <span className="user-greeting-date"><i />{todayLabel(now)}</span>
               <div className="user-greeting-copy">
                 <strong>{greetingForDate(now)}, <b>{firstName(displayName)}</b></strong>
-                <small>{profile.warehouse || 'SIN ALMACÉN'}{profile.group_name ? ` · ${profile.group_name}` : ''}{profile.shift_name ? ` · ${profile.shift_name}` : ''}{isWorkerPreview ? ' · VISTA TRABAJADOR' : ''}</small>
+                <small>{profile.warehouse || 'SIN ALMACÉN'}{profile.group_name ? ` · ${profile.group_name}` : ''}{profile.shift_name ? ` · ${profile.shift_name}` : ''}{isWorkerPreview ? ' · VISTA ALMACENERO' : ''}</small>
               </div>
             </div>
           </section>
