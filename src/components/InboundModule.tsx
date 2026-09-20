@@ -7,6 +7,7 @@ import {
   Download,
   Edit3,
   FileText,
+  FileSpreadsheet,
   Mail,
   PackagePlus,
   Plus,
@@ -24,6 +25,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type Mode = 'dashboard' | 'incidents' | 'boxes'
@@ -498,14 +500,68 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
     await reload()
   }
 
-  function exportIncidents() {
-    downloadCsv('KOMTROL_Inbound_Callao_Incidencias.csv', [
-      ['INCIDENCIA','TIPO','ESTADO','GUIA','OC','MATERIAL','DESCRIPCION','ESPERADO','RECIBIDO','RESPONSABLE','FECHA'],
-      ...visibleIncidents.map((x) => [
-        x.incident_no,x.incident_type,x.status,x.guide_no,x.purchase_order,x.material_no,x.description,
-        x.qty_expected,x.qty_received,profileName(x.assigned_to),x.created_at
-      ]),
-    ])
+  const incidentExportRows = visibleIncidents.map((x) => ({
+    incident_no: x.incident_no,
+    incident_type: x.incident_type,
+    status: x.status,
+    guide_no: x.guide_no || '',
+    purchase_order: x.purchase_order || '',
+    material_no: x.material_no || '',
+    stock_code: x.stock_code || '',
+    description: x.description || '',
+    qty_expected: x.qty_expected ?? '',
+    qty_received: x.qty_received ?? '',
+    difference: x.qty_expected != null && x.qty_received != null ? Number(x.qty_received) - Number(x.qty_expected) : '',
+    responsible: profileName(x.assigned_to),
+    created_at: fmt(x.created_at),
+  }))
+
+  const incidentExcelColumns = [
+    { header:'INCIDENCIA', key:'incident_no', width:18 },
+    { header:'TIPO', key:'incident_type', width:16 },
+    { header:'ESTADO', key:'status', width:16 },
+    { header:'GUÍA', key:'guide_no', width:20 },
+    { header:'OC', key:'purchase_order', width:18 },
+    { header:'MATERIAL', key:'material_no', width:18 },
+    { header:'STOCK CODE', key:'stock_code', width:16 },
+    { header:'DESCRIPCIÓN', key:'description', width:38 },
+    { header:'ESPERADO', key:'qty_expected', width:12 },
+    { header:'RECIBIDO', key:'qty_received', width:12 },
+    { header:'DIFERENCIA', key:'difference', width:12 },
+    { header:'RESPONSABLE', key:'responsible', width:24 },
+    { header:'FECHA', key:'created_at', width:18 },
+  ]
+
+  const incidentPdfColumns = [
+    { header:'INCIDENCIA', key:'incident_no' },
+    { header:'TIPO', key:'incident_type' },
+    { header:'ESTADO', key:'status' },
+    { header:'GUÍA / OC', key:'guide_no' },
+    { header:'MATERIAL', key:'material_no' },
+    { header:'SC', key:'stock_code' },
+    { header:'DIF.', key:'difference' },
+    { header:'RESP.', key:'responsible' },
+    { header:'FECHA', key:'created_at' },
+  ]
+
+  function exportIncidentsExcel() {
+    exportRowsToExcel(
+      'KOMTROL_Inbound_Callao_Incidencias',
+      'Incidencias',
+      incidentExcelColumns,
+      incidentExportRows,
+      [['Almacén', WAREHOUSE], ['Registros', incidentExportRows.length]]
+    )
+  }
+
+  function exportIncidentsPdf() {
+    exportRowsToPdfPortrait(
+      'KOMTROL_Inbound_Callao_Incidencias',
+      'KOMTROL · Incidencias Inbound Callao',
+      incidentPdfColumns,
+      incidentExportRows,
+      { subtitle: `Almacén: ${WAREHOUSE}`, summary: [['Registros', incidentExportRows.length]] }
+    )
   }
 
   function toggleSurplus(id: string) {
@@ -642,13 +698,37 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
     } : prev)
   }
 
-  function exportBox(box: InboundBox) {
-    downloadCsv(`${box.box_no}.csv`, [
-      ['CAJA','EMBARQUE','ESTADO','MATERIAL','STOCK CODE','DESCRIPCION','CANTIDAD','UM','UBICACION','OBSERVACION'],
-      ...(box.inbound_box_items ?? []).map((item) => [
-        box.box_no,box.shipment_no,box.status,item.material_no,item.stock_code,item.description,item.quantity,item.unit,item.location,item.notes,
-      ]),
-    ])
+  function exportBoxExcel(box: InboundBox) {
+    const rows=(box.inbound_box_items ?? []).map((item)=>({
+      box_no:box.box_no,
+      shipment_no:box.shipment_no || '',
+      status:box.status,
+      material_no:item.material_no || '',
+      stock_code:item.stock_code || '',
+      description:item.description || '',
+      quantity:item.quantity,
+      unit:item.unit || 'UND',
+      location:item.location || '',
+      notes:item.notes || '',
+    }))
+    exportRowsToExcel(
+      `KOMTROL_${box.box_no}_${box.shipment_no || 'SIN_EMBARQUE'}`,
+      'Caja Inbound',
+      [
+        {header:'CAJA',key:'box_no',width:18},
+        {header:'EMBARQUE',key:'shipment_no',width:22},
+        {header:'ESTADO',key:'status',width:14},
+        {header:'MATERIAL',key:'material_no',width:18},
+        {header:'STOCK CODE',key:'stock_code',width:16},
+        {header:'DESCRIPCIÓN',key:'description',width:38},
+        {header:'CANTIDAD',key:'quantity',width:12},
+        {header:'UM',key:'unit',width:8},
+        {header:'UBICACIÓN',key:'location',width:18},
+        {header:'OBSERVACIÓN',key:'notes',width:30},
+      ],
+      rows,
+      [['Caja',box.box_no],['Embarque',box.shipment_no || 'Sin embarque'],['Ítems',rows.length]]
+    )
   }
 
   if (loading) {
@@ -781,7 +861,7 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
         <section className="panel">
           <div className="panel-title">
             <div><h3>Incidencias Inbound · Callao</h3><p>Crear, modificar, eliminar, actualizar, notificar y exportar.</p></div>
-            <div className="button-row"><button className="secondary-button" onClick={exportIncidents}><Download size={15}/> Exportar</button>{!readOnly && <button className="primary-button" onClick={openNewIncident}><Plus size={15}/> Registrar</button>}</div>
+            <div className="button-row"><button className="secondary-button" disabled={!visibleIncidents.length} onClick={exportIncidentsPdf}><FileText size={15}/> PDF</button><button className="secondary-button" disabled={!visibleIncidents.length} onClick={exportIncidentsExcel}><FileSpreadsheet size={15}/> Excel</button>{!readOnly && <button className="primary-button" onClick={openNewIncident}><Plus size={15}/> Registrar</button>}</div>
           </div>
           <div className="task-toolbar"><div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar incidencia, guía, OC o material…"/></div></div>
           {message && <div className="inline-message">{message}</div>}
@@ -877,7 +957,7 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
                 <td>{!readOnly && boxDraft.status==='ABIERTA' && <button className="icon-button danger-icon" onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button>}</td>
               </tr>)}
             </tbody></table></div>
-            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBoxPdf(boxDraft)}><FileText size={15}/> PDF imprimible</button><button className="secondary-button" onClick={()=>exportBox(boxDraft)}><Download size={15}/> CSV</button>{!readOnly && boxDraft.status==='ABIERTA' && <button className="secondary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}{canOperateBoxes && boxDraft.status==='ABIERTA' && <button className="primary-button" disabled={saving} onClick={()=>closeBox(boxDraft)}><Lock size={15}/> Cerrar e ingresar al Kardex</button>}{profile?.role==='ADMINISTRADOR' && boxDraft.status==='CERRADA' && <button className="secondary-button" disabled={saving} onClick={()=>reopenBox(boxDraft)}><Unlock size={15}/> Reabrir caja</button>}</div>
+            <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBoxPdf(boxDraft)}><FileText size={15}/> PDF</button><button className="secondary-button" onClick={()=>exportBoxExcel(boxDraft)}><FileSpreadsheet size={15}/> Excel</button>{!readOnly && boxDraft.status==='ABIERTA' && <button className="secondary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}{canOperateBoxes && boxDraft.status==='ABIERTA' && <button className="primary-button" disabled={saving} onClick={()=>closeBox(boxDraft)}><Lock size={15}/> Cerrar e ingresar al Kardex</button>}{profile?.role==='ADMINISTRADOR' && boxDraft.status==='CERRADA' && <button className="secondary-button" disabled={saving} onClick={()=>reopenBox(boxDraft)}><Unlock size={15}/> Reabrir caja</button>}</div>
           </section>
         </div>
       )}
