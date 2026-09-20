@@ -21,9 +21,9 @@ function normalizedFileName(name: string, extension: 'xlsx' | 'pdf') {
   return `${base}.${extension}`
 }
 
-function cellText(value: unknown) {
+function cellText(value: unknown): string | number | boolean {
   if (value == null) return ''
-  if (value instanceof Date) return value
+  if (value instanceof Date) return value.toLocaleString('es-PE')
   if (typeof value === 'number' || typeof value === 'boolean') return value
   return String(value)
 }
@@ -36,23 +36,29 @@ export function exportRowsToExcel(
   summary?: Array<[string, unknown]>
 ) {
   const workbook = XLSX.utils.book_new()
-  const matrix = [
+  const matrix: any[][] = [
     columns.map((column) => column.header),
     ...rows.map((row) => columns.map((column) => cellText(row[column.key]))),
   ]
   const worksheet = XLSX.utils.aoa_to_sheet(matrix)
   worksheet['!cols'] = columns.map((column) => ({ wch: column.width ?? 18 }))
-  worksheet['!autofilter'] = rows.length
-    ? { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: Math.max(0, columns.length - 1) } }) }
-    : undefined
+  if (rows.length) {
+    worksheet['!autofilter'] = {
+      ref: XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: rows.length, c: Math.max(0, columns.length - 1) },
+      }),
+    }
+  }
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31) || 'Datos')
 
   if (summary?.length) {
-    const summarySheet = XLSX.utils.aoa_to_sheet([
+    const summaryMatrix: any[][] = [
       ['KOMTROL'],
       ['Generado', new Date().toLocaleString('es-PE')],
       ...summary,
-    ])
+    ]
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryMatrix)
     summarySheet['!cols'] = [{ wch: 28 }, { wch: 72 }]
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen')
   }
@@ -110,7 +116,7 @@ export function exportRowsToPdfPortrait(
     startY,
     margin: { left: marginX, right: marginX, top: 26, bottom: 12 },
     head: [columns.map((column) => column.header)],
-    body: rows.map((row) => columns.map((column) => cellText(row[column.key]))),
+    body: rows.map((row) => columns.map((column) => cellText(row[column.key]))) as any[][],
     theme: 'grid',
     tableWidth: 'auto',
     styles: {
