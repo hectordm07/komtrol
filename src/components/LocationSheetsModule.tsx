@@ -318,12 +318,12 @@ function exportIngressPdf(
   rows: FlatLine[],
   sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS'
 ) {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const left = 7
   const right = 7
-  const numberBoxWidth = 49
+  const numberBoxWidth = 40
   const headerHeight = 19
   const reportWidth = pageWidth - left - right
   const statusLabel =
@@ -339,7 +339,7 @@ function exportIngressPdf(
 
     doc.setTextColor(5, 112, 199)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(13)
+    doc.setFontSize(10.5)
     doc.text(
       'HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS',
       left + (reportWidth - numberBoxWidth) / 2,
@@ -365,8 +365,8 @@ function exportIngressPdf(
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.text('N°', boxX + 11, 18, { align: 'center' })
-    doc.setFontSize(18)
-    doc.text(String(ingress.ingress_no), boxX + 35, 18.5, { align: 'center' })
+    doc.setFontSize(15)
+    doc.text(String(ingress.ingress_no), boxX + 27, 18.5, { align: 'center' })
   }
 
   drawReportHeader()
@@ -398,8 +398,8 @@ function exportIngressPdf(
     ]),
     styles: {
       font: 'helvetica',
-      fontSize: 6.3,
-      cellPadding: 1.3,
+      fontSize: 5.3,
+      cellPadding: 1.05,
       lineColor: [213, 220, 227],
       lineWidth: 0.15,
       textColor: [51, 65, 85],
@@ -410,19 +410,19 @@ function exportIngressPdf(
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center',
-      fontSize: 6.2,
+      fontSize: 5.2,
       minCellHeight: 10,
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 30, fontStyle: 'bold' },
-      2: { cellWidth: 25 },
-      3: { cellWidth: 78 },
-      4: { cellWidth: 18, halign: 'center' },
-      5: { cellWidth: 13, halign: 'center' },
-      6: { cellWidth: 27 },
-      7: { cellWidth: 30 },
-      8: { cellWidth: 28, halign: 'center' },
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 23, fontStyle: 'bold' },
+      2: { cellWidth: 18 },
+      3: { cellWidth: 45 },
+      4: { cellWidth: 13, halign: 'center' },
+      5: { cellWidth: 9, halign: 'center' },
+      6: { cellWidth: 20 },
+      7: { cellWidth: 28 },
+      8: { cellWidth: 24, halign: 'center' },
     },
     didParseCell: (data: any) => {
       if (data.section !== 'head') return
