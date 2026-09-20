@@ -849,7 +849,7 @@ export function TasksModule({
             </div>
 
             <div className="form-grid">
-              <label>Prioridad
+              <label className="task-priority-label">Prioridad
                 <div className="priority-field">
                   <span className={`priority-dot p-${form.priority.toLowerCase()}`} />
                   <select className="priority-select" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Task['priority'] })}>
@@ -860,7 +860,7 @@ export function TasksModule({
                   </select>
                 </div>
               </label>
-              <label className="span-2">Título
+              <label className="task-title-label">Título
                 <div className="ai-title-field">
                   <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Se generará desde la descripción" />
                   <button type="button" className="secondary-button ai-title-button" onClick={generateTaskTitle} disabled={titleGenerating || !form.description.trim()}>
