@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Download,
   Edit3,
+  FileSpreadsheet,
+  FileText,
   ImagePlus,
   Mail,
   PackageSearch,
@@ -16,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type ScopeMode = 'CALLAO' | 'REMOTE'
@@ -816,30 +819,80 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
     }
   }
 
-  function exportIncidents() {
-    downloadCsv(`KOMTROL_Incidencias_${warehouse}.csv`, [
-      ['INCIDENCIA','FECHA','ALMACEN','OPCION','RESULTADO','N° EMBARQUE O GUIA','OC','CODIGO LEIDO','MATERIAL','STOCK CODE','DESCRIPCION','UBICACION','CANT. REQUERIDA','CANT. LLEGADA','DIFERENCIA','CANT. DANADA','ESTADO','CORREO'],
-      ...visible.map((row) => [
-        row.incident_no,
-        row.detected_at,
-        row.warehouse,
-        row.detection_mode === 'VERIFICACION_INVENTARIO' ? 'VERIFICACION DE INVENTARIO' : 'MATERIAL DANADO',
-        row.incident_type,
-        row.guide_no,
-        row.purchase_order,
-        row.barcode_value,
-        row.material_no,
-        row.stock_code,
-        row.description,
-        row.location,
-        row.qty_expected,
-        row.qty_received,
-        row.qty_expected != null && row.qty_received != null ? Number(row.qty_received) - Number(row.qty_expected) : '',
-        row.qty_damaged,
-        row.status,
-        row.auto_email_status,
-      ]),
-    ])
+  const incidentExportRows = visible.map((row) => ({
+    incident_no: row.incident_no,
+    detected_at: formatDate(row.detected_at),
+    warehouse: row.warehouse || '',
+    option: row.detection_mode === 'VERIFICACION_INVENTARIO' ? 'VERIFICACIÓN DE INVENTARIO' : 'MATERIAL DAÑADO',
+    result: row.incident_type,
+    guide_no: row.guide_no || '',
+    purchase_order: row.purchase_order || '',
+    barcode_value: row.barcode_value || '',
+    material_no: row.material_no || '',
+    stock_code: row.stock_code || '',
+    description: row.description || '',
+    location: row.location || '',
+    qty_expected: row.qty_expected ?? '',
+    qty_received: row.qty_received ?? '',
+    difference: row.qty_expected != null && row.qty_received != null ? Number(row.qty_received) - Number(row.qty_expected) : '',
+    qty_damaged: row.qty_damaged ?? '',
+    status: row.status,
+    email: row.auto_email_status || '',
+  }))
+
+  const incidentExcelColumns = [
+    { header:'INCIDENCIA', key:'incident_no', width:18 },
+    { header:'FECHA', key:'detected_at', width:18 },
+    { header:'ALMACÉN', key:'warehouse', width:18 },
+    { header:'OPCIÓN', key:'option', width:28 },
+    { header:'RESULTADO', key:'result', width:18 },
+    { header:'N° EMBARQUE O GUÍA', key:'guide_no', width:22 },
+    { header:'OC', key:'purchase_order', width:18 },
+    { header:'CÓDIGO LEÍDO', key:'barcode_value', width:20 },
+    { header:'MATERIAL', key:'material_no', width:18 },
+    { header:'STOCK CODE', key:'stock_code', width:16 },
+    { header:'DESCRIPCIÓN', key:'description', width:38 },
+    { header:'UBICACIÓN', key:'location', width:18 },
+    { header:'CANT. REQUERIDA', key:'qty_expected', width:16 },
+    { header:'CANT. LLEGADA', key:'qty_received', width:16 },
+    { header:'DIFERENCIA', key:'difference', width:14 },
+    { header:'CANT. DAÑADA', key:'qty_damaged', width:14 },
+    { header:'ESTADO', key:'status', width:16 },
+    { header:'CORREO', key:'email', width:16 },
+  ]
+
+  const incidentPdfColumns = [
+    { header:'INCIDENCIA', key:'incident_no' },
+    { header:'FECHA', key:'detected_at' },
+    { header:'RESULTADO', key:'result' },
+    { header:'GUÍA / OC', key:'guide_no' },
+    { header:'MATERIAL', key:'material_no' },
+    { header:'SC', key:'stock_code' },
+    { header:'UBICACIÓN', key:'location' },
+    { header:'REQ.', key:'qty_expected' },
+    { header:'LLEG.', key:'qty_received' },
+    { header:'DIF.', key:'difference' },
+    { header:'ESTADO', key:'status' },
+  ]
+
+  function exportIncidentsExcel() {
+    exportRowsToExcel(
+      `KOMTROL_Incidencias_${warehouse}`,
+      'Incidencias',
+      incidentExcelColumns,
+      incidentExportRows,
+      [['Almacén', warehouse], ['Registros', incidentExportRows.length]]
+    )
+  }
+
+  function exportIncidentsPdf() {
+    exportRowsToPdfPortrait(
+      `KOMTROL_Incidencias_${warehouse}`,
+      'KOMTROL · Incidencias de Recepción',
+      incidentPdfColumns,
+      incidentExportRows,
+      { subtitle: `Almacén: ${warehouse}`, summary: [['Registros', incidentExportRows.length]] }
+    )
   }
 
   return (
@@ -851,7 +904,8 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
           <p>Solo dos opciones: verificación de inventario o material dañado. KOMTROL determina automáticamente faltante o sobrante.</p>
         </div>
         <div className="button-row">
-          <button className="secondary-button" onClick={exportIncidents}><Download size={16}/> Exportar</button>
+          <button className="secondary-button" disabled={!visible.length} onClick={exportIncidentsPdf}><FileText size={16}/> PDF</button>
+          <button className="secondary-button" disabled={!visible.length} onClick={exportIncidentsExcel}><FileSpreadsheet size={16}/> Excel</button>
           {!readOnly && <button className="primary-button" onClick={openNew}><AlertTriangle size={16}/> Detectar incidencia</button>}
         </div>
       </section>
