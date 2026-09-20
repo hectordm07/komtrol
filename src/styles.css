@@ -15646,3 +15646,190 @@ table tbody tr:hover td {
     min-height: 44px;
   }
 }
+
+
+/* =========================================================
+   DASHBOARD COLOR SYSTEM V2 · familia azul KOMTROL
+   Extiende los tonos de Mis trabajos / Tareas grupales / Relevos
+   a todos los KPI y reportes visuales. Rojo se reserva para crítico.
+   ========================================================= */
+:root {
+  --kt-dash-tone-1-bg: linear-gradient(135deg,var(--kt-blue-50) 0%,var(--kt-blue-100) 100%);
+  --kt-dash-tone-1-accent: var(--kt-blue-600);
+  --kt-dash-tone-2-bg: linear-gradient(135deg,var(--kt-blue-75) 0%,var(--kt-blue-150) 100%);
+  --kt-dash-tone-2-accent: var(--kt-blue-800);
+  --kt-dash-tone-3-bg: linear-gradient(135deg,#fafbff 0%,var(--kt-blue-75) 58%,var(--kt-blue-100) 100%);
+  --kt-dash-tone-3-accent: var(--kt-blue-500);
+}
+
+/* Dashboard principal: completar la paleta también en KPI secundarios. */
+.universal-dashboard-kpis > .universal-kpi:not(.critical):not(.tone-personal):not(.tone-group):not(.tone-relevo):nth-child(3n+1) {
+  border-color: var(--kt-blue-300);
+  background: var(--kt-dash-tone-1-bg);
+  box-shadow: inset 3px 0 0 var(--kt-dash-tone-1-accent),var(--kt-shadow-xs);
+}
+.universal-dashboard-kpis > .universal-kpi:not(.critical):not(.tone-personal):not(.tone-group):not(.tone-relevo):nth-child(3n+2) {
+  border-color: var(--kt-blue-300);
+  background: var(--kt-dash-tone-2-bg);
+  box-shadow: inset 3px 0 0 var(--kt-dash-tone-2-accent),var(--kt-shadow-xs);
+}
+.universal-dashboard-kpis > .universal-kpi:not(.critical):not(.tone-personal):not(.tone-group):not(.tone-relevo):nth-child(3n) {
+  border-color: var(--kt-blue-200);
+  background: var(--kt-dash-tone-3-bg);
+  box-shadow: inset 3px 0 0 var(--kt-dash-tone-3-accent),var(--kt-shadow-xs);
+}
+
+/* KPI de todos los dashboards activos y heredados. */
+:is(
+  .universal-operational-kpis > button,
+  .scorecard-kpis > article,
+  .inbound-figma-kpis > .inbound-kpi-link,
+  .kardex-kpi-grid > div,
+  .kardex-initial-kpis > div,
+  .kardex-ledger-kpis > div,
+  .kardex-history-kpis > div,
+  .dashboard-stats-grid > .dashboard-stat,
+  .main-dashboard-kpis > .main-dashboard-card,
+  .dashboard-inbound-kpis > button,
+  .kpi-record-grid > .kpi-record-card
+) {
+  border: 1px solid var(--kt-blue-300) !important;
+  transition: transform .14s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+
+:is(
+  .universal-operational-kpis > button,
+  .scorecard-kpis > article,
+  .inbound-figma-kpis > .inbound-kpi-link,
+  .kardex-kpi-grid > div,
+  .kardex-initial-kpis > div,
+  .kardex-ledger-kpis > div,
+  .kardex-history-kpis > div,
+  .dashboard-stats-grid > .dashboard-stat,
+  .main-dashboard-kpis > .main-dashboard-card,
+  .dashboard-inbound-kpis > button,
+  .kpi-record-grid > .kpi-record-card
+):nth-child(3n+1) {
+  background: var(--kt-dash-tone-1-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-dash-tone-1-accent),var(--kt-shadow-xs) !important;
+}
+
+:is(
+  .universal-operational-kpis > button,
+  .scorecard-kpis > article,
+  .inbound-figma-kpis > .inbound-kpi-link,
+  .kardex-kpi-grid > div,
+  .kardex-initial-kpis > div,
+  .kardex-ledger-kpis > div,
+  .kardex-history-kpis > div,
+  .dashboard-stats-grid > .dashboard-stat,
+  .main-dashboard-kpis > .main-dashboard-card,
+  .dashboard-inbound-kpis > button,
+  .kpi-record-grid > .kpi-record-card
+):nth-child(3n+2) {
+  background: var(--kt-dash-tone-2-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-dash-tone-2-accent),var(--kt-shadow-xs) !important;
+}
+
+:is(
+  .universal-operational-kpis > button,
+  .scorecard-kpis > article,
+  .inbound-figma-kpis > .inbound-kpi-link,
+  .kardex-kpi-grid > div,
+  .kardex-initial-kpis > div,
+  .kardex-ledger-kpis > div,
+  .kardex-history-kpis > div,
+  .dashboard-stats-grid > .dashboard-stat,
+  .main-dashboard-kpis > .main-dashboard-card,
+  .dashboard-inbound-kpis > button,
+  .kpi-record-grid > .kpi-record-card
+):nth-child(3n) {
+  background: var(--kt-dash-tone-3-bg) !important;
+  box-shadow: inset 3px 0 0 var(--kt-dash-tone-3-accent),var(--kt-shadow-xs) !important;
+}
+
+:is(
+  .universal-operational-kpis > button,
+  .inbound-figma-kpis > .inbound-kpi-link,
+  .main-dashboard-kpis > .main-dashboard-card,
+  .dashboard-inbound-kpis > button
+):hover {
+  border-color: var(--kt-blue-400) !important;
+  box-shadow: inset 3px 0 0 var(--kt-blue-700),var(--kt-shadow-sm) !important;
+  transform: translateY(-1px);
+}
+
+/* Íconos: misma familia, con intensidad según posición. */
+.universal-operational-kpis > button:nth-child(3n+1) .operational-report-icon,
+.universal-dashboard-kpis > .universal-kpi:nth-child(3n+1):not(.critical) .universal-kpi-icon {
+  background: var(--kt-blue-600);
+  color: #fff;
+}
+.universal-operational-kpis > button:nth-child(3n+2) .operational-report-icon,
+.universal-dashboard-kpis > .universal-kpi:nth-child(3n+2):not(.critical) .universal-kpi-icon {
+  background: var(--kt-blue-800);
+  color: #fff;
+}
+.universal-operational-kpis > button:nth-child(3n) .operational-report-icon,
+.universal-dashboard-kpis > .universal-kpi:nth-child(3n):not(.critical) .universal-kpi-icon {
+  background: var(--kt-blue-500);
+  color: #fff;
+}
+
+.inbound-figma-kpis > .inbound-kpi-link:nth-child(3n+1) > svg:first-child,
+.dashboard-inbound-kpis > button:nth-child(3n+1) > svg:first-child {
+  color: var(--kt-blue-600) !important;
+}
+.inbound-figma-kpis > .inbound-kpi-link:nth-child(3n+2) > svg:first-child,
+.dashboard-inbound-kpis > button:nth-child(3n+2) > svg:first-child {
+  color: var(--kt-blue-800) !important;
+}
+.inbound-figma-kpis > .inbound-kpi-link:nth-child(3n) > svg:first-child,
+.dashboard-inbound-kpis > button:nth-child(3n) > svg:first-child {
+  color: var(--kt-blue-500) !important;
+}
+
+/* Variantes antiguas warning/success/purple ahora permanecen dentro de KOMTROL blue. */
+.inbound-figma-kpis > .inbound-kpi-link.warning,
+.inbound-figma-kpis > .inbound-kpi-link.success,
+.inbound-figma-kpis > .inbound-kpi-link.purple {
+  color: var(--kt-ink) !important;
+}
+
+/* Tarjetas de gráficos y reportes: fondo azul muy suave para continuidad visual. */
+:is(
+  .pro-chart-card,
+  .scorecard-chart-card,
+  .inbound-chart-card,
+  .dashboard-detail-panel,
+  .dashboard-report-panel,
+  .dashboard-inbound-integrated
+) {
+  border-color: var(--kt-blue-200) !important;
+  background: linear-gradient(180deg,#fff 0%,var(--kt-blue-50) 100%) !important;
+  box-shadow: var(--kt-shadow-xs) !important;
+}
+
+.dashboard-report-links > button:nth-child(3n+1) {
+  background: var(--kt-dash-tone-1-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-600);
+}
+.dashboard-report-links > button:nth-child(3n+2) {
+  background: var(--kt-dash-tone-2-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-800);
+}
+.dashboard-report-links > button:nth-child(3n) {
+  background: var(--kt-dash-tone-3-bg);
+  box-shadow: inset 3px 0 0 var(--kt-blue-500);
+}
+.dashboard-report-links > button:hover {
+  border-color: var(--kt-blue-400);
+  background: linear-gradient(135deg,var(--kt-blue-50),var(--kt-blue-150));
+}
+
+/* Mantener semántica crítica por encima del ciclo azul. */
+.universal-kpi.critical {
+  border-color: var(--kt-danger-border) !important;
+  background: linear-gradient(135deg,var(--kt-danger-soft),#fff 70%) !important;
+  box-shadow: inset 3px 0 0 var(--kt-danger),var(--kt-shadow-xs) !important;
+}
