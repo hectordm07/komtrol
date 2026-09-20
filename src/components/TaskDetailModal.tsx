@@ -46,6 +46,8 @@ export type TaskDetailTask = {
   project: string | null
   group_name: string | null
   shift_name: string | null
+  relevo_from_shift: string | null
+  relevo_to_shift: string | null
   responsible_id: string | null
   created_by: string
   category: string | null
@@ -640,6 +642,12 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
           <div className="task-detail-grid task-detail-facts">
             <div><span>Proyecto</span><b>{task.project || '—'}</b></div>
             <div><span>Grupo / espacio</span><b>{task.group_name || task.warehouse || '—'}</b></div>
+            {task.work_type === 'RELEVO' && (
+              <div className="task-detail-relevo-route">
+                <span>Relevo de guardia</span>
+                <b>{task.relevo_from_shift || task.shift_name || 'Guardia origen'} <i>→</i> {task.relevo_to_shift || 'Guardia destino'}</b>
+              </div>
+            )}
             <div><span>Creación</span><b>{fmtDate(task.created_at)}</b></div>
             <div><span>Inicio</span><b>{fmtDate(task.start_at)}</b></div>
             <div><span>Cierre</span><b>{fmtDate(task.closed_at)}</b></div>
