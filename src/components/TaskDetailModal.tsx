@@ -256,6 +256,10 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
     return true
   })
 
+  const personAssignmentProfiles = currentProfile?.role === 'ADMINISTRADOR'
+    ? [...profiles].sort((a,b)=>a.full_name.localeCompare(b.full_name))
+    : scopedProfiles
+
   const scopedGroups = Array.from(new Set(
     scopedProfiles.map((profile)=>profile.group_name).filter((value): value is string=>Boolean(value))
   )).sort()
@@ -739,7 +743,11 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
       changed_by: userId,
     })
 
-    const editRecipients = scopedProfiles
+    const editRecipientProfiles = editForm.assignment_type === 'PERSONA'
+      ? personAssignmentProfiles
+      : scopedProfiles
+
+    const editRecipients = editRecipientProfiles
       .filter((profile) => {
         if (editForm.assignment_type === 'PERSONA') return profile.user_id === editForm.assigned_user_id
         if (editForm.assignment_type === 'GRUPO') return profile.group_name === editForm.assigned_group
@@ -913,8 +921,9 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
                   {editForm.assignment_type === 'PERSONA' && (
                     <label>Persona
                       <select value={editForm.assigned_user_id} onChange={(event)=>setEditForm({...editForm,assigned_user_id:event.target.value})}>
-                        {scopedProfiles.map((profile)=><option key={profile.user_id} value={profile.user_id}>{profile.full_name}</option>)}
+                        {personAssignmentProfiles.map((profile)=><option key={profile.user_id} value={profile.user_id}>{profile.full_name}{profile.warehouse ? ` · ${profile.warehouse}` : ''}{profile.project ? ` · ${profile.project}` : ''}</option>)}
                       </select>
+                      {currentProfile?.role === 'ADMINISTRADOR' && <small>Administrador: puedes reasignar esta tarea a cualquier usuario activo de KOMTROL.</small>}
                     </label>
                   )}
                   {editForm.assignment_type === 'GRUPO' && (
