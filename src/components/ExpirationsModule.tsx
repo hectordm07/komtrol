@@ -422,7 +422,9 @@ export function ExpirationsModule({type,userId,profile}:Props) {
     await reload()
   }
 
-  const personName=(id:string)=>profiles.find((p)=>p.user_id===id)?.full_name || 'Usuario'
+  function personName(id:string) {
+    return profiles.find((p)=>p.user_id===id)?.full_name || 'Usuario'
+  }
 
   const pendingOutlook=courseInbox.filter((row)=>['NEEDS_REVIEW','COURSE_DETECTED'].includes(row.detection_status)).length
 
