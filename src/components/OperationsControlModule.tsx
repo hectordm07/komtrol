@@ -4,6 +4,8 @@ import {
   Boxes,
   ClipboardList,
   Download,
+  FileSpreadsheet,
+  FileText,
   PackageCheck,
   Plus,
   RefreshCw,
@@ -12,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type Mode =
   | 'consignacion'
@@ -365,6 +368,41 @@ export function OperationsControlModule({ mode, userId, warehouse }: Props) {
     )
   }, [rows, search])
 
+  const exportColumns = config.columns.map((column) => ({
+    header: column.label,
+    key: column.name,
+    width: column.label.length > 18 ? 30 : 18,
+  }))
+
+  const exportRows = visible.map((row) =>
+    Object.fromEntries(
+      config.columns.map((column) => [
+        column.name,
+        formatCell(row[column.name], column.format),
+      ])
+    )
+  )
+
+  function exportVisibleExcel() {
+    exportRowsToExcel(
+      `KOMTROL_${mode}`,
+      config.title.slice(0, 31),
+      exportColumns,
+      exportRows,
+      [['Módulo', config.title], ['Registros', exportRows.length], ['Almacén', warehouse || 'Todos']]
+    )
+  }
+
+  function exportVisiblePdf() {
+    exportRowsToPdfPortrait(
+      `KOMTROL_${mode}`,
+      `KOMTROL · ${config.title}`,
+      exportColumns,
+      exportRows,
+      { subtitle: config.subtitle, summary: [['Registros', exportRows.length], ['Almacén', warehouse || 'Todos']] }
+    )
+  }
+
   async function autofillMaterial(materialNo: string) {
     const value = materialNo.trim()
     if (!value) return
@@ -445,7 +483,8 @@ export function OperationsControlModule({ mode, userId, warehouse }: Props) {
           <div><h3>{config.title}</h3><p>{config.subtitle}</p></div>
         </div>
         <div className="button-row">
-          <button className="secondary-button" disabled={!visible.length} onClick={() => downloadCsv(`KOMTROL_${mode}.csv`, config.columns, visible)}><Download size={16} /> Excel/CSV</button>
+          <button className="secondary-button" disabled={!visible.length} onClick={exportVisiblePdf}><FileText size={16} /> PDF</button>
+          <button className="secondary-button" disabled={!visible.length} onClick={exportVisibleExcel}><FileSpreadsheet size={16} /> Excel</button>
           <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
           <button className="primary-button" onClick={newRecord}><Plus size={17} /> Registrar</button>
         </div>
