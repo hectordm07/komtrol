@@ -229,15 +229,10 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
   if (loading) return <section className="panel"><div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando dashboard principal…</p></div></section>
 
   return <div className="main-dashboard">
-    <section className="panel dashboard-control-strip">
-      <div>
+    <section className="panel dashboard-control-strip dashboard-compact-toolbar">
+      <div className="dashboard-context-strip">
         <span className="dashboard-control-kicker">{scope === 'REMOTE' ? 'ALMACENES REMOTOS' : 'VISIÓN NACIONAL'}</span>
-        <h2>{scope === 'REMOTE' ? 'Dashboard · Almacenes Remotos' : 'Dashboard General de Almacenes'}</h2>
-        <p>{warehouse === 'TODOS' || warehouse === 'TODOS_REMOTOS'
-          ? scope === 'REMOTE'
-            ? 'Consolidado remoto sin Almacenes Centrales.'
-            : 'Consolidado de todos los almacenes disponibles para tu perfil.'
-          : `Vista filtrada: ${warehouse}`}</p>
+        <b>{warehouse === 'TODOS' || warehouse === 'TODOS_REMOTOS' ? 'Consolidado' : warehouse}</b>
       </div>
       <div className="main-dashboard-filter">
         {scope === 'REMOTE' && canViewAll && (
