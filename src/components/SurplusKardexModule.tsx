@@ -20,6 +20,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { exportRowsToExcel } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type KardexView = 'dashboard' | 'initial' | 'movements'
@@ -1055,14 +1056,53 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     }
   }
 
-  function exportKardex() {
-    downloadCsv('KOMTROL_Kardex_Sobrantes.csv', [
-      ['CENTRO','ALMACEN','TIPO_ALMACENAMIENTO','SECCION','FECHA','MOVIMIENTO','ORIGEN','REFERENCIA','CAJA','EMBARQUE','MATERIAL','STOCK_CODE','DESCRIPCION','UBICACION','TIPO_STOCK','CANTIDAD','UM','OBSERVACION'],
-      ...visibleMovements.map((row) => [
-        row.center,row.warehouse,row.storage_type,row.storage_section,fmt(row.created_at),row.movement_type,row.source_type,row.reference_no,
-        row.box_no,row.shipment_no,row.material_no,row.stock_code,row.description,row.location,row.stock_type,row.quantity,row.unit,row.notes,
-      ]),
-    ])
+  function exportKardexExcel() {
+    const rows=visibleMovements.map((row)=>({
+      center:row.center || '',
+      warehouse:row.warehouse,
+      storage_type:row.storage_type || '',
+      storage_section:row.storage_section || '',
+      created_at:fmt(row.created_at),
+      movement_type:row.movement_type,
+      source_type:row.source_type,
+      reference_no:row.reference_no || '',
+      box_no:row.box_no || '',
+      shipment_no:row.shipment_no || '',
+      material_no:row.material_no,
+      stock_code:row.stock_code || '',
+      description:row.description || '',
+      location:row.location || '',
+      stock_type:row.stock_type,
+      quantity:row.quantity,
+      unit:row.unit,
+      notes:row.notes || '',
+    }))
+    exportRowsToExcel(
+      'KOMTROL_Kardex_Sobrantes',
+      'Kardex',
+      [
+        {header:'CENTRO',key:'center',width:14},
+        {header:'ALMACÉN',key:'warehouse',width:18},
+        {header:'TIPO ALMACENAMIENTO',key:'storage_type',width:20},
+        {header:'SECCIÓN',key:'storage_section',width:16},
+        {header:'FECHA',key:'created_at',width:18},
+        {header:'MOVIMIENTO',key:'movement_type',width:14},
+        {header:'ORIGEN',key:'source_type',width:18},
+        {header:'REFERENCIA',key:'reference_no',width:18},
+        {header:'CAJA',key:'box_no',width:18},
+        {header:'EMBARQUE',key:'shipment_no',width:20},
+        {header:'MATERIAL',key:'material_no',width:18},
+        {header:'STOCK CODE',key:'stock_code',width:16},
+        {header:'DESCRIPCIÓN',key:'description',width:38},
+        {header:'UBICACIÓN',key:'location',width:18},
+        {header:'TIPO STOCK',key:'stock_type',width:16},
+        {header:'CANTIDAD',key:'quantity',width:12},
+        {header:'UM',key:'unit',width:8},
+        {header:'OBSERVACIÓN',key:'notes',width:30},
+      ],
+      rows,
+      [['Registros',rows.length],['Almacén',fixedWarehouse || warehouseFilter || profile?.warehouse || 'Todos']]
+    )
   }
 
   if (loading) {
@@ -1080,7 +1120,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
           <div className="button-row">
             {canMove && <button className="primary-button" onClick={openManualEntry}><Plus size={15}/> Agregar sobrante</button>}
             <button className="secondary-button" onClick={exportKardexPdf}><FileText size={15}/> PDF Kardex</button>
-            <button className="secondary-button" onClick={exportKardex}><Download size={15}/> CSV</button>
+            <button className="secondary-button" onClick={exportKardexExcel}><FileSpreadsheet size={15}/> Excel</button>
             <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
           </div>
         </div>
