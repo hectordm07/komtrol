@@ -976,7 +976,7 @@ function Workspace({ session }: { session: Session }) {
               {tab === 'inicio' && (
                 <UniversalDashboardModule
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                   onNavigate={(targetTab) => {
                     const target = flatNav.find((item) => item.id === targetTab)
                     if (!target) {
@@ -998,7 +998,7 @@ function Workspace({ session }: { session: Session }) {
               {tab === 'incidencias' && (
                 <ReceivingIncidentModule
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                   scopeMode="REMOTE"
                 />
               )}
@@ -1033,24 +1033,24 @@ function Workspace({ session }: { session: Session }) {
               {isInboundTab && tab === 'inbound-incidencias' && (
                 <ReceivingIncidentModule
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                   scopeMode="CALLAO"
                 />
               )}
 
               {isInboundTab && tab === 'inbound-cajas' && (
-                <InboundModule mode="boxes" userId={user.id} profile={effectiveProfile} />
+                <InboundModule mode="boxes" userId={user.id} profile={effectiveProfile!} />
               )}
 
               {isInboundTab && tab === 'inbound-kardex' && (
-                <SurplusKardexModule userId={user.id} profile={effectiveProfile} fixedWarehouse="CALLAO" />
+                <SurplusKardexModule userId={user.id} profile={effectiveProfile!} fixedWarehouse="CALLAO" />
               )}
 
               {isInboundTab && tab === 'inbound-personal' && (
                 <TasksModule
                   mode="area-personal"
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                   scopeWarehouse="CALLAO"
                   scopeProject="INBOUND CALLAO"
                   scopeGroup="INBOUND"
@@ -1061,7 +1061,7 @@ function Workspace({ session }: { session: Session }) {
                 <TasksModule
                   mode="tareas"
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                   scopeWarehouse="CALLAO"
                   scopeProject="INBOUND CALLAO"
                   scopeGroup="INBOUND"
@@ -1072,7 +1072,7 @@ function Workspace({ session }: { session: Session }) {
                 <TasksModule
                   mode={tab as typeof taskTabs[number]}
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                   initialTaskId={taskToOpen}
                   onInitialTaskOpened={() => setTaskToOpen(null)}
                 />
@@ -1082,7 +1082,7 @@ function Workspace({ session }: { session: Session }) {
                 <ExpirationsModule
                   type={expirationType}
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                 />
               )}
 
@@ -1090,14 +1090,14 @@ function Workspace({ session }: { session: Session }) {
                 <GuidesModule
                   mode={guideMode}
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                 />
               )}
 
               {isOcCargoTab && (
                 <OcCargoTrackingModule
                   userId={user.id}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                 />
               )}
 
@@ -1118,7 +1118,7 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {tab === 'kardex-sobrantes' && (
-                <SurplusKardexModule userId={user.id} profile={effectiveProfile} />
+                <SurplusKardexModule userId={user.id} profile={effectiveProfile!} />
               )}
 
               {isOperationsControlTab && (
@@ -1134,7 +1134,7 @@ function Workspace({ session }: { session: Session }) {
                   mode={tab as typeof dashboardTabs[number]}
                   userId={user.id}
                   role={role}
-                  profile={effectiveProfile}
+                  profile={effectiveProfile!}
                 />
               )}
 
