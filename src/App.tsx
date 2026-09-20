@@ -900,7 +900,26 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {isInboundTab && tab === 'inbound-dashboard' && (
-                <InboundModule mode="dashboard" userId={user.id} profile={profile} />
+                <InboundModule
+                  mode="dashboard"
+                  userId={user.id}
+                  profile={profile}
+                  onNavigate={(targetTab) => {
+                    const target = flatNav.find((item) => item.id === targetTab)
+                    if (!target) {
+                      setToast('Este indicador no está disponible para tu perfil.')
+                      return
+                    }
+                    setTab(targetTab)
+                    setOpenSections((current) =>
+                      current.includes(target.section)
+                        ? current
+                        : [...current, target.section]
+                    )
+                    setMobileMenu(false)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                />
               )}
 
               {isInboundTab && tab === 'inbound-incidencias' && (
