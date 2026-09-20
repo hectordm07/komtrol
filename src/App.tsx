@@ -3,12 +3,15 @@ import {
   AlertTriangle,
   BarChart3,
   Bell,
+  BadgeCheck,
   Boxes,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardList,
   LogOut,
+  GraduationCap,
   Mail,
   Menu,
   PackageCheck,
@@ -40,6 +43,7 @@ import { MainDashboardModule } from './components/MainDashboardModule'
 import { ReceivingIncidentModule } from './components/ReceivingIncidentModule'
 import { IncidentEmailSettings } from './components/IncidentEmailSettings'
 import { SurplusKardexModule } from './components/SurplusKardexModule'
+import { ExpirationsModule } from './components/ExpirationsModule'
 
 type Tab = string
 
@@ -382,7 +386,7 @@ function Workspace({ session }: { session: Session }) {
     if (item.task_id) {
       setTaskToOpen(item.task_id)
       setTab('mi-trabajo')
-      setOpenSections((current) => current.includes('INICIO') ? current : [...current, 'INICIO'])
+      setOpenSections((current) => current.includes('ÁREA DE TRABAJO') ? current : [...current, 'ÁREA DE TRABAJO'])
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
@@ -499,21 +503,24 @@ function Workspace({ session }: { session: Session }) {
     {
       section: 'INICIO',
       items: [
-        { id: 'inicio' as Tab, label: 'Dashboard General', icon: BarChart3 },
-        { id: 'mi-trabajo' as Tab, label: 'Mi trabajo', icon: ClipboardList },
+        { id: 'inicio' as Tab, label: 'Dashboard', icon: BarChart3 },
         { id: 'alertas' as Tab, label: 'Alertas', icon: Bell },
       ],
     },
     {
-      section: 'TRABAJO',
+      section: 'ÁREA DE TRABAJO',
       items: [
-        { id: 'area-personal' as Tab, label: 'Área Personal', icon: ClipboardList },
-        { id: 'proyectos' as Tab, label: 'Proyectos / Almacenes', icon: Boxes },
+        { id: 'mi-trabajo' as Tab, label: 'Mi trabajo', icon: ClipboardList },
         { id: 'relevos' as Tab, label: 'Relevos', icon: RefreshCw },
-        { id: 'tareas' as Tab, label: 'Tareas', icon: ClipboardList },
-        { id: 'lista' as Tab, label: 'Lista', icon: ClipboardList },
-        { id: 'tablero' as Tab, label: 'Tablero', icon: Boxes },
-        { id: 'calendario' as Tab, label: 'Calendario', icon: BarChart3 },
+      ],
+    },
+    {
+      section: 'VENCIMIENTOS',
+      collapsible: true,
+      items: [
+        { id: 'vencimientos-emoa' as Tab, label: 'EMOA', icon: ShieldCheck },
+        { id: 'vencimientos-cursos' as Tab, label: 'Cursos', icon: GraduationCap },
+        { id: 'vencimientos-licencias' as Tab, label: 'Licencias Internas', icon: BadgeCheck },
       ],
     },
     ...((profile?.warehouse === 'CALLAO' || role === 'ADMINISTRADOR')
@@ -522,8 +529,6 @@ function Workspace({ session }: { session: Session }) {
           collapsible: true,
           items: [
             { id: 'inbound-dashboard' as Tab, label: 'Dashboard Inbound', icon: BarChart3 },
-            { id: 'inbound-personal' as Tab, label: 'Mis tareas', icon: ClipboardList },
-            { id: 'inbound-tareas' as Tab, label: 'Asignar tareas', icon: ClipboardList },
             { id: 'inbound-incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
             { id: 'inbound-cajas' as Tab, label: 'Sobrantes / Cajas', icon: Boxes },
             { id: 'inbound-kardex' as Tab, label: 'Kardex de Sobrantes', icon: ClipboardList },
@@ -600,55 +605,50 @@ function Workspace({ session }: { session: Session }) {
   const isCallaoSupervisor = role === 'SUPERVISOR' && profile?.warehouse === 'CALLAO'
   const isCallaoWorker = role === 'TRABAJADOR' && profile?.warehouse === 'CALLAO'
 
+  const universalSections = ['INICIO', 'ÁREA DE TRABAJO', 'VENCIMIENTOS']
+
   const navSections = !profile
     ? []
-    : isCallaoCoordinator
+    : isCallaoUser
       ? allNavSections
-        .filter((group) => group.section === 'INBOUND · CALLAO')
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) =>
-            ['inbound-dashboard','inbound-personal','inbound-tareas','inbound-incidencias','inbound-cajas','inbound-kardex'].includes(item.id)
-          ),
-        }))
-      : isCallaoSupervisor
-        ? allNavSections
-          .filter((group) => group.section === 'INBOUND · CALLAO')
-          .map((group) => ({
+        .filter((group) => universalSections.includes(group.section) || group.section === 'INBOUND · CALLAO')
+        .map((group) => {
+          if (group.section !== 'INBOUND · CALLAO') return group
+
+          const allowedInbound =
+            isCallaoSupervisor
+              ? ['inbound-dashboard','inbound-incidencias','inbound-cajas','inbound-kardex']
+              : ['inbound-dashboard','inbound-incidencias','inbound-cajas','inbound-kardex']
+
+          return {
             ...group,
-            items: group.items.filter((item) =>
-              ['inbound-dashboard','inbound-incidencias','inbound-cajas','inbound-kardex'].includes(item.id)
-            ),
-          }))
-        : isCallaoWorker
-          ? allNavSections
-            .filter((group) => group.section === 'INBOUND · CALLAO')
-            .map((group) => ({
-              ...group,
-              items: group.items.filter((item) =>
-                ['inbound-dashboard','inbound-personal','inbound-incidencias','inbound-cajas','inbound-kardex'].includes(item.id)
-              ),
-            }))
-          : allNavSections.filter((group) =>
-              role === 'ADMINISTRADOR' || group.section !== 'INBOUND · CALLAO'
-            )
+            items: group.items.filter((item) => allowedInbound.includes(item.id)),
+          }
+        })
+      : allNavSections.filter((group) =>
+          role === 'ADMINISTRADOR' || group.section !== 'INBOUND · CALLAO'
+        )
 
   const flatNav = navSections.flatMap((group) =>
     group.items.map((item) => ({ ...item, section: group.section }))
   )
   const currentNav = flatNav.find((item) => item.id === tab)
-  const mobileHomeTab = isCallaoUser ? 'inbound-dashboard' : 'inicio'
-  const mobileWorkTab = flatNav.some((item) => item.id === 'inbound-personal')
-    ? 'inbound-personal'
-    : flatNav.some((item) => item.id === 'mi-trabajo')
-      ? 'mi-trabajo'
-      : null
+  const mobileHomeTab = 'inicio'
+  const mobileWorkTab = flatNav.some((item) => item.id === 'mi-trabajo')
+    ? 'mi-trabajo'
+    : null
   const mobileIncidentTab = flatNav.some((item) => item.id === 'inbound-incidencias')
     ? 'inbound-incidencias'
     : flatNav.some((item) => item.id === 'incidencias')
       ? 'incidencias'
       : null
   const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
+  const expirationTabs = ['vencimientos-emoa', 'vencimientos-cursos', 'vencimientos-licencias'] as const
+  const isExpirationTab = expirationTabs.includes(tab as typeof expirationTabs[number])
+  const expirationType =
+    tab === 'vencimientos-cursos' ? 'CURSO' :
+    tab === 'vencimientos-licencias' ? 'LICENCIA_INTERNA' :
+    'EMOA'
   const inboundTabs = ['inbound-dashboard', 'inbound-personal', 'inbound-tareas', 'inbound-incidencias', 'inbound-cajas', 'inbound-kardex'] as const
   const isInboundTab = inboundTabs.includes(tab as typeof inboundTabs[number])
   const isTaskTab = taskTabs.includes(tab as typeof taskTabs[number])
@@ -683,11 +683,6 @@ function Workspace({ session }: { session: Session }) {
   useEffect(() => {
     const allowed = flatNav.map((item) => item.id)
     if (allowed.includes(tab)) return
-
-    if (isCallaoUser) {
-      setTab('inbound-dashboard')
-      return
-    }
 
     setTab('inicio')
   }, [tab, role, profile?.warehouse])
@@ -970,6 +965,14 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {isExpirationTab && (
+                <ExpirationsModule
+                  type={expirationType}
+                  userId={user.id}
+                  profile={profile}
+                />
+              )}
+
               {isGuideTab && (
                 <GuidesModule
                   mode={guideMode}
@@ -1037,7 +1040,7 @@ function Workspace({ session }: { session: Session }) {
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !isKardexTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isExpirationTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !isKardexTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
