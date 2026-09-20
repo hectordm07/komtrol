@@ -184,8 +184,8 @@ function App() {
 }
 
 function Login() {
-  const [dni, setDni] = useState('')
-  const [pin, setPin] = useState('')
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -193,32 +193,48 @@ function Login() {
     event.preventDefault()
     setMessage('')
 
-    if (!/^\d{8}$/.test(dni)) {
-      setMessage('Ingresa un DNI válido de 8 dígitos.')
+    const value = identifier.trim().toLowerCase()
+    const isDni = /^\d{8}$/.test(value)
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    const isUsername = /^[a-z0-9._-]{3,80}$/i.test(value)
+
+    if (!isDni && !isEmail && !isUsername) {
+      setMessage('Ingresa un DNI, usuario o correo válido.')
       return
     }
 
-    if (!/^\d{4,8}$/.test(pin)) {
+    if (!password.trim()) {
+      setMessage(isDni ? 'Ingresa tu PIN.' : 'Ingresa tu contraseña.')
+      return
+    }
+
+    if (isDni && !/^\d{4,8}$/.test(password)) {
       setMessage('El PIN debe tener de 4 a 8 dígitos.')
       return
     }
 
     setLoading(true)
 
-    const email = loginEmail(dni)
+    const email = isDni
+      ? loginEmail(value)
+      : isEmail
+        ? value
+        : `${value}@kmmp.com.pe`
 
-    // Formato principal de KOMTROL. Si el usuario fue creado manualmente
-    // usando el PIN directo en Supabase, intentamos una vez ese formato
-    // para facilitar la migración de cuentas.
     let { error } = await supabase.auth.signInWithPassword({
       email,
-      password: pin.trim(),
+      password: password.trim(),
     })
 
-    if (error?.message?.toLowerCase().includes('invalid login credentials')) {
+    // Compatibilidad con cuentas antiguas de KOMTROL que usan el PIN
+    // transformado como contraseña en Supabase.
+    if (
+      error?.message?.toLowerCase().includes('invalid login credentials') &&
+      /^\d{4,8}$/.test(password)
+    ) {
       const legacyAttempt = await supabase.auth.signInWithPassword({
         email,
-        password: loginPassword(pin),
+        password: loginPassword(password),
       })
       error = legacyAttempt.error
     }
@@ -228,9 +244,13 @@ function Login() {
     if (error) {
       const messageText = error.message?.toLowerCase() ?? ''
       if (messageText.includes('email not confirmed')) {
-        setMessage('El usuario existe, pero aún no está confirmado.')
+        setMessage('El usuario existe, pero su correo aún no está confirmado.')
       } else if (messageText.includes('invalid login credentials')) {
-        setMessage('DNI o PIN incorrecto. Verifica los datos e intenta nuevamente.')
+        setMessage(
+          isDni
+            ? 'DNI o PIN incorrecto. Verifica los datos e intenta nuevamente.'
+            : 'Usuario/correo o contraseña incorrectos. Verifica los datos e intenta nuevamente.'
+        )
       } else {
         setMessage(`No se pudo validar el acceso: ${error.message}`)
       }
@@ -260,30 +280,27 @@ function Login() {
         <form className="login-card" onSubmit={submit}>
           <div className="mini-logo">K</div>
           <h2>Bienvenido a KOMTROL</h2>
-          <p>Ingresa con tu DNI y PIN asignado.</p>
+          <p>Ingresa con tu DNI, usuario corporativo o correo.</p>
 
           <label>
-            DNI
+            DNI, usuario o correo
             <input
-              inputMode="numeric"
+              type="text"
               autoComplete="username"
-              maxLength={8}
-              placeholder="00000000"
-              value={dni}
-              onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))}
+              placeholder="12345678 o richar.solar"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
             />
           </label>
 
           <label>
-            PIN
+            PIN o contraseña
             <input
               type="password"
-              inputMode="numeric"
               autoComplete="current-password"
-              maxLength={8}
-              placeholder="••••"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </label>
 
