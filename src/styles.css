@@ -14503,3 +14503,134 @@ table tbody tr:hover td {
     font-size: 16px;
   }
 }
+
+
+/* =========================================================
+   ADMIN VIEW SWITCHER · ADMINISTRADOR / TRABAJADOR
+   ========================================================= */
+.access-view-switcher {
+  margin-bottom: 9px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 11px;
+  background: rgba(255,255,255,.06);
+  display: grid;
+  gap: 7px;
+}
+
+.access-view-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.access-view-head > span {
+  color: rgba(255,255,255,.88);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.access-view-head > small {
+  color: rgba(255,255,255,.55);
+  font-size: 7px;
+}
+
+.access-view-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.access-view-options button {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255,255,255,.74);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.access-view-options button:hover {
+  background: rgba(255,255,255,.09);
+  color: #fff;
+}
+
+.access-view-options button.active {
+  border-color: rgba(255,255,255,.22);
+  background: #fff;
+  color: var(--kt-blue-900);
+  box-shadow: 0 3px 10px rgba(9,20,77,.18);
+}
+
+.access-preview-note {
+  padding: 6px 7px;
+  border-radius: 7px;
+  background: rgba(255, 209, 94, .14);
+  color: #fff1bd;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.topbar-title-block {
+  min-width: 0;
+}
+
+.topbar-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.access-preview-badge {
+  min-height: 24px;
+  padding: 4px 7px;
+  border: 1px solid #d8c17b;
+  border-radius: 999px;
+  background: #fff8dc;
+  color: #7b5d08;
+  display: inline-flex;
+  align-items: center;
+  font-size: 7px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .access-view-switcher {
+    margin: 0 0 8px;
+  }
+
+  .access-view-head > span,
+  .access-view-head > small,
+  .access-view-options button,
+  .access-preview-note {
+    font-size: 10px;
+  }
+
+  .access-view-options button {
+    min-height: 42px;
+  }
+
+  .topbar-title-line {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .access-preview-badge {
+    min-height: 22px;
+    font-size: 9px;
+  }
+}
