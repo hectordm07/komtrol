@@ -14306,3 +14306,200 @@ table tbody tr:hover td {
     margin-left: 0;
   }
 }
+
+
+/* =========================================================
+   VENCIMIENTOS V2 · PERSONAL / PROYECTO / GUARDIAS
+   ========================================================= */
+.expiration-data-panel {
+  padding: 9px;
+}
+
+.expiration-scope-bar {
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 11px;
+  background: linear-gradient(180deg,#fff,var(--kt-blue-50));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.expiration-scope-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.expiration-scope-tabs button {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--kt-muted);
+  font-size: 9px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.expiration-scope-tabs button:hover {
+  color: var(--kt-blue-800);
+  background: var(--kt-blue-100);
+}
+
+.expiration-scope-tabs button.active {
+  border-color: var(--kt-blue-200);
+  background: #fff;
+  color: var(--kt-blue-900);
+  box-shadow: var(--kt-shadow-xs);
+}
+
+.expiration-scope-context {
+  min-width: 0;
+  color: var(--kt-muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.expiration-filter-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px,1fr) repeat(2,minmax(150px,220px));
+  gap: 7px;
+  align-items: center;
+}
+
+.expiration-filter-toolbar .search {
+  width: 100%;
+  max-width: none;
+}
+
+.expiration-filter-toolbar select {
+  min-height: 38px;
+  font-size: 9px;
+}
+
+.expiration-hierarchy-table tbody + tbody {
+  border-top: 0;
+}
+
+.expiration-project-row td {
+  padding: 9px 11px !important;
+  border-top: 1px solid var(--kt-blue-200) !important;
+  border-bottom: 1px solid var(--kt-blue-200) !important;
+  background: var(--kt-blue-100) !important;
+  color: var(--kt-blue-950);
+}
+
+.expiration-project-row td > b,
+.expiration-project-row td > span {
+  display: inline-block;
+}
+
+.expiration-project-row td > b {
+  margin-right: 8px;
+  font-size: 10px;
+}
+
+.expiration-project-row td > span {
+  color: var(--kt-muted);
+  font-size: 8px;
+}
+
+.expiration-shift-row td {
+  padding: 7px 11px !important;
+  background: #fafbff !important;
+  border-bottom: 1px solid var(--kt-border-soft) !important;
+}
+
+.expiration-shift-row td > b {
+  margin-right: 8px;
+  color: var(--kt-blue-800);
+  font-size: 9px;
+}
+
+.expiration-shift-row td > span {
+  color: var(--kt-muted);
+  font-size: 8px;
+}
+
+.expiration-hierarchy-table td:first-child b,
+.expiration-hierarchy-table td:first-child small {
+  display: block;
+}
+
+.expiration-hierarchy-table td:first-child small {
+  margin-top: 2px;
+  color: var(--kt-muted);
+  font-size: 7px;
+}
+
+.expiration-modal label > small {
+  margin-top: 3px;
+  color: var(--kt-muted);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .expiration-scope-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .expiration-scope-context {
+    text-align: left;
+  }
+
+  .expiration-filter-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .expiration-filter-toolbar .search {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .expiration-data-panel {
+    padding: 7px;
+  }
+
+  .expiration-scope-bar {
+    margin-bottom: 6px;
+  }
+
+  .expiration-scope-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .expiration-scope-tabs button {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+    font-size: 11px;
+  }
+
+  .expiration-scope-context {
+    font-size: 9px;
+  }
+
+  .expiration-filter-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .expiration-filter-toolbar .search {
+    grid-column: auto;
+  }
+
+  .expiration-filter-toolbar select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
