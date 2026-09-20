@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Download, FileUp, Pencil, RefreshCw, Save, Search, ShieldCheck, Upload, Users, X, XCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import * as XLSX from 'xlsx'
 import { exportRowsToExcel } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
@@ -216,14 +217,25 @@ export function UsersAdmin() {
 
   async function onFile(file?: File) {
     if (!file) return
-    if (!/\.(csv|txt)$/i.test(file.name)) {
-      setMessage('Para Excel, copia las filas y pégalas en el cuadro o guarda el archivo como CSV.')
-      return
-    }
-    setFileName(file.name)
-    setImportText(await file.text())
     setResults([])
     setMessage('')
+    try {
+      if (/\.(xlsx|xls)$/i.test(file.name)) {
+        const workbook = XLSX.read(await file.arrayBuffer(), { type:'array' })
+        const firstSheet = workbook.SheetNames[0]
+        if (!firstSheet) throw new Error('El Excel no contiene hojas.')
+        const sheet = workbook.Sheets[firstSheet]
+        setImportText(XLSX.utils.sheet_to_csv(sheet))
+      } else if (/\.(csv|txt)$/i.test(file.name)) {
+        setImportText(await file.text())
+      } else {
+        setMessage('Formato no compatible. Usa .XLSX, .XLS, .CSV o .TXT.')
+        return
+      }
+      setFileName(file.name)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo leer el archivo.')
+    }
   }
 
   async function createCallaoTestUsers() {
@@ -341,11 +353,27 @@ export function UsersAdmin() {
   }
 
   function downloadTemplate() {
-    downloadCsv('KOMTROL_Plantilla_Usuarios.csv', [
-      ['DNI', 'NOMBRE', 'ROL', 'ALMACEN', 'PROYECTO', 'GRUPO', 'GUARDIA', 'CARGO', 'CORREO', 'PIN'],
-      ['12345678', 'NOMBRE APELLIDO', 'TRABAJADOR', 'ANTAMINA', 'ALMACEN ANTAMINA', 'PALAS', 'GUARDIA A', 'ALMACENERO', 'nombre@empresa.com', ''],
-      ['87654321', 'NOMBRE APELLIDO', 'COORDINADOR', 'CALLAO', 'INBOUND CALLAO', 'INBOUND', 'GUARDIA A', 'COORDINADOR', 'coordinador@empresa.com', ''],
-    ])
+    exportRowsToExcel(
+      'KOMTROL_Plantilla_Usuarios',
+      'Usuarios',
+      [
+        {header:'DNI',key:'DNI',width:14},
+        {header:'NOMBRE',key:'NOMBRE',width:32},
+        {header:'ROL',key:'ROL',width:18},
+        {header:'ALMACÉN',key:'ALMACEN',width:18},
+        {header:'PROYECTO',key:'PROYECTO',width:22},
+        {header:'GRUPO',key:'GRUPO',width:18},
+        {header:'GUARDIA',key:'GUARDIA',width:14},
+        {header:'CARGO',key:'CARGO',width:22},
+        {header:'CORREO',key:'CORREO',width:30},
+        {header:'PIN',key:'PIN',width:12},
+      ],
+      [
+        {DNI:'12345678',NOMBRE:'NOMBRE APELLIDO',ROL:'TRABAJADOR',ALMACEN:'ANTAMINA',PROYECTO:'ALMACEN ANTAMINA',GRUPO:'PALAS',GUARDIA:'GUARDIA A',CARGO:'ALMACENERO',CORREO:'nombre@empresa.com',PIN:''},
+        {DNI:'87654321',NOMBRE:'NOMBRE APELLIDO',ROL:'COORDINADOR',ALMACEN:'CALLAO',PROYECTO:'INBOUND CALLAO',GRUPO:'INBOUND',GUARDIA:'GUARDIA A',CARGO:'COORDINADOR',CORREO:'coordinador@empresa.com',PIN:''},
+      ],
+      [['Uso','Completa los datos sin cambiar los encabezados.']]
+    )
   }
 
   function downloadCredentials() {
@@ -459,18 +487,18 @@ export function UsersAdmin() {
           </div>
           <div className="button-row">
             <button className="secondary-button" disabled={importing} onClick={createCallaoTestUsers}><Users size={17} /> Crear pruebas Callao</button>
-            <button className="secondary-button" onClick={downloadTemplate}><Download size={17} /> Plantilla CSV</button>
+            <button className="secondary-button" onClick={downloadTemplate}><Download size={17} /> Plantilla Excel</button>
             <button className="icon-button" onClick={loadProfiles} title="Actualizar"><RefreshCw size={18} /></button>
           </div>
         </div>
 
         <div className="bulk-user-grid">
           <div className="bulk-input-card">
-            <div className="bulk-step"><span>1</span><div><b>Copia desde Excel o carga CSV</b><small>Columnas: DNI, NOMBRE, ROL, ALMACEN, PROYECTO, GRUPO, GUARDIA, CARGO, CORREO, PIN.</small></div></div>
+            <div className="bulk-step"><span>1</span><div><b>Copia desde Excel o carga Excel / CSV</b><small>Columnas: DNI, NOMBRE, ROL, ALMACEN, PROYECTO, GRUPO, GUARDIA, CARGO, CORREO, PIN.</small></div></div>
             <label className="upload-box compact-upload">
               <FileUp size={20} />
-              <span><b>Seleccionar CSV</b><small>También puedes pegar directamente filas copiadas de Excel.</small></span>
-              <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={(e) => onFile(e.target.files?.[0])} />
+              <span><b>Seleccionar Excel / CSV</b><small>También puedes pegar directamente filas copiadas de Excel.</small></span>
+              <input type="file" accept=".xlsx,.xls,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain" onChange={(e) => onFile(e.target.files?.[0])} />
             </label>
             <textarea
               className="bulk-textarea"
