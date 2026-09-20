@@ -354,18 +354,28 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
       })
     }
 
-    const notifyIds = mentionIds.filter((id) => id !== userId)
+    const notifyIds = Array.from(new Set([
+      task.responsible_id,
+      task.created_by,
+      ...mentionIds,
+    ].filter(Boolean) as string[])).filter((id) => id !== userId)
+
     if (notifyIds.length) {
       await supabase.from('app_notifications').insert(
-        notifyIds.map((id) => ({
-          user_id: id,
-          notification_type: 'MENTION',
-          title: `${profileName(userId)} te mencionó en una tarea`,
-          message: text.slice(0, 240),
-          task_id: task.id,
-          created_by: userId,
-          metadata: { comment_id: created.id, task_no: task.task_no },
-        }))
+        notifyIds.map((id) => {
+          const explicitlyMentioned = mentionIds.includes(id)
+          return {
+            user_id: id,
+            notification_type: explicitlyMentioned ? 'MENTION' : 'TASK_COMMENT',
+            title: explicitlyMentioned
+              ? `${profileName(userId)} te mencionó en una tarea`
+              : `${profileName(userId)} comentó una tarea`,
+            message: `${task.task_no} · ${text.slice(0, 200)}`,
+            task_id: task.id,
+            created_by: userId,
+            metadata: { comment_id: created.id, task_no: task.task_no },
+          }
+        })
       )
     }
 
@@ -541,6 +551,19 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
       note: 'Se actualizaron los datos generales de la tarea.',
       changed_by: userId,
     })
+
+    const newResponsible = editForm.responsible_id || null
+    if (newResponsible && newResponsible !== task.responsible_id && newResponsible !== userId) {
+      await supabase.from('app_notifications').insert({
+        user_id: newResponsible,
+        notification_type: 'TASK_ASSIGNED',
+        title: 'Tarea asignada',
+        message: `${task.task_no} · ${editForm.title.trim()}`,
+        task_id: task.id,
+        created_by: userId,
+        metadata: { task_no: task.task_no },
+      })
+    }
 
     const fresh = data as TaskDetailTask
     setTask(fresh)
