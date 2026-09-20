@@ -310,19 +310,6 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
 
   return (
     <div className="universal-dashboard">
-      <section className="panel universal-dashboard-head">
-        <div>
-          <span className="dashboard-control-kicker">TU INFORMACIÓN OPERATIVA</span>
-          <h2>Dashboard</h2>
-          <p>
-            {profile.project||profile.warehouse||'KOMTROL'}
-            {profile.group_name?` · ${profile.group_name}`:''}
-            {profile.shift_name?` · ${profile.shift_name}`:''}
-          </p>
-        </div>
-        <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18}/></button>
-      </section>
-
       {message&&<div className="inline-message">{message}</div>}
 
       <div className="universal-dashboard-kpis">
