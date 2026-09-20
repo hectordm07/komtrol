@@ -367,7 +367,55 @@ function Workspace({ session }: { session: Session }) {
     return () => window.clearInterval(timer)
   }, [user.id])
 
+  useEffect(() => {
+    const channel = supabase
+      .channel(`app-notifications-realtime-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'app_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const item = payload.new as AppNotification
+          setAppNotifications((current) => [item, ...current.filter((row) => row.id !== item.id)].slice(0, 100))
+          setToast(item.message ? `${item.title}: ${item.message}` : item.title)
+
+          if ('Notification' in window && window.Notification.permission === 'granted') {
+            const browserNotification = new window.Notification(item.title, {
+              body: item.message || 'Tienes una nueva notificación en KOMTROL.',
+              icon: '/favicon.ico',
+              tag: item.id,
+            })
+            browserNotification.onclick = () => {
+              window.focus()
+              void openAppNotification(item)
+              browserNotification.close()
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [user.id])
+
   const unreadAppNotifications = appNotifications.filter((item) => !item.read_at).length
+
+  async function toggleNotificationCenter() {
+    if ('Notification' in window && window.Notification.permission === 'default') {
+      try {
+        await window.Notification.requestPermission()
+      } catch {
+        // El centro interno de KOMTROL seguirá funcionando aunque el navegador no conceda permiso.
+      }
+    }
+    setNotificationOpen((value) => !value)
+  }
 
   async function openAppNotification(item: AppNotification) {
     if (!item.read_at) {
@@ -778,7 +826,7 @@ function Workspace({ session }: { session: Session }) {
               <button
                 className={unreadAppNotifications ? 'icon-button notification-bell has-unread' : 'icon-button notification-bell'}
                 title="Notificaciones"
-                onClick={() => setNotificationOpen((value) => !value)}
+                onClick={() => { void toggleNotificationCenter() }}
               >
                 <Bell size={19} />
                 {unreadAppNotifications > 0 && <span>{unreadAppNotifications > 99 ? '99+' : unreadAppNotifications}</span>}
