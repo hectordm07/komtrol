@@ -986,7 +986,7 @@ function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]
             <th>Responsable</th>
             <th>Vence</th>
             <th>Estado / Avance</th>
-            <th></th>
+            <th>Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -1029,7 +1029,23 @@ function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]
                   <div className="task-inline-progress"><i style={{width:`${task.progress}%`}}/><span>{task.progress}%</span></div>
                 </div>
               </td>
-              <td><button className="icon-button task-open-action" onClick={(e)=>{e.stopPropagation();onOpen(task)}} title="Abrir detalle"><ChevronRight size={16}/></button></td>
+              <td>
+                <div className="task-list-actions" onClick={(e)=>e.stopPropagation()}>
+                  {task.status !== 'CERRADO' ? (
+                    <button
+                      type="button"
+                      className="task-complete-button"
+                      onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}
+                      title="Completar tarea"
+                    >
+                      <CheckCircle2 size={15}/> Completar
+                    </button>
+                  ) : (
+                    <span className="task-completed-label"><CheckCircle2 size={14}/> Completada</span>
+                  )}
+                  <button className="icon-button task-open-action" onClick={() => onOpen(task)} title="Abrir detalle"><ChevronRight size={16}/></button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -1040,43 +1056,88 @@ function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]
 
 function TaskBoard({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const columns: Task['status'][] = ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADO', 'CERRADO']
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null)
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Sin asignar'
   const colorFor = (tag: string) => labels.find((label)=>label.name===tag)?.color || '#5570D8'
+  const labelFor = (status: Task['status']) => ({
+    PENDIENTE: 'Pendiente',
+    EN_PROCESO: 'En proceso',
+    BLOQUEADO: 'Bloqueado',
+    CERRADO: 'Cerrado',
+    VENCIDA: 'Vencida',
+  }[status] || status)
+
+  function dropOn(status: Task['status']) {
+    const task = tasks.find((item)=>item.id===draggedTaskId)
+    setDragOverStatus(null)
+    setDraggedTaskId(null)
+    if (!task || task.status===status) return
+    onUpdate(task, { status, ...(status==='CERRADO' ? { progress: 100 } : {}) })
+  }
 
   return (
-    <div className="task-board">
-      {columns.map((status) => {
-        const items = tasks.filter((t) => t.status === status)
-        return (
-          <div className="board-column" key={status}>
-            <div className="board-column-head"><b>{status.replace('_', ' ')}</b><span>{items.length}</span></div>
-            <div className="board-cards">
-              {items.map((task) => (
-                <article className={`task-card task-open-card ${isOverdue(task) ? 'overdue-card' : ''}`} key={task.id} onClick={() => onOpen(task)}>
-                  <div className="task-card-top"><span className={`priority-dot p-${task.priority.toLowerCase()}`} /><small>{task.task_no}</small></div>
-                  <b>{task.title}</b>
-                  <p>{task.project || task.warehouse || 'Sin proyecto'}{task.group_name ? ` · ${task.group_name}` : ''}</p>
-                  {(task.tags || []).length > 0 && <div className="task-card-tags">{task.tags.slice(0,2).map((tag)=>{
-                    const color=colorFor(tag)
-                    return <span key={tag} style={{color,borderColor:`${color}55`,background:`${color}14`}}>{tag}</span>
-                  })}</div>}
-                  <div className="task-card-meta"><span><UserRound size={13} /> {name(task.responsible_id)}</span><span><CalendarDays size={13} /> {shortDate(task.due_at)}</span></div>
-                  <div className="progress-bar"><i style={{ width: `${task.progress}%` }} /></div>
-                  <div className="task-card-actions">
-                    <select value={task.status} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
-                      {columns.map((value) => <option key={value} value={value}>{value.replace('_', ' ')}</option>)}
-                    </select>
-                    <select value={task.progress} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { progress: Number(e.target.value) })}>
-                      {[0, 25, 50, 75, 100].map((v) => <option key={v} value={v}>{v}%</option>)}
-                    </select>
-                  </div>
-                </article>
-              ))}
-              {!items.length && <div className="board-empty">Sin registros</div>}
+    <div className="task-board-shell">
+      <div className="task-board-help"><Columns3 size={15}/><span>Arrastra una tarjeta entre columnas para cambiar su estado. También puedes usar el selector dentro de cada tarea.</span></div>
+      <div className="task-board">
+        {columns.map((status) => {
+          const items = tasks.filter((t) => t.status === status)
+          const isOver = dragOverStatus===status
+          return (
+            <div
+              className={isOver ? 'board-column is-drag-over' : 'board-column'}
+              key={status}
+              onDragOver={(e)=>{e.preventDefault();setDragOverStatus(status)}}
+              onDragLeave={(e)=>{if(!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverStatus(null)}}
+              onDrop={(e)=>{e.preventDefault();dropOn(status)}}
+            >
+              <div className={`board-column-head board-status-${status.toLowerCase()}`}>
+                <div><i/><b>{labelFor(status)}</b></div>
+                <span>{items.length}</span>
+              </div>
+              <div className="board-cards">
+                {items.map((task) => (
+                  <article
+                    className={`task-card task-open-card board-draggable-card ${isOverdue(task) ? 'overdue-card' : ''} ${draggedTaskId===task.id ? 'is-dragging' : ''}`}
+                    key={task.id}
+                    draggable
+                    onDragStart={(e)=>{
+                      setDraggedTaskId(task.id)
+                      e.dataTransfer.effectAllowed='move'
+                      e.dataTransfer.setData('text/plain',task.id)
+                    }}
+                    onDragEnd={()=>{setDraggedTaskId(null);setDragOverStatus(null)}}
+                    onClick={() => onOpen(task)}
+                  >
+                    <div className="task-card-top">
+                      <span className={`priority-dot p-${task.priority.toLowerCase()}`} />
+                      <small>{task.task_no}</small>
+                      <span className="board-drag-handle" title="Arrastrar">⋮⋮</span>
+                    </div>
+                    <b>{task.title}</b>
+                    <p>{task.project || task.warehouse || 'Sin proyecto'}{task.group_name ? ` · ${task.group_name}` : ''}</p>
+                    {(task.tags || []).length > 0 && <div className="task-card-tags">{task.tags.slice(0,2).map((tag)=>{
+                      const color=colorFor(tag)
+                      return <span key={tag} style={{color,borderColor:`${color}55`,background:`${color}14`}}>{tag}</span>
+                    })}</div>}
+                    <div className="task-card-meta"><span><UserRound size={13} /> {name(task.responsible_id)}</span><span><CalendarDays size={13} /> {shortDate(task.due_at)}</span></div>
+                    <div className="progress-bar"><i style={{ width: `${task.progress}%` }} /></div>
+                    <div className="task-card-actions" onClick={(e)=>e.stopPropagation()}>
+                      <select value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
+                        {columns.map((value) => <option key={value} value={value}>{labelFor(value)}</option>)}
+                      </select>
+                      <select value={task.progress} onChange={(e) => onUpdate(task, { progress: Number(e.target.value) })}>
+                        {[0, 25, 50, 75, 100].map((v) => <option key={v} value={v}>{v}%</option>)}
+                      </select>
+                    </div>
+                  </article>
+                ))}
+                {!items.length && <div className={isOver ? 'board-empty active-drop' : 'board-empty'}>{isOver ? 'Suelta aquí' : 'Sin registros'}</div>}
+              </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1090,11 +1151,26 @@ function localDateKey(value: Date | string) {
   return `${year}-${month}-${day}`
 }
 
-function addDays(date: Date, amount: number) {
-  const next = new Date(date)
-  next.setHours(12, 0, 0, 0)
-  next.setDate(next.getDate() + amount)
+function startOfMonth(date: Date) {
+  const next = new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0)
   return next
+}
+
+function monthOffset(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1, 12, 0, 0, 0)
+}
+
+function monthCalendarCells(month: Date) {
+  const first = startOfMonth(month)
+  const mondayIndex = (first.getDay() + 6) % 7
+  const gridStart = new Date(first)
+  gridStart.setDate(first.getDate() - mondayIndex)
+  return Array.from({ length: 42 }, (_, index) => {
+    const cell = new Date(gridStart)
+    cell.setDate(gridStart.getDate() + index)
+    cell.setHours(12,0,0,0)
+    return cell
+  })
 }
 
 function startOfToday() {
@@ -1120,9 +1196,10 @@ function TaskCalendar({
   onOpen: (task: Task) => void
   onOpenIncident: (incident: CalendarIncident) => void
 }) {
-  const [windowStart, setWindowStart] = useState(() => startOfToday())
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()))
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Sin asignar'
-  const dayCells = useMemo(() => Array.from({ length: 30 }, (_, index) => addDays(windowStart, index)), [windowStart])
+  const dayCells = useMemo(() => monthCalendarCells(calendarMonth), [calendarMonth])
+  const monthValue = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth()+1).padStart(2,'0')}`
 
   const visibleIncidents = useMemo(() => {
     if (!profile?.warehouse || profile.role === 'ADMINISTRADOR') return incidents
@@ -1149,20 +1226,31 @@ function TaskCalendar({
     }, {})
   }, [visibleIncidents])
 
-  const rangeLabel = `${new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short' }).format(dayCells[0])} – ${new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }).format(dayCells[29])}`
   const todayKey = localDateKey(startOfToday())
+  const monthLabel = new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric' }).format(calendarMonth)
+  const weekdays=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 
   return (
-    <div className="calendar-30-shell">
-      <div className="calendar-30-controls">
+    <div className="calendar-month-shell">
+      <div className="calendar-month-controls">
         <div>
-          <b>Vista de 30 días</b>
-          <span>{rangeLabel}</span>
+          <b>{monthLabel.charAt(0).toUpperCase()+monthLabel.slice(1)}</b>
+          <span>Vista mensual completa · tareas, relevos e incidencias</span>
         </div>
-        <div className="calendar-30-nav">
-          <button className="icon-button" onClick={() => setWindowStart((current) => addDays(current, -30))} title="30 días anteriores"><ChevronLeft size={18} /></button>
-          <button className="secondary-button calendar-today-button" onClick={() => setWindowStart(startOfToday())}>Hoy</button>
-          <button className="icon-button" onClick={() => setWindowStart((current) => addDays(current, 30))} title="30 días siguientes"><ChevronRight size={18} /></button>
+        <div className="calendar-month-nav">
+          <button className="icon-button" onClick={() => setCalendarMonth((current)=>monthOffset(current,-1))} title="Mes anterior"><ChevronLeft size={18}/></button>
+          <button className="secondary-button calendar-today-button" onClick={() => setCalendarMonth(startOfMonth(new Date()))}>Hoy</button>
+          <input
+            className="calendar-month-picker"
+            type="month"
+            value={monthValue}
+            onChange={(e)=>{
+              const [year,month]=e.target.value.split('-').map(Number)
+              if(year&&month) setCalendarMonth(new Date(year,month-1,1,12,0,0,0))
+            }}
+            aria-label="Seleccionar mes"
+          />
+          <button className="icon-button" onClick={() => setCalendarMonth((current)=>monthOffset(current,1))} title="Mes siguiente"><ChevronRight size={18}/></button>
         </div>
       </div>
 
@@ -1172,121 +1260,60 @@ function TaskCalendar({
         <span><i className="calendar-legend-dot incident" /> Incidencia</span>
       </div>
 
-      <div className="calendar-30-grid">
+      <div className="calendar-weekdays">
+        {weekdays.map((day)=><span key={day}>{day}</span>)}
+      </div>
+
+      <div className="calendar-month-grid">
         {dayCells.map((date) => {
           const key = localDateKey(date)
           const dayTasks = taskByDay[key] ?? []
           const dayIncidents = incidentByDay[key] ?? []
           const total = dayTasks.length + dayIncidents.length
           const isToday = key === todayKey
+          const inMonth = date.getMonth()===calendarMonth.getMonth() && date.getFullYear()===calendarMonth.getFullYear()
 
           return (
-            <section className={isToday ? 'calendar-30-day is-today' : 'calendar-30-day'} key={key}>
-              <div className="calendar-30-day-head">
-                <div>
-                  <small>{new Intl.DateTimeFormat('es-PE', { weekday: 'short' }).format(date)}</small>
-                  <b>{new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short' }).format(date)}</b>
-                </div>
-                <span>{total}</span>
+            <section className={`calendar-month-day ${isToday?'is-today ':''}${!inMonth?'is-outside-month':''}`} key={key}>
+              <div className="calendar-month-day-head">
+                <b>{date.getDate()}</b>
+                {total>0&&<span>{total}</span>}
               </div>
 
-              <div className="calendar-30-events">
-                {dayTasks.map((task) => (
+              <div className="calendar-month-events">
+                {dayTasks.slice(0,4).map((task) => (
                   <button
                     key={task.id}
-                    className={`calendar-event calendar-event-task ${isOverdue(task) ? 'is-overdue' : ''}`}
+                    className={`calendar-event calendar-event-task ${task.work_type==='RELEVO'?'is-relevo ':''}${isOverdue(task) ? 'is-overdue' : ''}`}
                     onClick={() => onOpen(task)}
-                    title="Abrir detalle"
+                    title={`${task.title} · ${name(task.responsible_id)}`}
                   >
                     <i className={`priority-dot p-${task.priority.toLowerCase()}`} />
                     <span>
                       <small>{task.work_type === 'RELEVO' ? 'RELEVO' : task.work_type === 'PERSONAL' ? 'PERSONAL' : 'TAREA'}</small>
                       <b>{task.title}</b>
-                      <em>{task.project || task.warehouse || 'Sin proyecto'} · {name(task.responsible_id)}</em>
                     </span>
                   </button>
                 ))}
 
-                {dayIncidents.map((incident) => (
+                {dayIncidents.slice(0,3).map((incident) => (
                   <button
                     key={incident.id}
                     className="calendar-event calendar-event-incident"
                     onClick={() => onOpenIncident(incident)}
-                    title="Abrir incidencia"
+                    title={`Abrir ${incident.incident_no}`}
                   >
-                    <AlertTriangle size={14} />
-                    <span>
-                      <small>INCIDENCIA · {incident.incident_type.replace('_', ' ')}</small>
-                      <b>{incident.incident_no}</b>
-                      <em>{incident.material_no || incident.description || incident.warehouse || 'Sin detalle'}</em>
-                    </span>
+                    <AlertTriangle size={12} />
+                    <span><small>INCIDENCIA</small><b>{incident.incident_no}</b></span>
                   </button>
                 ))}
 
-                {!total && <span className="calendar-30-empty">Sin registros</span>}
+                {total > 7 && <span className="calendar-more-events">+{total-7} más</span>}
               </div>
             </section>
           )
         })}
       </div>
-
-      <style>{`
-        .calendar-30-shell{display:grid;gap:12px}
-        .calendar-30-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 0}
-        .calendar-30-controls>div:first-child{display:grid;gap:2px}
-        .calendar-30-controls b{color:#18274b;font-size:14px}
-        .calendar-30-controls span{color:#738099;font-size:12px}
-        .calendar-30-nav{display:flex;align-items:center;gap:7px}
-        .calendar-today-button{min-height:36px;padding:0 14px}
-        .calendar-30-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:#66748f;font-size:12px}
-        .calendar-30-legend span{display:inline-flex;align-items:center;gap:6px}
-        .calendar-legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#3155c6}
-        .calendar-legend-dot.relevo{background:#7c3aed}
-        .calendar-legend-dot.incident{background:#c62828}
-        .calendar-30-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
-        .calendar-30-day{min-height:150px;border:1px solid #e2e7f0;border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(24,39,75,.03)}
-        .calendar-30-day.is-today{border-color:#3155c6;box-shadow:0 0 0 2px rgba(49,85,198,.08)}
-        .calendar-30-day-head{display:flex;align-items:center;justify-content:space-between;padding:10px 11px;background:#f7f9fd;border-bottom:1px solid #e8ecf4}
-        .calendar-30-day-head>div{display:grid;gap:1px}
-        .calendar-30-day-head small{text-transform:capitalize;color:#7b879d;font-size:10px}
-        .calendar-30-day-head b{color:#223154;font-size:13px}
-        .calendar-30-day-head>span{display:grid;place-items:center;min-width:25px;height:25px;padding:0 7px;border-radius:999px;background:#edf1f8;color:#41516f;font-size:11px;font-weight:800}
-        .calendar-30-events{display:grid;gap:7px;padding:8px}
-        .calendar-event{width:100%;border:0;border-radius:10px;padding:8px;text-align:left;display:flex;align-items:flex-start;gap:7px;cursor:pointer}
-        .calendar-event:hover{filter:brightness(.985)}
-        .calendar-event span{min-width:0;display:grid;gap:1px}
-        .calendar-event small{font-size:9px;font-weight:800;letter-spacing:.03em}
-        .calendar-event b{font-size:11px;line-height:1.25;color:#1d2a49;white-space:normal}
-        .calendar-event em{font-style:normal;font-size:9.5px;color:#6f7b91;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .calendar-event-task{background:#f4f7ff;border:1px solid #e2e9ff}
-        .calendar-event-task.is-overdue{background:#fff4f3;border-color:#ffd8d4}
-        .calendar-event-incident{background:#fff5f4;border:1px solid #ffdcd8;color:#b42318}
-        .calendar-event-incident b{color:#7f1d1d}
-        .calendar-30-empty{display:block;padding:12px 4px;color:#a0a9b8;font-size:10px;text-align:center}
-        .calendar-incident-modal{max-width:620px}
-        .calendar-incident-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-        .calendar-incident-field{padding:11px;border:1px solid #e5e9f1;border-radius:12px;background:#fafbfe}
-        .calendar-incident-field.span-2{grid-column:1/-1}
-        .calendar-incident-field small{display:block;color:#7b879d;font-size:10px;margin-bottom:3px}
-        .calendar-incident-field b,.calendar-incident-field p{margin:0;color:#223154;font-size:13px;overflow-wrap:anywhere}
-        @media(max-width:1050px){.calendar-30-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-        @media(max-width:650px){
-          .calendar-30-controls{align-items:flex-start}
-          .calendar-30-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-          .calendar-30-day{min-height:128px;border-radius:12px}
-          .calendar-30-day-head{padding:9px}
-          .calendar-30-events{padding:6px;gap:5px}
-          .calendar-event{padding:7px}
-          .calendar-event em{display:none}
-          .calendar-incident-grid{grid-template-columns:1fr}
-          .calendar-incident-field.span-2{grid-column:auto}
-        }
-        @media(max-width:380px){
-          .calendar-30-controls{display:grid}
-          .calendar-30-nav{justify-content:flex-start}
-          .calendar-30-grid{grid-template-columns:1fr 1fr}
-        }
-      `}</style>
     </div>
   )
 }
