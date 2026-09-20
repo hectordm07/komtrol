@@ -76,6 +76,7 @@ type Incident={
   incident_type:string
   status:string
   warehouse:string|null
+  project:string|null
   qty_expected:number|null
   qty_received:number|null
   qty_damaged:number|null
@@ -173,7 +174,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
         .limit(100),
       supabase
         .from('incidents')
-        .select('id,incident_no,incident_type,status,warehouse,qty_expected,qty_received,qty_damaged,created_at')
+        .select('id,incident_no,incident_type,status,warehouse,project,qty_expected,qty_received,qty_damaged,created_at')
         .order('created_at',{ascending:false})
         .limit(3000),
       supabase
@@ -216,14 +217,23 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
   })
   const groupPending=groupTasks.filter(isOpen)
   const unread=notifications.filter((row)=>!row.read_at).length
-  const operationalWarehouse=(profile.warehouse||'').toUpperCase()
+  const operationalWarehouse=(profile.warehouse||'').trim().toUpperCase()
+  const operationalProject=(profile.project||'').trim().toUpperCase()
+
   function scopeWarehouse<T extends {warehouse?:string|null}>(rows:T[]){
     if(profile.role==='ADMINISTRADOR' && !operationalWarehouse) return rows
-    if(!operationalWarehouse) return rows
-    return rows.filter((row)=>String(row.warehouse||'').toUpperCase()===operationalWarehouse)
+    if(!operationalWarehouse) return []
+    return rows.filter((row)=>String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse)
   }
 
-  const operationalIncidents=scopeWarehouse(incidents)
+  const operationalIncidents=incidents.filter((row)=>{
+    if(profile.role==='ADMINISTRADOR' && !operationalWarehouse) return true
+    const sameWarehouse=String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse
+    if(!sameWarehouse) return false
+    if(!operationalProject) return true
+    const rowProject=String(row.project||'').trim().toUpperCase()
+    return !rowProject || rowProject===operationalProject
+  })
   const operationalKardex=scopeWarehouse(kardexMovements)
   const openIncidents=operationalIncidents.filter((row)=>row.status!=='CERRADO')
   const surplusIncidents=operationalIncidents.filter((row)=>row.incident_type==='SOBRANTE')
@@ -459,7 +469,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
         <div className="universal-report-heading">
           <div>
             <b>Reportes operativos</b>
-            <span>{profile.warehouse || 'Almacenes autorizados'}</span>
+            <span>{[profile.warehouse, profile.project].filter(Boolean).join(' · ') || 'Almacenes autorizados'}</span>
           </div>
         </div>
 
