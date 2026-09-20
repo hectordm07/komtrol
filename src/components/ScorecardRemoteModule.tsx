@@ -309,7 +309,7 @@ function MiniTrendChart({
   const areaPoints=points.length ? `5,87 ${line} 95,87` : ''
   return (
     <section className="scorecard-chart-card">
-      <div className="scorecard-chart-head"><b>{title}</b><span>{points.at(-1)?.label || ''}</span></div>
+      <div className="scorecard-chart-head"><b>{title}</b><span>{points.length ? points[points.length-1].label : ''}</span></div>
       <div className="scorecard-trend">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none">
           <line x1="5" y1="87" x2="95" y2="87" className="scorecard-axis"/>
@@ -605,7 +605,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         report_code:allReports?null:report?.code||null,
         warehouse:role==='COORDINADOR'?normalizeProfileWarehouse(profile):null,
         project_name:role==='COORDINADOR'?profile?.project||null:null,
-        period_from:dates[0],period_to:dates.at(-1),status:'PROCESANDO',
+        period_from:dates[0],period_to:dates[dates.length-1],status:'PROCESANDO',
         rows_total:parsed.length,uploaded_by:userId,
       }).select('*').single()
       if(impError||!imp) throw impError||new Error('No se pudo registrar la carga.')
