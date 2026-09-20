@@ -4,6 +4,7 @@ import {
   Camera,
   CheckCircle2,
   FileText,
+  FileSpreadsheet,
   Image as ImageIcon,
   Plus,
   RefreshCw,
@@ -13,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -955,13 +957,81 @@ export function GuidesModule({ mode, userId, profile }: Props) {
         ? 'success'
         : 'info'
 
+  const guideExportRows=visible.map((guide)=>({
+    guide_no:guide.guide_no,
+    document_no:guide.document_no||'',
+    emission_date:guide.emission_date ? new Intl.DateTimeFormat('es-PE').format(new Date(guide.emission_date+'T12:00:00')) : '',
+    transfer_start_date:guide.transfer_start_date ? new Intl.DateTimeFormat('es-PE').format(new Date(guide.transfer_start_date+'T12:00:00')) : '',
+    reception_at:new Intl.DateTimeFormat('es-PE',{dateStyle:'short',timeStyle:'short'}).format(new Date(guide.reception_at)),
+    reference:guide.reference,
+    line_count:guide.line_count,
+    guide_type:guide.guide_type.replaceAll('_',' '),
+    warehouse:guide.warehouse||'',
+    responsible:responsibleName(guide.responsible_user_id),
+    status:guide.status,
+    ocr_confidence:guide.ocr_confidence == null ? '' : `${guide.ocr_confidence}%`,
+    notes:guide.notes||'',
+  }))
+
+  const guideExcelColumns=[
+    {header:'GUÍA',key:'guide_no',width:20},
+    {header:'N° DOCUMENTO',key:'document_no',width:18},
+    {header:'EMISIÓN',key:'emission_date',width:14},
+    {header:'INICIO TRASLADO',key:'transfer_start_date',width:16},
+    {header:'RECEPCIÓN',key:'reception_at',width:18},
+    {header:'REFERENCIA',key:'reference',width:20},
+    {header:'LÍNEAS',key:'line_count',width:10},
+    {header:'TIPO',key:'guide_type',width:18},
+    {header:'ALMACÉN',key:'warehouse',width:18},
+    {header:'RESPONSABLE',key:'responsible',width:26},
+    {header:'ESTADO',key:'status',width:16},
+    {header:'OCR',key:'ocr_confidence',width:10},
+    {header:'OBSERVACIONES',key:'notes',width:36},
+  ]
+
+  const guidePdfColumns=[
+    {header:'GUÍA',key:'guide_no'},
+    {header:'DOC.',key:'document_no'},
+    {header:'EMISIÓN',key:'emission_date'},
+    {header:'RECEPCIÓN',key:'reception_at'},
+    {header:'REFERENCIA',key:'reference'},
+    {header:'LÍN.',key:'line_count'},
+    {header:'TIPO',key:'guide_type'},
+    {header:'ALMACÉN',key:'warehouse'},
+    {header:'ESTADO',key:'status'},
+  ]
+
+  function exportGuidesExcel(){
+    exportRowsToExcel(
+      `KOMTROL_Guias_${mode}`,
+      'Guias',
+      guideExcelColumns,
+      guideExportRows,
+      [['Vista',mode],['Registros',guideExportRows.length]]
+    )
+  }
+
+  function exportGuidesPdf(){
+    exportRowsToPdfPortrait(
+      `KOMTROL_Guias_${mode}`,
+      'KOMTROL · Seguimiento de Guías',
+      guidePdfColumns,
+      guideExportRows,
+      {summary:[['Vista',mode],['Registros',guideExportRows.length]]}
+    )
+  }
+
   if (mode !== 'scanner') {
     const title = mode === 'reposicion' ? 'Ingresos de Reposición' : mode === 'oc-cargos' ? 'OC / Cargos Directos' : 'Seguimiento de Guías'
     return (
       <section className="panel guide-list-panel">
         <div className="panel-title">
           <div><h3>{title}</h3><p>Registros capturados desde Scanner de Guías y operación.</p></div>
-          <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
+          <div className="button-row">
+            <button className="secondary-button" disabled={!visible.length} onClick={exportGuidesPdf}><FileText size={16}/> PDF</button>
+            <button className="secondary-button" disabled={!visible.length} onClick={exportGuidesExcel}><FileSpreadsheet size={16}/> Excel</button>
+            <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
+          </div>
         </div>
         <div className="task-toolbar">
           <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar guía, referencia, documento, almacén…" /></div>
