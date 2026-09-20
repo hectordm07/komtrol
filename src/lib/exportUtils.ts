@@ -76,79 +76,117 @@ export function exportRowsToPdfPortrait(
     summary?: Array<[string, unknown]>
   }
 ) {
+  // Estándar KOMTROL: todos los reportes PDF se generan en A4 vertical.
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const marginX = 9
 
-  doc.setFillColor(51, 67, 154)
-  doc.rect(0, 0, pageWidth, 22, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.text(title, marginX, 9)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.text(`Generado: ${new Date().toLocaleString('es-PE')}`, marginX, 15)
+  const summaryText = options?.summary?.length
+    ? options.summary.map(([label, value]) => `${label}: ${String(value ?? '')}`).join('  ·  ')
+    : ''
 
-  let startY = 28
-  if (options?.subtitle) {
-    doc.setTextColor(51, 64, 120)
-    const lines = doc.splitTextToSize(options.subtitle, pageWidth - marginX * 2)
-    doc.text(lines, marginX, startY)
-    startY += Math.max(5, lines.length * 3.5 + 2)
+  // Para mantener legibilidad en vertical, los reportes muy anchos se dividen
+  // en bloques de columnas. La primera columna se repite como identificador.
+  const maxColumnsPerSection = 8
+  const columnSections: ExportColumn[][] = []
+  if (columns.length <= maxColumnsPerSection) {
+    columnSections.push(columns)
+  } else {
+    const anchor = columns[0]
+    const rest = columns.slice(1)
+    const chunkSize = maxColumnsPerSection - 1
+    for (let index = 0; index < rest.length; index += chunkSize) {
+      columnSections.push([anchor, ...rest.slice(index, index + chunkSize)])
+    }
   }
 
-  if (options?.summary?.length) {
-    const summaryText = options.summary
-      .map(([label, value]) => `${label}: ${String(value ?? '')}`)
-      .join('  ·  ')
-    doc.setTextColor(109, 120, 158)
-    const lines = doc.splitTextToSize(summaryText, pageWidth - marginX * 2)
-    doc.text(lines, marginX, startY)
-    startY += Math.max(5, lines.length * 3.5 + 2)
-  }
-
-  const count = columns.length
-  const fontSize = count <= 5 ? 7.5 : count <= 8 ? 6.4 : count <= 11 ? 5.5 : 4.8
-
-  autoTable(doc, {
-    startY,
-    margin: { left: marginX, right: marginX, top: 26, bottom: 12 },
-    head: [columns.map((column) => column.header)],
-    body: rows.map((row) => columns.map((column) => cellText(row[column.key]))) as any[][],
-    theme: 'grid',
-    tableWidth: 'auto',
-    styles: {
-      font: 'helvetica',
-      fontSize,
-      cellPadding: count >= 10 ? 1.1 : 1.5,
-      textColor: [51, 64, 120],
-      lineColor: [216, 222, 248],
-      lineWidth: 0.15,
-      overflow: 'linebreak',
-      valign: 'middle',
-      minCellHeight: 4.5,
-    },
-    headStyles: {
-      fillColor: [51, 67, 154],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: Math.max(5, fontSize),
-    },
-    alternateRowStyles: { fillColor: [247, 248, 255] },
-    didDrawPage: () => {
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(6.5)
-      doc.setTextColor(135, 145, 176)
+  const drawHeader = (sectionIndex: number) => {
+    doc.setFillColor(51, 67, 154)
+    doc.rect(0, 0, pageWidth, 22, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.text(title, marginX, 9)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    doc.text(`Generado: ${new Date().toLocaleString('es-PE')}`, marginX, 15)
+    if (columnSections.length > 1) {
       doc.text(
-        `KOMTROL · Página ${doc.getNumberOfPages()}`,
+        `Bloque ${sectionIndex + 1} de ${columnSections.length}`,
         pageWidth - marginX,
-        pageHeight - 6,
+        15,
         { align: 'right' }
       )
-    },
+    }
+  }
+
+  columnSections.forEach((sectionColumns, sectionIndex) => {
+    if (sectionIndex > 0) doc.addPage('a4', 'portrait')
+    drawHeader(sectionIndex)
+
+    let startY = 28
+    if (options?.subtitle) {
+      doc.setTextColor(51, 64, 120)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      const lines = doc.splitTextToSize(options.subtitle, pageWidth - marginX * 2)
+      doc.text(lines, marginX, startY)
+      startY += Math.max(5, lines.length * 3.5 + 2)
+    }
+
+    if (summaryText) {
+      doc.setTextColor(109, 120, 158)
+      doc.setFontSize(7)
+      const lines = doc.splitTextToSize(summaryText, pageWidth - marginX * 2)
+      doc.text(lines, marginX, startY)
+      startY += Math.max(5, lines.length * 3.5 + 2)
+    }
+
+    const count = sectionColumns.length
+    const fontSize = count <= 5 ? 7.3 : count <= 7 ? 6.3 : 5.7
+
+    autoTable(doc, {
+      startY,
+      margin: { left: marginX, right: marginX, top: 26, bottom: 12 },
+      head: [sectionColumns.map((column) => column.header)],
+      body: rows.map((row) => sectionColumns.map((column) => cellText(row[column.key]))) as any[][],
+      theme: 'grid',
+      tableWidth: 'auto',
+      styles: {
+        font: 'helvetica',
+        fontSize,
+        cellPadding: count >= 7 ? 1.15 : 1.45,
+        textColor: [51, 64, 120],
+        lineColor: [216, 222, 248],
+        lineWidth: 0.15,
+        overflow: 'linebreak',
+        valign: 'middle',
+        minCellHeight: 4.5,
+      },
+      headStyles: {
+        fillColor: [51, 67, 154],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: Math.max(5.5, fontSize),
+      },
+      alternateRowStyles: { fillColor: [247, 248, 255] },
+      didDrawPage: () => {
+        // autoTable crea páginas adicionales; se repite el encabezado KOMTROL.
+        drawHeader(sectionIndex)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(135, 145, 176)
+        doc.text(
+          `KOMTROL · Página ${doc.getNumberOfPages()}`,
+          pageWidth - marginX,
+          pageHeight - 6,
+          { align: 'right' }
+        )
+      },
+    })
   })
 
   doc.save(normalizedFileName(filename, 'pdf'))
 }
+
