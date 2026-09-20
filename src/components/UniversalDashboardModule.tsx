@@ -42,7 +42,14 @@ type Task={
   warehouse:string|null
   project:string|null
   group_name:string|null
+  shift_name:string|null
+  relevo_from_shift:string|null
+  relevo_to_shift:string|null
   responsible_id:string|null
+  assignment_type:'PERSONAL'|'PERSONA'|'GRUPO'|'GUARDIA'
+  assigned_user_id:string|null
+  assigned_group:string|null
+  assigned_shift:string|null
   created_by:string
   status:'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'
   progress:number
@@ -157,7 +164,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
     const [taskRes,expiryRes,notificationRes,incidentRes,kardexRes]=await Promise.all([
       supabase
         .from('tasks')
-        .select('id,task_no,work_type,title,warehouse,project,group_name,responsible_id,created_by,status,progress,priority,due_at,closed_at,created_at')
+        .select('id,task_no,work_type,title,warehouse,project,group_name,shift_name,relevo_from_shift,relevo_to_shift,responsible_id,assignment_type,assigned_user_id,assigned_group,assigned_shift,created_by,status,progress,priority,due_at,closed_at,created_at')
         .order('created_at',{ascending:false})
         .limit(3000),
       supabase
@@ -197,26 +204,51 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
   useEffect(()=>{reload()},[userId])
 
   const personalTasks=useMemo(()=>tasks.filter((task)=>
-    task.responsible_id===userId ||
-    (task.work_type==='PERSONAL' && task.created_by===userId)
+    task.work_type==='PERSONAL' &&
+    (
+      task.assigned_user_id===userId ||
+      task.responsible_id===userId ||
+      task.created_by===userId
+    )
   ),[tasks,userId])
 
   const groupTasks=useMemo(()=>tasks.filter((task)=>{
     if(task.work_type==='PERSONAL') return false
-    if(task.responsible_id) return false
 
-    const sameWarehouse = profile.warehouse
-      ? String(task.warehouse||'').trim().toUpperCase() === String(profile.warehouse).trim().toUpperCase()
+    const normalizedWarehouse=String(profile.warehouse||'').trim().toUpperCase()
+    const normalizedProject=String(profile.project||'').trim().toUpperCase()
+    const normalizedGroup=String(profile.group_name||'').trim().toUpperCase()
+    const normalizedShift=String(profile.shift_name||'').trim().toUpperCase()
+
+    const sameWarehouse = normalizedWarehouse
+      ? String(task.warehouse||'').trim().toUpperCase()===normalizedWarehouse
       : true
-    const sameProject = profile.project
-      ? String(task.project||'').trim().toUpperCase() === String(profile.project).trim().toUpperCase()
+    const sameProject = normalizedProject
+      ? String(task.project||'').trim().toUpperCase()===normalizedProject
       : true
-    const sameGroup = profile.group_name
-      ? String(task.group_name||'').trim().toUpperCase() === String(profile.group_name).trim().toUpperCase()
+    const taskGroups=[
+      String(task.group_name||'').trim().toUpperCase(),
+      String(task.assigned_group||'').trim().toUpperCase(),
+    ].filter(Boolean)
+    const sameGroup = normalizedGroup
+      ? taskGroups.includes(normalizedGroup)
       : true
 
-    return sameWarehouse && sameProject && sameGroup
-  }),[tasks,profile.warehouse,profile.project,profile.group_name])
+    if(!sameWarehouse || !sameProject || !sameGroup) return false
+
+    if(task.work_type==='RELEVO' && normalizedShift){
+      const relatedShifts=[
+        task.shift_name,
+        task.relevo_from_shift,
+        task.relevo_to_shift,
+        task.assigned_shift,
+      ].map((value)=>String(value||'').trim().toUpperCase()).filter(Boolean)
+
+      return relatedShifts.length===0 || relatedShifts.includes(normalizedShift)
+    }
+
+    return true
+  }),[tasks,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
 
   const openPersonal=personalTasks.filter(isOpen)
   const overduePersonal=personalTasks.filter(isOverdue)
@@ -226,6 +258,8 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
     return days!==null && days>=0 && days<=7
   })
   const groupPending=groupTasks.filter(isOpen)
+  const groupTaskPending=groupPending.filter((task)=>task.work_type==='TAREA')
+  const groupRelevoPending=groupPending.filter((task)=>task.work_type==='RELEVO')
   const unread=notifications.filter((row)=>!row.read_at).length
   const operationalWarehouse=(profile.warehouse||'').trim().toUpperCase()
   const operationalProject=(profile.project||'').trim().toUpperCase()
@@ -418,7 +452,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
       <div className="universal-dashboard-kpis">
         <DashboardKpi
           icon={<ClipboardList/>}
-          label="Mis pendientes"
+          label="Mis tareas"
           value={openPersonal.length}
           detail={`${personalTasks.filter((t)=>t.status==='EN_PROCESO').length} en proceso`}
           onClick={()=>onNavigate('mi-trabajo')}
@@ -442,8 +476,8 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
           icon={<Users/>}
           label="Trabajo grupal"
           value={groupPending.length}
-          detail={profile.group_name||profile.warehouse||'Tu equipo'}
-          onClick={()=>onNavigate('mi-trabajo')}
+          detail={`${groupTaskPending.length} tareas · ${groupRelevoPending.length} relevos`}
+          onClick={()=>onNavigate(groupTaskPending.length===0&&groupRelevoPending.length>0?'relevos':'tareas')}
         />
         <DashboardKpi
           icon={<ShieldCheck/>}
