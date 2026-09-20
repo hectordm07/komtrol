@@ -879,8 +879,14 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
         )}
 
         {editOpen && canEdit && (
-          <form className="task-detail-edit" onSubmit={saveEdit}>
-            <div className="task-detail-section-head"><b>Editar tarea</b><button type="button" className="text-button" onClick={() => setEditOpen(false)}>Cancelar</button></div>
+          <form className="task-detail-edit task-edit-mode" onSubmit={saveEdit}>
+            <div className="task-detail-section-head task-detail-edit-head">
+              <div>
+                <b>Editar tarea</b>
+                <span>Actualiza la información manteniendo la trazabilidad en KOMTROL.</span>
+              </div>
+              <button type="button" className="secondary-button task-edit-cancel" onClick={() => setEditOpen(false)}>Cancelar</button>
+            </div>
             <div className="form-grid">
               <label className="span-2">Título<input required value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></label>
               <label className="span-2">Descripción<textarea rows={3} value={editForm.description} onChange={(event) => setEditForm({ ...editForm, description: event.target.value })} /></label>
@@ -931,11 +937,17 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
                   )}
                 </>
               )}
-              <label>Fecha de término<input type="datetime-local" value={editForm.due_at} onChange={(event) => setEditForm({ ...editForm, due_at: event.target.value })} /></label>
+              <label className={task.due_at && task.status !== 'CERRADO' && new Date(task.due_at).getTime() < Date.now() ? 'task-edit-due-overdue' : ''}>Fecha de término
+                <input type="datetime-local" value={editForm.due_at} onChange={(event) => setEditForm({ ...editForm, due_at: event.target.value })} />
+                {task.due_at && task.status !== 'CERRADO' && new Date(task.due_at).getTime() < Date.now() && <small className="task-edit-overdue-help">Fecha vencida · actualiza o amplía el plazo.</small>}
+              </label>
               <label className="span-2">Etiquetas<input value={editForm.tags} onChange={(event) => setEditForm({ ...editForm, tags: event.target.value })} placeholder="OC OBSERVADAS, URGENTE" /></label>
               <label className="span-2">Asunto del correo<input value={editForm.email_subject} onChange={(event) => setEditForm({ ...editForm, email_subject: event.target.value })} /></label>
             </div>
-            <button className="primary-button">Guardar cambios</button>
+            <div className="task-edit-actions">
+              <button type="button" className="secondary-button" onClick={() => setEditOpen(false)}>Cancelar</button>
+              <button className="primary-button task-edit-save">Guardar cambios</button>
+            </div>
           </form>
         )}
 
