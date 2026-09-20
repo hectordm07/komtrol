@@ -496,7 +496,7 @@ export function TasksModule({
       return
     }
 
-    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' })
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' })
     const pageWidth = doc.internal.pageSize.getWidth()
     doc.setFillColor(51,67,154)
     doc.rect(0,0,pageWidth,20,'F')
@@ -531,8 +531,8 @@ export function TasksModule({
       theme:'grid',
       styles:{
         font:'helvetica',
-        fontSize:6.5,
-        cellPadding:1.8,
+        fontSize:5.4,
+        cellPadding:1.25,
         textColor:[51,64,120],
         lineColor:[216,222,248],
         lineWidth:.2,
@@ -543,13 +543,13 @@ export function TasksModule({
         fillColor:[51,67,154],
         textColor:[255,255,255],
         fontStyle:'bold',
-        fontSize:6.7,
+        fontSize:5.6,
       },
       alternateRowStyles:{fillColor:[247,248,255]},
       columnStyles:{
-        0:{cellWidth:24},1:{cellWidth:15},2:{cellWidth:48},3:{cellWidth:36},
-        4:{cellWidth:33},5:{cellWidth:40},6:{cellWidth:17},7:{cellWidth:22},
-        8:{cellWidth:14},9:{cellWidth:20},
+        0:{cellWidth:16},1:{cellWidth:10},2:{cellWidth:30},3:{cellWidth:24},
+        4:{cellWidth:22},5:{cellWidth:26},6:{cellWidth:12},7:{cellWidth:16},
+        8:{cellWidth:8},9:{cellWidth:14},
       },
       didDrawPage:()=>{
         const pageHeight=doc.internal.pageSize.getHeight()
