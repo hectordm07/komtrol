@@ -27,6 +27,13 @@ type DashboardMode =
   | 'safe'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
+type RemoteGroup = 'TODOS' | 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA'
+
+type WarehouseMeta = {
+  name: string
+  warehouse_scope: 'REMOTO' | 'CENTRAL'
+  remote_group: Exclude<RemoteGroup,'TODOS'> | null
+}
 
 type Props = {
   mode: DashboardMode
@@ -133,6 +140,7 @@ type DataSet = {
   kpis: KpiRecord[]
   targets: KpiTarget[]
   warehouses: string[]
+  warehouseMeta: WarehouseMeta[]
 }
 
 const EMPTY: DataSet = {
@@ -147,6 +155,7 @@ const EMPTY: DataSet = {
   kpis: [],
   targets: [],
   warehouses: [],
+  warehouseMeta: [],
 }
 
 const MODE_TITLE: Record<DashboardMode, string> = {
@@ -190,7 +199,16 @@ function fmtMoney(value: number) {
   return value.toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })
 }
 
-function selectedWarehouse(value: string | null, filter: string) {
+function isRemoteWarehouse(value: string | null, meta: WarehouseMeta[], group: RemoteGroup) {
+  if (!value || value.toUpperCase() === 'CALLAO' || value === 'GLOBAL') return false
+  const warehouse = meta.find((item) => item.name === value)
+  if (warehouse?.warehouse_scope === 'CENTRAL') return false
+  if (group !== 'TODOS' && warehouse?.remote_group !== group) return false
+  return true
+}
+
+function selectedWarehouse(value: string | null, filter: string, meta: WarehouseMeta[], group: RemoteGroup) {
+  if (!isRemoteWarehouse(value, meta, group)) return false
   return filter === 'TODOS' || value === filter
 }
 
@@ -220,6 +238,7 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
   const [warehouseFilter, setWarehouseFilter] = useState(
     role === 'SUPERVISOR' || role === 'ADMINISTRADOR' ? 'TODOS' : (warehouse || 'TODOS')
   )
+  const [remoteGroup,setRemoteGroup]=useState<RemoteGroup>('TODOS')
   const [data, setData] = useState<DataSet>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -250,7 +269,7 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
       supabase.from('incidents').select('id,warehouse,incident_type,status,created_at').limit(5000),
       supabase.from('kpi_records').select('id,indicator,year,month,warehouse,value,amount,unit,source').eq('year', year).eq('month', month).limit(1000),
       supabase.from('kpi_targets').select('id,indicator,year,month,warehouse,target,unit').eq('year', year).eq('month', month).limit(1000),
-      supabase.from('warehouses').select('name').eq('active', true).order('name'),
+      supabase.from('warehouses').select('name,warehouse_scope,remote_group').eq('active', true).order('name'),
     ])
 
     const errors = [
@@ -272,7 +291,10 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
       incidents: (incidentsRes.data ?? []) as Incident[],
       kpis: (kpiRes.data ?? []) as KpiRecord[],
       targets: (targetRes.data ?? []) as KpiTarget[],
-      warehouses: (warehouseRes.data ?? []).map((row) => String(row.name)),
+      warehouses: (warehouseRes.data ?? [])
+        .filter((row:any)=>row.warehouse_scope !== 'CENTRAL' && String(row.name).toUpperCase() !== 'CALLAO')
+        .map((row:any) => String(row.name)),
+      warehouseMeta: (warehouseRes.data ?? []) as WarehouseMeta[],
     })
     setLoading(false)
   }
@@ -287,16 +309,28 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
     }
   }, [role, warehouse])
 
+  useEffect(()=>{
+    if(!(role === 'SUPERVISOR' || role === 'ADMINISTRADOR') || warehouseFilter==='TODOS') return
+    const meta=data.warehouseMeta.find((item)=>item.name===warehouseFilter)
+    if(remoteGroup!=='TODOS' && meta?.remote_group!==remoteGroup){
+      setWarehouseFilter('TODOS')
+    }
+  },[role,remoteGroup,warehouseFilter,data.warehouseMeta])
+
   const scoped = useMemo(() => {
-    const taskRows = data.tasks.filter((row) => dateInPeriod(row.created_at, year, month) && selectedWarehouse(row.warehouse, warehouseFilter))
-    const guideRows = data.guides.filter((row) => dateInPeriod(row.created_at, year, month) && selectedWarehouse(row.warehouse, warehouseFilter))
-    const outboundRows = data.outbound.filter((row) => dateInPeriod(row.movement_date, year, month) && selectedWarehouse(row.warehouse, warehouseFilter))
-    const inventoryRows = data.inventories.filter((row) => row.year === year && row.month === month && selectedWarehouse(row.warehouse, warehouseFilter))
-    const transitRows = data.transits.filter((row) => dateInPeriod(row.transit_date, year, month) && selectedWarehouse(row.warehouse, warehouseFilter))
-    const damagedRows = data.damaged.filter((row) => dateInPeriod(row.event_date, year, month) && selectedWarehouse(row.warehouse, warehouseFilter))
-    const consignRows = data.consignments.filter((row) => dateInPeriod(row.entry_date, year, month) && selectedWarehouse(row.warehouse, warehouseFilter))
-    const kpiRows = data.kpis.filter((row) => warehouseFilter === 'TODOS' || row.warehouse === 'GLOBAL' || row.warehouse === warehouseFilter)
-    const targetRows = data.targets.filter((row) => warehouseFilter === 'TODOS' || row.warehouse === 'GLOBAL' || row.warehouse === warehouseFilter)
+    const selected=(value:string|null)=>selectedWarehouse(value,warehouseFilter,data.warehouseMeta,remoteGroup)
+    const taskRows = data.tasks.filter((row) => dateInPeriod(row.created_at, year, month) && selected(row.warehouse))
+    const guideRows = data.guides.filter((row) => dateInPeriod(row.created_at, year, month) && selected(row.warehouse))
+    const outboundRows = data.outbound.filter((row) => dateInPeriod(row.movement_date, year, month) && selected(row.warehouse))
+    const inventoryRows = data.inventories.filter((row) => row.year === year && row.month === month && selected(row.warehouse))
+    const transitRows = data.transits.filter((row) => dateInPeriod(row.transit_date, year, month) && selected(row.warehouse))
+    const damagedRows = data.damaged.filter((row) => dateInPeriod(row.event_date, year, month) && selected(row.warehouse))
+    const consignRows = data.consignments.filter((row) => dateInPeriod(row.entry_date, year, month) && selected(row.warehouse))
+    const kpiRows = data.kpis.filter((row) => selected(row.warehouse))
+    const targetRows = data.targets.filter((row) =>
+      row.warehouse === 'GLOBAL' ||
+      selectedWarehouse(row.warehouse,warehouseFilter,data.warehouseMeta,remoteGroup)
+    )
 
     return {
       tasks: taskRows,
@@ -306,11 +340,11 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
       transits: transitRows,
       damaged: damagedRows,
       consignments: consignRows,
-      incidents: data.incidents.filter((row) => dateInPeriod(row.created_at, year, month) && selectedWarehouse(row.warehouse, warehouseFilter)),
+      incidents: data.incidents.filter((row) => dateInPeriod(row.created_at, year, month) && selected(row.warehouse)),
       kpis: kpiRows,
       targets: targetRows,
     }
-  }, [data, year, month, warehouseFilter])
+  }, [data, year, month, warehouseFilter, remoteGroup])
 
   const warehouseOverview = useMemo(() => {
     const names = Array.from(new Set([
@@ -324,7 +358,7 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
       ...data.consignments.map((row)=>row.warehouse).filter(Boolean) as string[],
       ...data.incidents.map((row)=>row.warehouse).filter(Boolean) as string[],
       ...data.kpis.map((row)=>row.warehouse).filter((value)=>Boolean(value) && value !== 'GLOBAL') as string[],
-    ])).sort()
+    ])).filter((name)=>isRemoteWarehouse(name,data.warehouseMeta,remoteGroup)).sort()
 
     return names.map((name)=>{
       const tasks = data.tasks.filter((row)=>row.warehouse===name && dateInPeriod(row.created_at,year,month)).length
@@ -343,7 +377,7 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
         detail:`Tareas: ${tasks} · Guías: ${guides} · Outbound: ${outbound} · Inventarios: ${inventories} · Tránsitos: ${transits} · Dañados: ${damaged} · Consignaciones: ${consignments} · Incidencias: ${incidents} · KPI: ${kpis}`,
       }
     }).sort((a,b)=>b.value-a.value)
-  },[data,year,month])
+  },[data,year,month,remoteGroup])
 
   const mixSegments = useMemo(() => [
     { label:'Tareas', value:scoped.tasks.length },
@@ -393,15 +427,25 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
           {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].map((name, index) => <option key={name} value={index + 1}>{name}</option>)}
         </select>
       </label>
+      {(role === 'SUPERVISOR' || role === 'ADMINISTRADOR') && <label>Grupo
+        <select value={remoteGroup} onChange={(e)=>setRemoteGroup(e.target.value as RemoteGroup)}>
+          <option value="TODOS">Todos los remotos</option>
+          <option value="PROYECTO_MINERO">Proyectos Mineros</option>
+          <option value="SUCURSAL">Sucursales</option>
+          <option value="TIENDA">Tiendas</option>
+        </select>
+      </label>}
       <label>Almacén
         <select
           value={warehouseFilter}
           disabled={!(role === 'SUPERVISOR' || role === 'ADMINISTRADOR')}
           onChange={(e) => setWarehouseFilter(e.target.value)}
         >
-          {(role === 'SUPERVISOR' || role === 'ADMINISTRADOR') && <option value="TODOS">Todos</option>}
-          {warehouse && !data.warehouses.includes(warehouse) && <option value={warehouse}>{warehouse}</option>}
-          {data.warehouses.map((name) => <option key={name} value={name}>{name}</option>)}
+          {(role === 'SUPERVISOR' || role === 'ADMINISTRADOR') && <option value="TODOS">Todos los remotos</option>}
+          {warehouse && !data.warehouses.includes(warehouse) && warehouse.toUpperCase()!=='CALLAO' && <option value={warehouse}>{warehouse}</option>}
+          {data.warehouseMeta
+            .filter((item)=>item.warehouse_scope==='REMOTO'&&item.name.toUpperCase()!=='CALLAO'&&(remoteGroup==='TODOS'||item.remote_group===remoteGroup))
+            .map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
         </select>
       </label>
       <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18} /></button>
@@ -416,9 +460,9 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
     <div className="dashboard-module professional-dashboard-module">
       <section className="panel dashboard-control-strip">
         <div>
-          <span className="dashboard-control-kicker">DASHBOARD NACIONAL</span>
+          <span className="dashboard-control-kicker">ALMACENES REMOTOS</span>
           <h2>{MODE_TITLE[mode]}</h2>
-          <p>Todos los almacenes · Datos reales KOMTROL · {String(month).padStart(2, '0')}/{year}</p>
+          <p>Proyectos Mineros · Sucursales · Tiendas · Callao excluido · {String(month).padStart(2, '0')}/{year}</p>
         </div>
         {selector}
       </section>
@@ -427,8 +471,8 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
 
       <div className="professional-dashboard-grid">
         <ProfessionalBarChart
-          title="Actividad nacional por almacén"
-          subtitle="Todos los almacenes · haz clic en una barra para filtrar y vuelve a pulsarla para regresar al consolidado"
+          title="Actividad de Almacenes Remotos"
+          subtitle="Proyectos Mineros, Sucursales y Tiendas · haz clic para filtrar"
           data={warehouseOverview}
           selected={warehouseFilter === 'TODOS' ? undefined : warehouseFilter}
           onSelect={(role==='SUPERVISOR'||role==='ADMINISTRADOR')
@@ -437,12 +481,12 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
         />
         <ProfessionalDonutChart
           title="Distribución del dashboard"
-          subtitle={warehouseFilter === 'TODOS' ? 'Consolidado nacional' : `Almacén: ${warehouseFilter}`}
+          subtitle={warehouseFilter === 'TODOS' ? 'Consolidado de Almacenes Remotos' : `Almacén: ${warehouseFilter}`}
           segments={mixSegments}
         />
         <ProfessionalTrendChart
           title="Tendencia mensual"
-          subtitle={warehouseFilter === 'TODOS' ? 'Actividad nacional agrupada por semana' : `Actividad de ${warehouseFilter} agrupada por semana`}
+          subtitle={warehouseFilter === 'TODOS' ? 'Actividad remota agrupada por semana' : `Actividad de ${warehouseFilter} agrupada por semana`}
           points={monthTrend}
         />
       </div>
