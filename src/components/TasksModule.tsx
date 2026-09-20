@@ -59,6 +59,8 @@ type Task = {
   project: string | null
   group_name: string | null
   shift_name: string | null
+  relevo_from_shift: string | null
+  relevo_to_shift: string | null
   responsible_id: string | null
   created_by: string
   category: string | null
@@ -118,6 +120,8 @@ const emptyForm = {
   project: '',
   group_name: '',
   shift_name: '',
+  relevo_from_shift: '',
+  relevo_to_shift: '',
   responsible_id: '',
   category: 'INFORMATIVO',
   priority: 'MEDIA' as Task['priority'],
@@ -153,8 +157,15 @@ function effectiveStatus(task: Task) {
 
 function defaultWorkType(mode: Mode): Task['work_type'] {
   if (mode === 'relevos') return 'RELEVO'
-  if (mode === 'area-personal') return 'PERSONAL'
+  if (mode === 'mi-trabajo' || mode === 'area-personal') return 'PERSONAL'
   return 'TAREA'
+}
+
+function oppositeShift(value?: string | null) {
+  const shift = String(value || '').trim().toUpperCase()
+  if (shift === 'GUARDIA A') return 'GUARDIA B'
+  if (shift === 'GUARDIA B') return 'GUARDIA A'
+  return ''
 }
 
 export function TasksModule({
@@ -257,7 +268,9 @@ export function TasksModule({
       project: scopeProject ?? (prev.project || profile?.project || ''),
       group_name: scopeGroup ?? (prev.group_name || profile?.group_name || ''),
       shift_name: scopeShift ?? (prev.shift_name || profile?.shift_name || ''),
-      responsible_id: mode === 'area-personal' ? userId : prev.responsible_id,
+      relevo_from_shift: prev.relevo_from_shift || profile?.shift_name || '',
+      relevo_to_shift: prev.relevo_to_shift || oppositeShift(profile?.shift_name),
+      responsible_id: mode === 'mi-trabajo' || mode === 'area-personal' ? userId : prev.responsible_id,
     }))
   }, [mode, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name, scopeWarehouse, scopeProject, scopeGroup, scopeShift, userId])
 
@@ -269,14 +282,43 @@ export function TasksModule({
     if (scopeGroup) data = data.filter((t) => t.group_name === scopeGroup)
     if (scopeShift) data = data.filter((t) => t.shift_name === scopeShift)
 
-    if (mode === 'area-personal') {
-      data = data.filter((t) => t.work_type === 'PERSONAL' && t.created_by === userId)
-    } else if (workArea === 'MI_TRABAJO') {
-      data = data.filter((t) => t.responsible_id === userId || t.created_by === userId)
+    if (mode === 'area-personal' || workArea === 'MI_TRABAJO') {
+      // Mi trabajo = exclusivamente tareas personales del usuario.
+      data = data.filter((t) =>
+        t.work_type === 'PERSONAL' &&
+        (t.responsible_id === userId || t.created_by === userId)
+      )
     } else if (workArea === 'TAREAS') {
+      // Tareas = trabajo operativo del grupo/proyecto, nunca tareas personales ni relevos.
       data = data.filter((t) => t.work_type === 'TAREA')
+
+      if (profile?.role === 'TRABAJADOR') {
+        if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
+        if (profile.project) data = data.filter((t) => t.project === profile.project)
+        if (profile.group_name) data = data.filter((t) => t.group_name === profile.group_name)
+      } else if (profile?.role === 'COORDINADOR') {
+        if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
+        if (profile.project) data = data.filter((t) => t.project === profile.project)
+      }
     } else if (workArea === 'RELEVOS') {
+      // Relevos = continuidad entre guardias del mismo ámbito operativo.
       data = data.filter((t) => t.work_type === 'RELEVO')
+
+      if (profile?.role === 'TRABAJADOR') {
+        if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
+        if (profile.project) data = data.filter((t) => t.project === profile.project)
+        if (profile.group_name) data = data.filter((t) => t.group_name === profile.group_name)
+        if (profile.shift_name) {
+          data = data.filter((t) =>
+            t.relevo_from_shift === profile.shift_name ||
+            t.relevo_to_shift === profile.shift_name ||
+            (!t.relevo_from_shift && !t.relevo_to_shift && t.shift_name === profile.shift_name)
+          )
+        }
+      } else if (profile?.role === 'COORDINADOR') {
+        if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
+        if (profile.project) data = data.filter((t) => t.project === profile.project)
+      }
     }
 
     if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
@@ -295,6 +337,8 @@ export function TasksModule({
           t.project,
           t.group_name,
           t.shift_name,
+          t.relevo_from_shift,
+          t.relevo_to_shift,
           t.category,
           t.email_subject,
           ...(t.tags || []),
@@ -303,7 +347,8 @@ export function TasksModule({
     }
     return data
   }, [
-    tasks, mode, search, userId, scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea,
+    tasks, mode, search, userId, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
+    scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea,
     statusFilter, priorityFilter, categoryFilter, responsibleFilter,
   ])
 
@@ -349,6 +394,8 @@ export function TasksModule({
       Proyecto: task.project || '',
       Almacén: task.warehouse || '',
       Grupo: task.group_name || '',
+      'Relevo origen': task.relevo_from_shift || '',
+      'Relevo destino': task.relevo_to_shift || '',
       Responsable: profileName(task.responsible_id),
       Categoría: task.category || '',
       Etiquetas: (task.tags || []).join(', '),
@@ -583,6 +630,19 @@ export function TasksModule({
       return
     }
 
+    if (form.work_type === 'RELEVO') {
+      if (!form.relevo_from_shift || !form.relevo_to_shift) {
+        setSaving(false)
+        setMessage('Selecciona la guardia que entrega y la guardia que recibe el relevo.')
+        return
+      }
+      if (form.relevo_from_shift === form.relevo_to_shift) {
+        setSaving(false)
+        setMessage('La guardia de origen y destino del relevo deben ser diferentes.')
+        return
+      }
+    }
+
     const payload = {
       task_no: taskNumber(),
       work_type: form.work_type,
@@ -591,7 +651,11 @@ export function TasksModule({
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
       project: form.project.trim() || profile?.project || null,
       group_name: form.group_name.trim() || scopeGroup || profile?.group_name || null,
-      shift_name: form.shift_name.trim() || scopeShift || profile?.shift_name || null,
+      shift_name: form.work_type === 'RELEVO'
+        ? (form.relevo_to_shift || null)
+        : (form.shift_name.trim() || scopeShift || profile?.shift_name || null),
+      relevo_from_shift: form.work_type === 'RELEVO' ? form.relevo_from_shift : null,
+      relevo_to_shift: form.work_type === 'RELEVO' ? form.relevo_to_shift : null,
       responsible_id: form.work_type === 'PERSONAL' ? userId : (form.responsible_id || null),
       created_by: userId,
       category: form.category || null,
@@ -643,7 +707,9 @@ export function TasksModule({
       project: scopeProject ?? profile?.project ?? '',
       group_name: scopeGroup ?? profile?.group_name ?? '',
       shift_name: scopeShift ?? profile?.shift_name ?? '',
-      responsible_id: mode === 'area-personal' ? userId : '',
+      relevo_from_shift: profile?.shift_name ?? '',
+      relevo_to_shift: oppositeShift(profile?.shift_name),
+      responsible_id: mode === 'mi-trabajo' || mode === 'area-personal' ? userId : '',
     })
     setMessage(`${data.task_no} creada correctamente.`)
     await reload()
@@ -685,15 +751,21 @@ export function TasksModule({
     setForm((prev) => ({
       ...prev,
       work_type:
-        mode === 'area-personal'
+        mode === 'area-personal' || workArea === 'MI_TRABAJO'
           ? 'PERSONAL'
           : workArea === 'RELEVOS'
             ? 'RELEVO'
             : 'TAREA',
       responsible_id:
-        mode === 'area-personal'
+        mode === 'area-personal' || workArea === 'MI_TRABAJO'
           ? userId
           : prev.responsible_id,
+      relevo_from_shift: workArea === 'RELEVOS'
+        ? (prev.relevo_from_shift || profile?.shift_name || '')
+        : prev.relevo_from_shift,
+      relevo_to_shift: workArea === 'RELEVOS'
+        ? (prev.relevo_to_shift || oppositeShift(profile?.shift_name))
+        : prev.relevo_to_shift,
       warehouse: scopeWarehouse ?? (prev.warehouse || profile?.warehouse || ''),
       project: scopeProject ?? (prev.project || profile?.project || ''),
       group_name: scopeGroup ?? (prev.group_name || profile?.group_name || ''),
@@ -888,6 +960,29 @@ export function TasksModule({
               <label>Grupo
                 <input value={form.group_name} onChange={(e) => setForm({ ...form, group_name: e.target.value })} placeholder="PALAS / CAMIONES" />
               </label>
+              {form.work_type === 'RELEVO' && (
+                <>
+                  <label>Guardia que entrega *
+                    <select value={form.relevo_from_shift} onChange={(e) => setForm({ ...form, relevo_from_shift: e.target.value })}>
+                      <option value="">Seleccionar</option>
+                      <option value="GUARDIA A">Guardia A</option>
+                      <option value="GUARDIA B">Guardia B</option>
+                    </select>
+                  </label>
+                  <label>Guardia que recibe *
+                    <select value={form.relevo_to_shift} onChange={(e) => setForm({ ...form, relevo_to_shift: e.target.value })}>
+                      <option value="">Seleccionar</option>
+                      <option value="GUARDIA A">Guardia A</option>
+                      <option value="GUARDIA B">Guardia B</option>
+                    </select>
+                  </label>
+                  <div className="relevo-route-preview span-2">
+                    <RefreshCw size={16}/>
+                    <span><b>{form.relevo_from_shift || 'Guardia origen'}</b><i>→</i><b>{form.relevo_to_shift || 'Guardia destino'}</b></span>
+                    <small>El pendiente quedará trazado como entrega formal entre guardias.</small>
+                  </div>
+                </>
+              )}
               <label>Responsable
                 <select value={form.responsible_id} disabled={form.work_type === 'PERSONAL'} onChange={(e) => setForm({ ...form, responsible_id: e.target.value })}>
                   <option value="">Sin asignar</option>
@@ -1005,6 +1100,9 @@ function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]
               <td>
                 <b>{task.project || '—'}</b>
                 <small>{task.group_name || task.warehouse || '—'}</small>
+                {task.work_type === 'RELEVO' && (
+                  <span className="relevo-route-chip">{task.relevo_from_shift || task.shift_name || 'Guardia'} <i>→</i> {task.relevo_to_shift || 'Guardia destino'}</span>
+                )}
               </td>
               <td>
                 <div className="task-classification">
@@ -1116,6 +1214,7 @@ function TaskBoard({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[
                     </div>
                     <b>{task.title}</b>
                     <p>{task.project || task.warehouse || 'Sin proyecto'}{task.group_name ? ` · ${task.group_name}` : ''}</p>
+                    {task.work_type === 'RELEVO' && <div className="relevo-route-chip board-route">{task.relevo_from_shift || task.shift_name || 'Guardia'} <i>→</i> {task.relevo_to_shift || 'Guardia destino'}</div>}
                     {(task.tags || []).length > 0 && <div className="task-card-tags">{task.tags.slice(0,2).map((tag)=>{
                       const color=colorFor(tag)
                       return <span key={tag} style={{color,borderColor:`${color}55`,background:`${color}14`}}>{tag}</span>
