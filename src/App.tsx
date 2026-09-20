@@ -560,7 +560,7 @@ function Workspace({ session }: { session: Session }) {
       ],
     },
     {
-      section: 'DASHBOARDS',
+      section: 'ALMACENES REMOTOS',
       items: [
         { id: 'dashboard-operacion' as Tab, label: 'Operación', icon: BarChart3 },
         { id: 'inbound-outbound' as Tab, label: 'Inbound / Outbound', icon: BarChart3 },
@@ -600,7 +600,8 @@ function Workspace({ session }: { session: Session }) {
     },
   ]
 
-  const isCallaoUser = profile?.warehouse === 'CALLAO' && role !== 'ADMINISTRADOR'
+  const isCallaoProfile = profile?.warehouse?.toUpperCase() === 'CALLAO'
+  const isCallaoUser = isCallaoProfile && role !== 'ADMINISTRADOR'
   const isCallaoCoordinator = role === 'COORDINADOR' && profile?.warehouse === 'CALLAO'
   const isCallaoSupervisor = role === 'SUPERVISOR' && profile?.warehouse === 'CALLAO'
   const isCallaoWorker = role === 'TRABAJADOR' && profile?.warehouse === 'CALLAO'
@@ -625,9 +626,11 @@ function Workspace({ session }: { session: Session }) {
             items: group.items.filter((item) => allowedInbound.includes(item.id)),
           }
         })
-      : allNavSections.filter((group) =>
-          role === 'ADMINISTRADOR' || group.section !== 'INBOUND · CALLAO'
-        )
+      : allNavSections.filter((group) => {
+          if (isCallaoProfile && group.section === 'ALMACENES REMOTOS') return false
+          if (role !== 'ADMINISTRADOR' && group.section === 'INBOUND · CALLAO') return false
+          return true
+        })
 
   const flatNav = navSections.flatMap((group) =>
     group.items.map((item) => ({ ...item, section: group.section }))
@@ -837,11 +840,28 @@ function Workspace({ session }: { session: Session }) {
             </section>
           ) : (
             <>
-              {tab === 'inicio' && (
+              {tab === 'inicio' && isCallaoProfile && (
+                <section className="panel central-dashboard-placeholder">
+                  <div className="module-placeholder-head">
+                    <div className="module-icon"><Boxes size={22} /></div>
+                    <div>
+                      <span className="eyebrow">ALMACENES CENTRALES</span>
+                      <h2>Dashboard · Callao</h2>
+                      <p>Callao pertenece a Almacenes Centrales. Su dashboard corporativo se configurará de forma independiente y no utiliza la información consolidada de Almacenes Remotos.</p>
+                    </div>
+                  </div>
+                  <div className="central-dashboard-status">
+                    <div><CheckCircle2 size={18}/><span><b>Perfil correctamente separado</b><small>Callao no tiene acceso al reporte de Almacenes Remotos.</small></span></div>
+                    <div><BarChart3 size={18}/><span><b>Dashboard propio</b><small>La estructura queda reservada para el tablero específico de Almacenes Centrales.</small></span></div>
+                  </div>
+                </section>
+              )}
+
+              {tab === 'inicio' && !isCallaoProfile && (
                 <MainDashboardModule
                   profile={profile}
                   role={role}
-                  scope="ALL"
+                  scope="REMOTE"
                   onNavigate={(targetTab) => {
                     const target = flatNav.find((item) => item.id === targetTab)
                     if (!target) {
@@ -1016,7 +1036,7 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
-              {isDashboardTab && (
+              {isDashboardTab && !isCallaoProfile && (
                 <DashboardModule
                   mode={tab as typeof dashboardTabs[number]}
                   role={role}
