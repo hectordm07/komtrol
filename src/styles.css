@@ -12019,3 +12019,123 @@ table tbody tr:hover td {
     min-width: 0;
   }
 }
+
+
+/* =========================================================
+   REDUNDANCY CLEANUP · módulos sin encabezado repetido
+   El título activo ya vive en sidebar + topbar.
+   ========================================================= */
+
+/* Dashboard principal: se elimina por completo el bloque duplicado */
+.universal-dashboard-head {
+  display: none !important;
+}
+
+/* Dashboards de reportes: conservar filtros, retirar segundo título/contexto */
+.dashboard-context-strip {
+  display: none !important;
+}
+.dashboard-control-strip.dashboard-compact-toolbar {
+  justify-content: flex-end;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* Encabezados de módulo: ocultar nombre/subtítulo repetido, conservar acciones */
+.alerts-module > .panel-title > div:first-child,
+.expiration-hero > .panel-title > .expiration-title-wrap,
+.materials-panel > .panel-title > div:first-child,
+.location-sheet > .panel-title > div:first-child,
+.operations-control-panel > .panel-title > .title-with-icon,
+.receiving-hero > div:first-child,
+.replenishment-panel > .panel-title > div:first-child,
+.oc-cargo-list-panel > .panel-title > div:first-child,
+.guide-list-panel > .panel-title > div:first-child,
+.scanner-panel > .panel-title > div:first-child,
+.kardex-header-panel > .panel-title > div:first-child,
+.users-admin > .panel:first-child > .users-title > div:first-child,
+.admin-catalogs > .panel:first-child > .panel-title > div:first-child,
+.bulk-import-admin > .panel-title > div:first-child {
+  display: none !important;
+}
+
+.alerts-module > .panel-title,
+.expiration-hero > .panel-title,
+.materials-panel > .panel-title,
+.location-sheet > .panel-title,
+.operations-control-panel > .panel-title,
+.replenishment-panel > .panel-title,
+.oc-cargo-list-panel > .panel-title,
+.guide-list-panel > .panel-title,
+.scanner-panel > .panel-title,
+.kardex-header-panel > .panel-title,
+.users-admin > .panel:first-child > .users-title,
+.admin-catalogs > .panel:first-child > .panel-title,
+.bulk-import-admin > .panel-title {
+  justify-content: flex-end !important;
+  min-height: 0 !important;
+  margin-bottom: 6px !important;
+}
+
+/* Recepción/incidencias: solo acciones operativas */
+.receiving-hero {
+  min-height: 0 !important;
+  padding: 6px 8px !important;
+  justify-content: flex-end !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Si un encabezado quedó únicamente con Actualizar, no crear una franja grande */
+.alerts-module > .panel-title,
+.guide-list-panel > .panel-title,
+.replenishment-panel > .panel-title,
+.oc-cargo-list-panel > .panel-title,
+.location-sheet > .panel-title {
+  padding: 0 !important;
+}
+
+/* Kardex: tabs deben subir y aprovechar el espacio liberado */
+.kardex-header-panel {
+  padding-top: 7px !important;
+}
+.kardex-header-panel > .panel-title {
+  margin-bottom: 4px !important;
+}
+
+/* Expiraciones: KPIs inmediatamente visibles */
+.expiration-hero {
+  padding-top: 7px !important;
+}
+.expiration-hero > .panel-title {
+  margin-bottom: 5px !important;
+}
+
+/* Administración/usuarios: acciones alineadas sin título repetido */
+.users-admin > .panel:first-child > .users-title .button-row,
+.admin-catalogs > .panel:first-child > .panel-title > .button-row {
+  margin-left: auto;
+}
+
+/* Móvil: todavía más compacto */
+@media (max-width: 760px) {
+  .dashboard-control-strip.dashboard-compact-toolbar {
+    padding: 4px 6px;
+  }
+
+  .alerts-module > .panel-title,
+  .expiration-hero > .panel-title,
+  .materials-panel > .panel-title,
+  .location-sheet > .panel-title,
+  .operations-control-panel > .panel-title,
+  .replenishment-panel > .panel-title,
+  .oc-cargo-list-panel > .panel-title,
+  .guide-list-panel > .panel-title,
+  .scanner-panel > .panel-title,
+  .kardex-header-panel > .panel-title,
+  .users-admin > .panel:first-child > .users-title,
+  .admin-catalogs > .panel:first-child > .panel-title {
+    margin-bottom: 4px !important;
+  }
+}
