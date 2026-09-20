@@ -24,6 +24,14 @@ type Profile = {
   shift_name?:string|null
 }
 
+type RemoteGroup = 'TODOS' | 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA'
+
+type WarehouseMeta = {
+  name: string
+  warehouse_scope: 'REMOTO' | 'CENTRAL'
+  remote_group: Exclude<RemoteGroup,'TODOS'> | null
+}
+
 type Props = { profile:Profile|null; role:Role; scope?: 'REMOTE' | 'ALL'; onNavigate?:(tab:string)=>void }
 
 type Task = {
@@ -72,7 +80,8 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
   const [incidents,setIncidents]=useState<Incident[]>([])
   const [guides,setGuides]=useState<Guide[]>([])
   const [boxes,setBoxes]=useState<Box[]>([])
-  const [warehouses,setWarehouses]=useState<string[]>([])
+  const [warehouseCatalog,setWarehouseCatalog]=useState<WarehouseMeta[]>([])
+  const [remoteGroup,setRemoteGroup]=useState<RemoteGroup>('TODOS')
   const canViewAll = role === 'SUPERVISOR' || role === 'ADMINISTRADOR'
   const initialWarehouse =
     canViewAll
@@ -91,7 +100,7 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
       supabase.from('incidents').select('id,warehouse,incident_no,incident_type,status,created_at').order('created_at',{ascending:false}).limit(1000),
       supabase.from('guides').select('id,warehouse,guide_type,status,created_at').order('created_at',{ascending:false}).limit(1000),
       supabase.from('inbound_boxes').select('id,warehouse,status,created_at').order('created_at',{ascending:false}).limit(500),
-      supabase.from('warehouses').select('name').eq('active',true).order('name'),
+      supabase.from('warehouses').select('name,warehouse_scope,remote_group').eq('active',true).order('name'),
     ])
     const error=t.error||i.error||g.error||b.error||w.error
     if (error) setMessage(error.message)
@@ -99,7 +108,7 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
     setIncidents((i.data??[]) as Incident[])
     setGuides((g.data??[]) as Guide[])
     setBoxes((b.data??[]) as Box[])
-    setWarehouses((w.data??[]).map((x:any)=>String(x.name)))
+    setWarehouseCatalog((w.data??[]) as WarehouseMeta[])
     setLoading(false)
   }
 
@@ -115,10 +124,21 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
     }
   },[profile?.warehouse,role,scope,canViewAll])
 
+  useEffect(()=>{
+    if(scope!=='REMOTE' || !canViewAll || warehouse==='TODOS_REMOTOS') return
+    const meta=warehouseCatalog.find((item)=>item.name===warehouse)
+    if(remoteGroup!=='TODOS' && meta?.remote_group!==remoteGroup){
+      setWarehouse('TODOS_REMOTOS')
+    }
+  },[scope,canViewAll,remoteGroup,warehouse,warehouseCatalog])
+
   const scoped=useMemo(()=>{
     const keep=(value:string|null|undefined)=>{
       if (scope === 'REMOTE') {
-        if (!value || value === 'CALLAO') return false
+        if (!value || value.toUpperCase() === 'CALLAO') return false
+        const meta=warehouseCatalog.find((item)=>item.name===value)
+        if (meta?.warehouse_scope === 'CENTRAL') return false
+        if (remoteGroup !== 'TODOS' && meta?.remote_group !== remoteGroup) return false
         return warehouse === 'TODOS_REMOTOS' || value === warehouse
       }
       return warehouse === 'TODOS' || value === warehouse
@@ -129,7 +149,7 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
       guides:guides.filter((x)=>keep(x.warehouse)),
       boxes:boxes.filter((x)=>keep(x.warehouse)),
     }
-  },[tasks,incidents,guides,boxes,warehouse,scope])
+  },[tasks,incidents,guides,boxes,warehouse,scope,remoteGroup,warehouseCatalog])
 
   const stats=useMemo(()=>{
     const taskPending=scoped.tasks.filter((x)=>x.status!=='CERRADO').length
@@ -153,12 +173,18 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
 
   const warehouseActivity=useMemo(()=>{
     const names=Array.from(new Set([
-      ...warehouses,
+      ...warehouseCatalog.map((item)=>item.name),
       ...tasks.map((x)=>x.warehouse).filter(Boolean) as string[],
       ...incidents.map((x)=>x.warehouse).filter(Boolean) as string[],
       ...guides.map((x)=>x.warehouse).filter(Boolean) as string[],
       ...boxes.map((x)=>x.warehouse).filter(Boolean) as string[],
-    ])).filter((name)=>scope!=='REMOTE' || name!=='CALLAO').sort()
+    ])).filter((name)=>{
+      if(scope!=='REMOTE') return true
+      if(name.toUpperCase()==='CALLAO') return false
+      const meta=warehouseCatalog.find((item)=>item.name===name)
+      if(meta?.warehouse_scope==='CENTRAL') return false
+      return remoteGroup==='TODOS' || meta?.remote_group===remoteGroup
+    }).sort()
 
     return names.map((name)=>{
       const taskCount=tasks.filter((x)=>x.warehouse===name).length
@@ -172,7 +198,7 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
         detail:`Tareas: ${taskCount} · Incidencias: ${incidentCount} · Guías: ${guideCount} · Cajas: ${boxCount}`,
       }
     }).sort((a,b)=>b.value-a.value)
-  },[warehouses,tasks,incidents,guides,boxes,scope])
+  },[warehouseCatalog,tasks,incidents,guides,boxes,scope,remoteGroup])
 
   const statusSegments=useMemo(()=>[
     {label:'Tareas pendientes',value:stats.taskPending},
@@ -205,24 +231,61 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
   return <div className="main-dashboard">
     <section className="panel dashboard-control-strip">
       <div>
-        <span className="dashboard-control-kicker">VISIÓN NACIONAL</span>
-        <h2>{scope === 'REMOTE' ? 'Dashboard de Almacenes' : 'Dashboard General de Almacenes'}</h2>
-        <p>{warehouse === 'TODOS' || warehouse === 'TODOS_REMOTOS' ? 'Consolidado de todos los almacenes disponibles para tu perfil.' : `Vista filtrada: ${warehouse}`}</p>
+        <span className="dashboard-control-kicker">{scope === 'REMOTE' ? 'ALMACENES REMOTOS' : 'VISIÓN NACIONAL'}</span>
+        <h2>{scope === 'REMOTE' ? 'Dashboard · Almacenes Remotos' : 'Dashboard General de Almacenes'}</h2>
+        <p>{warehouse === 'TODOS' || warehouse === 'TODOS_REMOTOS'
+          ? scope === 'REMOTE'
+            ? 'Consolidado remoto sin Almacenes Centrales.'
+            : 'Consolidado de todos los almacenes disponibles para tu perfil.'
+          : `Vista filtrada: ${warehouse}`}</p>
       </div>
       <div className="main-dashboard-filter">
+        {scope === 'REMOTE' && canViewAll && (
+          <label>Grupo
+            <select value={remoteGroup} onChange={(e)=>setRemoteGroup(e.target.value as RemoteGroup)}>
+              <option value="TODOS">Todos los remotos</option>
+              <option value="PROYECTO_MINERO">Proyectos Mineros</option>
+              <option value="SUCURSAL">Sucursales</option>
+              <option value="TIENDA">Tiendas</option>
+            </select>
+          </label>
+        )}
         {canViewAll && <label>Almacén
           <select value={warehouse} onChange={(e)=>setWarehouse(e.target.value)}>
             {scope === 'REMOTE'
-              ? <option value="TODOS_REMOTOS">Todos los almacenes</option>
+              ? <option value="TODOS_REMOTOS">Todos los almacenes remotos</option>
               : <option value="TODOS">Todos los almacenes</option>}
-            {warehouses
-              .filter((name)=>scope !== 'REMOTE' || name !== 'CALLAO')
-              .map((name)=><option key={name} value={name}>{name}</option>)}
+            {warehouseCatalog
+              .filter((item)=>{
+                if(scope!=='REMOTE') return true
+                if(item.warehouse_scope==='CENTRAL' || item.name.toUpperCase()==='CALLAO') return false
+                return remoteGroup==='TODOS' || item.remote_group===remoteGroup
+              })
+              .map((item)=><option key={item.name} value={item.name}>{item.name}</option>)}
           </select>
         </label>}
         <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18}/></button>
       </div>
     </section>
+
+    {scope === 'REMOTE' && canViewAll && (
+      <div className="remote-group-summary">
+        {[
+          ['PROYECTO_MINERO','Proyectos Mineros'],
+          ['SUCURSAL','Sucursales'],
+          ['TIENDA','Tiendas'],
+        ].map(([key,label])=>{
+          const count=warehouseCatalog.filter((item)=>item.warehouse_scope==='REMOTO'&&item.remote_group===key).length
+          return <button
+            key={key}
+            className={remoteGroup===key?'active':''}
+            onClick={()=>setRemoteGroup((current)=>current===key?'TODOS':key as RemoteGroup)}
+          >
+            <span>{label}</span><b>{count}</b>
+          </button>
+        })}
+      </div>
+    )}
 
     {message && <div className="inline-message">{message}</div>}
 
@@ -271,7 +334,7 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
     <div className="professional-dashboard-grid">
       <ProfessionalBarChart
         title="Actividad por almacén"
-        subtitle="Todos los almacenes visibles · haz clic para filtrar y vuelve a pulsar para regresar al consolidado"
+        subtitle={scope === 'REMOTE' ? 'Solo almacenes remotos · haz clic para filtrar' : 'Todos los almacenes visibles · haz clic para filtrar y vuelve a pulsar para regresar al consolidado'}
         data={warehouseActivity}
         selected={warehouse}
         onSelect={canViewAll ? (key)=>setWarehouse((current)=>current===key ? (scope === 'REMOTE' ? 'TODOS_REMOTOS' : 'TODOS') : key) : undefined}
