@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
   Tag,
   UserRound,
   X,
@@ -175,6 +176,7 @@ export function TasksModule({
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [titleGenerating, setTitleGenerating] = useState(false)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'TODOS' | Task['status']>('TODOS')
@@ -525,15 +527,66 @@ export function TasksModule({
     }))
   }
 
+  async function requestGeneratedTitle(description: string) {
+    const source = description.trim()
+    if (source.length < 8) return ''
+
+    const { data, error } = await supabase.functions.invoke('generate-task-title', {
+      body: {
+        description: source,
+        context: [form.project, form.warehouse, form.group_name, form.category].filter(Boolean).join(' · '),
+      },
+    })
+
+    if (error) {
+      const fallback = source.replace(/\s+/g, ' ').split(/[.!?;:]/)[0].trim().split(' ').slice(0, 10).join(' ')
+      return fallback.charAt(0).toUpperCase() + fallback.slice(1)
+    }
+
+    return String(data?.title || '').trim()
+  }
+
+  async function generateTaskTitle() {
+    if (!form.description.trim()) {
+      setMessage('Escribe primero la descripción para generar el título.')
+      return
+    }
+    setTitleGenerating(true)
+    const title = await requestGeneratedTitle(form.description)
+    setTitleGenerating(false)
+    if (!title) {
+      setMessage('No se pudo generar un título. Puedes escribirlo manualmente.')
+      return
+    }
+    setForm((current) => ({ ...current, title }))
+    setMessage(dataModeMessage())
+  }
+
+  function dataModeMessage() {
+    return 'Título sugerido a partir de la descripción. Puedes editarlo antes de crear la tarea.'
+  }
+
   async function saveTask(event: FormEvent) {
     event.preventDefault()
     setSaving(true)
     setMessage('')
 
+    let resolvedTitle = form.title.trim()
+    if (!resolvedTitle && form.description.trim()) {
+      resolvedTitle = await requestGeneratedTitle(form.description)
+      if (resolvedTitle) setForm((current) => ({ ...current, title: resolvedTitle }))
+    }
+
+    if (!resolvedTitle) {
+      setSaving(false)
+      setMessage('Ingresa una descripción para generar el título o escribe un título manualmente.')
+      return
+    }
+
     const payload = {
       task_no: taskNumber(),
       work_type: form.work_type,
-      title: form.title.trim(),
+      title: resolvedTitle,
       description: form.description.trim() || null,
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
       project: form.project.trim() || profile?.project || null,
@@ -655,6 +708,17 @@ export function TasksModule({
     <div className="work-module">
       <section className="panel compact-panel work-panel">
         <div className="work-command-bar work-command-bar-actions-only">
+          <div className="work-view-switch" aria-label="Vista de trabajo">
+            <button type="button" className={workView === 'LISTA' ? 'active' : ''} onClick={() => setWorkView('LISTA')}>
+              <List size={16} /> Lista
+            </button>
+            <button type="button" className={workView === 'TABLERO' ? 'active' : ''} onClick={() => setWorkView('TABLERO')}>
+              <Columns3 size={16} /> Tablero
+            </button>
+            <button type="button" className={workView === 'CALENDARIO' ? 'active' : ''} onClick={() => setWorkView('CALENDARIO')}>
+              <CalendarDays size={16} /> Calendario
+            </button>
+          </div>
           <div className="work-command-actions">
             <button type="button" className="secondary-button compact-action" onClick={() => setShowCategoryCreator((value) => !value)}><Plus size={14} /> Categoría</button>
             <button type="button" className="secondary-button compact-action" onClick={() => setShowLabelCreator((value) => !value)}><Tag size={14} /> Etiqueta</button>
@@ -688,20 +752,6 @@ export function TasksModule({
             )}
           </div>
         )}
-
-        <div className="work-view-controller">
-          <div className="work-view-switch" aria-label="Vista de trabajo">
-            <button type="button" className={workView === 'LISTA' ? 'active' : ''} onClick={() => setWorkView('LISTA')}>
-              <List size={16} /> Lista
-            </button>
-            <button type="button" className={workView === 'TABLERO' ? 'active' : ''} onClick={() => setWorkView('TABLERO')}>
-              <Columns3 size={16} /> Tablero
-            </button>
-            <button type="button" className={workView === 'CALENDARIO' ? 'active' : ''} onClick={() => setWorkView('CALENDARIO')}>
-              <CalendarDays size={16} /> Calendario
-            </button>
-          </div>
-        </div>
 
         <div className="task-kpis">
           <div><ClipboardList size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
@@ -799,13 +849,6 @@ export function TasksModule({
             </div>
 
             <div className="form-grid">
-              <label>Tipo
-                <select value={form.work_type} onChange={(e) => setForm({ ...form, work_type: e.target.value as Task['work_type'] })}>
-                  <option value="TAREA">Tarea</option>
-                  <option value="RELEVO">Relevo</option>
-                  <option value="PERSONAL">Personal</option>
-                </select>
-              </label>
               <label>Prioridad
                 <div className="priority-field">
                   <span className={`priority-dot p-${form.priority.toLowerCase()}`} />
@@ -818,10 +861,23 @@ export function TasksModule({
                 </div>
               </label>
               <label className="span-2">Título
-                <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Pendiente / actividad" />
+                <div className="ai-title-field">
+                  <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Se generará desde la descripción" />
+                  <button type="button" className="secondary-button ai-title-button" onClick={generateTaskTitle} disabled={titleGenerating || !form.description.trim()}>
+                    {titleGenerating ? <RefreshCw className="spin" size={16}/> : <Sparkles size={16}/>}
+                    {titleGenerating ? 'Generando…' : 'Generar título'}
+                  </button>
+                </div>
               </label>
               <label className="span-2">Descripción
-                <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalle de la actividad…" />
+                <textarea
+                  rows={3}
+                  required
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onBlur={() => { if (!form.title.trim() && form.description.trim().length >= 12) void generateTaskTitle() }}
+                  placeholder="Describe la actividad; KOMTROL sugerirá el título automáticamente…"
+                />
               </label>
               <label>Almacén
                 <input value={form.warehouse} onChange={(e) => setForm({ ...form, warehouse: e.target.value })} placeholder="Almacén" />
@@ -901,7 +957,7 @@ export function TasksModule({
 
             <div className="modal-actions">
               <button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button>
-              <button className="primary-button" disabled={saving || !form.title.trim()}>
+              <button className="primary-button" disabled={saving || titleGenerating || (!form.title.trim() && !form.description.trim())}>
                 {saving ? <RefreshCw className="spin" size={17} /> : <Plus size={17} />}
                 {saving ? 'Guardando…' : 'Crear'}
               </button>
