@@ -182,7 +182,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
   const Icon=config.icon
   const isAdmin=profile?.role==='ADMINISTRADOR'
   const isCoordinator=profile?.role==='COORDINADOR'||profile?.role==='SUPERVISOR'
-  const canReviewTeam=isAdmin||isCoordinator
+  const canUseWorkerView=!isAdmin||Boolean(profile?.worker_access)
   const canRegisterOthers=isAdmin&&scopeMode==='NATIONAL'
 
   async function reload() {
@@ -564,9 +564,11 @@ export function ExpirationsModule({type,userId,profile}:Props) {
       <section className="panel expiration-data-panel">
         <div className="expiration-scope-bar">
           <div className="expiration-scope-tabs">
-            <button type="button" className={scopeMode==='PERSONAL'?'active':''} onClick={()=>setScopeMode('PERSONAL')}>
-              Mi información
-            </button>
+            {canUseWorkerView&&(
+              <button type="button" className={scopeMode==='PERSONAL'?'active':''} onClick={()=>setScopeMode('PERSONAL')}>
+                Mi información
+              </button>
+            )}
             {isCoordinator&&(
               <button type="button" className={scopeMode==='TEAM'?'active':''} onClick={()=>setScopeMode('TEAM')}>
                 Equipo del proyecto
