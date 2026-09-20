@@ -56,6 +56,7 @@ type Profile = {
   project?: string | null
   group_name?: string | null
   shift_name?: string | null
+  worker_access?: boolean
 }
 
 type Incident = {
