@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Clock3,
   GraduationCap,
+  MailCheck,
   PackageSearch,
   RefreshCw,
   ShieldCheck,
@@ -82,6 +83,7 @@ type Incident={
   incident_no:string
   incident_type:string
   status:string
+  auto_email_status:'PENDIENTE'|'ENVIANDO'|'ENVIADO'|'ERROR'|'NO_CONFIGURADO'|null
   warehouse:string|null
   project:string|null
   qty_expected:number|null
@@ -181,7 +183,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
         .limit(100),
       supabase
         .from('incidents')
-        .select('id,incident_no,incident_type,status,warehouse,project,qty_expected,qty_received,qty_damaged,created_at')
+        .select('id,incident_no,incident_type,status,auto_email_status,warehouse,project,qty_expected,qty_received,qty_damaged,created_at')
         .order('created_at',{ascending:false})
         .limit(3000),
       supabase
@@ -280,6 +282,18 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
   })
   const operationalKardex=scopeWarehouse(kardexMovements)
   const openIncidents=operationalIncidents.filter((row)=>row.status!=='CERRADO')
+  const incidentEmailsSent=operationalIncidents.filter((row)=>row.auto_email_status==='ENVIADO').length
+  const incidentEmailsPending=operationalIncidents.filter((row)=>
+    row.auto_email_status==='PENDIENTE' ||
+    row.auto_email_status==='ENVIANDO' ||
+    !row.auto_email_status
+  ).length
+  const incidentEmailsError=operationalIncidents.filter((row)=>
+    row.auto_email_status==='ERROR' || row.auto_email_status==='NO_CONFIGURADO'
+  ).length
+  const incidentEmailCoverage=operationalIncidents.length
+    ? Math.round((incidentEmailsSent/operationalIncidents.length)*100)
+    : 0
   const surplusIncidents=operationalIncidents.filter((row)=>row.incident_type==='SOBRANTE')
   const surplusQty=surplusIncidents.reduce((sum,row)=>{
     const diff=Math.max(0,Number(row.qty_received||0)-Number(row.qty_expected||0))
@@ -517,6 +531,20 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
           detail={unread?'Sin leer':'Todo revisado'}
           onClick={()=>onNavigate('alertas')}
         />
+        <DashboardKpi
+          icon={<MailCheck/>}
+          label="Correo de incidencias"
+          value={`${incidentEmailsSent} / ${operationalIncidents.length}`}
+          detail={
+            !operationalIncidents.length
+              ? 'Sin incidencias reportadas'
+              : incidentEmailsError
+                ? `${incidentEmailsPending} pendientes · ${incidentEmailsError} con error`
+                : `${incidentEmailCoverage}% notificadas · ${incidentEmailsPending} pendientes`
+          }
+          critical={incidentEmailsError>0}
+          onClick={()=>onNavigate(incidentRoute)}
+        />
       </div>
 
       <section className="universal-operational-reports">
@@ -651,7 +679,7 @@ function DashboardKpi({
 }:{
   icon:ReactNode
   label:string
-  value:number
+  value:number|string
   detail:string
   onClick:()=>void
   critical?:boolean
@@ -668,7 +696,7 @@ function DashboardKpi({
       <span className="universal-kpi-icon">{icon}</span>
       <span className="universal-kpi-copy">
         <small>{label}</small>
-        <b>{value.toLocaleString('es-PE')}</b>
+        <b>{typeof value==='number'?value.toLocaleString('es-PE'):value}</b>
         <em>{detail}</em>
       </span>
       <ChevronRight className="universal-kpi-arrow" size={16}/>
