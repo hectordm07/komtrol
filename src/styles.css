@@ -15244,3 +15244,72 @@ table tbody tr:hover td {
     font-size: 6px;
   }
 }
+
+
+/* =========================================================
+   SCORECARD · VISTA SOLO DASHBOARD PARA ALMACENERO
+   ========================================================= */
+.source-viewer {
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+  border-color: var(--kt-blue-200) !important;
+}
+
+.scorecard-viewer-only,
+.scorecard-viewer-empty {
+  min-height: 92px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--kt-blue-800);
+}
+
+.scorecard-viewer-only > svg,
+.scorecard-viewer-empty > svg {
+  width: 42px;
+  height: 42px;
+  padding: 9px;
+  border-radius: 11px;
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-700);
+  flex: 0 0 auto;
+}
+
+.scorecard-viewer-only > div,
+.scorecard-viewer-empty > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.scorecard-viewer-only b,
+.scorecard-viewer-empty b {
+  color: var(--kt-blue-950);
+  font-size: 12px;
+}
+
+.scorecard-viewer-only span,
+.scorecard-viewer-empty span {
+  color: var(--kt-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .scorecard-viewer-only,
+  .scorecard-viewer-empty {
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .scorecard-viewer-only b,
+  .scorecard-viewer-empty b {
+    font-size: 13px;
+  }
+
+  .scorecard-viewer-only span,
+  .scorecard-viewer-empty span {
+    font-size: 10px;
+  }
+}
