@@ -308,7 +308,7 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
     <div className="main-dashboard-kpis">
       <DashCard icon={<ClipboardList/>} label="Tareas pendientes" value={stats.taskPending} onClick={onNavigate ? ()=>onNavigate('mi-trabajo') : undefined}/>
       <DashCard icon={<CheckCircle2/>} label="Tareas cerradas" value={stats.taskClosed} onClick={onNavigate ? ()=>onNavigate('mi-trabajo') : undefined}/>
-      <DashCard icon={<BarChart3/>} label="Avance promedio" value={`${stats.progress}%`} onClick={onNavigate ? ()=>onNavigate('dashboard-operacion') : undefined}/>
+      <DashCard icon={<BarChart3/>} label="Avance promedio" value={`${stats.progress}%`} onClick={onNavigate ? ()=>onNavigate('inbound-outbound') : undefined}/>
       <DashCard icon={<AlertTriangle/>} label="Incidencias abiertas" value={stats.incidentOpen} onClick={onNavigate ? ()=>onNavigate('incidencias') : undefined}/>
       <DashCard icon={<PackageCheck/>} label="Incidencias notificadas" value={stats.incidentNotified} onClick={onNavigate ? ()=>onNavigate('incidencias') : undefined}/>
       <DashCard icon={<Truck/>} label="Guías registradas" value={stats.guideCount} onClick={onNavigate ? ()=>onNavigate('seguimiento-guias') : undefined}/>
@@ -370,18 +370,18 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
               ['inbound-kardex','Inbound · Kardex'],
             ] : []),
             ...(canSeeRemoteReports ? [
-              ['dashboard-operacion','Operación'],
-              ['inbound-outbound','Inbound / Outbound'],
-              ['eri','ERI'],
-              ['sobrantes-faltantes','Sobrantes / Faltantes'],
-              ['diferencias-inventario','Diferencias inventario'],
-              ['dashboard-transitos','Tránsitos'],
-              ['uca','UCA'],
-              ['ahorros','Ahorros'],
-              ['perfect-ship','Perfect Ship'],
-              ['consignaciones','Consignaciones'],
-              ['vhs','VHS'],
-              ['safe','SAFE'],
+              ['inbound-outbound','1. Inbound / Outbound'],
+              ['eri','2. ERI'],
+              ['sobrantes-faltantes','3. Sobrantes / Faltantes'],
+              ['diferencias-inventario','4. Diferencias Inventario'],
+              ['danados-scorecard','5. Dañados'],
+              ['dashboard-transitos','6. Tránsitos'],
+              ['activos-inactivos','7. Activos / Inactivos'],
+              ['uca','8. UCA'],
+              ['ahorros','9. Ahorros'],
+              ['perfect-ship-outbound','10. P.S. Outbound'],
+              ['perfect-ship-inbound','11. P.S. Inbound'],
+              ['safe','12. SAFE'],
             ] : []),
           ].map(([id,label])=>(
             <button key={id} type="button" onClick={()=>onNavigate(id)}>
