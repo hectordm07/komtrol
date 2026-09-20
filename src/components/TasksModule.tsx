@@ -156,6 +156,14 @@ function shortDate(value?: string | null) {
   }).format(new Date(value))
 }
 
+function dateTimeInputValue(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 16)
+}
+
 function isOverdue(task: Task) {
   return Boolean(task.due_at && new Date(task.due_at) < new Date() && task.status !== 'CERRADO')
 }
@@ -217,6 +225,12 @@ export function TasksModule({
   const [labelScope, setLabelScope] = useState<'PROYECTO' | 'PERSONAL'>('PROYECTO')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [selectedIncident, setSelectedIncident] = useState<CalendarIncident | null>(null)
+  const [dueReviewOpen, setDueReviewOpen] = useState(false)
+  const [dueReviewTaskId, setDueReviewTaskId] = useState('')
+  const [dueReviewDue, setDueReviewDue] = useState('')
+  const [dueReviewNote, setDueReviewNote] = useState('')
+  const [dueReviewSaving, setDueReviewSaving] = useState(false)
+  const [dueReviewHandled, setDueReviewHandled] = useState<string[]>([])
   const [form, setForm] = useState({
     ...emptyForm,
     warehouse: scopeWarehouse ?? profile?.warehouse ?? '',
@@ -369,6 +383,179 @@ export function TasksModule({
     scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea,
     statusFilter, priorityFilter, categoryFilter, responsibleFilter,
   ])
+
+  const dueReviewCandidates = useMemo(() => {
+    const now = Date.now()
+    const reviewLimit = now + 7 * 86400000
+
+    const sameOperationalScope = (task: Task) => {
+      if (profile?.warehouse && task.warehouse && task.warehouse !== profile.warehouse) return false
+      if (profile?.project && task.project && task.project !== profile.project) return false
+      return true
+    }
+
+    const belongsToUser = (task: Task) => {
+      if (task.created_by === userId || task.responsible_id === userId || task.assigned_user_id === userId) return true
+
+      if (task.work_type === 'PERSONAL') {
+        return task.responsible_id === userId || task.created_by === userId
+      }
+
+      if (!sameOperationalScope(task)) return false
+
+      if (task.assignment_type === 'GRUPO' && profile?.group_name) {
+        return task.assigned_group === profile.group_name || task.group_name === profile.group_name
+      }
+
+      if (task.assignment_type === 'GUARDIA' && profile?.shift_name) {
+        return task.assigned_shift === profile.shift_name
+      }
+
+      if (task.work_type === 'RELEVO' && profile?.shift_name) {
+        return task.relevo_from_shift === profile.shift_name ||
+          task.relevo_to_shift === profile.shift_name ||
+          task.shift_name === profile.shift_name
+      }
+
+      return Boolean(profile?.group_name && task.group_name === profile.group_name)
+    }
+
+    return tasks
+      .filter((task) => task.status !== 'CERRADO' && belongsToUser(task))
+      .filter((task) => {
+        if (!task.due_at) return true
+        const due = new Date(task.due_at).getTime()
+        return Number.isFinite(due) && due <= reviewLimit
+      })
+      .sort((left, right) => {
+        if (!left.due_at && right.due_at) return -1
+        if (left.due_at && !right.due_at) return 1
+        return new Date(left.due_at || 0).getTime() - new Date(right.due_at || 0).getTime()
+      })
+  }, [
+    tasks,
+    userId,
+    profile?.warehouse,
+    profile?.project,
+    profile?.group_name,
+    profile?.shift_name,
+  ])
+
+  const pendingDateReviewTasks = useMemo(
+    () => dueReviewCandidates.filter((task) => !dueReviewHandled.includes(task.id)),
+    [dueReviewCandidates, dueReviewHandled]
+  )
+
+  const dueReviewTask = pendingDateReviewTasks.find((task) => task.id === dueReviewTaskId) || pendingDateReviewTasks[0] || null
+
+  useEffect(() => {
+    if (loading || !pendingDateReviewTasks.length || dueReviewOpen || showForm || selectedTask) return
+    const dayKey = new Date().toLocaleDateString('en-CA')
+    const storageKey = `komtrol-date-review:${userId}:${dayKey}`
+    if (sessionStorage.getItem(storageKey)) return
+
+    const first = pendingDateReviewTasks[0]
+    sessionStorage.setItem(storageKey, 'shown')
+    setDueReviewTaskId(first.id)
+    setDueReviewDue(dateTimeInputValue(first.due_at))
+    setDueReviewNote('')
+    setDueReviewOpen(true)
+  }, [loading, pendingDateReviewTasks, dueReviewOpen, showForm, selectedTask, userId])
+
+  function selectDueReviewTask(task: Task) {
+    setDueReviewTaskId(task.id)
+    setDueReviewDue(dateTimeInputValue(task.due_at))
+    setDueReviewNote('')
+  }
+
+  async function saveDueReviewDate(event: FormEvent) {
+    event.preventDefault()
+    if (!dueReviewTask || !dueReviewDue) {
+      setMessage('Selecciona una nueva fecha límite.')
+      return
+    }
+
+    const parsed = new Date(dueReviewDue)
+    if (Number.isNaN(parsed.getTime())) {
+      setMessage('La fecha seleccionada no es válida.')
+      return
+    }
+
+    setDueReviewSaving(true)
+    const previousDue = dueReviewTask.due_at
+    const nextDue = parsed.toISOString()
+    const isExtension = Boolean(previousDue && parsed.getTime() > new Date(previousDue).getTime())
+    const action = !previousDue ? 'FECHA_ASIGNADA' : isExtension ? 'AMPLIACION' : 'CAMBIO_FECHA'
+
+    const patch: Record<string, unknown> = {
+      due_at: nextDue,
+      updated_at: new Date().toISOString(),
+    }
+    if (previousDue && !dueReviewTask.original_due_at) patch.original_due_at = previousDue
+    if (isExtension) patch.extensions_count = Number(dueReviewTask.extensions_count || 0) + 1
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(patch)
+      .eq('id', dueReviewTask.id)
+      .select('*')
+      .single()
+
+    if (error || !data) {
+      setDueReviewSaving(false)
+      setMessage(error?.message || 'No se pudo actualizar la fecha.')
+      return
+    }
+
+    await supabase.from('task_history').insert({
+      task_id: dueReviewTask.id,
+      action,
+      field_name: 'due_at',
+      old_value: previousDue,
+      new_value: nextDue,
+      note: dueReviewNote.trim() || (isExtension ? 'Ampliación realizada desde revisión de pendientes.' : 'Fecha actualizada desde revisión de pendientes.'),
+      changed_by: userId,
+    })
+
+    const recipients = profiles
+      .filter((person) => {
+        if (person.user_id === userId) return false
+        if (dueReviewTask.assignment_type === 'PERSONA') return person.user_id === dueReviewTask.assigned_user_id
+        if (dueReviewTask.assignment_type === 'GRUPO') return Boolean(dueReviewTask.assigned_group && person.group_name === dueReviewTask.assigned_group)
+        if (dueReviewTask.assignment_type === 'GUARDIA') return Boolean(dueReviewTask.assigned_shift && person.shift_name === dueReviewTask.assigned_shift)
+        return person.user_id === dueReviewTask.responsible_id
+      })
+      .map((person) => person.user_id)
+
+    const uniqueRecipients = Array.from(new Set(recipients))
+    if (uniqueRecipients.length) {
+      await supabase.from('app_notifications').insert(
+        uniqueRecipients.map((recipientId) => ({
+          user_id: recipientId,
+          notification_type: isExtension ? 'TASK_EXTENSION' : 'TASK_DATE_CHANGED',
+          title: isExtension ? 'Fecha de tarea ampliada' : 'Fecha de tarea actualizada',
+          message: `${dueReviewTask.task_no} · ${dueReviewTask.title} · ${new Intl.DateTimeFormat('es-PE',{dateStyle:'short',timeStyle:'short'}).format(parsed)}`,
+          task_id: dueReviewTask.id,
+          created_by: userId,
+          metadata: { previous_due_at: previousDue, due_at: nextDue, action },
+        }))
+      )
+    }
+
+    const updated = data as Task
+    setTasks((current) => current.map((task) => task.id === updated.id ? updated : task))
+    setDueReviewHandled((current) => [...current, updated.id])
+    setDueReviewSaving(false)
+    setMessage(isExtension ? 'Fecha ampliada y registrada en el historial.' : 'Fecha actualizada y registrada en el historial.')
+
+    const remaining = pendingDateReviewTasks.filter((task) => task.id !== updated.id)
+    if (remaining.length) {
+      selectDueReviewTask(remaining[0])
+    } else {
+      setDueReviewOpen(false)
+      setDueReviewTaskId('')
+    }
+  }
 
   const counts = useMemo(() => {
     const total = filtered.length
@@ -994,6 +1181,83 @@ export function TasksModule({
           <TaskList tasks={filtered} profiles={profiles} labels={labels} onUpdate={updateTask} onOpen={setSelectedTask} />
         )}
       </section>
+
+      {dueReviewOpen && dueReviewTask && (
+        <div className="modal-backdrop date-review-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setDueReviewOpen(false)}>
+          <section className="modal date-review-modal" role="dialog" aria-modal="true" aria-label="Revisión de fechas pendientes">
+            <div className="modal-head date-review-head">
+              <div>
+                <span className="date-review-kicker"><CalendarDays size={15}/> REVISIÓN DE FECHAS</span>
+                <h2>Trabajos que requieren atención</h2>
+                <p>{pendingDateReviewTasks.length} pendiente(s) sin fecha, vencidos o próximos a vencer en 7 días.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setDueReviewOpen(false)}><X size={20}/></button>
+            </div>
+
+            <div className="date-review-layout">
+              <div className="date-review-list">
+                {pendingDateReviewTasks.map((task) => {
+                  const overdue = isOverdue(task)
+                  const withoutDate = !task.due_at
+                  const typeLabel = task.work_type === 'PERSONAL' ? 'MIS TRABAJOS' : task.work_type === 'RELEVO' ? 'RELEVO' : 'TAREA GRUPAL'
+                  return (
+                    <button
+                      type="button"
+                      key={task.id}
+                      className={task.id === dueReviewTask.id ? 'active' : ''}
+                      onClick={() => selectDueReviewTask(task)}
+                    >
+                      <span className={`date-review-type type-${task.work_type.toLowerCase()}`}>{typeLabel}</span>
+                      <b>{task.title}</b>
+                      <small>{task.task_no} · {task.project || task.warehouse || 'Sin proyecto'}</small>
+                      <em className={overdue ? 'overdue' : withoutDate ? 'without-date' : ''}>
+                        {withoutDate ? 'Sin fecha límite' : overdue ? `Vencida · ${shortDate(task.due_at)}` : `Vence · ${shortDate(task.due_at)}`}
+                      </em>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <form className="date-review-form" onSubmit={saveDueReviewDate}>
+                <div className="date-review-summary">
+                  <span>{dueReviewTask.work_type === 'PERSONAL' ? 'Mis trabajos' : dueReviewTask.work_type === 'RELEVO' ? 'Relevo' : 'Tarea grupal'}</span>
+                  <h3>{dueReviewTask.title}</h3>
+                  <p>{dueReviewTask.description || 'Sin descripción adicional.'}</p>
+                  <div>
+                    <small>Fecha actual</small>
+                    <b>{dueReviewTask.due_at ? new Intl.DateTimeFormat('es-PE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(dueReviewTask.due_at)) : 'Sin fecha definida'}</b>
+                  </div>
+                </div>
+
+                <label>Nueva fecha límite
+                  <input type="datetime-local" required value={dueReviewDue} onChange={(event) => setDueReviewDue(event.target.value)} />
+                  <small className="field-help">Puedes adelantar, cambiar o ampliar la fecha. Si se amplía, contará como ampliación.</small>
+                </label>
+
+                <label>Motivo / seguimiento
+                  <textarea rows={3} value={dueReviewNote} onChange={(event) => setDueReviewNote(event.target.value)} placeholder="Ej. Pendiente de material, coordinación con cliente, continuación de guardia…" />
+                </label>
+
+                <div className="date-review-actions">
+                  <button type="button" className="secondary-button" onClick={() => {
+                    setDueReviewOpen(false)
+                    setSelectedTask(dueReviewTask)
+                  }}>Abrir detalle</button>
+                  <button type="submit" className="primary-button" disabled={dueReviewSaving || !dueReviewDue}>
+                    {dueReviewSaving ? <RefreshCw className="spin" size={16}/> : <CalendarDays size={16}/>}
+                    {dueReviewSaving ? 'Guardando…' : dueReviewTask.due_at ? 'Actualizar fecha' : 'Definir fecha'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="date-review-footer">
+              <span>La modificación queda registrada en el historial de la tarea.</span>
+              <button type="button" className="secondary-button" onClick={() => setDueReviewOpen(false)}>Revisar después</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {selectedTask && (
         <TaskDetailModal
