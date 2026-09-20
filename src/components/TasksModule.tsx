@@ -326,12 +326,21 @@ export function TasksModule({
       data = data.filter((t) => t.work_type === 'TAREA')
 
       if (profile?.role === 'TRABAJADOR') {
-        if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
-        if (profile.project) data = data.filter((t) => t.project === profile.project)
-        if (profile.group_name) data = data.filter((t) => t.group_name === profile.group_name)
+        data = data.filter((t) => {
+          // Una asignación directa prevalece sobre almacén/proyecto/grupo.
+          if (t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
+          if (profile.warehouse && t.warehouse !== profile.warehouse) return false
+          if (profile.project && t.project !== profile.project) return false
+          if (profile.group_name && t.group_name !== profile.group_name) return false
+          return true
+        })
       } else if (profile?.role === 'COORDINADOR') {
-        if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
-        if (profile.project) data = data.filter((t) => t.project === profile.project)
+        data = data.filter((t) => {
+          if (t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
+          if (profile.warehouse && t.warehouse !== profile.warehouse) return false
+          if (profile.project && t.project !== profile.project) return false
+          return true
+        })
       }
     } else if (workArea === 'RELEVOS') {
       // Relevos = continuidad entre guardias del mismo ámbito operativo.
@@ -579,6 +588,10 @@ export function TasksModule({
     if (project && p.project !== project) return false
     return true
   })
+
+  const personAssignmentProfiles = profile?.role === 'ADMINISTRADOR'
+    ? [...profiles].sort((a,b)=>a.full_name.localeCompare(b.full_name))
+    : scopedProfiles
 
   const assignmentGroups = Array.from(new Set(
     scopedProfiles.map((p)=>p.group_name).filter((value): value is string=>Boolean(value))
@@ -1391,9 +1404,13 @@ export function TasksModule({
                   {form.assignment_type === 'PERSONA' && (
                     <label><span className="task-field-label"><UserRound size={15}/> Persona asignada *</span>
                       <select value={form.assigned_user_id} onChange={(e)=>setForm({...form,assigned_user_id:e.target.value})}>
-                        {scopedProfiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}{p.group_name ? ` · ${p.group_name}` : ''}{p.shift_name ? ` · ${p.shift_name}` : ''}</option>)}
+                        {personAssignmentProfiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}{p.warehouse ? ` · ${p.warehouse}` : ''}{p.project ? ` · ${p.project}` : ''}{p.group_name ? ` · ${p.group_name}` : ''}</option>)}
                       </select>
-                      <small className="field-help">Solo personal del almacén/proyecto seleccionado.</small>
+                      <small className="field-help">
+                        {profile?.role === 'ADMINISTRADOR'
+                          ? 'Administrador: puedes asignar esta tarea a cualquier usuario activo de KOMTROL.'
+                          : 'Solo personal del almacén/proyecto seleccionado.'}
+                      </small>
                     </label>
                   )}
 
