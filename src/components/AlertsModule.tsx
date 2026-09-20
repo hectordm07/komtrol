@@ -4,11 +4,14 @@ import {
   Bell,
   CheckCircle2,
   Clock3,
+  FileSpreadsheet,
+  FileText,
   PackageSearch,
   RefreshCw,
   Truck,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type AlertItem = {
   id: string
@@ -155,11 +158,51 @@ export function AlertsModule() {
     medium: alerts.filter((a) => a.severity === 'MEDIA').length,
   }), [alerts])
 
+  const alertExportRows=visible.map((item)=>({
+    severity:item.severity,
+    source:item.source,
+    title:item.title,
+    detail:item.detail,
+    date:fmtDate(item.date),
+  }))
+
+  const alertColumns=[
+    {header:'PRIORIDAD',key:'severity',width:14},
+    {header:'ORIGEN',key:'source',width:18},
+    {header:'ALERTA',key:'title',width:36},
+    {header:'DETALLE',key:'detail',width:48},
+    {header:'FECHA',key:'date',width:14},
+  ]
+
+  function exportAlertsExcel(){
+    exportRowsToExcel(
+      'KOMTROL_Alertas',
+      'Alertas',
+      alertColumns,
+      alertExportRows,
+      [['Filtro',filter],['Registros',alertExportRows.length],['Urgentes',counts.urgent]]
+    )
+  }
+
+  function exportAlertsPdf(){
+    exportRowsToPdfPortrait(
+      'KOMTROL_Alertas',
+      'KOMTROL · Alertas',
+      alertColumns,
+      alertExportRows,
+      {subtitle:'Prioridades calculadas automáticamente con datos reales de la operación.',summary:[['Filtro',filter],['Registros',alertExportRows.length]]}
+    )
+  }
+
   return (
     <section className="panel alerts-module">
       <div className="panel-title">
         <div><h3>Alertas</h3><p>Prioridades calculadas automáticamente con datos reales de la operación.</p></div>
-        <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
+        <div className="button-row">
+          <button className="secondary-button" disabled={!visible.length} onClick={exportAlertsPdf}><FileText size={16}/> PDF</button>
+          <button className="secondary-button" disabled={!visible.length} onClick={exportAlertsExcel}><FileSpreadsheet size={16}/> Excel</button>
+          <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
+        </div>
       </div>
 
       <div className="alert-kpis">
