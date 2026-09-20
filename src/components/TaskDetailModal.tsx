@@ -28,12 +28,17 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
+type AssignmentType = 'PERSONAL' | 'PERSONA' | 'GRUPO' | 'GUARDIA'
+type SubtaskAssignmentType = 'PERSONA' | 'GRUPO' | 'GUARDIA'
+
 export type TaskDetailProfile = {
   user_id: string
   full_name: string
   role: 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
   warehouse?: string | null
+  project?: string | null
   group_name?: string | null
+  shift_name?: string | null
 }
 
 export type TaskDetailTask = {
@@ -49,6 +54,10 @@ export type TaskDetailTask = {
   relevo_from_shift: string | null
   relevo_to_shift: string | null
   responsible_id: string | null
+  assignment_type: AssignmentType
+  assigned_user_id: string | null
+  assigned_group: string | null
+  assigned_shift: string | null
   created_by: string
   category: string | null
   tags: string[]
@@ -104,6 +113,11 @@ type TaskSubtask = {
   task_id: string
   title: string
   completed: boolean
+  assignment_type: SubtaskAssignmentType
+  assigned_user_id: string | null
+  assigned_group: string | null
+  assigned_shift: string | null
+  due_at: string | null
   created_by: string
   completed_by: string | null
   completed_at: string | null
@@ -195,6 +209,11 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
   const [showHistory, setShowHistory] = useState(true)
   const [showSubtasks, setShowSubtasks] = useState(false)
   const [subtaskTitle, setSubtaskTitle] = useState('')
+  const [subtaskAssignmentType, setSubtaskAssignmentType] = useState<SubtaskAssignmentType>('PERSONA')
+  const [subtaskAssignedUser, setSubtaskAssignedUser] = useState(userId)
+  const [subtaskAssignedGroup, setSubtaskAssignedGroup] = useState(initialTask.group_name || '')
+  const [subtaskAssignedShift, setSubtaskAssignedShift] = useState(initialTask.relevo_to_shift || initialTask.shift_name || '')
+  const [subtaskDueAt, setSubtaskDueAt] = useState('')
   const [extensionOpen, setExtensionOpen] = useState(false)
   const [extensionDue, setExtensionDue] = useState(toLocalInput(initialTask.due_at))
   const [extensionNote, setExtensionNote] = useState('')
@@ -204,7 +223,10 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
     description: initialTask.description || '',
     priority: initialTask.priority,
     category: initialTask.category || '',
-    responsible_id: initialTask.responsible_id || '',
+    assignment_type: initialTask.assignment_type === 'PERSONAL' ? 'PERSONA' as SubtaskAssignmentType : initialTask.assignment_type as SubtaskAssignmentType,
+    assigned_user_id: initialTask.assigned_user_id || userId,
+    assigned_group: initialTask.assigned_group || initialTask.group_name || '',
+    assigned_shift: initialTask.assigned_shift || initialTask.shift_name || '',
     tags: (initialTask.tags || []).join(', '),
     due_at: toLocalInput(initialTask.due_at),
     email_subject: initialTask.email_subject || '',
@@ -212,15 +234,53 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const currentProfile = profiles.find((p) => p.user_id === userId)
+  const assignedToCurrentUser =
+    task.assigned_user_id === userId ||
+    (task.assignment_type === 'GRUPO' && task.assigned_group && task.assigned_group === currentProfile?.group_name) ||
+    (task.assignment_type === 'GUARDIA' && task.assigned_shift && task.assigned_shift === currentProfile?.shift_name)
+
   const canEdit =
     task.created_by === userId ||
     task.responsible_id === userId ||
+    assignedToCurrentUser ||
     currentProfile?.role === 'ADMINISTRADOR' ||
     currentProfile?.role === 'COORDINADOR'
   const canDeleteAnyComment = currentProfile?.role === 'ADMINISTRADOR'
 
   const profileName = (id?: string | null) =>
     profiles.find((profile) => profile.user_id === id)?.full_name || (id ? 'Usuario' : 'Sin asignar')
+
+  const scopedProfiles = profiles.filter((profile) => {
+    if (task.warehouse && profile.warehouse !== task.warehouse) return false
+    if (task.project && profile.project !== task.project) return false
+    return true
+  })
+
+  const scopedGroups = Array.from(new Set(
+    scopedProfiles.map((profile)=>profile.group_name).filter((value): value is string=>Boolean(value))
+  )).sort()
+
+  const scopedShifts = Array.from(new Set(
+    scopedProfiles.map((profile)=>profile.shift_name).filter((value): value is string=>Boolean(value))
+  )).sort()
+
+  const taskAssignmentLabel = () => {
+    if (task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL') return profileName(task.assigned_user_id || task.responsible_id)
+    if (task.assignment_type === 'GRUPO') return task.assigned_group || task.group_name || 'Grupo'
+    return task.assigned_shift || task.shift_name || 'Guardia'
+  }
+
+  const subtaskAssignmentLabel = (row: TaskSubtask) => {
+    if (row.assignment_type === 'PERSONA') return profileName(row.assigned_user_id)
+    if (row.assignment_type === 'GRUPO') return row.assigned_group || 'Grupo'
+    return row.assigned_shift || 'Guardia'
+  }
+
+  const canToggleSubtask = (row: TaskSubtask) =>
+    canEdit ||
+    row.assigned_user_id === userId ||
+    (row.assignment_type === 'GRUPO' && row.assigned_group === currentProfile?.group_name) ||
+    (row.assignment_type === 'GUARDIA' && row.assigned_shift === currentProfile?.shift_name)
 
   async function loadDetail() {
     setLoading(true)
@@ -414,8 +474,20 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
   }
 
   async function notifyResponsible() {
-    const recipients = Array.from(new Set([task.responsible_id, task.created_by].filter(Boolean) as string[]))
-      .filter((id) => id !== userId)
+    const assignedRecipients = scopedProfiles
+      .filter((profile) => {
+        if (task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL') return profile.user_id === task.assigned_user_id
+        if (task.assignment_type === 'GRUPO') return profile.group_name === task.assigned_group
+        if (task.assignment_type === 'GUARDIA') return profile.shift_name === task.assigned_shift
+        return false
+      })
+      .map((profile)=>profile.user_id)
+
+    const recipients = Array.from(new Set([
+      task.responsible_id,
+      task.created_by,
+      ...assignedRecipients,
+    ].filter(Boolean) as string[])).filter((id) => id !== userId)
 
     if (!recipients.length) {
       setMessage('No hay otro responsable o creador a quien avisar.')
@@ -490,23 +562,117 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
     await loadDetail()
   }
 
+  async function syncTaskProgressFromSubtasks() {
+    const { data, error } = await supabase
+      .from('task_subtasks')
+      .select('completed')
+      .eq('task_id', task.id)
+
+    if (error || !data?.length) return
+
+    const completed = data.filter((row)=>row.completed).length
+    const progress = Math.round((completed / data.length) * 100)
+
+    const { data: updated } = await supabase
+      .from('tasks')
+      .update({ progress, updated_at: new Date().toISOString() })
+      .eq('id', task.id)
+      .select('*')
+      .single()
+
+    if (updated) {
+      const fresh = updated as TaskDetailTask
+      setTask(fresh)
+      onTaskUpdated(fresh)
+    }
+
+    if (progress === 100 && task.status !== 'CERRADO') {
+      setMessage('Todas las subtareas están completas. La tarea principal está al 100% y ya puede cerrarse.')
+    }
+  }
+
   async function addSubtask(event: FormEvent) {
     event.preventDefault()
     if (!subtaskTitle.trim()) return
-    const { error } = await supabase.from('task_subtasks').insert({
-      task_id: task.id,
-      title: subtaskTitle.trim(),
-      created_by: userId,
-    })
-    if (error) {
-      setMessage(error.message)
+
+    if (subtaskAssignmentType === 'PERSONA' && !subtaskAssignedUser) {
+      setMessage('Selecciona la persona responsable de la subtarea.')
       return
     }
+    if (subtaskAssignmentType === 'GRUPO' && !subtaskAssignedGroup) {
+      setMessage('Selecciona el grupo responsable de la subtarea.')
+      return
+    }
+    if (subtaskAssignmentType === 'GUARDIA' && !subtaskAssignedShift) {
+      setMessage('Selecciona la guardia responsable de la subtarea.')
+      return
+    }
+
+    const { data: created, error } = await supabase.from('task_subtasks').insert({
+      task_id: task.id,
+      title: subtaskTitle.trim(),
+      assignment_type: subtaskAssignmentType,
+      assigned_user_id: subtaskAssignmentType === 'PERSONA' ? subtaskAssignedUser : null,
+      assigned_group: subtaskAssignmentType === 'GRUPO' ? subtaskAssignedGroup : null,
+      assigned_shift: subtaskAssignmentType === 'GUARDIA' ? subtaskAssignedShift : null,
+      due_at: subtaskDueAt ? new Date(subtaskDueAt).toISOString() : null,
+      created_by: userId,
+    }).select('*').single()
+
+    if (error || !created) {
+      setMessage(error?.message || 'No se pudo crear la subtarea.')
+      return
+    }
+
+    const recipients = scopedProfiles
+      .filter((profile) => {
+        if (subtaskAssignmentType === 'PERSONA') return profile.user_id === subtaskAssignedUser
+        if (subtaskAssignmentType === 'GRUPO') return profile.group_name === subtaskAssignedGroup
+        return profile.shift_name === subtaskAssignedShift
+      })
+      .map((profile)=>profile.user_id)
+      .filter((id)=>id !== userId)
+
+    const uniqueRecipients = Array.from(new Set(recipients))
+    if (uniqueRecipients.length) {
+      await supabase.from('app_notifications').insert(
+        uniqueRecipients.map((recipientId)=>({
+          user_id: recipientId,
+          notification_type: 'TASK_ASSIGNED',
+          title: 'Nueva subtarea asignada',
+          message: `${task.task_no} · ${subtaskTitle.trim()}`,
+          task_id: task.id,
+          created_by: userId,
+          metadata: {
+            subtask_id: created.id,
+            assignment_type: subtaskAssignmentType,
+          },
+        }))
+      )
+    }
+
+    await supabase.from('task_history').insert({
+      task_id: task.id,
+      action: 'SUBTAREA_CREADA',
+      field_name: 'subtask',
+      old_value: null,
+      new_value: subtaskTitle.trim(),
+      note: `Asignada a: ${subtaskAssignmentType === 'PERSONA' ? profileName(subtaskAssignedUser) : subtaskAssignmentType === 'GRUPO' ? subtaskAssignedGroup : subtaskAssignedShift}`,
+      changed_by: userId,
+    })
+
     setSubtaskTitle('')
+    setSubtaskDueAt('')
+    await syncTaskProgressFromSubtasks()
     await loadDetail()
   }
 
   async function toggleSubtask(row: TaskSubtask) {
+    if (!canToggleSubtask(row)) {
+      setMessage('No tienes permiso para completar esta subtarea.')
+      return
+    }
+
     const completed = !row.completed
     const { error } = await supabase
       .from('task_subtasks')
@@ -521,6 +687,18 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
       setMessage(error.message)
       return
     }
+
+    await supabase.from('task_history').insert({
+      task_id: task.id,
+      action: completed ? 'SUBTAREA_COMPLETADA' : 'SUBTAREA_REABIERTA',
+      field_name: 'subtask',
+      old_value: completed ? 'PENDIENTE' : 'COMPLETADA',
+      new_value: completed ? 'COMPLETADA' : 'PENDIENTE',
+      note: row.title,
+      changed_by: userId,
+    })
+
+    await syncTaskProgressFromSubtasks()
     await loadDetail()
   }
 
@@ -531,7 +709,10 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
       description: editForm.description.trim() || null,
       priority: editForm.priority,
       category: editForm.category.trim() || null,
-      responsible_id: editForm.responsible_id || null,
+      assignment_type: editForm.assignment_type,
+      assigned_user_id: editForm.assignment_type === 'PERSONA' ? editForm.assigned_user_id : null,
+      assigned_group: editForm.assignment_type === 'GRUPO' ? editForm.assigned_group : null,
+      assigned_shift: editForm.assignment_type === 'GUARDIA' ? editForm.assigned_shift : null,
       tags: editForm.tags.split(',').map((item) => item.trim()).filter(Boolean),
       due_at: editForm.due_at ? new Date(editForm.due_at).toISOString() : null,
       email_subject: editForm.email_subject.trim() || null,
@@ -554,17 +735,28 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
       changed_by: userId,
     })
 
-    const newResponsible = editForm.responsible_id || null
-    if (newResponsible && newResponsible !== task.responsible_id && newResponsible !== userId) {
-      await supabase.from('app_notifications').insert({
-        user_id: newResponsible,
-        notification_type: 'TASK_ASSIGNED',
-        title: 'Tarea asignada',
-        message: `${task.task_no} · ${editForm.title.trim()}`,
-        task_id: task.id,
-        created_by: userId,
-        metadata: { task_no: task.task_no },
+    const editRecipients = scopedProfiles
+      .filter((profile) => {
+        if (editForm.assignment_type === 'PERSONA') return profile.user_id === editForm.assigned_user_id
+        if (editForm.assignment_type === 'GRUPO') return profile.group_name === editForm.assigned_group
+        return profile.shift_name === editForm.assigned_shift
       })
+      .map((profile)=>profile.user_id)
+      .filter((id)=>id !== userId)
+
+    const uniqueEditRecipients = Array.from(new Set(editRecipients))
+    if (uniqueEditRecipients.length) {
+      await supabase.from('app_notifications').insert(
+        uniqueEditRecipients.map((recipientId)=>({
+          user_id: recipientId,
+          notification_type: 'TASK_ASSIGNED',
+          title: 'Asignación de tarea actualizada',
+          message: `${task.task_no} · ${editForm.title.trim()}`,
+          task_id: task.id,
+          created_by: userId,
+          metadata: { task_no: task.task_no, assignment_type: editForm.assignment_type },
+        }))
+      )
     }
 
     const fresh = data as TaskDetailTask
@@ -651,7 +843,9 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
             <div><span>Creación</span><b>{fmtDate(task.created_at)}</b></div>
             <div><span>Inicio</span><b>{fmtDate(task.start_at)}</b></div>
             <div><span>Cierre</span><b>{fmtDate(task.closed_at)}</b></div>
-            <div><span>Responsable</span><b>{profileName(task.responsible_id)}</b></div>
+            <div><span>Creado por</span><b>{profileName(task.created_by)}</b></div>
+            <div><span>Responsable de gestión</span><b>{profileName(task.responsible_id || task.created_by)}</b></div>
+            <div><span>Asignado a</span><b>{taskAssignmentLabel()}</b><small>{task.assignment_type}</small></div>
             <div><span>Fecha de término</span><b>{fmtDateOnly(task.due_at)}</b></div>
             <div><span>Avance</span><b>{task.progress}%</b></div>
           </div>
@@ -692,12 +886,38 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
                 </select>
               </label>
               <label>Categoría<input value={editForm.category} onChange={(event) => setEditForm({ ...editForm, category: event.target.value })} /></label>
-              <label>Responsable
-                <select value={editForm.responsible_id} onChange={(event) => setEditForm({ ...editForm, responsible_id: event.target.value })}>
-                  <option value="">Sin asignar</option>
-                  {profiles.map((profile) => <option value={profile.user_id} key={profile.user_id}>{profile.full_name}</option>)}
+              <label>Asignar a
+                <select value={editForm.assignment_type} onChange={(event) => setEditForm({ ...editForm, assignment_type: event.target.value as SubtaskAssignmentType })}>
+                  <option value="PERSONA">Una persona específica</option>
+                  <option value="GRUPO">Grupo de almacén</option>
+                  <option value="GUARDIA">Una guardia del almacén</option>
                 </select>
               </label>
+              {editForm.assignment_type === 'PERSONA' && (
+                <label>Persona
+                  <select value={editForm.assigned_user_id} onChange={(event)=>setEditForm({...editForm,assigned_user_id:event.target.value})}>
+                    {scopedProfiles.map((profile)=><option key={profile.user_id} value={profile.user_id}>{profile.full_name}</option>)}
+                  </select>
+                </label>
+              )}
+              {editForm.assignment_type === 'GRUPO' && (
+                <label>Grupo
+                  <select value={editForm.assigned_group} onChange={(event)=>setEditForm({...editForm,assigned_group:event.target.value})}>
+                    <option value="">Seleccionar</option>
+                    {scopedGroups.map((group)=><option key={group} value={group}>{group}</option>)}
+                  </select>
+                </label>
+              )}
+              {editForm.assignment_type === 'GUARDIA' && (
+                <label>Guardia
+                  <select value={editForm.assigned_shift} onChange={(event)=>setEditForm({...editForm,assigned_shift:event.target.value})}>
+                    <option value="">Seleccionar</option>
+                    {scopedShifts.map((shift)=><option key={shift} value={shift}>{shift}</option>)}
+                    {!scopedShifts.includes('GUARDIA A')&&<option value="GUARDIA A">GUARDIA A</option>}
+                    {!scopedShifts.includes('GUARDIA B')&&<option value="GUARDIA B">GUARDIA B</option>}
+                  </select>
+                </label>
+              )}
               <label>Fecha de término<input type="datetime-local" value={editForm.due_at} onChange={(event) => setEditForm({ ...editForm, due_at: event.target.value })} /></label>
               <label className="span-2">Etiquetas<input value={editForm.tags} onChange={(event) => setEditForm({ ...editForm, tags: event.target.value })} placeholder="OC OBSERVADAS, URGENTE" /></label>
               <label className="span-2">Asunto del correo<input value={editForm.email_subject} onChange={(event) => setEditForm({ ...editForm, email_subject: event.target.value })} /></label>
@@ -708,20 +928,65 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
 
         {showSubtasks && (
           <section className="task-detail-section">
-            <div className="task-detail-section-head"><b>Subtareas</b><span>{completedSubtasks}/{subtasks.length} completadas</span></div>
-            <div className="task-subtask-list">
+            <div className="task-detail-section-head">
+              <b>Subtareas</b>
+              <span>{completedSubtasks}/{subtasks.length} completadas · {subtasks.length ? Math.round((completedSubtasks/subtasks.length)*100) : 0}%</span>
+            </div>
+            <div className="task-subtask-list professional-subtasks">
               {subtasks.map((row) => (
-                <label key={row.id} className={row.completed ? 'completed' : ''}>
-                  <input type="checkbox" checked={row.completed} disabled={!canEdit} onChange={() => toggleSubtask(row)} />
-                  <span>{row.title}</span>
-                </label>
+                <article key={row.id} className={row.completed ? 'completed' : ''}>
+                  <label>
+                    <input type="checkbox" checked={row.completed} disabled={!canToggleSubtask(row)} onChange={() => toggleSubtask(row)} />
+                    <span><b>{row.title}</b><small>{subtaskAssignmentLabel(row)}{row.due_at ? ` · vence ${fmtDateOnly(row.due_at)}` : ''}</small></span>
+                  </label>
+                  <span className="subtask-assignment-chip">{row.assignment_type}</span>
+                </article>
               ))}
               {!subtasks.length && <p className="task-detail-empty">Aún no hay subtareas.</p>}
             </div>
             {canEdit && (
-              <form className="task-subtask-add" onSubmit={addSubtask}>
-                <input value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} placeholder="Nueva subtarea" />
-                <button className="secondary-button" disabled={!subtaskTitle.trim()}><Plus size={16} /> Agregar</button>
+              <form className="task-subtask-add professional-subtask-form" onSubmit={addSubtask}>
+                <label className="subtask-title-field">Subtarea
+                  <input value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} placeholder="Ej. Validar guía, actualizar SAP, ubicar material…" />
+                </label>
+                <label>Asignar a
+                  <select value={subtaskAssignmentType} onChange={(event)=>setSubtaskAssignmentType(event.target.value as SubtaskAssignmentType)}>
+                    <option value="PERSONA">Una persona específica</option>
+                    <option value="GRUPO">Grupo de almacén</option>
+                    <option value="GUARDIA">Una guardia del almacén</option>
+                  </select>
+                </label>
+
+                {subtaskAssignmentType === 'PERSONA' && (
+                  <label>Persona
+                    <select value={subtaskAssignedUser} onChange={(event)=>setSubtaskAssignedUser(event.target.value)}>
+                      {scopedProfiles.map((profile)=><option key={profile.user_id} value={profile.user_id}>{profile.full_name}{profile.group_name ? ` · ${profile.group_name}` : ''}</option>)}
+                    </select>
+                  </label>
+                )}
+                {subtaskAssignmentType === 'GRUPO' && (
+                  <label>Grupo
+                    <select value={subtaskAssignedGroup} onChange={(event)=>setSubtaskAssignedGroup(event.target.value)}>
+                      <option value="">Seleccionar grupo</option>
+                      {scopedGroups.map((group)=><option key={group} value={group}>{group}</option>)}
+                    </select>
+                  </label>
+                )}
+                {subtaskAssignmentType === 'GUARDIA' && (
+                  <label>Guardia
+                    <select value={subtaskAssignedShift} onChange={(event)=>setSubtaskAssignedShift(event.target.value)}>
+                      <option value="">Seleccionar guardia</option>
+                      {scopedShifts.map((shift)=><option key={shift} value={shift}>{shift}</option>)}
+                      {!scopedShifts.includes('GUARDIA A')&&<option value="GUARDIA A">GUARDIA A</option>}
+                      {!scopedShifts.includes('GUARDIA B')&&<option value="GUARDIA B">GUARDIA B</option>}
+                    </select>
+                  </label>
+                )}
+
+                <label>Fecha límite
+                  <input type="datetime-local" value={subtaskDueAt} onChange={(event)=>setSubtaskDueAt(event.target.value)} />
+                </label>
+                <button className="primary-button subtask-add-button" disabled={!subtaskTitle.trim()}><Plus size={16} /> Agregar subtarea</button>
               </form>
             )}
           </section>
