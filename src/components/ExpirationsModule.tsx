@@ -4,7 +4,10 @@ import {
   BadgeCheck,
   CalendarClock,
   CheckCircle2,
+  Download,
+  Edit3,
   GraduationCap,
+  Mail,
   Plus,
   RefreshCw,
   Search,
@@ -23,6 +26,7 @@ type Profile = {
   warehouse?: string | null
   project?: string | null
   group_name?: string | null
+  corporate_email?: string | null
 }
 
 type Expiration = {
@@ -42,6 +46,45 @@ type Expiration = {
   updated_by: string | null
   created_at: string
   updated_at: string
+  source?: 'MANUAL' | 'OUTLOOK' | 'IMPORT'
+  source_reference?: string | null
+  source_received_at?: string | null
+  source_confidence?: number | null
+}
+
+type CourseEmailIntake = {
+  id: string
+  subject: string
+  sender_name: string | null
+  sender_address: string | null
+  received_at: string
+  body_preview: string | null
+  detection_status: 'PENDING' | 'NOT_COURSE' | 'NEEDS_REVIEW' | 'COURSE_DETECTED' | 'IMPORTED' | 'ERROR'
+  confidence: number
+  detected_course_title: string | null
+  detected_participant_name: string | null
+  detected_participant_email: string | null
+  detected_issuer: string | null
+  detected_certificate_no: string | null
+  detected_issue_date: string | null
+  detected_due_date: string | null
+  matched_user_id: string | null
+  matched_by: string | null
+  parse_notes: string | null
+  attachment_names: string[]
+  expiration_id: string | null
+}
+
+type OutlookCourseStatus = {
+  configured: boolean
+  enabled: boolean
+  mailbox: string | null
+  folder: string | null
+  lastSyncAt: string | null
+  lastSyncStatus: string | null
+  lastSyncMessage: string | null
+  autoImport: boolean
+  autoImportMinConfidence: number
 }
 
 type Props = {
@@ -99,6 +142,19 @@ export function ExpirationsModule({type,userId,profile}:Props) {
   const [showForm,setShowForm]=useState(false)
   const [saving,setSaving]=useState(false)
   const [message,setMessage]=useState('')
+  const [courseInbox,setCourseInbox]=useState<CourseEmailIntake[]>([])
+  const [outlookStatus,setOutlookStatus]=useState<OutlookCourseStatus|null>(null)
+  const [syncingOutlook,setSyncingOutlook]=useState(false)
+  const [reviewRow,setReviewRow]=useState<CourseEmailIntake|null>(null)
+  const [reviewSaving,setReviewSaving]=useState(false)
+  const [reviewForm,setReviewForm]=useState({
+    user_id:'',
+    title:'',
+    issuer:'',
+    certificate_no:'',
+    issue_date:'',
+    due_date:'',
+  })
   const [form,setForm]=useState({
     user_id:userId,
     title:'',
@@ -118,13 +174,29 @@ export function ExpirationsModule({type,userId,profile}:Props) {
     setMessage('')
     const [expirationRes,profileRes]=await Promise.all([
       supabase.from('compliance_expirations').select('*').eq('expiration_type',type).order('due_date',{ascending:true}).limit(2000),
-      supabase.from('user_profiles').select('user_id,full_name,role,warehouse,project,group_name').eq('active',true).order('full_name'),
+      supabase.from('user_profiles').select('user_id,full_name,role,warehouse,project,group_name,corporate_email').eq('active',true).order('full_name'),
     ])
     if (expirationRes.error || profileRes.error) {
       setMessage(expirationRes.error?.message || profileRes.error?.message || 'No se pudo cargar vencimientos.')
     }
     setRows((expirationRes.data ?? []) as Expiration[])
     setProfiles((profileRes.data ?? []) as Profile[])
+
+    if (type === 'CURSO' && canManage) {
+      const {data:inboxData,error:inboxError}=await supabase
+        .from('course_email_intake')
+        .select('id,subject,sender_name,sender_address,received_at,body_preview,detection_status,confidence,detected_course_title,detected_participant_name,detected_participant_email,detected_issuer,detected_certificate_no,detected_issue_date,detected_due_date,matched_user_id,matched_by,parse_notes,attachment_names,expiration_id')
+        .neq('detection_status','NOT_COURSE')
+        .order('received_at',{ascending:false})
+        .limit(100)
+      if(!inboxError) setCourseInbox((inboxData ?? []) as CourseEmailIntake[])
+
+      const {data:statusData}=await supabase.functions.invoke('sync-outlook-courses',{body:{action:'status'}})
+      if(statusData?.ok) setOutlookStatus(statusData as OutlookCourseStatus)
+    } else {
+      setCourseInbox([])
+      setOutlookStatus(null)
+    }
     setLoading(false)
   }
 
@@ -193,6 +265,115 @@ export function ExpirationsModule({type,userId,profile}:Props) {
 
   const personName=(id:string)=>profiles.find((p)=>p.user_id===id)?.full_name || 'Usuario'
 
+  const pendingOutlook=courseInbox.filter((row)=>['NEEDS_REVIEW','COURSE_DETECTED'].includes(row.detection_status)).length
+
+  async function syncOutlookCourses() {
+    setSyncingOutlook(true)
+    setMessage('')
+    const {data,error}=await supabase.functions.invoke('sync-outlook-courses',{body:{action:'sync'}})
+    setSyncingOutlook(false)
+    if(error || !data?.ok){
+      setMessage(data?.error || error?.message || 'Outlook todavía no está configurado para cursos.')
+      await reload()
+      return
+    }
+    setMessage(data.message || 'Sincronización Outlook completada.')
+    await reload()
+  }
+
+  function openReview(row:CourseEmailIntake) {
+    setReviewRow(row)
+    setReviewForm({
+      user_id:row.matched_user_id || userId,
+      title:row.detected_course_title || row.subject || '',
+      issuer:row.detected_issuer || row.sender_name || '',
+      certificate_no:row.detected_certificate_no || '',
+      issue_date:row.detected_issue_date || '',
+      due_date:row.detected_due_date || '',
+    })
+  }
+
+  async function confirmOutlookCourse(event:FormEvent) {
+    event.preventDefault()
+    if(!reviewRow || !reviewForm.user_id || !reviewForm.title.trim() || !reviewForm.due_date) return
+    setReviewSaving(true)
+    setMessage('')
+
+    const target=profiles.find((p)=>p.user_id===reviewForm.user_id)
+    const {data:existing}=await supabase
+      .from('compliance_expirations')
+      .select('id')
+      .eq('user_id',reviewForm.user_id)
+      .eq('expiration_type','CURSO')
+      .eq('title',reviewForm.title.trim())
+      .eq('due_date',reviewForm.due_date)
+      .maybeSingle()
+
+    let expirationId=existing?.id || null
+
+    if(!expirationId){
+      const {data:created,error}=await supabase
+        .from('compliance_expirations')
+        .insert({
+          user_id:reviewForm.user_id,
+          expiration_type:'CURSO',
+          title:reviewForm.title.trim(),
+          issuer:reviewForm.issuer.trim()||null,
+          certificate_no:reviewForm.certificate_no.trim()||null,
+          issue_date:reviewForm.issue_date||null,
+          due_date:reviewForm.due_date,
+          status:'ACTIVO',
+          warehouse:target?.warehouse || profile?.warehouse || null,
+          project:target?.project || profile?.project || null,
+          notes:`Validado desde correo Outlook: ${reviewRow.subject}`,
+          created_by:userId,
+          updated_by:userId,
+          source:'OUTLOOK',
+          source_reference:reviewRow.id,
+          source_received_at:reviewRow.received_at,
+          source_confidence:reviewRow.confidence,
+          source_metadata:{
+            intake_id:reviewRow.id,
+            sender:reviewRow.sender_address,
+            subject:reviewRow.subject,
+            matched_by:reviewRow.matched_by,
+          },
+        })
+        .select('id')
+        .single()
+      if(error || !created){
+        setReviewSaving(false)
+        setMessage(error?.message || 'No se pudo registrar el curso detectado.')
+        return
+      }
+      expirationId=created.id
+    }
+
+    const {error:updateError}=await supabase
+      .from('course_email_intake')
+      .update({
+        detection_status:'IMPORTED',
+        expiration_id:expirationId,
+        matched_user_id:reviewForm.user_id,
+        detected_course_title:reviewForm.title.trim(),
+        detected_issuer:reviewForm.issuer.trim()||null,
+        detected_certificate_no:reviewForm.certificate_no.trim()||null,
+        detected_issue_date:reviewForm.issue_date||null,
+        detected_due_date:reviewForm.due_date,
+        updated_at:new Date().toISOString(),
+      })
+      .eq('id',reviewRow.id)
+
+    setReviewSaving(false)
+    if(updateError){
+      setMessage(updateError.message)
+      return
+    }
+    setReviewRow(null)
+    setMessage('Curso validado e incorporado a Vencimientos.')
+    await reload()
+  }
+
   return (
     <div className="expiration-module">
       <section className="panel expiration-hero">
@@ -214,6 +395,78 @@ export function ExpirationsModule({type,userId,profile}:Props) {
           <div><span>31 a 60 días</span><b>{counts.next60}</b></div>
         </div>
       </section>
+
+      {type==='CURSO' && canManage && (
+        <section className="panel outlook-course-panel">
+          <div className="panel-title">
+            <div className="outlook-course-title">
+              <span className="expiration-icon"><Mail size={19}/></span>
+              <div>
+                <h3>Outlook → Cursos</h3>
+                <p>Detección automática de correos de capacitación y carga al módulo de vencimientos.</p>
+              </div>
+            </div>
+            <div className="button-row">
+              <span className={outlookStatus?.configured && outlookStatus?.enabled ? 'status-pill' : 'status-pill warning'}>
+                {outlookStatus?.configured && outlookStatus?.enabled ? 'LISTO' : outlookStatus?.configured ? 'PREPARADO' : 'API PENDIENTE'}
+              </span>
+              <button className="secondary-button" onClick={syncOutlookCourses} disabled={syncingOutlook}>
+                {syncingOutlook?<RefreshCw className="spin" size={16}/>:<Download size={16}/>}
+                {syncingOutlook?'Sincronizando…':'Sincronizar Outlook'}
+              </button>
+            </div>
+          </div>
+
+          <div className="outlook-course-summary">
+            <div><span>Correos por validar</span><b>{pendingOutlook}</b></div>
+            <div><span>Importados</span><b>{courseInbox.filter((row)=>row.detection_status==='IMPORTED').length}</b></div>
+            <div><span>Importación automática</span><b>{outlookStatus?.autoImport?'ACTIVA':'PREPARADA'}</b></div>
+            <div><span>Confianza mínima</span><b>{outlookStatus?.autoImportMinConfidence ?? 95}%</b></div>
+          </div>
+
+          <div className="outlook-course-info">
+            <Mail size={16}/>
+            <span>
+              {outlookStatus?.configured
+                ? `Buzón: ${outlookStatus.mailbox || 'configurado'} · Carpeta: ${outlookStatus.folder || 'Inbox'}`
+                : 'La integración está preparada. Al recibir las credenciales de Microsoft Graph solo se habilitan los secretos y el buzón de lectura.'}
+            </span>
+          </div>
+
+          {outlookStatus?.lastSyncMessage && <div className="inline-message">{outlookStatus.lastSyncMessage}</div>}
+
+          <div className="outlook-course-inbox">
+            {courseInbox.slice(0,20).map((row)=>(
+              <article key={row.id} className={row.detection_status==='IMPORTED'?'imported':''}>
+                <div className="outlook-course-mail">
+                  <div className="outlook-course-mail-head">
+                    <b>{row.detected_course_title || row.subject}</b>
+                    <span>{row.confidence}%</span>
+                  </div>
+                  <p>{row.subject}</p>
+                  <small>{row.sender_name || row.sender_address || 'Remitente'} · {new Date(row.received_at).toLocaleDateString('es-PE')}</small>
+                  <div className="outlook-course-mail-meta">
+                    <span>Persona: {row.detected_participant_name || row.detected_participant_email || 'Por identificar'}</span>
+                    <span>Vence: {dateOnly(row.detected_due_date)}</span>
+                    {row.attachment_names?.length>0&&<span>Adjuntos: {row.attachment_names.join(', ')}</span>}
+                  </div>
+                </div>
+                <div className="outlook-course-mail-actions">
+                  <span className={row.detection_status==='IMPORTED'?'status-pill':'status-pill warning'}>
+                    {row.detection_status==='IMPORTED'?'IMPORTADO':'VALIDAR'}
+                  </span>
+                  {row.detection_status!=='IMPORTED'&&(
+                    <button className="secondary-button" onClick={()=>openReview(row)}><Edit3 size={14}/> Revisar</button>
+                  )}
+                </div>
+              </article>
+            ))}
+            {!courseInbox.length&&(
+              <div className="empty-work"><Mail size={28}/><b>Sin correos procesados</b><p>Los cursos detectados desde Outlook aparecerán aquí.</p></div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="task-toolbar">
@@ -270,6 +523,42 @@ export function ExpirationsModule({type,userId,profile}:Props) {
           </>
         )}
       </section>
+
+      {reviewRow&&(
+        <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget&&setReviewRow(null)}>
+          <form className="modal expiration-modal" onSubmit={confirmOutlookCourse}>
+            <div className="modal-head">
+              <div><h2>Validar curso detectado</h2><p>{reviewRow.subject} · confianza {reviewRow.confidence}%</p></div>
+              <button type="button" className="icon-button" onClick={()=>setReviewRow(null)}><X size={19}/></button>
+            </div>
+            <div className="outlook-review-source">
+              <Mail size={16}/>
+              <div><b>{reviewRow.sender_name || reviewRow.sender_address || 'Correo Outlook'}</b><span>{reviewRow.body_preview || 'Sin vista previa'}</span></div>
+            </div>
+            <div className="form-grid">
+              <label className="span-2">Persona
+                <select required value={reviewForm.user_id} onChange={(e)=>setReviewForm({...reviewForm,user_id:e.target.value})}>
+                  <option value="">Seleccionar persona</option>
+                  {profiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}{p.corporate_email?` · ${p.corporate_email}`:''}</option>)}
+                </select>
+              </label>
+              <label className="span-2">Curso<input required value={reviewForm.title} onChange={(e)=>setReviewForm({...reviewForm,title:e.target.value})}/></label>
+              <label>Emisor<input value={reviewForm.issuer} onChange={(e)=>setReviewForm({...reviewForm,issuer:e.target.value})}/></label>
+              <label>Certificado<input value={reviewForm.certificate_no} onChange={(e)=>setReviewForm({...reviewForm,certificate_no:e.target.value})}/></label>
+              <label>Fecha de emisión<input type="date" value={reviewForm.issue_date} onChange={(e)=>setReviewForm({...reviewForm,issue_date:e.target.value})}/></label>
+              <label>Fecha de vencimiento<input type="date" required value={reviewForm.due_date} onChange={(e)=>setReviewForm({...reviewForm,due_date:e.target.value})}/></label>
+            </div>
+            {reviewRow.parse_notes&&<div className="inline-message">{reviewRow.parse_notes}</div>}
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={()=>setReviewRow(null)}>Cancelar</button>
+              <button className="primary-button" disabled={reviewSaving}>
+                {reviewSaving?<RefreshCw className="spin" size={15}/>:<CheckCircle2 size={15}/>}
+                {reviewSaving?'Guardando…':'Confirmar e importar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {showForm&&(
         <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget&&setShowForm(false)}>
