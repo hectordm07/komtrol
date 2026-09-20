@@ -662,7 +662,9 @@ function Workspace({ session }: { session: Session }) {
       section: 'SISTEMA',
       items: [
         { id: 'correos' as Tab, label: 'Correos', icon: Mail },
-        { id: 'configuracion' as Tab, label: 'Configuración', icon: Settings },
+        ...(role === 'ADMINISTRADOR'
+          ? [{ id: 'configuracion' as Tab, label: 'Configuración', icon: Settings }]
+          : []),
       ],
     },
   ]
@@ -1096,7 +1098,7 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
-              {tab === 'configuracion' && (
+              {tab === 'configuracion' && role === 'ADMINISTRADOR' && (
                 <section className="config-grid">
                   <div className="panel setting-card">
                     <div className="setting-icon"><Boxes /></div>
