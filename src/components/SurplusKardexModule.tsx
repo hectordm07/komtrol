@@ -938,9 +938,9 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
 
     setMessage('')
     try {
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-      const pageWidth = 297
+      const pageWidth = doc.internal.pageSize.getWidth()
       const generated = new Intl.DateTimeFormat('es-PE', { dateStyle:'medium', timeStyle:'short' }).format(new Date())
       const scope = fixedWarehouse || (!isAdmin ? profile?.warehouse || 'TODOS' : warehouseFilter)
       const oldest = [...movementLedger].sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())[0]
@@ -959,7 +959,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       doc.setFontSize(8)
       doc.text(`Almacén: ${scope || 'TODOS'} · Período: ${period}`,12,18)
       doc.text(`Filtro: ${q || 'Sin filtro adicional'}`,12,23)
-      doc.text(`Generado: ${generated}`,285,18,{align:'right'})
+      doc.text(`Generado: ${generated}`,pageWidth-12,18,{align:'right'})
 
       const cards = [
         ['ENTRADAS', fmtQty(totals.entries), [48,148,110]],
@@ -968,10 +968,10 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
         ['MOVIMIENTOS', String(movementLedger.length), [115,99,199]],
       ] as const
       cards.forEach((card,index)=>{
-        const x=12+index*68
+        const x=12+index*46
         doc.setDrawColor(219,232,240)
         doc.setFillColor(249,252,255)
-        doc.roundedRect(x,33,62,16,2,2,'FD')
+        doc.roundedRect(x,33,41,16,2,2,'FD')
         doc.setFontSize(6.5)
         doc.setTextColor(99,125,143)
         doc.setFont('helvetica','bold')
@@ -984,8 +984,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       autoTable(doc, {
         startY: 55,
         head: [[
-          'FECHA / HORA','DOCUMENTO / REF.','MOVIMIENTO','MATERIAL','STOCK CODE',
-          'EMBARQUE','CAJA','UBICACIÓN / BIN','ENTRADA','SALIDA','SALDO','ORIGEN'
+          'FECHA','REF.','MOV.','MATERIAL','SC','CAJA / EMBARQUE','UBICACIÓN','ENTRADA / SALIDA','SALDO'
         ]],
         body: movementLedger.map((row)=>[
           fmt(row.created_at),
@@ -993,18 +992,15 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
           row.movement_type,
           row.material_no,
           row.stock_code || '—',
-          row.shipment_no || '—',
-          row.box_no || '—',
+          [row.box_no,row.shipment_no].filter(Boolean).join(' / ') || '—',
           row.location || '—',
-          row.entry ? fmtQty(row.entry) : '—',
-          row.exit ? fmtQty(row.exit) : '—',
+          row.entry ? `+${fmtQty(row.entry)}` : row.exit ? `−${fmtQty(row.exit)}` : '—',
           fmtQty(row.runningBalance),
-          row.source_type.replaceAll('_',' '),
         ]),
         styles: {
           font:'helvetica',
-          fontSize:6.6,
-          cellPadding:1.6,
+          fontSize:5.3,
+          cellPadding:1.05,
           lineColor:[222,231,236],
           lineWidth:.12,
           textColor:[31,64,84],
@@ -1015,27 +1011,27 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
           fillColor:[31,64,84],
           textColor:[255,255,255],
           fontStyle:'bold',
-          fontSize:6.5,
+          fontSize:5.2,
           halign:'center',
         },
         alternateRowStyles:{ fillColor:[248,252,254] },
         columnStyles:{
-          0:{cellWidth:24},
-          1:{cellWidth:27},
-          2:{cellWidth:22,halign:'center'},
-          3:{cellWidth:26},
-          4:{cellWidth:21},
-          5:{cellWidth:30},
-          6:{cellWidth:29},
-          7:{cellWidth:25},
-          8:{cellWidth:16,halign:'right'},
-          9:{cellWidth:16,halign:'right'},
-          10:{cellWidth:17,halign:'right',fontStyle:'bold'},
-          11:{cellWidth:27},
+          0:{cellWidth:20},
+          1:{cellWidth:19},
+          2:{cellWidth:16,halign:'center'},
+          3:{cellWidth:22},
+          4:{cellWidth:17},
+          5:{cellWidth:28},
+          6:{cellWidth:23},
+          7:{cellWidth:21,halign:'right'},
+          8:{cellWidth:17,halign:'right',fontStyle:'bold'},
         },
         didParseCell:(data:any)=>{
-          if(data.section==='body' && data.column.index===8 && data.cell.text?.[0]!=='—') data.cell.styles.textColor=[48,148,110]
-          if(data.section==='body' && data.column.index===9 && data.cell.text?.[0]!=='—') data.cell.styles.textColor=[205,82,82]
+          if(data.section==='body' && data.column.index===7) {
+            const value=String(data.cell.text?.[0] || '')
+            if(value.startsWith('+')) data.cell.styles.textColor=[48,148,110]
+            if(value.startsWith('−')) data.cell.styles.textColor=[205,82,82]
+          }
         },
         margin:{left:10,right:10,bottom:14},
       })
@@ -1044,12 +1040,12 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
       for(let page=1;page<=pages;page++){
         doc.setPage(page)
         doc.setDrawColor(219,232,240)
-        doc.line(10,199,287,199)
+        doc.line(10,286,pageWidth-10,286)
         doc.setFont('helvetica','normal')
         doc.setFontSize(6.5)
         doc.setTextColor(105,125,137)
-        doc.text('KOMTROL · Kardex de Sobrantes · Trazabilidad de movimientos',10,204)
-        doc.text(`Página ${page} de ${pages}`,287,204,{align:'right'})
+        doc.text('KOMTROL · Kardex de Sobrantes · Trazabilidad de movimientos',10,291)
+        doc.text(`Página ${page} de ${pages}`,pageWidth-10,291,{align:'right'})
       }
 
       const dateStamp=new Date().toISOString().slice(0,10)
