@@ -164,6 +164,11 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
 
   const canSeeCallaoInbound = role === 'ADMINISTRADOR' || profile?.warehouse?.toUpperCase() === 'CALLAO'
 
+  const canSeeRemoteReports =
+    role === 'ADMINISTRADOR' ||
+    role === 'SUPERVISOR' ||
+    profile?.warehouse?.toUpperCase() !== 'CALLAO'
+
   const callaoStats=useMemo(()=>{
     const callaoIncidents=incidents.filter((x)=>x.warehouse?.toUpperCase()==='CALLAO')
     const callaoBoxes=boxes.filter((x)=>x.warehouse?.toUpperCase()==='CALLAO')
@@ -364,18 +369,20 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
               ['inbound-cajas','Inbound · Cajas'],
               ['inbound-kardex','Inbound · Kardex'],
             ] : []),
-            ['dashboard-operacion','Operación'],
-            ['inbound-outbound','Inbound / Outbound'],
-            ['eri','ERI'],
-            ['sobrantes-faltantes','Sobrantes / Faltantes'],
-            ['diferencias-inventario','Diferencias inventario'],
-            ['dashboard-transitos','Tránsitos'],
-            ['uca','UCA'],
-            ['ahorros','Ahorros'],
-            ['perfect-ship','Perfect Ship'],
-            ['consignaciones','Consignaciones'],
-            ['vhs','VHS'],
-            ['safe','SAFE'],
+            ...(canSeeRemoteReports ? [
+              ['dashboard-operacion','Operación'],
+              ['inbound-outbound','Inbound / Outbound'],
+              ['eri','ERI'],
+              ['sobrantes-faltantes','Sobrantes / Faltantes'],
+              ['diferencias-inventario','Diferencias inventario'],
+              ['dashboard-transitos','Tránsitos'],
+              ['uca','UCA'],
+              ['ahorros','Ahorros'],
+              ['perfect-ship','Perfect Ship'],
+              ['consignaciones','Consignaciones'],
+              ['vhs','VHS'],
+              ['safe','SAFE'],
+            ] : []),
           ].map(([id,label])=>(
             <button key={id} type="button" onClick={()=>onNavigate(id)}>
               <span><BarChart3 size={17}/><b>{label}</b></span>
