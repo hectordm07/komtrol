@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   BadgeCheck,
@@ -469,7 +469,7 @@ function nearestText(days:number|null){
 function DashboardKpi({
   icon,label,value,detail,onClick,critical=false,
 }:{
-  icon:React.ReactNode
+  icon:ReactNode
   label:string
   value:number
   detail:string
