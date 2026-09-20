@@ -5,6 +5,8 @@ import {
   CalendarPlus,
   CheckCircle2,
   CheckSquare2,
+  CircleAlert,
+  Info,
   ChevronDown,
   ChevronUp,
   Clock3,
@@ -591,7 +593,12 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
           <button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={20} /></button>
         </header>
 
-        {message && <div className="inline-message">{message}</div>}
+        {message && (
+          <div className={/no se pudo|error|inválid|supera|debe/i.test(message) ? 'task-detail-alert error' : 'task-detail-alert info'}>
+            {/no se pudo|error|inválid|supera|debe/i.test(message) ? <CircleAlert size={18}/> : <Info size={18}/>}
+            <span>{message}</span>
+          </div>
+        )}
 
         <section className="task-detail-summary">
           <div className="task-detail-chips">
@@ -607,7 +614,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
           <h3>{task.title}</h3>
           {task.description && <p className="task-detail-description">{task.description}</p>}
 
-          <div className="task-detail-grid">
+          <div className="task-detail-grid task-detail-facts">
             <div><span>Proyecto</span><b>{task.project || '—'}</b></div>
             <div><span>Grupo / espacio</span><b>{task.group_name || task.warehouse || '—'}</b></div>
             <div><span>Creación</span><b>{fmtDate(task.created_at)}</b></div>
@@ -689,7 +696,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
           </section>
         )}
 
-        <section className="task-metrics-grid">
+        <section className="task-metrics-grid task-detail-metrics">
           <div><span>Duración estimada</span><b>{task.estimated_hours ? `${Number(task.estimated_hours).toFixed(1)} h` : 'Sin definir'}</b></div>
           <div><span>Tiempo transcurrido</span><b>{elapsedDays.toFixed(2)} días</b></div>
           <div><span>Diferencia vs. estimado</span><b>{diffVsEstimated == null ? '—' : `${diffVsEstimated >= 0 ? '+' : ''}${diffVsEstimated.toFixed(2)} días`}</b></div>
