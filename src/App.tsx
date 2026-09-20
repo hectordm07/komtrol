@@ -336,10 +336,15 @@ function Workspace({ session }: { session: Session }) {
   const [saving, setSaving] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  const [accessView, setAccessView] = useState<'ACTUAL' | 'TRABAJADOR'>('ACTUAL')
   const [now, setNow] = useState(() => new Date())
 
   const user = session.user
-  const role = profile?.role ?? (user.app_metadata?.role as Profile['role'] | undefined) ?? 'TRABAJADOR'
+  const actualRole = profile?.role ?? (user.app_metadata?.role as Profile['role'] | undefined) ?? 'TRABAJADOR'
+  const canPreviewWorker = actualRole === 'ADMINISTRADOR' && Boolean(profile?.worker_access)
+  const isWorkerPreview = canPreviewWorker && accessView === 'TRABAJADOR'
+  const role: Profile['role'] = isWorkerPreview ? 'TRABAJADOR' : actualRole
+  const effectiveProfile: Profile | null = profile ? { ...profile, role } : null
   const displayName = profile?.full_name ?? user.user_metadata?.full_name ?? 'Usuario KOMTROL'
 
   async function reload() {
@@ -361,6 +366,26 @@ function Workspace({ session }: { session: Session }) {
   useEffect(() => {
     reload()
   }, [user.id])
+
+  useEffect(() => {
+    if (!canPreviewWorker && accessView === 'TRABAJADOR') {
+      setAccessView('ACTUAL')
+    }
+  }, [canPreviewWorker, accessView])
+
+  function changeAccessView(next: 'ACTUAL' | 'TRABAJADOR') {
+    if (next === 'TRABAJADOR' && !canPreviewWorker) return
+    setAccessView(next)
+    setTab('inicio')
+    setOpenSections(['INICIO'])
+    setMobileMenu(false)
+    setNotificationOpen(false)
+    setTaskToOpen(null)
+    setToast(next === 'TRABAJADOR'
+      ? 'Vista Trabajador / Almacenero activada. Tu rol real sigue siendo Administrador.'
+      : 'Vista Administrador restaurada.')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     if (!toast) return
@@ -820,9 +845,44 @@ function Workspace({ session }: { session: Session }) {
         </nav>
 
         <div className="sidebar-footer">
+          {canPreviewWorker && (
+            <div className="access-view-switcher">
+              <div className="access-view-head">
+                <span>VISTA DEL SISTEMA</span>
+                <small>Rol real: Administrador</small>
+              </div>
+              <div className="access-view-options">
+                <button
+                  type="button"
+                  className={!isWorkerPreview ? 'active' : ''}
+                  onClick={() => changeAccessView('ACTUAL')}
+                >
+                  <ShieldCheck size={14} />
+                  Administrador
+                </button>
+                <button
+                  type="button"
+                  className={isWorkerPreview ? 'active' : ''}
+                  onClick={() => changeAccessView('TRABAJADOR')}
+                >
+                  <ClipboardList size={14} />
+                  Trabajador / Almacenero
+                </button>
+              </div>
+              {isWorkerPreview && (
+                <div className="access-preview-note">
+                  Estás viendo KOMTROL como Trabajador. Cambia a Administrador para recuperar todos los módulos.
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="profile-mini">
             <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
-            <div><b>{displayName}</b><span>{role}</span></div>
+            <div>
+              <b>{displayName}</b>
+              <span>{isWorkerPreview ? 'TRABAJADOR · VISTA DE PRUEBA' : role}</span>
+            </div>
           </div>
           <button className="logout-button" onClick={logout}><LogOut size={17} /> Salir</button>
         </div>
@@ -839,8 +899,11 @@ function Workspace({ session }: { session: Session }) {
       <main className="main-area">
         <header className="topbar">
           <button className="icon-button mobile-only" onClick={() => setMobileMenu(true)}><Menu size={22} /></button>
-          <div>
-            <h1>{currentNav?.label ?? 'KOMTROL'}</h1>
+          <div className="topbar-title-block">
+            <div className="topbar-title-line">
+              <h1>{currentNav?.label ?? 'KOMTROL'}</h1>
+              {isWorkerPreview && <span className="access-preview-badge">Vista Trabajador / Almacenero</span>}
+            </div>
             <p>{displayName} · {role}{profile?.warehouse ? ` · ${profile.warehouse}` : ''}{profile?.group_name ? ` · ${profile.group_name}` : ''}{profile?.shift_name ? ` · ${profile.shift_name}` : ''}</p>
           </div>
           <div className="top-actions">
@@ -892,7 +955,7 @@ function Workspace({ session }: { session: Session }) {
               <span className="user-greeting-date"><i />{todayLabel(now)}</span>
               <div className="user-greeting-copy">
                 <strong>{greetingForDate(now)}, <b>{firstName(displayName)}</b></strong>
-                <small>{profile.warehouse || 'SIN ALMACÉN'}{profile.group_name ? ` · ${profile.group_name}` : ''}{profile.shift_name ? ` · ${profile.shift_name}` : ''}</small>
+                <small>{profile.warehouse || 'SIN ALMACÉN'}{profile.group_name ? ` · ${profile.group_name}` : ''}{profile.shift_name ? ` · ${profile.shift_name}` : ''}{isWorkerPreview ? ' · VISTA TRABAJADOR' : ''}</small>
               </div>
             </div>
           </section>
@@ -913,7 +976,7 @@ function Workspace({ session }: { session: Session }) {
               {tab === 'inicio' && (
                 <UniversalDashboardModule
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                   onNavigate={(targetTab) => {
                     const target = flatNav.find((item) => item.id === targetTab)
                     if (!target) {
@@ -935,7 +998,7 @@ function Workspace({ session }: { session: Session }) {
               {tab === 'incidencias' && (
                 <ReceivingIncidentModule
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                   scopeMode="REMOTE"
                 />
               )}
@@ -970,24 +1033,24 @@ function Workspace({ session }: { session: Session }) {
               {isInboundTab && tab === 'inbound-incidencias' && (
                 <ReceivingIncidentModule
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                   scopeMode="CALLAO"
                 />
               )}
 
               {isInboundTab && tab === 'inbound-cajas' && (
-                <InboundModule mode="boxes" userId={user.id} profile={profile} />
+                <InboundModule mode="boxes" userId={user.id} profile={effectiveProfile} />
               )}
 
               {isInboundTab && tab === 'inbound-kardex' && (
-                <SurplusKardexModule userId={user.id} profile={profile} fixedWarehouse="CALLAO" />
+                <SurplusKardexModule userId={user.id} profile={effectiveProfile} fixedWarehouse="CALLAO" />
               )}
 
               {isInboundTab && tab === 'inbound-personal' && (
                 <TasksModule
                   mode="area-personal"
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                   scopeWarehouse="CALLAO"
                   scopeProject="INBOUND CALLAO"
                   scopeGroup="INBOUND"
@@ -998,7 +1061,7 @@ function Workspace({ session }: { session: Session }) {
                 <TasksModule
                   mode="tareas"
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                   scopeWarehouse="CALLAO"
                   scopeProject="INBOUND CALLAO"
                   scopeGroup="INBOUND"
@@ -1009,7 +1072,7 @@ function Workspace({ session }: { session: Session }) {
                 <TasksModule
                   mode={tab as typeof taskTabs[number]}
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                   initialTaskId={taskToOpen}
                   onInitialTaskOpened={() => setTaskToOpen(null)}
                 />
@@ -1019,7 +1082,7 @@ function Workspace({ session }: { session: Session }) {
                 <ExpirationsModule
                   type={expirationType}
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                 />
               )}
 
@@ -1027,14 +1090,14 @@ function Workspace({ session }: { session: Session }) {
                 <GuidesModule
                   mode={guideMode}
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                 />
               )}
 
               {isOcCargoTab && (
                 <OcCargoTrackingModule
                   userId={user.id}
-                  profile={profile}
+                  profile={effectiveProfile}
                 />
               )}
 
@@ -1055,7 +1118,7 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {tab === 'kardex-sobrantes' && (
-                <SurplusKardexModule userId={user.id} profile={profile} />
+                <SurplusKardexModule userId={user.id} profile={effectiveProfile} />
               )}
 
               {isOperationsControlTab && (
@@ -1071,7 +1134,7 @@ function Workspace({ session }: { session: Session }) {
                   mode={tab as typeof dashboardTabs[number]}
                   userId={user.id}
                   role={role}
-                  profile={profile}
+                  profile={effectiveProfile}
                 />
               )}
 
