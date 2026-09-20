@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   BadgeCheck,
+  Boxes,
   Bell,
   CalendarClock,
   CheckCircle2,
@@ -9,6 +10,7 @@ import {
   ClipboardList,
   Clock3,
   GraduationCap,
+  PackageSearch,
   RefreshCw,
   ShieldCheck,
   Users,
@@ -68,6 +70,30 @@ type Notification={
   created_at:string
 }
 
+type Incident={
+  id:string
+  incident_no:string
+  incident_type:string
+  status:string
+  warehouse:string|null
+  qty_expected:number|null
+  qty_received:number|null
+  qty_damaged:number|null
+  created_at:string
+}
+
+type KardexMovement={
+  id:string
+  warehouse:string
+  movement_type:string
+  source_type:string
+  material_no:string
+  quantity:number
+  stock_type:string|null
+  created_at:string
+}
+
+
 type Props={
   userId:string
   profile:Profile
@@ -119,13 +145,15 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
   const [tasks,setTasks]=useState<Task[]>([])
   const [expirations,setExpirations]=useState<Expiration[]>([])
   const [notifications,setNotifications]=useState<Notification[]>([])
+  const [incidents,setIncidents]=useState<Incident[]>([])
+  const [kardexMovements,setKardexMovements]=useState<KardexMovement[]>([])
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
 
   async function reload(){
     setLoading(true)
     setMessage('')
-    const [taskRes,expiryRes,notificationRes]=await Promise.all([
+    const [taskRes,expiryRes,notificationRes,incidentRes,kardexRes]=await Promise.all([
       supabase
         .from('tasks')
         .select('id,task_no,work_type,title,warehouse,project,group_name,responsible_id,created_by,status,progress,priority,due_at,closed_at,created_at')
@@ -143,13 +171,25 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
         .eq('user_id',userId)
         .order('created_at',{ascending:false})
         .limit(100),
+      supabase
+        .from('incidents')
+        .select('id,incident_no,incident_type,status,warehouse,qty_expected,qty_received,qty_damaged,created_at')
+        .order('created_at',{ascending:false})
+        .limit(3000),
+      supabase
+        .from('surplus_kardex_movements')
+        .select('id,warehouse,movement_type,source_type,material_no,quantity,stock_type,created_at')
+        .order('created_at',{ascending:false})
+        .limit(10000),
     ])
 
-    const error=taskRes.error||expiryRes.error||notificationRes.error
+    const error=taskRes.error||expiryRes.error||notificationRes.error||incidentRes.error||kardexRes.error
     if(error) setMessage(error.message)
     setTasks((taskRes.data??[]) as Task[])
     setExpirations((expiryRes.data??[]) as Expiration[])
     setNotifications((notificationRes.data??[]) as Notification[])
+    setIncidents((incidentRes.data??[]) as Incident[])
+    setKardexMovements((kardexRes.data??[]) as KardexMovement[])
     setLoading(false)
   }
 
@@ -176,6 +216,49 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
   })
   const groupPending=groupTasks.filter(isOpen)
   const unread=notifications.filter((row)=>!row.read_at).length
+  const operationalWarehouse=(profile.warehouse||'').toUpperCase()
+  const scopeWarehouse=<T extends {warehouse?:string|null}>(rows:T[])=>{
+    if(profile.role==='ADMINISTRADOR' && !operationalWarehouse) return rows
+    if(!operationalWarehouse) return rows
+    return rows.filter((row)=>String(row.warehouse||'').toUpperCase()===operationalWarehouse)
+  }
+
+  const operationalIncidents=scopeWarehouse(incidents)
+  const operationalKardex=scopeWarehouse(kardexMovements)
+  const openIncidents=operationalIncidents.filter((row)=>row.status!=='CERRADO')
+  const surplusIncidents=operationalIncidents.filter((row)=>row.incident_type==='SOBRANTE')
+  const surplusQty=surplusIncidents.reduce((sum,row)=>{
+    const diff=Math.max(0,Number(row.qty_received||0)-Number(row.qty_expected||0))
+    return sum+diff
+  },0)
+  const kardexEntries=operationalKardex
+    .filter((row)=>row.movement_type==='ENTRADA')
+    .reduce((sum,row)=>sum+Number(row.quantity||0),0)
+  const kardexExits=operationalKardex
+    .filter((row)=>row.movement_type==='SALIDA')
+    .reduce((sum,row)=>sum+Number(row.quantity||0),0)
+  const kardexBalance=Math.max(0,kardexEntries-kardexExits)
+  const kardexMaterials=new Set(
+    operationalKardex
+      .filter((row)=>row.material_no)
+      .map((row)=>row.material_no)
+  ).size
+  const incidentRoute=operationalWarehouse==='CALLAO'?'inbound-incidencias':'incidencias'
+  const surplusRoute=operationalWarehouse==='CALLAO'?'inbound-cajas':'kardex-sobrantes'
+  const kardexRoute=operationalWarehouse==='CALLAO'?'inbound-kardex':'kardex-sobrantes'
+
+  const incidentSegments=[
+    {label:'Sobrantes',value:operationalIncidents.filter((row)=>row.incident_type==='SOBRANTE').length},
+    {label:'Faltantes',value:operationalIncidents.filter((row)=>row.incident_type==='FALTANTE').length},
+    {label:'Dañados',value:operationalIncidents.filter((row)=>row.incident_type==='DANADO'||row.incident_type==='DAÑADO').length},
+    {label:'Otros',value:operationalIncidents.filter((row)=>!['SOBRANTE','FALTANTE','DANADO','DAÑADO'].includes(row.incident_type)).length},
+  ]
+
+  const kardexChartData=[
+    {key:'ENTRADAS',label:'Entradas',value:kardexEntries,detail:'Total de unidades ingresadas al Kardex de Sobrantes.'},
+    {key:'SALIDAS',label:'Salidas',value:kardexExits,detail:'Total de unidades retiradas o ajustadas.'},
+    {key:'SALDO',label:'Saldo',value:kardexBalance,detail:'Saldo operativo calculado: entradas menos salidas.'},
+  ]
 
   const activeExpirations=expirations.filter((row)=>row.status!=='ANULADO'&&row.status!=='RENOVADO')
   const expiryByType=(type:Expiration['expiration_type'])=>activeExpirations.filter((row)=>row.expiration_type===type)
@@ -371,6 +454,52 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
           onClick={()=>onNavigate('alertas')}
         />
       </div>
+
+      <section className="universal-operational-reports">
+        <div className="universal-report-heading">
+          <div>
+            <b>Reportes operativos</b>
+            <span>{profile.warehouse || 'Almacenes autorizados'}</span>
+          </div>
+        </div>
+
+        <div className="universal-operational-kpis">
+          <button type="button" onClick={()=>onNavigate(incidentRoute)}>
+            <span className="operational-report-icon"><PackageSearch size={19}/></span>
+            <span><small>INCIDENCIAS</small><b>{operationalIncidents.length}</b><em>{openIncidents.length} abiertas</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" onClick={()=>onNavigate(surplusRoute)}>
+            <span className="operational-report-icon"><Boxes size={19}/></span>
+            <span><small>SOBRANTES</small><b>{surplusIncidents.length}</b><em>{surplusQty.toLocaleString('es-PE',{maximumFractionDigits:2})} UND detectadas</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" onClick={()=>onNavigate(kardexRoute)}>
+            <span className="operational-report-icon"><ClipboardList size={19}/></span>
+            <span><small>KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:2})}</b><em>{kardexMaterials} materiales registrados</em></span>
+            <ChevronRight size={16}/>
+          </button>
+        </div>
+
+        <div className="universal-operational-charts">
+          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(incidentRoute)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(incidentRoute)}}>
+            <ProfessionalDonutChart
+              title="Incidencias por tipo"
+              subtitle={profile.warehouse ? `Almacén ${profile.warehouse}` : 'Almacenes autorizados'}
+              segments={incidentSegments}
+            />
+            <span className="dashboard-chart-access">Ver incidencias <ChevronRight size={14}/></span>
+          </div>
+          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(kardexRoute)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(kardexRoute)}}>
+            <ProfessionalBarChart
+              title="Kardex de sobrantes"
+              subtitle="Entradas, salidas y saldo actual"
+              data={kardexChartData}
+            />
+            <span className="dashboard-chart-access">Ver Kardex <ChevronRight size={14}/></span>
+          </div>
+        </div>
+      </section>
 
       <div className="universal-dashboard-charts">
         <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('mi-trabajo')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('mi-trabajo')}}>
