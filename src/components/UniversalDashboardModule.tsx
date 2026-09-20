@@ -203,10 +203,20 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
 
   const groupTasks=useMemo(()=>tasks.filter((task)=>{
     if(task.work_type==='PERSONAL') return false
-    if(profile.group_name) return task.group_name===profile.group_name
-    if(profile.warehouse) return task.warehouse===profile.warehouse
-    return false
-  }),[tasks,profile.group_name,profile.warehouse])
+    if(task.responsible_id) return false
+
+    const sameWarehouse = profile.warehouse
+      ? String(task.warehouse||'').trim().toUpperCase() === String(profile.warehouse).trim().toUpperCase()
+      : true
+    const sameProject = profile.project
+      ? String(task.project||'').trim().toUpperCase() === String(profile.project).trim().toUpperCase()
+      : true
+    const sameGroup = profile.group_name
+      ? String(task.group_name||'').trim().toUpperCase() === String(profile.group_name).trim().toUpperCase()
+      : true
+
+    return sameWarehouse && sameProject && sameGroup
+  }),[tasks,profile.warehouse,profile.project,profile.group_name])
 
   const openPersonal=personalTasks.filter(isOpen)
   const overduePersonal=personalTasks.filter(isOverdue)
