@@ -7,6 +7,8 @@ import {
   Copy,
   DollarSign,
   Eye,
+  FileSpreadsheet,
+  FileText,
   Mail,
   MapPin,
   RefreshCw,
@@ -16,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -265,6 +268,69 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     }
   }, [guides, activeType])
 
+  const ocExportRows=visible.map((guide)=>({
+    guide_no:guide.guide_no,
+    reference:guide.reference,
+    document_no:guide.document_no||'',
+    emission_date:fmtDate(guide.emission_date),
+    reception_at:fmtDate(guide.reception_at),
+    oc_value:guide.followup?.oc_value_usd ?? '',
+    final_status:statusLabel(guide.followup?.final_status || 'PENDIENTE'),
+    management_owner:guide.followup?.management_owner||'',
+    parts_location:guide.followup?.parts_location||'',
+    client_delivery_date:fmtDate(guide.followup?.client_delivery_date),
+    refrendo_delivery_date:fmtDate(guide.followup?.refrendo_delivery_date),
+    scan_send_status:guide.followup?.scan_send_status||'',
+    warehouse:guide.warehouse||'',
+  }))
+
+  const ocExcelColumns=[
+    {header:'GUÍA',key:'guide_no',width:20},
+    {header:'REFERENCIA',key:'reference',width:20},
+    {header:'N° DOCUMENTO',key:'document_no',width:18},
+    {header:'EMISIÓN',key:'emission_date',width:14},
+    {header:'RECEPCIÓN',key:'reception_at',width:14},
+    {header:'VALOR OC USD',key:'oc_value',width:16},
+    {header:'ESTADO FINAL',key:'final_status',width:18},
+    {header:'ENCARGADO',key:'management_owner',width:24},
+    {header:'UBICACIÓN',key:'parts_location',width:20},
+    {header:'ENTREGA CLIENTE',key:'client_delivery_date',width:16},
+    {header:'REFRENDO',key:'refrendo_delivery_date',width:16},
+    {header:'ENVÍO SCAN',key:'scan_send_status',width:16},
+    {header:'ALMACÉN',key:'warehouse',width:18},
+  ]
+
+  const ocPdfColumns=[
+    {header:'GUÍA',key:'guide_no'},
+    {header:'REFERENCIA',key:'reference'},
+    {header:'DOC.',key:'document_no'},
+    {header:'RECEPCIÓN',key:'reception_at'},
+    {header:'VALOR USD',key:'oc_value'},
+    {header:'ESTADO',key:'final_status'},
+    {header:'ENCARGADO',key:'management_owner'},
+    {header:'UBICACIÓN',key:'parts_location'},
+  ]
+
+  function exportOcExcel(){
+    exportRowsToExcel(
+      `KOMTROL_${activeType}`,
+      activeType==='ORDEN_COMPRA'?'Orden Compra':'Cargo Directo',
+      ocExcelColumns,
+      ocExportRows,
+      [['Tipo',activeType],['Registros',ocExportRows.length]]
+    )
+  }
+
+  function exportOcPdf(){
+    exportRowsToPdfPortrait(
+      `KOMTROL_${activeType}`,
+      `KOMTROL · ${activeType==='ORDEN_COMPRA'?'Ordenes de Compra':'Cargos Directos'}`,
+      ocPdfColumns,
+      ocExportRows,
+      {summary:[['Registros',ocExportRows.length],['Pendientes',counts.pending],['Observados',counts.observed]]}
+    )
+  }
+
   function openFollowup(guide: Guide) {
     setSelected(guide)
     setForm(followupToForm(guide.followup))
@@ -445,7 +511,11 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
             <h3>OC / Cargos Directos</h3>
             <p>Seguimiento separado por tipo de guía, trazabilidad operativa y reporte de observaciones.</p>
           </div>
-          <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
+          <div className="button-row">
+            <button className="secondary-button" disabled={!visible.length} onClick={exportOcPdf}><FileText size={16}/> PDF</button>
+            <button className="secondary-button" disabled={!visible.length} onClick={exportOcExcel}><FileSpreadsheet size={16}/> Excel</button>
+            <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
+          </div>
         </div>
 
         <div className="oc-cargo-type-tabs">
