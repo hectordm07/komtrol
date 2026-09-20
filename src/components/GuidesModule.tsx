@@ -66,6 +66,14 @@ function cleanText(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
 
+function normalizeIntegerQuantity(value: string | number | null | undefined) {
+  const raw = String(value ?? '').trim().replace(',', '.')
+  if (!raw) return ''
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) return ''
+  return String(Math.max(1, Math.round(parsed)))
+}
+
 function classifyReference(reference: string): GuideType {
   const ref = reference.replace(/\s/g, '')
   if (ref.startsWith('89')) return 'REPOSICION'
@@ -131,7 +139,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
       line_no: lineNo,
       part_no: match[2].trim(),
       description: cleanText(match[3]),
-      quantity: match[4].replace(',', '.'),
+      quantity: normalizeIntegerQuantity(match[4]),
       unit: match[5].toUpperCase(),
     })
   }
@@ -168,7 +176,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
       // Cantidad y UM en la misma fila: "4.000 UND"
       const qtyUnit = current.match(/^(\d+(?:[.,]\d+)?)\s+(UND|EA|PC|PZ|PIE|FT|M|MT)$/i)
       if (qtyUnit) {
-        quantity = qtyUnit[1].replace(',', '.')
+        quantity = normalizeIntegerQuantity(qtyUnit[1])
         unit = qtyUnit[2].toUpperCase()
         break
       }
@@ -177,7 +185,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
       if (/^\d+(?:[.,]\d+)?$/.test(current)) {
         const next = rows[cursor + 1] ?? ''
         if (isMaterialUnit(next)) {
-          quantity = current.replace(',', '.')
+          quantity = normalizeIntegerQuantity(current)
           unit = next.toUpperCase()
           break
         }
@@ -218,7 +226,7 @@ function parseLines(text: string): GuideLine[] {
       line_no: output.length + 1,
       part_no: m[1],
       description: cleanText(m[2]),
-      quantity: m[3].replace(',', '.'),
+      quantity: normalizeIntegerQuantity(m[3]),
       unit: (m[4] || 'UND').toUpperCase(),
     })
     if (output.length >= 999) break
@@ -719,13 +727,61 @@ export function GuidesModule({ mode, userId, profile }: Props) {
 
   async function saveGuide(acceptWithWarnings = false) {
     setMessage('')
-    if (!form.guide_no.trim() || !form.reference.trim()) {
-      setMessage('Número de guía y referencia son obligatorios.')
+
+    if (!form.guide_no.trim()) {
+      setMessage('Falta el Número de guía. Complétalo antes de confirmar.')
+      return
+    }
+    if (!form.reference.trim()) {
+      setMessage('Falta la Referencia. Complétala antes de confirmar.')
+      return
+    }
+    if (!form.warehouse.trim() && !profile?.warehouse) {
+      setMessage('Falta el Almacén. Complétalo antes de confirmar.')
       return
     }
     if (form.guide_type === 'REPOSICION' && !form.supplier) {
       setMessage('Selecciona el proveedor de la Reposición: KOMATSU o CUMMINS.')
       return
+    }
+
+    const replenishmentLines = form.guide_type === 'REPOSICION'
+      ? lines.filter((line) =>
+          line.part_no.trim() ||
+          line.description.trim() ||
+          line.quantity.trim() ||
+          line.unit.trim()
+        )
+      : []
+
+    if (form.guide_type === 'REPOSICION') {
+      if (!replenishmentLines.length) {
+        setMessage('La Reposición debe tener al menos una línea de material.')
+        return
+      }
+
+      const invalidIndex = replenishmentLines.findIndex((line) => {
+        const qty = Number(normalizeIntegerQuantity(line.quantity))
+        return (
+          !line.part_no.trim() ||
+          !line.description.trim() ||
+          !Number.isInteger(qty) ||
+          qty <= 0 ||
+          !line.unit.trim()
+        )
+      })
+
+      if (invalidIndex >= 0) {
+        const line = replenishmentLines[invalidIndex]
+        const missing = [
+          !line.part_no.trim() ? 'N° de parte' : '',
+          !line.description.trim() ? 'descripción' : '',
+          !normalizeIntegerQuantity(line.quantity) ? 'cantidad entera mayor a 0' : '',
+          !line.unit.trim() ? 'UM' : '',
+        ].filter(Boolean)
+        setMessage(`Revisa la línea ${invalidIndex + 1}: falta ${missing.join(', ')}.`)
+        return
+      }
     }
 
     const { data: duplicate } = await supabase
@@ -773,7 +829,9 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       reception_at: new Date().toISOString(),
       reception_source: 'FECHA_CARGA',
       reference: form.reference.trim(),
-      line_count: Math.max(Number(form.line_count || 1), 1),
+      line_count: form.guide_type === 'REPOSICION'
+        ? Math.max(replenishmentLines.length, 1)
+        : Math.max(Math.round(Number(form.line_count || 1)), 1),
       guide_type: form.guide_type,
       supplier: form.guide_type === 'REPOSICION' ? form.supplier : null,
       data_source: 'SCANNER',
@@ -800,17 +858,25 @@ export function GuidesModule({ mode, userId, profile }: Props) {
     }
 
     if (form.guide_type === 'REPOSICION') {
-      const validLines = lines
-        .filter((line) => line.part_no.trim() || line.description.trim())
-        .map((line, index) => ({
-          guide_id: created.id,
-          line_no: index + 1,
-          part_no: line.part_no.trim() || null,
-          description: line.description.trim() || null,
-          quantity: line.quantity ? Number(line.quantity) : null,
-          unit: line.unit.trim() || null,
-        }))
-      if (validLines.length) await supabase.from('guide_lines').insert(validLines)
+      const validLines = replenishmentLines.map((line, index) => ({
+        guide_id: created.id,
+        line_no: index + 1,
+        part_no: line.part_no.trim(),
+        description: line.description.trim(),
+        quantity: Number(normalizeIntegerQuantity(line.quantity)),
+        unit: line.unit.trim().toUpperCase(),
+      }))
+
+      const { error: lineError } = await supabase.from('guide_lines').insert(validLines)
+      if (lineError) {
+        await supabase.from('guides').delete().eq('id', created.id)
+        if (fileBucket && filePath) {
+          await supabase.storage.from(fileBucket).remove([filePath])
+        }
+        setSaving(false)
+        setMessage(`No se pudo confirmar la Reposición porque falló el guardado de sus líneas: ${lineError.message}`)
+        return
+      }
     }
 
     await supabase.from('guide_history').insert({
@@ -846,6 +912,28 @@ export function GuidesModule({ mode, userId, profile }: Props) {
   const lowOcrConfidence = hasOcr && ocrConfidence > 0 && ocrConfidence < 65
   const incompleteOcr = hasOcr && (!form.guide_no.trim() || !form.reference.trim() || !form.emission_date)
   const showOcrWarning = lowOcrConfidence || incompleteOcr
+  const activeReplenishmentLines = form.guide_type === 'REPOSICION'
+    ? lines.filter((line) => line.part_no.trim() || line.description.trim() || line.quantity.trim() || line.unit.trim())
+    : []
+  const invalidReplenishmentLine = form.guide_type === 'REPOSICION'
+    ? activeReplenishmentLines.findIndex((line) =>
+        !line.part_no.trim() ||
+        !line.description.trim() ||
+        !normalizeIntegerQuantity(line.quantity) ||
+        !line.unit.trim()
+      )
+    : -1
+  const confirmationIssue = !form.guide_no.trim()
+    ? 'Falta N° de guía'
+    : !form.reference.trim()
+      ? 'Falta referencia'
+      : (!form.warehouse.trim() && !profile?.warehouse)
+        ? 'Falta almacén'
+        : form.guide_type === 'REPOSICION' && !activeReplenishmentLines.length
+          ? 'Falta al menos una línea'
+          : invalidReplenishmentLine >= 0
+            ? `Revisar línea ${invalidReplenishmentLine + 1}`
+            : ''
   const messageTone = /no se pudo|error|obligatori|duplicad|ya se encuentra|no compatible/i.test(message)
     ? 'error'
     : /revisa|no se identificaron|se guardará sin archivo|advertencia/i.test(message)
@@ -1013,7 +1101,16 @@ export function GuidesModule({ mode, userId, profile }: Props) {
                       <td>{index + 1}</td>
                       <td><input value={line.part_no} onChange={(e) => updateLine(index, { part_no: e.target.value })} /></td>
                       <td><input value={line.description} onChange={(e) => updateLine(index, { description: e.target.value })} /></td>
-                      <td><input type="number" min="0" step="any" value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} /></td>
+                      <td><input
+                        className="integer-quantity-input"
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        step="1"
+                        value={normalizeIntegerQuantity(line.quantity)}
+                        onChange={(e) => updateLine(index, { quantity: e.target.value.replace(/\D/g, '') })}
+                        onBlur={() => updateLine(index, { quantity: normalizeIntegerQuantity(line.quantity) })}
+                      /></td>
                       <td><input value={line.unit} onChange={(e) => updateLine(index, { unit: e.target.value.toUpperCase() })} /></td>
                       <td><button className="icon-button small-icon" onClick={() => removeLine(index)} title="Quitar"><X size={15} /></button></td>
                     </tr>
@@ -1025,19 +1122,22 @@ export function GuidesModule({ mode, userId, profile }: Props) {
         )}
 
         <div className="scanner-footer enterprise-scanner-footer">
-          <div className="rule-hints">
-            <span><b>89…</b> Reposición</span>
-            <span><b>80…</b> Orden de Compra</span>
-            <span><b>Otros</b> Cargo Directo</span>
+          <div className="scanner-footer-left">
+            <div className="rule-hints">
+              <span><b>89…</b> Reposición</span>
+              <span><b>80…</b> Orden de Compra</span>
+              <span><b>Otros</b> Cargo Directo</span>
+            </div>
+            {confirmationIssue && <div className="scanner-confirmation-issue"><AlertTriangle size={14}/><span>{confirmationIssue}</span></div>}
           </div>
           <div className="scanner-footer-actions">
             <button className="secondary-button" type="button" onClick={resetForm}><X size={16}/> Cancelar</button>
             {showOcrWarning && (
-              <button className="warning-button" type="button" disabled={saving || scanning || !form.guide_no || !form.reference} onClick={() => saveGuide(true)}>
+              <button className="warning-button" type="button" disabled={saving || scanning} onClick={() => saveGuide(true)}>
                 <AlertTriangle size={16}/> Aceptar con observaciones
               </button>
             )}
-            <button className="primary-button" disabled={saving || scanning || !form.guide_no || !form.reference} onClick={() => saveGuide(false)}>
+            <button className="primary-button" disabled={saving || scanning} onClick={() => saveGuide(false)}>
               {saving ? <RefreshCw className="spin" size={17} /> : <CheckCircle2 size={17} />}
               {saving ? 'Guardando…' : 'Confirmar registro'}
             </button>
