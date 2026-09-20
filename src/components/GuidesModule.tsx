@@ -717,7 +717,7 @@ export function GuidesModule({ mode, userId, profile }: Props) {
     })
   }
 
-  async function saveGuide() {
+  async function saveGuide(acceptWithWarnings = false) {
     setMessage('')
     if (!form.guide_no.trim() || !form.reference.trim()) {
       setMessage('Número de guía y referencia son obligatorios.')
@@ -780,7 +780,10 @@ export function GuidesModule({ mode, userId, profile }: Props) {
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
       responsible_user_id: userId,
       status: form.status,
-      notes: form.notes.trim() || null,
+      notes: [
+        form.notes.trim(),
+        acceptWithWarnings ? 'Registro confirmado por el usuario aceptando observaciones de OCR.' : '',
+      ].filter(Boolean).join(' · ') || null,
       ocr_text: form.ocr_text || null,
       ocr_confidence: form.ocr_confidence ? Number(form.ocr_confidence) : null,
       file_bucket: fileBucket,
@@ -838,6 +841,18 @@ export function GuidesModule({ mode, userId, profile }: Props) {
   }, [guides, mode, search])
 
   const responsibleName = (id: string) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Usuario KOMTROL'
+  const ocrConfidence = Number(form.ocr_confidence || 0)
+  const hasOcr = Boolean(form.ocr_text || form.ocr_confidence)
+  const lowOcrConfidence = hasOcr && ocrConfidence > 0 && ocrConfidence < 65
+  const incompleteOcr = hasOcr && (!form.guide_no.trim() || !form.reference.trim() || !form.emission_date)
+  const showOcrWarning = lowOcrConfidence || incompleteOcr
+  const messageTone = /no se pudo|error|obligatori|duplicad|ya se encuentra|no compatible/i.test(message)
+    ? 'error'
+    : /revisa|no se identificaron|se guardará sin archivo|advertencia/i.test(message)
+      ? 'warning'
+      : /registrada correctamente|se detectó|procesado/i.test(message)
+        ? 'success'
+        : 'info'
 
   if (mode !== 'scanner') {
     const title = mode === 'reposicion' ? 'Ingresos de Reposición' : mode === 'oc-cargos' ? 'OC / Cargos Directos' : 'Seguimiento de Guías'
@@ -857,94 +872,137 @@ export function GuidesModule({ mode, userId, profile }: Props) {
 
   return (
     <div className="scanner-module">
-      <section className="panel scanner-panel">
-        <div className="panel-title">
-          <div><h3>Scanner de Guías</h3><p>Foto / imagen / PDF → lectura automática / OCR → validación → registro → seguimiento.</p></div>
-          <button className="secondary-button" onClick={resetForm}><X size={16} /> Limpiar</button>
-        </div>
-
-        <div className="scanner-actions">
-          <button className="scan-action" onClick={() => cameraRef.current?.click()}><Camera size={22} /><span><b>Tomar foto</b><small>Cámara trasera en celular</small></span></button>
-          <button className="scan-action" onClick={() => fileRef.current?.click()}><Upload size={22} /><span><b>Subir imagen / PDF</b><small>PDF digital o escaneado · JPG · PNG</small></span></button>
-          <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(e) => selectFile(e.target.files?.[0])} />
-          <input ref={fileRef} hidden type="file" accept="image/*,.pdf,application/pdf" onChange={(e) => selectFile(e.target.files?.[0])} />
+      <section className="panel scanner-panel scanner-enterprise">
+        <div className="scanner-command-bar">
+          <div className="scanner-actions">
+            <button className="scan-action primary-scan" onClick={() => cameraRef.current?.click()}>
+              <span className="scan-action-icon"><Camera size={21} /></span>
+              <span><b>Tomar foto</b><small>Usa la cámara trasera del celular</small></span>
+            </button>
+            <button className="scan-action" onClick={() => fileRef.current?.click()}>
+              <span className="scan-action-icon"><Upload size={21} /></span>
+              <span><b>Subir imagen / PDF</b><small>PDF digital o escaneado · JPG · PNG</small></span>
+            </button>
+            <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(e) => selectFile(e.target.files?.[0])} />
+            <input ref={fileRef} hidden type="file" accept="image/*,.pdf,application/pdf" onChange={(e) => selectFile(e.target.files?.[0])} />
+          </div>
+          <button className="secondary-button scanner-clear" onClick={resetForm}><X size={16} /> Limpiar</button>
         </div>
 
         {file && (
-          <div className="scan-file-card">
+          <div className="scan-file-card enterprise-file-card">
             <div className="scan-preview">
-              {previewUrl ? <img src={previewUrl} alt="Documento seleccionado" /> : <FileText size={38} />}
+              {previewUrl ? <img src={previewUrl} alt="Documento seleccionado" /> : <FileText size={34} />}
             </div>
-            <div><b>{file.name}</b><small>{Math.round(file.size / 1024)} KB · {file.type || 'archivo'}</small></div>
+            <div className="scan-file-copy">
+              <b>{file.name}</b>
+              <small>{Math.round(file.size / 1024)} KB · {file.type || 'archivo'}</small>
+              {scanning && <span>Procesando documento · {scanProgress}%</span>}
+            </div>
             {scanning && <div className="scan-progress"><span style={{ width: `${scanProgress}%` }} /></div>}
           </div>
         )}
 
-        {message && <div className="inline-message">{message}</div>}
+        {message && (
+          <div className={`scanner-alert ${messageTone}`}>
+            <span className="scanner-alert-icon">
+              {messageTone === 'error' || messageTone === 'warning'
+                ? <AlertTriangle size={18} />
+                : messageTone === 'success'
+                  ? <CheckCircle2 size={18} />
+                  : <ScanLine size={18} />}
+            </span>
+            <div><b>{messageTone === 'error' ? 'Revisar' : messageTone === 'warning' ? 'Validación requerida' : messageTone === 'success' ? 'Lectura completada' : 'Procesando'}</b><span>{message}</span></div>
+          </div>
+        )}
 
-        <div className="validation-header">
-          <div><ScanLine size={19} /><span><b>Validar guía</b><small>Todos los campos son editables antes de confirmar.</small></span></div>
-          {form.ocr_confidence && <span className={Number(form.ocr_confidence) < 65 ? 'confidence-badge low' : 'confidence-badge'}>OCR {form.ocr_confidence}%</span>}
-        </div>
+        <section className="scanner-validation-card">
+          <div className="validation-header enterprise-validation-head">
+            <div>
+              <span className="validation-icon"><ScanLine size={19} /></span>
+              <span><b>Validar guía</b><small>Revisa los datos detectados antes de confirmar el registro.</small></span>
+            </div>
+            <div className="scanner-status-chips">
+              {form.guide_type !== 'OTRO' && <span className="scanner-status-chip type">{form.guide_type.replace('_',' ')}</span>}
+              {form.ocr_confidence && <span className={lowOcrConfidence ? 'scanner-status-chip warning' : 'scanner-status-chip success'}>OCR {form.ocr_confidence}%</span>}
+              {hasOcr && <span className={showOcrWarning ? 'scanner-status-chip warning' : 'scanner-status-chip success'}>{showOcrWarning ? 'Revisar lectura' : 'Lectura validable'}</span>}
+            </div>
+          </div>
 
-        <div className="form-grid guide-form">
-          <label>Número de guía
-            <input value={form.guide_no} onChange={(e) => setForm({ ...form, guide_no: e.target.value.toUpperCase() })} placeholder="T098-00005674" />
-          </label>
-          <label>Referencia
-            <input value={form.reference} onChange={(e) => onReference(e.target.value)} placeholder="89… / 80…" />
-          </label>
-          <label>N° Documento
-            <input value={form.document_no} onChange={(e) => setForm({ ...form, document_no: e.target.value })} placeholder="N° Documento" />
-          </label>
-          <label>Tipo
-            <select value={form.guide_type} onChange={(e) => setForm({ ...form, guide_type: e.target.value as GuideType })}>
-              <option value="REPOSICION">Reposición</option>
-              <option value="ORDEN_COMPRA">Orden de Compra</option>
-              <option value="CARGO_DIRECTO">Cargo Directo</option>
-              <option value="OTRO">Otro</option>
-            </select>
-          </label>
-          {form.guide_type === 'REPOSICION' && (
-            <label>Proveedor
-              <select value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value as 'KOMATSU' | 'CUMMINS' })}>
-                <option value="KOMATSU">KOMATSU</option>
-                <option value="CUMMINS">CUMMINS</option>
-              </select>
-            </label>
-          )}
-          <label>Fecha emisión
-            <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.emission_date} onChange={(e) => setForm({ ...form, emission_date: e.target.value, date_source: 'DOCUMENTO' })} />
-          </label>
-          <label>Inicio traslado
-            <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.transfer_start_date} onChange={(e) => setForm({ ...form, transfer_start_date: e.target.value })} />
-          </label>
-          <label>Origen fecha
-            <select value={form.date_source} onChange={(e) => setForm({ ...form, date_source: e.target.value as typeof form.date_source })}>
-              <option value="DOCUMENTO">Documento</option>
-              <option value="INICIO_TRASLADO">Inicio traslado</option>
-              <option value="FECHA_CARGA">Fecha de carga</option>
-            </select>
-          </label>
-          <label>Cantidad de líneas
-            <input type="number" min="1" value={form.line_count} onChange={(e) => setForm({ ...form, line_count: e.target.value })} />
-          </label>
-          <label>Almacén
-            <input value={form.warehouse} onChange={(e) => setForm({ ...form, warehouse: e.target.value })} placeholder="Almacén" />
-          </label>
-          <label>Responsable
-            <input value={profile?.full_name || 'Usuario actual'} disabled />
-          </label>
-          <label className="span-2">Observación
-            <textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Observaciones…" />
-          </label>
-        </div>
+          <div className="guide-form-section">
+            <div className="guide-form-section-title"><b>Datos principales</b><span>Identificación y clasificación del documento</span></div>
+            <div className="form-grid guide-form guide-form-professional">
+              <label>Número de guía
+                <input value={form.guide_no} onChange={(e) => setForm({ ...form, guide_no: e.target.value.toUpperCase() })} placeholder="T098-00005674" />
+              </label>
+              <label>Referencia
+                <input value={form.reference} onChange={(e) => onReference(e.target.value)} placeholder="89… / 80…" />
+              </label>
+              <label>N° Documento
+                <input value={form.document_no} onChange={(e) => setForm({ ...form, document_no: e.target.value })} placeholder="Documento asociado" />
+              </label>
+              <label>Tipo
+                <select value={form.guide_type} onChange={(e) => setForm({ ...form, guide_type: e.target.value as GuideType })}>
+                  <option value="REPOSICION">Reposición</option>
+                  <option value="ORDEN_COMPRA">Orden de Compra</option>
+                  <option value="CARGO_DIRECTO">Cargo Directo</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              </label>
+              {form.guide_type === 'REPOSICION' && (
+                <label>Proveedor
+                  <select value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value as 'KOMATSU' | 'CUMMINS' })}>
+                    <option value="KOMATSU">KOMATSU</option>
+                    <option value="CUMMINS">CUMMINS</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="guide-form-section">
+            <div className="guide-form-section-title"><b>Fechas y lectura OCR</b><span>Fechas detectadas y calidad de extracción</span></div>
+            <div className="form-grid guide-form guide-form-professional">
+              <label>Fecha emisión
+                <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.emission_date} onChange={(e) => setForm({ ...form, emission_date: e.target.value, date_source: 'DOCUMENTO' })} />
+              </label>
+              <label>Inicio traslado
+                <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.transfer_start_date} onChange={(e) => setForm({ ...form, transfer_start_date: e.target.value })} />
+              </label>
+              <label>Origen fecha
+                <select value={form.date_source} onChange={(e) => setForm({ ...form, date_source: e.target.value as typeof form.date_source })}>
+                  <option value="DOCUMENTO">Documento</option>
+                  <option value="INICIO_TRASLADO">Inicio traslado</option>
+                  <option value="FECHA_CARGA">Fecha de carga</option>
+                </select>
+              </label>
+              <label>Cantidad de líneas
+                <input type="number" min="1" value={form.line_count} onChange={(e) => setForm({ ...form, line_count: e.target.value })} />
+              </label>
+            </div>
+          </div>
+
+          <div className="guide-form-section">
+            <div className="guide-form-section-title"><b>Contexto operativo</b><span>Ubicación, responsable y observaciones</span></div>
+            <div className="form-grid guide-form guide-form-professional">
+              <label>Almacén
+                <input value={form.warehouse} onChange={(e) => setForm({ ...form, warehouse: e.target.value })} placeholder="Almacén" />
+              </label>
+              <label>Responsable
+                <input value={profile?.full_name || 'Usuario actual'} disabled />
+              </label>
+              <label className="span-2">Observación
+                <textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Observaciones de recepción, lectura OCR o validación…" />
+              </label>
+            </div>
+          </div>
+        </section>
 
         {form.guide_type === 'REPOSICION' && (
-          <div className="guide-lines">
-            <div className="panel-title compact-title">
-              <div><h3>Líneas de Reposición</h3><p>Número de parte, descripción y cantidad.</p></div>
-              <button className="secondary-button" onClick={addLine}><Plus size={16} /> Línea</button>
+          <div className="guide-lines enterprise-guide-lines">
+            <div className="guide-lines-head">
+              <div><b>Líneas de Reposición</b><span>Número de parte, descripción, cantidad y unidad.</span></div>
+              <button className="secondary-button" onClick={addLine}><Plus size={16} /> Agregar línea</button>
             </div>
             <div className="table-wrap">
               <table>
@@ -966,19 +1024,26 @@ export function GuidesModule({ mode, userId, profile }: Props) {
           </div>
         )}
 
-        <div className="scanner-footer">
+        <div className="scanner-footer enterprise-scanner-footer">
           <div className="rule-hints">
             <span><b>89…</b> Reposición</span>
             <span><b>80…</b> Orden de Compra</span>
             <span><b>Otros</b> Cargo Directo</span>
           </div>
-          <button className="primary-button" disabled={saving || scanning || !form.guide_no || !form.reference} onClick={saveGuide}>
-            {saving ? <RefreshCw className="spin" size={17} /> : <CheckCircle2 size={17} />}
-            {saving ? 'Guardando…' : 'Confirmar guía'}
-          </button>
+          <div className="scanner-footer-actions">
+            <button className="secondary-button" type="button" onClick={resetForm}><X size={16}/> Cancelar</button>
+            {showOcrWarning && (
+              <button className="warning-button" type="button" disabled={saving || scanning || !form.guide_no || !form.reference} onClick={() => saveGuide(true)}>
+                <AlertTriangle size={16}/> Aceptar con observaciones
+              </button>
+            )}
+            <button className="primary-button" disabled={saving || scanning || !form.guide_no || !form.reference} onClick={() => saveGuide(false)}>
+              {saving ? <RefreshCw className="spin" size={17} /> : <CheckCircle2 size={17} />}
+              {saving ? 'Guardando…' : 'Confirmar registro'}
+            </button>
+          </div>
         </div>
       </section>
-
       <section className="panel guide-list-panel">
         <div className="panel-title">
           <div><h3>Últimas guías</h3><p>Historial reciente registrado en KOMTROL.</p></div>
