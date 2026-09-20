@@ -513,6 +513,20 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         units:missing.reduce((sum,row)=>sum+Math.max(0,Number(row.qty_expected||0)-Number(row.qty_received||0)),0)
           +surplus.reduce((sum,row)=>sum+Math.max(0,Number(row.qty_received||0)-Number(row.qty_expected||0)),0),
       }
+    } else if(report.code==='diferencias-inventario'){
+      const res=await supabase
+        .from('incidents')
+        .select('material_no,qty_expected,qty_received,incident_type')
+        .eq('warehouse',target)
+        .gte('created_at',start)
+        .lt('created_at',end)
+      const values=(res.data??[]).filter((row)=>
+        ['DIFERENCIA','FALTANTE','SOBRANTE'].includes(String(row.incident_type||'').toUpperCase())
+      )
+      autoData={
+        skus:new Set(values.map((row)=>row.material_no).filter(Boolean)).size,
+        units:values.reduce((sum,row)=>sum+Math.abs(Number(row.qty_received||0)-Number(row.qty_expected||0)),0),
+      }
     } else if(report.code==='danados-scorecard'){
       const res=await supabase.from('damaged_materials').select('material_no,quantity').eq('warehouse',target).gte('event_date',start).lt('event_date',end)
       const values=res.data??[]
