@@ -348,16 +348,34 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const report=definitions.find((item)=>item.code===mode)
   const canLoad=role==='COORDINADOR'||role==='ADMINISTRADOR'
   const canEdit=role==='COORDINADOR'||role==='ADMINISTRADOR'
+  const canSeeSourceData=role!=='TRABAJADOR'
+  const isViewer=role==='TRABAJADOR'
   const isAdmin=role==='ADMINISTRADOR'
 
   async function reload() {
     setLoading(true)
     setMessage('')
     const defRes=await supabase.from('scorecard_report_definitions').select('*').eq('active',true).order('ordinal')
-    const impRes=await supabase.from('scorecard_imports').select('*').order('created_at',{ascending:false}).limit(50)
+    const impRes=canSeeSourceData
+      ? await supabase.from('scorecard_imports').select('*').order('created_at',{ascending:false}).limit(50)
+      : { data: [], error: null }
     if(defRes.error){setMessage(defRes.error.message);setLoading(false);return}
     setDefinitions((defRes.data??[]) as ReportDef[])
     setImports(impRes.data??[])
+
+  if (mode==='scorecard-carga' && isViewer) {
+    return (
+      <div className="scorecard-module">
+        <section className="panel scorecard-viewer-only">
+          <BarChart3 size={32}/>
+          <div>
+            <b>Vista de reportes</b>
+            <span>El perfil Almacenero tiene acceso únicamente a los dashboards y gráficos del Scorecard.</span>
+          </div>
+        </section>
+      </div>
+    )
+  }
 
     if(mode==='scorecard-carga'){
       setRows([])
@@ -740,47 +758,56 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         })}
       </div>
 
-      <section className="panel scorecard-data-panel">
-        <div className="scorecard-data-head">
-          <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {warehouseFilter==='TODOS'?'Todos los proyectos':warehouseFilter}</span></div>
-          <div className="button-row">
-            {['AUTO','HYBRID'].includes(report.source_mode)&&canLoad&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
-            {canLoad&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
-            {canEdit&&<button className="secondary-button" onClick={()=>setEditing((value)=>!value)}>{editing?<X size={16}/>:<Edit3 size={16}/>} {editing?'Cerrar edición':'Editar datos'}</button>}
-            {canEdit&&<button className="secondary-button" onClick={addManualRow}><Database size={16}/> Nuevo registro</button>}
-            {role==='COORDINADOR'&&<button className="primary-button" onClick={submitPeriod}><CheckCircle2 size={16}/> Enviar mes</button>}
-          </div>
-        </div>
+      {isViewer && !scopedRows.length && (
+        <section className="panel scorecard-viewer-empty">
+          <BarChart3 size={26}/>
+          <div><b>Sin información publicada para este período</b><span>Cuando el Coordinador actualice el Scorecard, los gráficos aparecerán aquí automáticamente.</span></div>
+        </section>
+      )}
 
-        <div className="table-wrap scorecard-edit-table">
-          <table>
-            <thead><tr><th>Proyecto / Sede</th>{report.status_field&&<th>Estado / Detalle</th>}{report.fields.map((field)=><th key={field.key}>{field.label}</th>)}{editing&&<th></th>}</tr></thead>
-            <tbody>
-              {scopedRows.slice(0,400).map((row)=>{
-                const edited=editingRows[row.id]||row
-                return <tr key={row.id}>
-                  <td><b>{row.site_name}</b><small>{row.warehouse}</small></td>
-                  {report.status_field&&<td>{row.row_status||row.detail||'—'}</td>}
-                  {report.fields.map((field)=>{
-                    const value=edited.data?.[field.key]
-                    const editable=editing&&canEdit&&(isAdmin||!field.auto)
-                    return <td key={field.key}>{editable
-                      ? <input
-                          value={value===null||value===undefined?'':String(value)}
-                          onChange={(event)=>editValue(row,field.key,event.target.value,field)}
-                          type={field.type==='text'?'text':'number'}
-                          step={field.type==='percent'?'0.0001':'any'}
-                        />
-                      : <span>{fmtValue(value,field.type)}</span>}</td>
-                  })}
-                  {editing&&<td><button className="icon-button" disabled={!editingRows[row.id]} onClick={()=>saveRow(edited)}><Save size={15}/></button></td>}
-                </tr>
-              })}
-            </tbody>
-          </table>
-          {!scopedRows.length&&<div className="scorecard-empty"><BarChart3 size={28}/><b>Sin información para este periodo</b><span>Carga el Excel, registra valores manuales o actualiza datos automáticos.</span></div>}
-        </div>
-      </section>
+      {canSeeSourceData && (
+        <section className="panel scorecard-data-panel">
+          <div className="scorecard-data-head">
+            <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {warehouseFilter==='TODOS'?'Todos los proyectos':warehouseFilter}</span></div>
+            <div className="button-row">
+              {['AUTO','HYBRID'].includes(report.source_mode)&&canLoad&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
+              {canLoad&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
+              {canEdit&&<button className="secondary-button" onClick={()=>setEditing((value)=>!value)}>{editing?<X size={16}/>:<Edit3 size={16}/>} {editing?'Cerrar edición':'Editar datos'}</button>}
+              {canEdit&&<button className="secondary-button" onClick={addManualRow}><Database size={16}/> Nuevo registro</button>}
+              {role==='COORDINADOR'&&<button className="primary-button" onClick={submitPeriod}><CheckCircle2 size={16}/> Enviar mes</button>}
+            </div>
+          </div>
+
+          <div className="table-wrap scorecard-edit-table">
+            <table>
+              <thead><tr><th>Proyecto / Sede</th>{report.status_field&&<th>Estado / Detalle</th>}{report.fields.map((field)=><th key={field.key}>{field.label}</th>)}{editing&&<th></th>}</tr></thead>
+              <tbody>
+                {scopedRows.slice(0,400).map((row)=>{
+                  const edited=editingRows[row.id]||row
+                  return <tr key={row.id}>
+                    <td><b>{row.site_name}</b><small>{row.warehouse}</small></td>
+                    {report.status_field&&<td>{row.row_status||row.detail||'—'}</td>}
+                    {report.fields.map((field)=>{
+                      const value=edited.data?.[field.key]
+                      const editable=editing&&canEdit&&(isAdmin||!field.auto)
+                      return <td key={field.key}>{editable
+                        ? <input
+                            value={value===null||value===undefined?'':String(value)}
+                            onChange={(event)=>editValue(row,field.key,event.target.value,field)}
+                            type={field.type==='text'?'text':'number'}
+                            step={field.type==='percent'?'0.0001':'any'}
+                          />
+                        : <span>{fmtValue(value,field.type)}</span>}</td>
+                    })}
+                    {editing&&<td><button className="icon-button" disabled={!editingRows[row.id]} onClick={()=>saveRow(edited)}><Save size={15}/></button></td>}
+                  </tr>
+                })}
+              </tbody>
+            </table>
+            {!scopedRows.length&&<div className="scorecard-empty"><BarChart3 size={28}/><b>Sin información para este periodo</b><span>Carga el Excel, registra valores manuales o actualiza datos automáticos.</span></div>}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
