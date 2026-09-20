@@ -39,6 +39,8 @@ type Warehouse = {
   code: string
   name: string
   active: boolean
+  warehouse_scope: 'REMOTO' | 'CENTRAL'
+  remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
 }
 
 type Project = {
@@ -218,7 +220,12 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
   const [projects, setProjects] = useState<Project[]>([])
   const [groups, setGroups] = useState<OperationalGroup[]>([])
   const [message, setMessage] = useState('')
-  const [warehouseForm, setWarehouseForm] = useState({ code: '', name: '' })
+  const [warehouseForm, setWarehouseForm] = useState({
+    code: '',
+    name: '',
+    warehouse_scope: 'REMOTO' as 'REMOTO' | 'CENTRAL',
+    remote_group: 'PROYECTO_MINERO' as 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA',
+  })
   const [projectForm, setProjectForm] = useState({ code: '', name: '', warehouse_code: '' })
   const [groupForm, setGroupForm] = useState({ project_code: '', name: '' })
 
@@ -243,12 +250,19 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
     const payload = {
       code: warehouseForm.code.trim().toUpperCase(),
       name: warehouseForm.name.trim(),
+      warehouse_scope: warehouseForm.warehouse_scope,
+      remote_group: warehouseForm.warehouse_scope === 'REMOTO' ? warehouseForm.remote_group : null,
       created_by: userId,
     }
     const { error } = await supabase.from('warehouses').insert(payload)
     if (error) { setMessage(error.message); return }
     await writeAudit(userId, 'CREATE_WAREHOUSE', 'WAREHOUSE', payload)
-    setWarehouseForm({ code: '', name: '' })
+    setWarehouseForm({
+      code: '',
+      name: '',
+      warehouse_scope: 'REMOTO',
+      remote_group: 'PROYECTO_MINERO',
+    })
     setMessage('Almacén creado.')
     reload()
   }
@@ -300,6 +314,29 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
               <b><Boxes size={16} /> Nuevo almacén</b>
               <input required placeholder="Código" value={warehouseForm.code} onChange={(e) => setWarehouseForm({ ...warehouseForm, code: e.target.value })} />
               <input required placeholder="Nombre" value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} />
+              <select
+                value={warehouseForm.warehouse_scope}
+                onChange={(e) => setWarehouseForm({
+                  ...warehouseForm,
+                  warehouse_scope: e.target.value as 'REMOTO' | 'CENTRAL',
+                })}
+              >
+                <option value="REMOTO">Almacén Remoto</option>
+                <option value="CENTRAL">Almacén Central</option>
+              </select>
+              {warehouseForm.warehouse_scope === 'REMOTO' && (
+                <select
+                  value={warehouseForm.remote_group}
+                  onChange={(e) => setWarehouseForm({
+                    ...warehouseForm,
+                    remote_group: e.target.value as 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA',
+                  })}
+                >
+                  <option value="PROYECTO_MINERO">Proyecto Minero</option>
+                  <option value="SUCURSAL">Sucursal</option>
+                  <option value="TIENDA">Tienda</option>
+                </select>
+              )}
               <button className="primary-button"><Plus size={15} /> Crear</button>
             </form>
             <form className="catalog-form" onSubmit={addProject}>
@@ -326,7 +363,25 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
       </section>
 
       <div className="admin-three-grid">
-        <CatalogTable title="Almacenes" headers={['Código','Nombre','Estado']} rows={warehouses.map((r) => [r.code, r.name, r.active ? 'ACTIVO' : 'INACTIVO'])} />
+        <CatalogTable
+          title="Almacenes"
+          headers={['Código','Nombre','Tipo','Grupo remoto','Estado']}
+          rows={warehouses.map((r) => [
+            r.code,
+            r.name,
+            r.warehouse_scope === 'CENTRAL' ? 'CENTRAL' : 'REMOTO',
+            r.warehouse_scope === 'CENTRAL'
+              ? '—'
+              : r.remote_group === 'PROYECTO_MINERO'
+                ? 'PROYECTO MINERO'
+                : r.remote_group === 'SUCURSAL'
+                  ? 'SUCURSAL'
+                  : r.remote_group === 'TIENDA'
+                    ? 'TIENDA'
+                    : 'SIN CLASIFICAR',
+            r.active ? 'ACTIVO' : 'INACTIVO',
+          ])}
+        />
         <CatalogTable title="Proyectos" headers={['Código','Nombre','Almacén']} rows={projects.map((r) => [r.code, r.name, r.warehouse_code || '—'])} />
         <CatalogTable title="Grupos" headers={['Proyecto','Grupo','Estado']} rows={groups.map((r) => [r.project_code || 'GENERAL', r.name, r.active ? 'ACTIVO' : 'INACTIVO'])} />
       </div>
