@@ -452,14 +452,31 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
       <div className="universal-dashboard-kpis">
         <DashboardKpi
           icon={<ClipboardList/>}
-          label="Mis tareas"
+          label="Mis trabajos"
           value={openPersonal.length}
           detail={`${personalTasks.filter((t)=>t.status==='EN_PROCESO').length} en proceso`}
+          tone="personal"
           onClick={()=>onNavigate('mi-trabajo')}
         />
         <DashboardKpi
+          icon={<Users/>}
+          label="Tareas grupales"
+          value={groupTaskPending.length}
+          detail={profile.group_name||profile.warehouse||'Trabajo compartido'}
+          tone="group"
+          onClick={()=>onNavigate('tareas')}
+        />
+        <DashboardKpi
+          icon={<RefreshCw/>}
+          label="Relevos"
+          value={groupRelevoPending.length}
+          detail={profile.shift_name||'Continuidad de guardias'}
+          tone="relevo"
+          onClick={()=>onNavigate('relevos')}
+        />
+        <DashboardKpi
           icon={<AlertTriangle/>}
-          label="Tareas vencidas"
+          label="Mis vencidas"
           value={overduePersonal.length}
           detail={overduePersonal.length?'Requieren atención':'Sin retrasos'}
           critical={overduePersonal.length>0}
@@ -469,15 +486,8 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
           icon={<CalendarClock/>}
           label="Próximos 7 días"
           value={due7.length}
-          detail="Tareas por vencer"
+          detail="Mis trabajos por vencer"
           onClick={()=>onNavigate('mi-trabajo')}
-        />
-        <DashboardKpi
-          icon={<Users/>}
-          label="Trabajo grupal"
-          value={groupPending.length}
-          detail={`${groupTaskPending.length} tareas · ${groupRelevoPending.length} relevos`}
-          onClick={()=>onNavigate(groupTaskPending.length===0&&groupRelevoPending.length>0?'relevos':'tareas')}
         />
         <DashboardKpi
           icon={<ShieldCheck/>}
@@ -558,8 +568,8 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
       <div className="universal-dashboard-charts">
         <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('mi-trabajo')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('mi-trabajo')}}>
           <ProfessionalDonutChart
-            title="Mis tareas por estado"
-            subtitle="Distribución de trabajo asignado"
+            title="Mis trabajos por estado"
+            subtitle="Distribución de trabajo personal"
             segments={taskStatusSegments}
           />
           <span className="dashboard-chart-access">Ver Área de trabajo <ChevronRight size={14}/></span>
@@ -637,7 +647,7 @@ function nearestText(days:number|null){
 }
 
 function DashboardKpi({
-  icon,label,value,detail,onClick,critical=false,
+  icon,label,value,detail,onClick,critical=false,tone,
 }:{
   icon:ReactNode
   label:string
@@ -645,9 +655,16 @@ function DashboardKpi({
   detail:string
   onClick:()=>void
   critical?:boolean
+  tone?:'personal'|'group'|'relevo'
 }){
+  const className=[
+    'universal-kpi',
+    critical?'critical':'',
+    tone?`tone-${tone}`:'',
+  ].filter(Boolean).join(' ')
+
   return (
-    <button type="button" className={critical?'universal-kpi critical':'universal-kpi'} onClick={onClick}>
+    <button type="button" className={className} onClick={onClick}>
       <span className="universal-kpi-icon">{icon}</span>
       <span className="universal-kpi-copy">
         <small>{label}</small>
