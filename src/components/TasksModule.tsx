@@ -158,6 +158,8 @@ export function TasksModule({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
+  const [workScope, setWorkScope] = useState<'PERSONAL' | 'GRUPAL'>('PERSONAL')
+  const [workView, setWorkView] = useState<'LISTA' | 'TABLERO' | 'CALENDARIO'>('LISTA')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [selectedIncident, setSelectedIncident] = useState<CalendarIncident | null>(null)
   const [form, setForm] = useState({
@@ -221,7 +223,26 @@ export function TasksModule({
     if (scopeShift) data = data.filter((t) => t.shift_name === scopeShift)
 
     if (mode === 'mi-trabajo') {
-      data = data.filter((t) => t.responsible_id === userId || t.created_by === userId)
+      if (workScope === 'PERSONAL') {
+        data = data.filter((t) =>
+          t.responsible_id === userId ||
+          (t.work_type === 'PERSONAL' && t.created_by === userId)
+        )
+      } else {
+        data = data.filter((t) => t.work_type !== 'PERSONAL')
+
+        if (profile?.role !== 'SUPERVISOR' && profile?.role !== 'ADMINISTRADOR') {
+          if (profile?.group_name) {
+            data = data.filter((t) => t.group_name === profile.group_name)
+          } else if (profile?.warehouse) {
+            data = data.filter((t) => t.warehouse === profile.warehouse)
+          }
+        } else if (scopeGroup) {
+          data = data.filter((t) => t.group_name === scopeGroup)
+        } else if (scopeWarehouse) {
+          data = data.filter((t) => t.warehouse === scopeWarehouse)
+        }
+      }
     } else if (mode === 'tareas') {
       data = data.filter((t) => t.work_type === 'TAREA')
     } else if (mode === 'relevos') {
@@ -247,7 +268,7 @@ export function TasksModule({
       )
     }
     return data
-  }, [tasks, mode, search, userId, scopeWarehouse, scopeProject, scopeGroup, scopeShift])
+  }, [tasks, mode, search, userId, scopeWarehouse, scopeProject, scopeGroup, scopeShift, workScope, profile?.role, profile?.group_name, profile?.warehouse])
 
   const counts = useMemo(() => {
     const total = filtered.length
@@ -368,8 +389,16 @@ export function TasksModule({
   function openForm() {
     setForm((prev) => ({
       ...prev,
-      work_type: defaultWorkType(mode),
-      responsible_id: mode === 'area-personal' ? userId : prev.responsible_id,
+      work_type:
+        mode === 'mi-trabajo'
+          ? (workScope === 'PERSONAL' ? 'PERSONAL' : 'TAREA')
+          : defaultWorkType(mode),
+      responsible_id:
+        mode === 'mi-trabajo' && workScope === 'PERSONAL'
+          ? userId
+          : mode === 'area-personal'
+            ? userId
+            : prev.responsible_id,
       warehouse: scopeWarehouse ?? (prev.warehouse || profile?.warehouse || ''),
       project: scopeProject ?? (prev.project || profile?.project || ''),
       group_name: scopeGroup ?? (prev.group_name || profile?.group_name || ''),
@@ -379,7 +408,7 @@ export function TasksModule({
   }
 
   const title =
-    mode === 'mi-trabajo' ? 'Mi trabajo' :
+    mode === 'mi-trabajo' ? 'Área de trabajo' :
     mode === 'relevos' ? 'Relevos' :
     mode === 'area-personal' ? 'Área Personal' :
     mode === 'tablero' ? 'Flujo de tareas' :
@@ -388,9 +417,13 @@ export function TasksModule({
     'Tareas'
 
   const subtitle =
-    mode === 'relevos' ? 'Continuidad operativa entre guardias.' :
-    mode === 'area-personal' ? 'Tus tareas personales y seguimiento individual.' :
-    'Pendientes, responsables, fechas y avance operativo.'
+    mode === 'mi-trabajo'
+      ? 'Tareas personales y grupales con vistas Lista, Tablero y Calendario.'
+      : mode === 'relevos'
+        ? 'Continuidad operativa entre guardias.'
+        : mode === 'area-personal'
+          ? 'Tus tareas personales y seguimiento individual.'
+          : 'Pendientes, responsables, fechas y avance operativo.'
 
   return (
     <div className="work-module">
@@ -403,6 +436,30 @@ export function TasksModule({
           </div>
         </div>
 
+        {mode === 'mi-trabajo' && (
+          <div className="work-view-controller">
+            <div className="work-scope-switch" aria-label="Alcance de tareas">
+              <button type="button" className={workScope === 'PERSONAL' ? 'active' : ''} onClick={() => setWorkScope('PERSONAL')}>
+                <UserRound size={16} /> Personal
+              </button>
+              <button type="button" className={workScope === 'GRUPAL' ? 'active' : ''} onClick={() => setWorkScope('GRUPAL')}>
+                <Columns3 size={16} /> Grupal
+              </button>
+            </div>
+            <div className="work-view-switch" aria-label="Vista de trabajo">
+              <button type="button" className={workView === 'LISTA' ? 'active' : ''} onClick={() => setWorkView('LISTA')}>
+                <List size={16} /> Lista
+              </button>
+              <button type="button" className={workView === 'TABLERO' ? 'active' : ''} onClick={() => setWorkView('TABLERO')}>
+                <Columns3 size={16} /> Tablero
+              </button>
+              <button type="button" className={workView === 'CALENDARIO' ? 'active' : ''} onClick={() => setWorkView('CALENDARIO')}>
+                <CalendarDays size={16} /> Calendario
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="task-kpis">
           <div><ClipboardList size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
           <div><AlertTriangle size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
@@ -414,7 +471,17 @@ export function TasksModule({
         <div className="task-toolbar">
           <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo, categoría…" /></div>
           <div className="view-hint">
-            {mode === 'tablero' ? <><Columns3 size={16} /> Vista Kanban</> : mode === 'calendario' ? <><CalendarDays size={16} /> Calendario</> : <><List size={16} /> Lista</>}
+            {mode === 'mi-trabajo'
+              ? workView === 'TABLERO'
+                ? <><Columns3 size={16} /> Tablero · {workScope === 'PERSONAL' ? 'Personal' : 'Grupal'}</>
+                : workView === 'CALENDARIO'
+                  ? <><CalendarDays size={16} /> Calendario · {workScope === 'PERSONAL' ? 'Personal' : 'Grupal'}</>
+                  : <><List size={16} /> Lista · {workScope === 'PERSONAL' ? 'Personal' : 'Grupal'}</>
+              : mode === 'tablero'
+                ? <><Columns3 size={16} /> Vista Kanban</>
+                : mode === 'calendario'
+                  ? <><CalendarDays size={16} /> Calendario</>
+                  : <><List size={16} /> Lista</>}
           </div>
         </div>
 
@@ -422,9 +489,9 @@ export function TasksModule({
 
         {loading ? (
           <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando trabajo…</p></div>
-        ) : mode === 'tablero' ? (
+        ) : (mode === 'tablero' || (mode === 'mi-trabajo' && workView === 'TABLERO')) ? (
           <TaskBoard tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
-        ) : mode === 'calendario' ? (
+        ) : (mode === 'calendario' || (mode === 'mi-trabajo' && workView === 'CALENDARIO')) ? (
           <TaskCalendar
             tasks={filtered}
             incidents={incidents}
