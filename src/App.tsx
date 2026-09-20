@@ -31,7 +31,7 @@ import { TasksModule } from './components/TasksModule'
 import { GuidesModule } from './components/GuidesModule'
 import { MaterialsModule } from './components/MaterialsModule'
 import { OperationsControlModule } from './components/OperationsControlModule'
-import { DashboardModule } from './components/DashboardModule'
+import { ScorecardRemoteModule } from './components/ScorecardRemoteModule'
 import { AdministrationModule } from './components/AdministrationModule'
 import { ReplenishmentModule } from './components/ReplenishmentModule'
 import { LocationSheetsModule } from './components/LocationSheetsModule'
@@ -607,20 +607,23 @@ function Workspace({ session }: { session: Session }) {
       ],
     },
     {
-      section: 'ALMACENES REMOTOS',
+      section: 'SCORECARD ALMACENES REMOTOS',
       items: [
-        { id: 'dashboard-operacion' as Tab, label: 'Operación', icon: BarChart3 },
-        { id: 'inbound-outbound' as Tab, label: 'Inbound / Outbound', icon: BarChart3 },
-        { id: 'eri' as Tab, label: 'ERI', icon: BarChart3 },
-        { id: 'sobrantes-faltantes' as Tab, label: 'Sobrantes / Faltantes', icon: BarChart3 },
-        { id: 'diferencias-inventario' as Tab, label: 'Diferencias inventario', icon: BarChart3 },
-        { id: 'dashboard-transitos' as Tab, label: 'Tránsitos', icon: BarChart3 },
-        { id: 'uca' as Tab, label: 'UCA', icon: BarChart3 },
-        { id: 'ahorros' as Tab, label: 'Ahorros', icon: BarChart3 },
-        { id: 'perfect-ship' as Tab, label: 'Perfect Ship', icon: BarChart3 },
-        { id: 'consignaciones' as Tab, label: 'Consignaciones', icon: BarChart3 },
-        { id: 'vhs' as Tab, label: 'VHS', icon: BarChart3 },
-        { id: 'safe' as Tab, label: 'SAFE', icon: BarChart3 },
+        ...(role === 'COORDINADOR' || role === 'ADMINISTRADOR'
+          ? [{ id: 'scorecard-carga' as Tab, label: 'Carga / Datos', icon: Upload }]
+          : []),
+        { id: 'inbound-outbound' as Tab, label: '1. Inbound / Outbound', icon: BarChart3 },
+        { id: 'eri' as Tab, label: '2. ERI', icon: BarChart3 },
+        { id: 'sobrantes-faltantes' as Tab, label: '3. Sobrantes / Faltantes', icon: BarChart3 },
+        { id: 'diferencias-inventario' as Tab, label: '4. Diferencias Inventario', icon: BarChart3 },
+        { id: 'danados-scorecard' as Tab, label: '5. Dañados', icon: BarChart3 },
+        { id: 'dashboard-transitos' as Tab, label: '6. Tránsitos', icon: BarChart3 },
+        { id: 'activos-inactivos' as Tab, label: '7. Activos / Inactivos', icon: BarChart3 },
+        { id: 'uca' as Tab, label: '8. UCA', icon: BarChart3 },
+        { id: 'ahorros' as Tab, label: '9. Ahorros', icon: BarChart3 },
+        { id: 'perfect-ship-outbound' as Tab, label: '10. P.S. Outbound', icon: BarChart3 },
+        { id: 'perfect-ship-inbound' as Tab, label: '11. P.S. Inbound', icon: BarChart3 },
+        { id: 'safe' as Tab, label: '12. SAFE', icon: BarChart3 },
       ],
     },
     ...(role === 'ADMINISTRADOR'
@@ -674,7 +677,7 @@ function Workspace({ session }: { session: Session }) {
           }
         })
       : allNavSections.filter((group) => {
-          if (isCallaoProfile && group.section === 'ALMACENES REMOTOS') return false
+          if (isCallaoProfile && group.section === 'SCORECARD ALMACENES REMOTOS') return false
           if (role !== 'ADMINISTRADOR' && group.section === 'INBOUND · CALLAO') return false
           return true
         })
@@ -724,7 +727,7 @@ function Workspace({ session }: { session: Session }) {
     tab === 'transitos' ? 'transitos' :
     tab === 'danados' ? 'danados' :
     'activos'
-  const dashboardTabs = ['dashboard-operacion', 'inbound-outbound', 'eri', 'sobrantes-faltantes', 'diferencias-inventario', 'dashboard-transitos', 'uca', 'ahorros', 'perfect-ship', 'consignaciones', 'vhs', 'safe'] as const
+  const dashboardTabs = ['scorecard-carga', 'inbound-outbound', 'eri', 'sobrantes-faltantes', 'diferencias-inventario', 'danados-scorecard', 'dashboard-transitos', 'activos-inactivos', 'uca', 'ahorros', 'perfect-ship-outbound', 'perfect-ship-inbound', 'safe'] as const
   const isDashboardTab = dashboardTabs.includes(tab as typeof dashboardTabs[number])
   const adminTabs = ['proyectos', 'cargas-masivas', 'almacenes', 'categorias', 'metas-kpi', 'periodos', 'auditoria'] as const
   const isAdminModuleTab = adminTabs.includes(tab as typeof adminTabs[number])
@@ -1044,10 +1047,11 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {isDashboardTab && !isCallaoProfile && (
-                <DashboardModule
+                <ScorecardRemoteModule
                   mode={tab as typeof dashboardTabs[number]}
+                  userId={user.id}
                   role={role}
-                  warehouse={profile?.warehouse}
+                  profile={profile}
                 />
               )}
 
