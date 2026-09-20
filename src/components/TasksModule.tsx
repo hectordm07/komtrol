@@ -40,6 +40,7 @@ type TaskLabel = {
   warehouse: string | null
   created_by: string
   active: boolean
+  color: string
 }
 
 type Task = {
@@ -181,6 +182,7 @@ export function TasksModule({
   const [newCategory, setNewCategory] = useState('')
   const [showLabelCreator, setShowLabelCreator] = useState(false)
   const [newLabel, setNewLabel] = useState('')
+  const [newLabelColor, setNewLabelColor] = useState('#5570D8')
   const [labelScope, setLabelScope] = useState<'PROYECTO' | 'PERSONAL'>('PROYECTO')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [selectedIncident, setSelectedIncident] = useState<CalendarIncident | null>(null)
@@ -300,6 +302,10 @@ export function TasksModule({
   const profileName = (id?: string | null) =>
     profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
 
+  const labelColor = (name: string) =>
+    labels.find((label) => label.name === name)?.color || '#5570D8'
+
+
   async function createCategory() {
     const name = newCategory.trim().toUpperCase()
     if (!name) return
@@ -329,6 +335,7 @@ export function TasksModule({
       warehouse: labelScope === 'PROYECTO' ? (form.warehouse.trim() || profile?.warehouse || null) : null,
       created_by: userId,
       active: true,
+      color: newLabelColor,
     }).select('*').single()
     if (error || !data) {
       setMessage(error?.message?.includes('duplicate') ? 'La etiqueta ya existe en este alcance.' : (error?.message || 'No se pudo crear la etiqueta.'))
@@ -338,6 +345,7 @@ export function TasksModule({
     setLabels((current) => [...current, label].sort((a,b)=>a.name.localeCompare(b.name)))
     setForm((current) => ({ ...current, tags: Array.from(new Set([...current.tags, label.name])) }))
     setNewLabel('')
+    setNewLabelColor('#5570D8')
     setShowLabelCreator(false)
     setMessage(`Etiqueta ${label.name} creada y agregada.`)
   }
@@ -515,6 +523,7 @@ export function TasksModule({
               <div className="work-inline-create label-create">
                 <b>Nueva etiqueta</b>
                 <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Ej. OC OBSERVADAS" />
+                <input className="label-color-picker" type="color" value={newLabelColor} onChange={(e)=>setNewLabelColor(e.target.value.toUpperCase())} title="Color de etiqueta" />
                 <select value={labelScope} onChange={(e) => setLabelScope(e.target.value as 'PROYECTO' | 'PERSONAL')}>
                   <option value="PROYECTO">Proyecto</option>
                   <option value="PERSONAL">Personal</option>
@@ -564,7 +573,7 @@ export function TasksModule({
         {loading ? (
           <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando trabajo…</p></div>
         ) : workView === 'TABLERO' ? (
-          <TaskBoard tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
+          <TaskBoard tasks={filtered} profiles={profiles} labels={labels} onUpdate={updateTask} onOpen={setSelectedTask} />
         ) : workView === 'CALENDARIO' ? (
           <TaskCalendar
             tasks={filtered}
@@ -576,7 +585,7 @@ export function TasksModule({
             onOpenIncident={setSelectedIncident}
           />
         ) : (
-          <TaskList tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
+          <TaskList tasks={filtered} profiles={profiles} labels={labels} onUpdate={updateTask} onOpen={setSelectedTask} />
         )}
       </section>
 
@@ -585,6 +594,7 @@ export function TasksModule({
           task={selectedTask}
           userId={userId}
           profiles={profiles}
+          labelColors={Object.fromEntries(labels.map((label)=>[label.name,label.color]))}
           onClose={() => setSelectedTask(null)}
           onTaskUpdated={(updated) => {
             const next = updated as Task
@@ -618,12 +628,15 @@ export function TasksModule({
                 </select>
               </label>
               <label>Prioridad
-                <select className={`priority-select p-${form.priority.toLowerCase()}`} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Task['priority'] })}>
-                  <option value="BAJA">Baja</option>
-                  <option value="MEDIA">Media</option>
-                  <option value="ALTA">Alta</option>
-                  <option value="URGENTE">Urgente</option>
-                </select>
+                <div className="priority-field">
+                  <span className={`priority-dot p-${form.priority.toLowerCase()}`} />
+                  <select className="priority-select" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Task['priority'] })}>
+                    <option value="BAJA">Baja</option>
+                    <option value="MEDIA">Media</option>
+                    <option value="ALTA">Alta</option>
+                    <option value="URGENTE">Urgente</option>
+                  </select>
+                </div>
               </label>
               <label className="span-2">Título
                 <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Pendiente / actividad" />
@@ -676,6 +689,11 @@ export function TasksModule({
                           type="button"
                           key={label.id}
                           className={form.tags.includes(label.name) ? 'active' : ''}
+                          style={{
+                            color: label.color,
+                            borderColor: `${label.color}55`,
+                            background: form.tags.includes(label.name) ? `${label.color}22` : `${label.color}0D`,
+                          }}
                           onClick={() => toggleFormTag(label.name)}
                         >
                           <Tag size={12}/> {label.name}
@@ -688,6 +706,7 @@ export function TasksModule({
                 {showLabelCreator && (
                   <div className="form-inline-creator label">
                     <input value={newLabel} onChange={(e)=>setNewLabel(e.target.value)} placeholder="Nueva etiqueta" />
+                    <input className="label-color-picker" type="color" value={newLabelColor} onChange={(e)=>setNewLabelColor(e.target.value.toUpperCase())} title="Color de etiqueta" />
                     <select value={labelScope} onChange={(e)=>setLabelScope(e.target.value as 'PROYECTO' | 'PERSONAL')}>
                       <option value="PROYECTO">Proyecto</option>
                       <option value="PERSONAL">Personal</option>
@@ -715,8 +734,9 @@ export function TasksModule({
   )
 }
 
-function TaskList({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
+function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
+  const colorFor = (tag: string) => labels.find((label)=>label.name===tag)?.color || '#5570D8'
   if (!tasks.length) return <EmptyWork />
 
   return (
@@ -754,7 +774,10 @@ function TaskList({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profil
               <td>
                 <div className="task-classification">
                   {task.category && <span className="category-chip">{task.category}</span>}
-                  {(task.tags || []).slice(0,3).map((tag)=><span className="tag-chip" key={tag}><Tag size={10}/>{tag}</span>)}
+                  {(task.tags || []).slice(0,3).map((tag)=>{
+                    const color=colorFor(tag)
+                    return <span className="tag-chip" style={{color,borderColor:`${color}55`,background:`${color}14`}} key={tag}><Tag size={10}/>{tag}</span>
+                  })}
                   {(task.tags || []).length > 3 && <small>+{task.tags.length - 3}</small>}
                 </div>
               </td>
@@ -780,9 +803,10 @@ function TaskList({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profil
   )
 }
 
-function TaskBoard({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
+function TaskBoard({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const columns: Task['status'][] = ['PENDIENTE', 'EN_PROCESO', 'BLOQUEADO', 'CERRADO']
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Sin asignar'
+  const colorFor = (tag: string) => labels.find((label)=>label.name===tag)?.color || '#5570D8'
 
   return (
     <div className="task-board">
@@ -797,6 +821,10 @@ function TaskBoard({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profi
                   <div className="task-card-top"><span className={`priority-dot p-${task.priority.toLowerCase()}`} /><small>{task.task_no}</small></div>
                   <b>{task.title}</b>
                   <p>{task.project || task.warehouse || 'Sin proyecto'}{task.group_name ? ` · ${task.group_name}` : ''}</p>
+                  {(task.tags || []).length > 0 && <div className="task-card-tags">{task.tags.slice(0,2).map((tag)=>{
+                    const color=colorFor(tag)
+                    return <span key={tag} style={{color,borderColor:`${color}55`,background:`${color}14`}}>{tag}</span>
+                  })}</div>}
                   <div className="task-card-meta"><span><UserRound size={13} /> {name(task.responsible_id)}</span><span><CalendarDays size={13} /> {shortDate(task.due_at)}</span></div>
                   <div className="progress-bar"><i style={{ width: `${task.progress}%` }} /></div>
                   <div className="task-card-actions">
