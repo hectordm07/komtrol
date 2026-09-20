@@ -302,9 +302,6 @@ export function TasksModule({
   const profileName = (id?: string | null) =>
     profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
 
-  const labelColor = (name: string) =>
-    labels.find((label) => label.name === name)?.color || '#5570D8'
-
 
   async function createCategory() {
     const name = newCategory.trim().toUpperCase()
