@@ -25,6 +25,7 @@ import { supabase } from '../lib/supabase'
 import { TaskDetailModal } from './TaskDetailModal'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
+type AssignmentType = 'PERSONAL' | 'PERSONA' | 'GRUPO' | 'GUARDIA'
 
 type Profile = {
   user_id: string
@@ -62,6 +63,10 @@ type Task = {
   relevo_from_shift: string | null
   relevo_to_shift: string | null
   responsible_id: string | null
+  assignment_type: AssignmentType
+  assigned_user_id: string | null
+  assigned_group: string | null
+  assigned_shift: string | null
   created_by: string
   category: string | null
   tags: string[]
@@ -123,6 +128,10 @@ const emptyForm = {
   relevo_from_shift: '',
   relevo_to_shift: '',
   responsible_id: '',
+  assignment_type: 'PERSONA' as AssignmentType,
+  assigned_user_id: '',
+  assigned_group: '',
+  assigned_shift: '',
   category: 'INFORMATIVO',
   priority: 'MEDIA' as Task['priority'],
   due_at: '',
@@ -270,7 +279,11 @@ export function TasksModule({
       shift_name: scopeShift ?? (prev.shift_name || profile?.shift_name || ''),
       relevo_from_shift: prev.relevo_from_shift || profile?.shift_name || '',
       relevo_to_shift: prev.relevo_to_shift || oppositeShift(profile?.shift_name),
-      responsible_id: mode === 'mi-trabajo' || mode === 'area-personal' ? userId : prev.responsible_id,
+      responsible_id: userId,
+      assignment_type: mode === 'mi-trabajo' || mode === 'area-personal' ? 'PERSONAL' : prev.assignment_type,
+      assigned_user_id: mode === 'mi-trabajo' || mode === 'area-personal' ? userId : (prev.assigned_user_id || userId),
+      assigned_group: prev.assigned_group || profile?.group_name || '',
+      assigned_shift: prev.assigned_shift || oppositeShift(profile?.shift_name) || profile?.shift_name || '',
     }))
   }, [mode, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name, scopeWarehouse, scopeProject, scopeGroup, scopeShift, userId])
 
@@ -324,7 +337,10 @@ export function TasksModule({
     if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
     if (priorityFilter !== 'TODAS') data = data.filter((t) => t.priority === priorityFilter)
     if (categoryFilter !== 'TODAS') data = data.filter((t) => t.category === categoryFilter)
-    if (responsibleFilter !== 'TODOS') data = data.filter((t) => t.responsible_id === responsibleFilter)
+    if (responsibleFilter !== 'TODOS') data = data.filter((t) =>
+      t.assigned_user_id === responsibleFilter ||
+      (t.assignment_type === 'PERSONAL' && t.responsible_id === responsibleFilter)
+    )
 
     const q = search.toLowerCase().trim()
     if (q) {
@@ -339,6 +355,8 @@ export function TasksModule({
           t.shift_name,
           t.relevo_from_shift,
           t.relevo_to_shift,
+          t.assigned_group,
+          t.assigned_shift,
           t.category,
           t.email_subject,
           ...(t.tags || []),
@@ -361,10 +379,32 @@ export function TasksModule({
     return { total, closed, overdue, pending, average }
   }, [filtered])
 
-  const scopedProfiles = profiles.filter((p) => !scopeWarehouse || p.warehouse === scopeWarehouse)
+  const scopedProfiles = profiles.filter((p) => {
+    const warehouse = form.warehouse || scopeWarehouse || profile?.warehouse
+    const project = form.project || scopeProject || profile?.project
+    if (warehouse && p.warehouse !== warehouse) return false
+    if (project && p.project !== project) return false
+    return true
+  })
+
+  const assignmentGroups = Array.from(new Set(
+    scopedProfiles.map((p)=>p.group_name).filter((value): value is string=>Boolean(value))
+  )).sort()
+
+  const assignmentShifts = Array.from(new Set(
+    scopedProfiles.map((p)=>p.shift_name).filter((value): value is string=>Boolean(value))
+  )).sort()
 
   const profileName = (id?: string | null) =>
     profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
+
+  const assignmentLabel = (task: Task) => {
+    if (task.assignment_type === 'PERSONAL') return profileName(task.assigned_user_id || task.responsible_id)
+    if (task.assignment_type === 'PERSONA') return profileName(task.assigned_user_id)
+    if (task.assignment_type === 'GRUPO') return task.assigned_group || task.group_name || 'Grupo'
+    if (task.assignment_type === 'GUARDIA') return task.assigned_shift || task.shift_name || 'Guardia'
+    return profileName(task.responsible_id)
+  }
 
 
   const activeFilterSummary = useMemo(() => {
@@ -396,7 +436,10 @@ export function TasksModule({
       Grupo: task.group_name || '',
       'Relevo origen': task.relevo_from_shift || '',
       'Relevo destino': task.relevo_to_shift || '',
-      Responsable: profileName(task.responsible_id),
+      'Creado por': profileName(task.created_by),
+      'Responsable gestión': profileName(task.responsible_id),
+      'Tipo asignación': task.assignment_type,
+      'Asignado a': assignmentLabel(task),
       Categoría: task.category || '',
       Etiquetas: (task.tags || []).join(', '),
       Prioridad: task.priority,
@@ -643,6 +686,25 @@ export function TasksModule({
       }
     }
 
+    const resolvedAssignmentType: AssignmentType =
+      form.work_type === 'PERSONAL' ? 'PERSONAL' : form.assignment_type
+
+    if (resolvedAssignmentType === 'PERSONA' && !form.assigned_user_id) {
+      setSaving(false)
+      setMessage('Selecciona la persona a quien se asignará la tarea.')
+      return
+    }
+    if (resolvedAssignmentType === 'GRUPO' && !form.assigned_group) {
+      setSaving(false)
+      setMessage('Selecciona el grupo de almacén a quien se asignará la tarea.')
+      return
+    }
+    if (resolvedAssignmentType === 'GUARDIA' && !form.assigned_shift) {
+      setSaving(false)
+      setMessage('Selecciona la guardia a quien se asignará la tarea.')
+      return
+    }
+
     const payload = {
       task_no: taskNumber(),
       work_type: form.work_type,
@@ -656,7 +718,15 @@ export function TasksModule({
         : (form.shift_name.trim() || scopeShift || profile?.shift_name || null),
       relevo_from_shift: form.work_type === 'RELEVO' ? form.relevo_from_shift : null,
       relevo_to_shift: form.work_type === 'RELEVO' ? form.relevo_to_shift : null,
-      responsible_id: form.work_type === 'PERSONAL' ? userId : (form.responsible_id || null),
+      responsible_id: userId,
+      assignment_type: resolvedAssignmentType,
+      assigned_user_id: resolvedAssignmentType === 'PERSONAL'
+        ? userId
+        : resolvedAssignmentType === 'PERSONA'
+          ? form.assigned_user_id
+          : null,
+      assigned_group: resolvedAssignmentType === 'GRUPO' ? form.assigned_group : null,
+      assigned_shift: resolvedAssignmentType === 'GUARDIA' ? form.assigned_shift : null,
       created_by: userId,
       category: form.category || null,
       priority: form.priority,
@@ -686,16 +756,46 @@ export function TasksModule({
       changed_by: userId,
     })
 
-    if (data.responsible_id && data.responsible_id !== userId) {
-      await supabase.from('app_notifications').insert({
-        user_id: data.responsible_id,
-        notification_type: 'TASK_ASSIGNED',
-        title: 'Nueva tarea asignada',
-        message: `${data.task_no} · ${data.title}`,
-        task_id: data.id,
-        created_by: userId,
-        metadata: { task_no: data.task_no },
+    const recipients = profiles
+      .filter((p) => {
+        if (data.assignment_type === 'PERSONA') return p.user_id === data.assigned_user_id
+        if (data.assignment_type === 'GRUPO') {
+          return p.warehouse === data.warehouse &&
+            (!data.project || p.project === data.project) &&
+            p.group_name === data.assigned_group
+        }
+        if (data.assignment_type === 'GUARDIA') {
+          return p.warehouse === data.warehouse &&
+            (!data.project || p.project === data.project) &&
+            p.shift_name === data.assigned_shift
+        }
+        return p.user_id === data.assigned_user_id
       })
+      .map((p)=>p.user_id)
+      .filter((id)=>id !== userId)
+
+    const uniqueRecipients = Array.from(new Set(recipients))
+    if (uniqueRecipients.length) {
+      await supabase.from('app_notifications').insert(
+        uniqueRecipients.map((recipientId)=>({
+          user_id: recipientId,
+          notification_type: 'TASK_ASSIGNED',
+          title: data.assignment_type === 'GRUPO'
+            ? `Nueva tarea para ${data.assigned_group}`
+            : data.assignment_type === 'GUARDIA'
+              ? `Nueva tarea para ${data.assigned_shift}`
+              : 'Nueva tarea asignada',
+          message: `${data.task_no} · ${data.title}`,
+          task_id: data.id,
+          created_by: userId,
+          metadata: {
+            task_no: data.task_no,
+            assignment_type: data.assignment_type,
+            assigned_group: data.assigned_group,
+            assigned_shift: data.assigned_shift,
+          },
+        }))
+      )
     }
 
     setSaving(false)
@@ -709,7 +809,11 @@ export function TasksModule({
       shift_name: scopeShift ?? profile?.shift_name ?? '',
       relevo_from_shift: profile?.shift_name ?? '',
       relevo_to_shift: oppositeShift(profile?.shift_name),
-      responsible_id: mode === 'mi-trabajo' || mode === 'area-personal' ? userId : '',
+      responsible_id: userId,
+      assignment_type: mode === 'mi-trabajo' || mode === 'area-personal' ? 'PERSONAL' : 'PERSONA',
+      assigned_user_id: userId,
+      assigned_group: profile?.group_name ?? '',
+      assigned_shift: oppositeShift(profile?.shift_name) || profile?.shift_name || '',
     })
     setMessage(`${data.task_no} creada correctamente.`)
     await reload()
@@ -756,10 +860,11 @@ export function TasksModule({
           : workArea === 'RELEVOS'
             ? 'RELEVO'
             : 'TAREA',
-      responsible_id:
-        mode === 'area-personal' || workArea === 'MI_TRABAJO'
-          ? userId
-          : prev.responsible_id,
+      responsible_id: userId,
+      assignment_type: mode === 'area-personal' || workArea === 'MI_TRABAJO' ? 'PERSONAL' : (prev.assignment_type === 'PERSONAL' ? 'PERSONA' : prev.assignment_type),
+      assigned_user_id: mode === 'area-personal' || workArea === 'MI_TRABAJO' ? userId : (prev.assigned_user_id || userId),
+      assigned_group: prev.assigned_group || profile?.group_name || '',
+      assigned_shift: prev.assigned_shift || oppositeShift(profile?.shift_name) || profile?.shift_name || '',
       relevo_from_shift: workArea === 'RELEVOS'
         ? (prev.relevo_from_shift || profile?.shift_name || '')
         : prev.relevo_from_shift,
@@ -983,12 +1088,67 @@ export function TasksModule({
                   </div>
                 </>
               )}
-              <label>Responsable
-                <select value={form.responsible_id} disabled={form.work_type === 'PERSONAL'} onChange={(e) => setForm({ ...form, responsible_id: e.target.value })}>
-                  <option value="">Sin asignar</option>
-                  {scopedProfiles.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}
-                </select>
+              <label>Creado por / Responsable de gestión
+                <input value={profileName(userId)} disabled />
+                <small className="field-help">Se asigna automáticamente al usuario que crea la tarea.</small>
               </label>
+
+              {form.work_type !== 'PERSONAL' ? (
+                <>
+                  <label>Asignar tarea a
+                    <select
+                      value={form.assignment_type}
+                      onChange={(e)=>setForm({
+                        ...form,
+                        assignment_type:e.target.value as AssignmentType,
+                        assigned_user_id:e.target.value==='PERSONA' ? (form.assigned_user_id || userId) : '',
+                        assigned_group:e.target.value==='GRUPO' ? (form.assigned_group || profile?.group_name || '') : '',
+                        assigned_shift:e.target.value==='GUARDIA' ? (form.assigned_shift || oppositeShift(profile?.shift_name) || profile?.shift_name || '') : '',
+                      })}
+                    >
+                      <option value="PERSONA">Una persona específica</option>
+                      <option value="GRUPO">Grupo de almacén</option>
+                      <option value="GUARDIA">Una guardia del almacén</option>
+                    </select>
+                  </label>
+
+                  {form.assignment_type === 'PERSONA' && (
+                    <label>Persona asignada *
+                      <select value={form.assigned_user_id} onChange={(e)=>setForm({...form,assigned_user_id:e.target.value})}>
+                        {scopedProfiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}{p.group_name ? ` · ${p.group_name}` : ''}{p.shift_name ? ` · ${p.shift_name}` : ''}</option>)}
+                      </select>
+                      <small className="field-help">Solo personal del almacén/proyecto seleccionado.</small>
+                    </label>
+                  )}
+
+                  {form.assignment_type === 'GRUPO' && (
+                    <label>Grupo asignado *
+                      <select value={form.assigned_group} onChange={(e)=>setForm({...form,assigned_group:e.target.value})}>
+                        <option value="">Seleccionar grupo</option>
+                        {assignmentGroups.map((group)=><option key={group} value={group}>{group}</option>)}
+                      </select>
+                      <small className="field-help">La tarea será visible para los integrantes del grupo.</small>
+                    </label>
+                  )}
+
+                  {form.assignment_type === 'GUARDIA' && (
+                    <label>Guardia asignada *
+                      <select value={form.assigned_shift} onChange={(e)=>setForm({...form,assigned_shift:e.target.value})}>
+                        <option value="">Seleccionar guardia</option>
+                        {assignmentShifts.map((shift)=><option key={shift} value={shift}>{shift}</option>)}
+                        {!assignmentShifts.includes('GUARDIA A') && <option value="GUARDIA A">GUARDIA A</option>}
+                        {!assignmentShifts.includes('GUARDIA B') && <option value="GUARDIA B">GUARDIA B</option>}
+                      </select>
+                      <small className="field-help">Todos los integrantes de esa guardia recibirán la tarea.</small>
+                    </label>
+                  )}
+                </>
+              ) : (
+                <label>Asignación
+                  <input value={profileName(userId)} disabled />
+                  <small className="field-help">Mi trabajo siempre se asigna al propio usuario.</small>
+                </label>
+              )}
               <label>Categoría
                 <div className="form-inline-select">
                   <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
@@ -1078,7 +1238,7 @@ function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]
             <th>Tarea</th>
             <th>Contexto</th>
             <th>Clasificación</th>
-            <th>Responsable</th>
+            <th>Asignado a</th>
             <th>Vence</th>
             <th>Estado / Avance</th>
             <th>Acción</th>
@@ -1114,7 +1274,7 @@ function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]
                   {(task.tags || []).length > 3 && <small>+{task.tags.length - 3}</small>}
                 </div>
               </td>
-              <td><span className="user-inline"><UserRound size={14} /> {name(task.responsible_id)}</span></td>
+              <td><span className="user-inline"><UserRound size={14} /> {task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</span></td>
               <td>{shortDate(task.due_at)}{isOverdue(task) && <small className="error-line">Vencida</small>}</td>
               <td>
                 <div className="task-status-progress" onClick={(e)=>e.stopPropagation()}>
@@ -1219,7 +1379,7 @@ function TaskBoard({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[
                       const color=colorFor(tag)
                       return <span key={tag} style={{color,borderColor:`${color}55`,background:`${color}14`}}>{tag}</span>
                     })}</div>}
-                    <div className="task-card-meta"><span><UserRound size={13} /> {name(task.responsible_id)}</span><span><CalendarDays size={13} /> {shortDate(task.due_at)}</span></div>
+                    <div className="task-card-meta"><span><UserRound size={13} /> {task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</span><span><CalendarDays size={13} /> {shortDate(task.due_at)}</span></div>
                     <div className="progress-bar"><i style={{ width: `${task.progress}%` }} /></div>
                     <div className="task-card-actions" onClick={(e)=>e.stopPropagation()}>
                       <select value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
@@ -1385,7 +1545,7 @@ function TaskCalendar({
                     key={task.id}
                     className={`calendar-event calendar-event-task ${task.work_type==='RELEVO'?'is-relevo ':''}${isOverdue(task) ? 'is-overdue' : ''}`}
                     onClick={() => onOpen(task)}
-                    title={`${task.title} · ${name(task.responsible_id)}`}
+                    title={`${task.title} · ${task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || 'Grupo') : (task.assigned_shift || 'Guardia')}`}
                   >
                     <i className={`priority-dot p-${task.priority.toLowerCase()}`} />
                     <span>
