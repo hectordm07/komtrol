@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Columns3,
   List,
@@ -55,6 +57,25 @@ type Task = {
   original_due_at: string | null
   created_at: string
   updated_at: string
+}
+
+type CalendarIncident = {
+  id: string
+  incident_no: string
+  incident_type: 'FALTANTE' | 'SOBRANTE' | 'DANADO' | 'DIFERENCIA' | 'SIN_DOCUMENTACION' | 'OTRO'
+  status: 'ABIERTO' | 'EN_REVISION' | 'NOTIFICADO' | 'CERRADO'
+  guide_no: string | null
+  document_no: string | null
+  purchase_order: string | null
+  material_no: string | null
+  stock_code: string | null
+  description: string | null
+  notes: string | null
+  warehouse: string | null
+  project: string | null
+  group_name: string | null
+  detected_at: string
+  created_at: string
 }
 
 type Mode = 'mi-trabajo' | 'tareas' | 'relevos' | 'area-personal' | 'lista' | 'tablero' | 'calendario'
@@ -129,6 +150,7 @@ export function TasksModule({
   onInitialTaskOpened,
 }: Props) {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [incidents, setIncidents] = useState<CalendarIncident[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [categories, setCategories] = useState<string[]>(['INFORMATIVO'])
   const [loading, setLoading] = useState(true)
@@ -137,6 +159,7 @@ export function TasksModule({
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [selectedIncident, setSelectedIncident] = useState<CalendarIncident | null>(null)
   const [form, setForm] = useState({
     ...emptyForm,
     warehouse: scopeWarehouse ?? profile?.warehouse ?? '',
@@ -147,13 +170,19 @@ export function TasksModule({
 
   async function reload() {
     setLoading(true)
-    const [taskRes, profileRes, categoryRes] = await Promise.all([
+    const [taskRes, incidentRes, profileRes, categoryRes] = await Promise.all([
       supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(500),
+      supabase
+        .from('incidents')
+        .select('id,incident_no,incident_type,status,guide_no,document_no,purchase_order,material_no,stock_code,description,notes,warehouse,project,group_name,detected_at,created_at')
+        .order('detected_at', { ascending: false })
+        .limit(1000),
       supabase.from('user_profiles').select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name').eq('active', true).order('full_name'),
       supabase.from('categories').select('name').eq('active', true).order('name'),
     ])
     if (taskRes.error) setMessage(taskRes.error.message)
     setTasks((taskRes.data ?? []) as Task[])
+    setIncidents((incidentRes.data ?? []) as CalendarIncident[])
     setProfiles((profileRes.data ?? []) as Profile[])
     if (categoryRes.data?.length) setCategories(categoryRes.data.map((x) => x.name))
     setLoading(false)
@@ -396,7 +425,15 @@ export function TasksModule({
         ) : mode === 'tablero' ? (
           <TaskBoard tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
         ) : mode === 'calendario' ? (
-          <TaskCalendar tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
+          <TaskCalendar
+            tasks={filtered}
+            incidents={incidents}
+            profiles={profiles}
+            profile={profile}
+            onUpdate={updateTask}
+            onOpen={setSelectedTask}
+            onOpenIncident={setSelectedIncident}
+          />
         ) : (
           <TaskList tasks={filtered} profiles={profiles} onUpdate={updateTask} onOpen={setSelectedTask} />
         )}
@@ -413,6 +450,13 @@ export function TasksModule({
             setSelectedTask(next)
             setTasks((current) => current.map((item) => item.id === next.id ? next : item))
           }}
+        />
+      )}
+
+      {selectedIncident && (
+        <CalendarIncidentModal
+          incident={selectedIncident}
+          onClose={() => setSelectedIncident(null)}
         />
       )}
 
@@ -566,43 +610,243 @@ function TaskBoard({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profi
   )
 }
 
-function TaskCalendar({ tasks, profiles, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
+function localDateKey(value: Date | string) {
+  const date = typeof value === 'string' ? new Date(value) : value
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function addDays(date: Date, amount: number) {
+  const next = new Date(date)
+  next.setHours(12, 0, 0, 0)
+  next.setDate(next.getDate() + amount)
+  return next
+}
+
+function startOfToday() {
+  const now = new Date()
+  now.setHours(12, 0, 0, 0)
+  return now
+}
+
+function TaskCalendar({
+  tasks,
+  incidents,
+  profiles,
+  profile,
+  onUpdate,
+  onOpen,
+  onOpenIncident,
+}: {
+  tasks: Task[]
+  incidents: CalendarIncident[]
+  profiles: Profile[]
+  profile: Profile | null
+  onUpdate: (task: Task, changes: Partial<Task>) => void
+  onOpen: (task: Task) => void
+  onOpenIncident: (incident: CalendarIncident) => void
+}) {
+  const [windowStart, setWindowStart] = useState(() => startOfToday())
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Sin asignar'
-  const grouped = tasks
-    .filter((t) => t.due_at)
-    .reduce<Record<string, Task[]>>((acc, task) => {
-      const key = task.due_at!.slice(0, 10)
-      ;(acc[key] ||= []).push(task)
+  const dayCells = useMemo(() => Array.from({ length: 30 }, (_, index) => addDays(windowStart, index)), [windowStart])
+
+  const visibleIncidents = useMemo(() => {
+    if (!profile?.warehouse || profile.role === 'ADMINISTRADOR') return incidents
+    return incidents.filter((incident) => incident.warehouse === profile.warehouse)
+  }, [incidents, profile?.warehouse, profile?.role])
+
+  const taskByDay = useMemo(() => {
+    return tasks
+      .filter((task) => task.due_at)
+      .reduce<Record<string, Task[]>>((acc, task) => {
+        const key = localDateKey(task.due_at!)
+        if (!key) return acc
+        ;(acc[key] ||= []).push(task)
+        return acc
+      }, {})
+  }, [tasks])
+
+  const incidentByDay = useMemo(() => {
+    return visibleIncidents.reduce<Record<string, CalendarIncident[]>>((acc, incident) => {
+      const key = localDateKey(incident.detected_at || incident.created_at)
+      if (!key) return acc
+      ;(acc[key] ||= []).push(incident)
       return acc
     }, {})
-  const dates = Object.keys(grouped).sort()
+  }, [visibleIncidents])
 
-  if (!dates.length) return <EmptyWork text="No hay tareas con fecha límite para mostrar en calendario." />
+  const rangeLabel = `${new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short' }).format(dayCells[0])} – ${new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }).format(dayCells[29])}`
+  const todayKey = localDateKey(startOfToday())
 
   return (
-    <div className="calendar-list">
-      {dates.map((date) => (
-        <section className="calendar-day" key={date}>
-          <div className="calendar-date">
-            <b>{new Intl.DateTimeFormat('es-PE', { weekday: 'short', day: '2-digit', month: 'short' }).format(new Date(date + 'T12:00:00'))}</b>
-            <span>{grouped[date].length}</span>
+    <div className="calendar-30-shell">
+      <div className="calendar-30-controls">
+        <div>
+          <b>Vista de 30 días</b>
+          <span>{rangeLabel}</span>
+        </div>
+        <div className="calendar-30-nav">
+          <button className="icon-button" onClick={() => setWindowStart((current) => addDays(current, -30))} title="30 días anteriores"><ChevronLeft size={18} /></button>
+          <button className="secondary-button calendar-today-button" onClick={() => setWindowStart(startOfToday())}>Hoy</button>
+          <button className="icon-button" onClick={() => setWindowStart((current) => addDays(current, 30))} title="30 días siguientes"><ChevronRight size={18} /></button>
+        </div>
+      </div>
+
+      <div className="calendar-30-legend">
+        <span><i className="calendar-legend-dot task" /> Tarea / pendiente</span>
+        <span><i className="calendar-legend-dot relevo" /> Relevo</span>
+        <span><i className="calendar-legend-dot incident" /> Incidencia</span>
+      </div>
+
+      <div className="calendar-30-grid">
+        {dayCells.map((date) => {
+          const key = localDateKey(date)
+          const dayTasks = taskByDay[key] ?? []
+          const dayIncidents = incidentByDay[key] ?? []
+          const total = dayTasks.length + dayIncidents.length
+          const isToday = key === todayKey
+
+          return (
+            <section className={isToday ? 'calendar-30-day is-today' : 'calendar-30-day'} key={key}>
+              <div className="calendar-30-day-head">
+                <div>
+                  <small>{new Intl.DateTimeFormat('es-PE', { weekday: 'short' }).format(date)}</small>
+                  <b>{new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short' }).format(date)}</b>
+                </div>
+                <span>{total}</span>
+              </div>
+
+              <div className="calendar-30-events">
+                {dayTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    className={`calendar-event calendar-event-task ${isOverdue(task) ? 'is-overdue' : ''}`}
+                    onClick={() => onOpen(task)}
+                    title="Abrir detalle"
+                  >
+                    <i className={`priority-dot p-${task.priority.toLowerCase()}`} />
+                    <span>
+                      <small>{task.work_type === 'RELEVO' ? 'RELEVO' : task.work_type === 'PERSONAL' ? 'PERSONAL' : 'TAREA'}</small>
+                      <b>{task.title}</b>
+                      <em>{task.project || task.warehouse || 'Sin proyecto'} · {name(task.responsible_id)}</em>
+                    </span>
+                  </button>
+                ))}
+
+                {dayIncidents.map((incident) => (
+                  <button
+                    key={incident.id}
+                    className="calendar-event calendar-event-incident"
+                    onClick={() => onOpenIncident(incident)}
+                    title="Abrir incidencia"
+                  >
+                    <AlertTriangle size={14} />
+                    <span>
+                      <small>INCIDENCIA · {incident.incident_type.replace('_', ' ')}</small>
+                      <b>{incident.incident_no}</b>
+                      <em>{incident.material_no || incident.description || incident.warehouse || 'Sin detalle'}</em>
+                    </span>
+                  </button>
+                ))}
+
+                {!total && <span className="calendar-30-empty">Sin registros</span>}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+
+      <style>{`
+        .calendar-30-shell{display:grid;gap:12px}
+        .calendar-30-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 0}
+        .calendar-30-controls>div:first-child{display:grid;gap:2px}
+        .calendar-30-controls b{color:#18274b;font-size:14px}
+        .calendar-30-controls span{color:#738099;font-size:12px}
+        .calendar-30-nav{display:flex;align-items:center;gap:7px}
+        .calendar-today-button{min-height:36px;padding:0 14px}
+        .calendar-30-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:#66748f;font-size:12px}
+        .calendar-30-legend span{display:inline-flex;align-items:center;gap:6px}
+        .calendar-legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#3155c6}
+        .calendar-legend-dot.relevo{background:#7c3aed}
+        .calendar-legend-dot.incident{background:#c62828}
+        .calendar-30-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+        .calendar-30-day{min-height:150px;border:1px solid #e2e7f0;border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(24,39,75,.03)}
+        .calendar-30-day.is-today{border-color:#3155c6;box-shadow:0 0 0 2px rgba(49,85,198,.08)}
+        .calendar-30-day-head{display:flex;align-items:center;justify-content:space-between;padding:10px 11px;background:#f7f9fd;border-bottom:1px solid #e8ecf4}
+        .calendar-30-day-head>div{display:grid;gap:1px}
+        .calendar-30-day-head small{text-transform:capitalize;color:#7b879d;font-size:10px}
+        .calendar-30-day-head b{color:#223154;font-size:13px}
+        .calendar-30-day-head>span{display:grid;place-items:center;min-width:25px;height:25px;padding:0 7px;border-radius:999px;background:#edf1f8;color:#41516f;font-size:11px;font-weight:800}
+        .calendar-30-events{display:grid;gap:7px;padding:8px}
+        .calendar-event{width:100%;border:0;border-radius:10px;padding:8px;text-align:left;display:flex;align-items:flex-start;gap:7px;cursor:pointer}
+        .calendar-event:hover{filter:brightness(.985)}
+        .calendar-event span{min-width:0;display:grid;gap:1px}
+        .calendar-event small{font-size:9px;font-weight:800;letter-spacing:.03em}
+        .calendar-event b{font-size:11px;line-height:1.25;color:#1d2a49;white-space:normal}
+        .calendar-event em{font-style:normal;font-size:9.5px;color:#6f7b91;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .calendar-event-task{background:#f4f7ff;border:1px solid #e2e9ff}
+        .calendar-event-task.is-overdue{background:#fff4f3;border-color:#ffd8d4}
+        .calendar-event-incident{background:#fff5f4;border:1px solid #ffdcd8;color:#b42318}
+        .calendar-event-incident b{color:#7f1d1d}
+        .calendar-30-empty{display:block;padding:12px 4px;color:#a0a9b8;font-size:10px;text-align:center}
+        .calendar-incident-modal{max-width:620px}
+        .calendar-incident-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+        .calendar-incident-field{padding:11px;border:1px solid #e5e9f1;border-radius:12px;background:#fafbfe}
+        .calendar-incident-field.span-2{grid-column:1/-1}
+        .calendar-incident-field small{display:block;color:#7b879d;font-size:10px;margin-bottom:3px}
+        .calendar-incident-field b,.calendar-incident-field p{margin:0;color:#223154;font-size:13px;overflow-wrap:anywhere}
+        @media(max-width:1050px){.calendar-30-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+        @media(max-width:650px){
+          .calendar-30-controls{align-items:flex-start}
+          .calendar-30-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+          .calendar-30-day{min-height:128px;border-radius:12px}
+          .calendar-30-day-head{padding:9px}
+          .calendar-30-events{padding:6px;gap:5px}
+          .calendar-event{padding:7px}
+          .calendar-event em{display:none}
+          .calendar-incident-grid{grid-template-columns:1fr}
+          .calendar-incident-field.span-2{grid-column:auto}
+        }
+        @media(max-width:380px){
+          .calendar-30-controls{display:grid}
+          .calendar-30-nav{justify-content:flex-start}
+          .calendar-30-grid{grid-template-columns:1fr 1fr}
+        }
+      `}</style>
+    </div>
+  )
+}
+
+function CalendarIncidentModal({ incident, onClose }: { incident: CalendarIncident; onClose: () => void }) {
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <section className="modal calendar-incident-modal">
+        <div className="modal-head">
+          <div>
+            <h2>{incident.incident_no}</h2>
+            <p>{incident.incident_type.replace('_', ' ')} · {incident.status.replace('_', ' ')}</p>
           </div>
-          <div className="calendar-items">
-            {grouped[date].map((task) => (
-              <article key={task.id} className={isOverdue(task) ? 'calendar-task overdue-card task-open-card' : 'calendar-task task-open-card'} onClick={() => onOpen(task)}>
-                <span className={`priority-dot p-${task.priority.toLowerCase()}`} />
-                <div><b>{task.title}</b><small>{task.project || task.warehouse || 'Sin proyecto'} · {name(task.responsible_id)}</small></div>
-                <select className="inline-select" value={task.status} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
-                  <option value="PENDIENTE">Pendiente</option>
-                  <option value="EN_PROCESO">En proceso</option>
-                  <option value="BLOQUEADO">Bloqueado</option>
-                  <option value="CERRADO">Cerrado</option>
-                </select>
-              </article>
-            ))}
-          </div>
-        </section>
-      ))}
+          <button type="button" className="icon-button" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <div className="calendar-incident-grid">
+          <div className="calendar-incident-field"><small>Fecha detectada</small><b>{new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(incident.detected_at))}</b></div>
+          <div className="calendar-incident-field"><small>Almacén</small><b>{incident.warehouse || '—'}</b></div>
+          <div className="calendar-incident-field"><small>Guía</small><b>{incident.guide_no || '—'}</b></div>
+          <div className="calendar-incident-field"><small>OC / Documento</small><b>{incident.purchase_order || incident.document_no || '—'}</b></div>
+          <div className="calendar-incident-field"><small>Material</small><b>{incident.material_no || incident.stock_code || '—'}</b></div>
+          <div className="calendar-incident-field"><small>Proyecto / Grupo</small><b>{incident.project || incident.group_name || '—'}</b></div>
+          <div className="calendar-incident-field span-2"><small>Descripción</small><p>{incident.description || 'Sin descripción'}</p></div>
+          <div className="calendar-incident-field span-2"><small>Observación</small><p>{incident.notes || 'Sin observación'}</p></div>
+        </div>
+
+        <div className="modal-actions">
+          <button type="button" className="primary-button" onClick={onClose}>Cerrar</button>
+        </div>
+      </section>
     </div>
   )
 }
