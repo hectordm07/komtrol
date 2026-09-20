@@ -11257,3 +11257,545 @@ table tbody tr:hover td {
     font-size: 6px;
   }
 }
+
+
+/* =========================================================
+   KOMTROL COMPACT MODE · menos redundancia, más visibilidad
+   ========================================================= */
+.content {
+  padding: 10px 12px 24px;
+}
+.panel {
+  padding: 11px;
+  border-radius: 12px;
+}
+.panel-title {
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.panel-title h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.panel-title p {
+  margin: 2px 0 0;
+  font-size: 9px;
+}
+.main-dashboard,
+.inbound-module,
+.surplus-kardex-module,
+.replenishment-module,
+.oc-cargo-module,
+.receiving-incidents,
+.work-module {
+  gap: 8px;
+}
+.task-toolbar {
+  margin-top: 7px;
+  gap: 7px;
+}
+.task-kpis {
+  gap: 6px;
+}
+.task-kpis > div {
+  min-height: 54px;
+  padding: 7px 9px;
+}
+
+/* Evitar repetir el nombre del módulo cuando ya está en la barra superior */
+.materials-panel > .panel-title > div:first-child,
+.guide-list-panel > .panel-title > div:first-child,
+.scanner-panel > .panel-title > div:first-child,
+.replenishment-panel > .panel-title > div:first-child,
+.oc-cargo-list-panel > .panel-title > div:first-child,
+.operations-control-panel > .panel-title > .title-with-icon,
+.kardex-header-panel > .panel-title > div:first-child,
+.inbound-boxes-hero > .panel-title > div:first-child,
+.bulk-import-admin > .panel-title > div:first-child {
+  display: none;
+}
+.materials-panel > .panel-title,
+.guide-list-panel > .panel-title,
+.scanner-panel > .panel-title,
+.replenishment-panel > .panel-title,
+.oc-cargo-list-panel > .panel-title,
+.operations-control-panel > .panel-title,
+.kardex-header-panel > .panel-title,
+.inbound-boxes-hero > .panel-title,
+.bulk-import-admin > .panel-title {
+  justify-content: flex-end;
+  min-height: 0;
+  margin-bottom: 7px;
+}
+
+/* Incidencias: convertir el hero repetido en una barra compacta de acciones */
+.receiving-hero {
+  min-height: 0;
+  padding: 8px 10px;
+  justify-content: flex-end;
+}
+.receiving-hero > div:first-child {
+  display: none;
+}
+
+/* Dashboards: sin segundo título grande */
+.dashboard-compact-toolbar {
+  min-height: 0;
+  padding: 8px 10px;
+  align-items: end;
+}
+.dashboard-context-strip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.dashboard-context-strip b {
+  color: var(--kt-blue-900);
+  font-size: 10px;
+}
+.dashboard-control-kicker {
+  margin: 0;
+  font-size: 8px;
+}
+.dashboard-control-strip h2,
+.dashboard-control-strip > div:first-child > p {
+  display: none;
+}
+.dashboard-inline-actions {
+  min-height: 34px;
+  padding: 3px 2px;
+}
+.dashboard-inline-actions > span {
+  font-size: 8px;
+  color: var(--kt-muted);
+}
+
+/* Saludo compacto: conserva identidad sin ocupar media pantalla */
+.user-greeting-sticky {
+  padding: 7px 12px 0;
+}
+.user-greeting-inner {
+  min-height: 74px;
+  padding: 10px 15px;
+  border-radius: 16px;
+}
+.user-greeting-copy strong {
+  font-size: clamp(18px, 2vw, 24px);
+}
+.user-greeting-copy small {
+  margin-top: 2px;
+  font-size: 8px;
+}
+.user-greeting-date {
+  min-height: 27px;
+  padding: 4px 9px;
+  font-size: 8px;
+}
+
+/* =========================================================
+   WORKSPACE / TAREAS · tabs, lista pro, categorías y etiquetas
+   ========================================================= */
+.work-panel {
+  overflow: visible;
+}
+.work-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+.work-area-tabs,
+.work-view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 10px;
+  background: var(--kt-blue-50);
+}
+.work-area-tabs button,
+.work-view-switch button {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--kt-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.work-area-tabs button:hover,
+.work-view-switch button:hover {
+  background: #fff;
+  color: var(--kt-blue-800);
+}
+.work-area-tabs button.active,
+.work-view-switch button.active {
+  background: #fff;
+  color: var(--kt-blue-800);
+  box-shadow: 0 3px 10px rgba(51,67,154,.08);
+}
+.work-command-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.compact-action {
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 9px;
+}
+.work-view-controller {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 0 0 7px;
+}
+.work-inline-creators {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.work-inline-create {
+  display: grid;
+  grid-template-columns: auto minmax(180px,1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 10px;
+  background: var(--kt-blue-50);
+}
+.work-inline-create.label-create {
+  grid-template-columns: auto minmax(180px,1fr) 130px auto auto;
+}
+.work-inline-create b {
+  color: var(--kt-blue-900);
+  font-size: 9px;
+}
+.work-inline-create input,
+.work-inline-create select {
+  min-height: 34px;
+}
+.work-inline-create .primary-button,
+.work-inline-create .icon-button {
+  min-height: 34px;
+}
+
+/* Lista profesional */
+.professional-task-list table {
+  min-width: 1120px;
+}
+.professional-task-list th {
+  padding-block: 7px;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .025em;
+}
+.professional-task-list td {
+  padding-block: 8px;
+  vertical-align: middle;
+}
+.task-list-title {
+  min-width: 230px;
+}
+.task-list-title > b {
+  display: block;
+  color: var(--kt-blue-950);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.task-list-title > small {
+  display: block;
+  margin-top: 2px;
+  color: var(--kt-muted);
+  font-size: 8px;
+}
+.task-type-priority,
+.task-classification {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.task-type-chip,
+.category-chip,
+.tag-chip {
+  min-height: 22px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 7px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.task-type-chip {
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+}
+.category-chip {
+  background: #eef1ff;
+  color: #4050aa;
+}
+.tag-chip {
+  background: #f5f7ff;
+  color: #5d69a5;
+  border: 1px solid var(--kt-blue-200);
+}
+.task-status-progress {
+  min-width: 150px;
+  display: grid;
+  gap: 5px;
+}
+.task-inline-progress {
+  position: relative;
+  height: 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--kt-blue-75);
+}
+.task-inline-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg,var(--kt-blue-800),var(--kt-blue-600));
+  border-radius: inherit;
+}
+.task-inline-progress span {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--kt-blue-950);
+  font-size: 7px;
+  font-weight: 900;
+}
+.task-open-action {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
+/* Semáforo de prioridad */
+.priority-chip,
+.priority-select {
+  font-weight: 900;
+}
+.priority-chip.p-baja,
+.priority-select.p-baja {
+  background: #e9f7ef !important;
+  color: #237a4b !important;
+  border-color: #bee6cf !important;
+}
+.priority-chip.p-media,
+.priority-select.p-media {
+  background: #fff7d8 !important;
+  color: #8a6400 !important;
+  border-color: #f2dfa0 !important;
+}
+.priority-chip.p-alta,
+.priority-select.p-alta {
+  background: #fff0df !important;
+  color: #b25a00 !important;
+  border-color: #f2c996 !important;
+}
+.priority-chip.p-urgente,
+.priority-select.p-urgente {
+  background: #fff0ee !important;
+  color: #b42318 !important;
+  border-color: #f1c2bd !important;
+}
+.priority-dot.p-baja { background: #35a56f !important; }
+.priority-dot.p-media { background: #e0ad22 !important; }
+.priority-dot.p-alta { background: #e57a17 !important; }
+.priority-dot.p-urgente { background: #d43b31 !important; }
+
+/* Formulario compacto y clasificación directa */
+.task-modal {
+  width: min(850px, calc(100vw - 26px));
+  max-height: 92dvh;
+  overflow: auto;
+}
+.task-modal .modal-head {
+  margin-bottom: 9px;
+}
+.task-modal .form-grid {
+  gap: 8px 10px;
+}
+.task-modal label {
+  gap: 4px;
+}
+.task-modal textarea {
+  min-height: 76px;
+}
+.form-inline-select {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 38px;
+  gap: 5px;
+}
+.form-inline-select .icon-button {
+  width: 38px;
+  min-height: 38px;
+}
+.form-inline-creator {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 5px;
+  margin-top: 5px;
+}
+.form-inline-creator.label {
+  grid-template-columns: minmax(0,1fr) 110px auto;
+}
+.task-form-tags {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: start;
+  gap: 7px;
+}
+.task-form-tag-list {
+  min-height: 38px;
+  padding: 5px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 9px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.task-form-tag-list > button {
+  min-height: 25px;
+  padding: 4px 7px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 999px;
+  background: var(--kt-blue-50);
+  color: var(--kt-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
+  font-weight: 800;
+}
+.task-form-tag-list > button.active {
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+  border-color: var(--kt-blue-400);
+}
+.task-form-tag-list > span {
+  color: var(--kt-muted);
+  font-size: 8px;
+}
+
+/* Móvil compacto */
+@media (max-width: 760px) {
+  .content {
+    padding: 7px 7px 88px;
+  }
+  .panel {
+    padding: 9px;
+    border-radius: 11px;
+  }
+  .user-greeting-sticky {
+    padding: 5px 7px 0;
+  }
+  .user-greeting-inner {
+    min-height: 62px;
+    padding: 8px 11px;
+    border-radius: 14px;
+  }
+  .user-greeting-date {
+    min-height: 23px;
+    padding: 3px 7px;
+    font-size: 7px;
+  }
+  .user-greeting-copy strong {
+    font-size: 18px;
+  }
+  .user-greeting-copy small {
+    display: none;
+  }
+  .work-command-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .work-area-tabs,
+  .work-view-switch {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .work-area-tabs::-webkit-scrollbar,
+  .work-view-switch::-webkit-scrollbar {
+    display: none;
+  }
+  .work-area-tabs button,
+  .work-view-switch button {
+    flex: 1 0 auto;
+    justify-content: center;
+    min-height: 40px;
+    font-size: 10px;
+  }
+  .work-command-actions {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .work-command-actions .icon-button {
+    width: 100%;
+  }
+  .work-command-actions .primary-button {
+    width: 100%;
+  }
+  .work-view-controller {
+    justify-content: stretch;
+  }
+  .work-inline-create,
+  .work-inline-create.label-create {
+    grid-template-columns: 1fr;
+  }
+  .task-kpis {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+  .task-kpis > div {
+    min-height: 48px;
+  }
+  .task-modal {
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 18px 18px 0 0;
+  }
+  .task-modal .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .task-modal .form-grid .span-2 {
+    grid-column: auto;
+  }
+  .task-form-tags {
+    grid-template-columns: 1fr;
+  }
+  .form-inline-creator,
+  .form-inline-creator.label {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-compact-toolbar {
+    align-items: stretch;
+    gap: 6px;
+  }
+  .dashboard-context-strip {
+    display: none;
+  }
+  .main-dashboard-filter {
+    width: 100%;
+  }
+}
