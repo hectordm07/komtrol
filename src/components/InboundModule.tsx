@@ -99,6 +99,7 @@ type Props = {
   mode: Mode
   userId: string
   profile: Profile | null
+  onNavigate?: (tab: string) => void
 }
 
 const WAREHOUSE = 'CALLAO'
@@ -264,7 +265,7 @@ function exportBoxPdf(box: InboundBox) {
   savePdfBlob(doc, `KOMTROL_${box.box_no}_${box.shipment_no || 'SIN_EMBARQUE'}.pdf`)
 }
 
-export function InboundModule({ mode, userId, profile }: Props) {
+export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [boxes, setBoxes] = useState<InboundBox[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -674,16 +675,26 @@ export function InboundModule({ mode, userId, profile }: Props) {
         {message && <div className="inline-message">{message}</div>}
 
         <div className="inbound-figma-kpis">
-          <article><BarChart3/><span><small>INCIDENCIAS</small><b>{counts.total}</b><em>Últimos registros</em></span></article>
-          <article className="warning"><AlertTriangle/><span><small>PENDIENTES</small><b>{counts.open}</b><em>Requieren gestión</em></span></article>
-          <article className="success"><PackagePlus/><span><small>SOBRANTES</small><b>{counts.surplus}</b><em>Detectados</em></span></article>
-          <article className="purple"><Boxes/><span><small>CAJAS ABIERTAS</small><b>{counts.openBoxes}</b><em>{counts.closedBoxes} cerradas</em></span></article>
-          <article><TrendingUp/><span><small>SALDO KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:3})}</b><em>UND disponibles</em></span></article>
+          <button type="button" className="inbound-kpi-link" onClick={()=>onNavigate?.('inbound-incidencias')}>
+            <BarChart3/><span><small>INCIDENCIAS</small><b>{counts.total}</b><em>Últimos registros</em></span><ArrowRight className="indicator-link-arrow" size={17}/>
+          </button>
+          <button type="button" className="inbound-kpi-link warning" onClick={()=>onNavigate?.('inbound-incidencias')}>
+            <AlertTriangle/><span><small>PENDIENTES</small><b>{counts.open}</b><em>Requieren gestión</em></span><ArrowRight className="indicator-link-arrow" size={17}/>
+          </button>
+          <button type="button" className="inbound-kpi-link success" onClick={()=>onNavigate?.('inbound-incidencias')}>
+            <PackagePlus/><span><small>SOBRANTES</small><b>{counts.surplus}</b><em>Detectados</em></span><ArrowRight className="indicator-link-arrow" size={17}/>
+          </button>
+          <button type="button" className="inbound-kpi-link purple" onClick={()=>onNavigate?.('inbound-cajas')}>
+            <Boxes/><span><small>CAJAS ABIERTAS</small><b>{counts.openBoxes}</b><em>{counts.closedBoxes} cerradas</em></span><ArrowRight className="indicator-link-arrow" size={17}/>
+          </button>
+          <button type="button" className="inbound-kpi-link" onClick={()=>onNavigate?.('inbound-kardex')}>
+            <TrendingUp/><span><small>SALDO KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:3})}</b><em>UND disponibles</em></span><ArrowRight className="indicator-link-arrow" size={17}/>
+          </button>
         </div>
 
         <div className="inbound-chart-grid">
-          <section className="panel inbound-chart-card incident-type-chart">
-            <div className="chart-heading"><h3>Incidencias por tipo</h3><p>Distribución actual</p></div>
+          <section className="panel inbound-chart-card incident-type-chart indicator-clickable" role="button" tabIndex={0} onClick={()=>onNavigate?.('inbound-incidencias')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onNavigate?.('inbound-incidencias')}}}>
+            <div className="chart-heading"><div><h3>Incidencias por tipo</h3><p>Distribución actual</p></div><span className="indicator-open-hint">Ver detalle <ArrowRight size={14}/></span></div>
             <div className="donut-layout">
               <div className="inbound-donut" style={{background:`conic-gradient(#33439a 0deg ${surplusDeg}deg,#5570d8 ${surplusDeg}deg ${faltanteDeg}deg,#9ca9ee ${faltanteDeg}deg 360deg)`}}>
                 <div><b>{counts.surplus+counts.faltante+counts.damaged}</b><span>Total</span></div>
@@ -696,8 +707,8 @@ export function InboundModule({ mode, userId, profile }: Props) {
             </div>
           </section>
 
-          <section className="panel inbound-chart-card shipment-chart">
-            <div className="chart-heading"><h3>Sobrantes por embarque</h3><p>Unidades detectadas</p></div>
+          <section className="panel inbound-chart-card shipment-chart indicator-clickable" role="button" tabIndex={0} onClick={()=>onNavigate?.('inbound-cajas')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onNavigate?.('inbound-cajas')}}}>
+            <div className="chart-heading"><div><h3>Sobrantes por embarque</h3><p>Unidades detectadas</p></div><span className="indicator-open-hint">Ver cajas <ArrowRight size={14}/></span></div>
             <div className="shipment-bars">
               {shipmentBars.map((row,index)=>(
                 <div className="shipment-bar-row" key={row.shipment}>
@@ -710,8 +721,8 @@ export function InboundModule({ mode, userId, profile }: Props) {
             </div>
           </section>
 
-          <section className="panel inbound-chart-card box-status-chart">
-            <div className="chart-heading"><h3>Estado de cajas</h3><p>Flujo por embarque</p></div>
+          <section className="panel inbound-chart-card box-status-chart indicator-clickable" role="button" tabIndex={0} onClick={()=>onNavigate?.('inbound-cajas')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onNavigate?.('inbound-cajas')}}}>
+            <div className="chart-heading"><div><h3>Estado de cajas</h3><p>Flujo por embarque</p></div><span className="indicator-open-hint">Ver cajas <ArrowRight size={14}/></span></div>
             <div className="box-status-list">
               <div><i className="purple"/><span>Abiertas</span><b>{counts.openBoxes}</b></div>
               <div><i className="green"/><span>Cerradas / Kardex</span><b>{counts.closedBoxes}</b></div>
@@ -721,8 +732,8 @@ export function InboundModule({ mode, userId, profile }: Props) {
         </div>
 
         <div className="inbound-bottom-grid">
-          <section className="panel inbound-chart-card trend-chart">
-            <div className="chart-heading"><h3>Tendencia de incidencias</h3><p>Últimos 7 días</p></div>
+          <section className="panel inbound-chart-card trend-chart indicator-clickable" role="button" tabIndex={0} onClick={()=>onNavigate?.('inbound-incidencias')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onNavigate?.('inbound-incidencias')}}}>
+            <div className="chart-heading"><div><h3>Tendencia de incidencias</h3><p>Últimos 7 días</p></div><span className="indicator-open-hint">Ver incidencias <ArrowRight size={14}/></span></div>
             <div className="trend-svg-wrap">
               <svg viewBox="0 0 100 86" preserveAspectRatio="none" aria-label="Tendencia de incidencias">
                 <defs><linearGradient id="inboundTrendFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#5570d8" stopOpacity=".24"/><stop offset="100%" stopColor="#5570d8" stopOpacity=".02"/></linearGradient></defs>
@@ -738,8 +749,8 @@ export function InboundModule({ mode, userId, profile }: Props) {
             </div>
           </section>
 
-          <section className="panel inbound-recent-panel figma-recent">
-            <div className="panel-title"><div><h3>Actividad reciente</h3><p>Incidencias y cajas de Callao.</p></div></div>
+          <section className="panel inbound-recent-panel figma-recent indicator-clickable" role="button" tabIndex={0} onClick={()=>onNavigate?.('inbound-incidencias')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onNavigate?.('inbound-incidencias')}}}>
+            <div className="panel-title"><div><h3>Actividad reciente</h3><p>Incidencias y cajas de Callao.</p></div><span className="indicator-open-hint">Ver detalle <ArrowRight size={14}/></span></div>
             <div className="inbound-recent-list">
               {incidents.slice(0,4).map((row)=>{
                 const diff=Number(row.qty_received||0)-Number(row.qty_expected||0)
