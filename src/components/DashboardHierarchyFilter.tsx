@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, Check, ChevronDown, Factory, Search, Store, Warehouse } from 'lucide-react'
+import { Building2, Check, ChevronDown, ChevronRight, Factory, Search, Store, Warehouse } from 'lucide-react'
 
 export type DashboardRemoteGroup = 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA'
 
@@ -84,6 +84,8 @@ export function DashboardHierarchyFilter({
 }:Props){
   const [open,setOpen]=useState(false)
   const [query,setQuery]=useState('')
+  const [expandedGroups,setExpandedGroups]=useState<Set<DashboardRemoteGroup>>(new Set())
+  const [expandedWarehouses,setExpandedWarehouses]=useState<Set<string>>(new Set())
 
   useEffect(()=>{
     if(!open) setQuery('')
@@ -127,6 +129,63 @@ export function DashboardHierarchyFilter({
   },[remoteWarehouses,centers,query])
 
   const selectedLabel=dashboardFilterLabel(value,warehouses,centers)
+
+  useEffect(()=>{
+    if(!open) return
+
+    if(query.trim()){
+      setExpandedGroups(new Set(grouped.map((group)=>group.key)))
+      setExpandedWarehouses(new Set(
+        grouped.flatMap((group)=>group.warehouses.map((warehouse)=>warehouse.code))
+      ))
+      return
+    }
+
+    if(value.startsWith('GRUPO:')){
+      const groupKey=value.slice(6) as DashboardRemoteGroup
+      setExpandedGroups((current)=>new Set(current).add(groupKey))
+      return
+    }
+
+    if(value.startsWith('ALMACEN:')){
+      const warehouseCode=value.slice(8)
+      const warehouse=warehouses.find((item)=>item.code===warehouseCode)
+      if(warehouse?.remote_group){
+        setExpandedGroups((current)=>new Set(current).add(warehouse.remote_group as DashboardRemoteGroup))
+      }
+      return
+    }
+
+    if(value.startsWith('CENTRO:')){
+      const centerCode=value.slice(7)
+      const center=centers.find((item)=>item.code===centerCode)
+      const warehouse=warehouses.find((item)=>item.code===center?.warehouse_code)
+      if(warehouse?.remote_group){
+        setExpandedGroups((current)=>new Set(current).add(warehouse.remote_group as DashboardRemoteGroup))
+      }
+      if(warehouse){
+        setExpandedWarehouses((current)=>new Set(current).add(warehouse.code))
+      }
+    }
+  },[open,query,value,grouped,warehouses,centers])
+
+  function toggleGroup(groupKey:DashboardRemoteGroup){
+    setExpandedGroups((current)=>{
+      const next=new Set(current)
+      if(next.has(groupKey)) next.delete(groupKey)
+      else next.add(groupKey)
+      return next
+    })
+  }
+
+  function toggleWarehouse(warehouseCode:string){
+    setExpandedWarehouses((current)=>{
+      const next=new Set(current)
+      if(next.has(warehouseCode)) next.delete(warehouseCode)
+      else next.add(warehouseCode)
+      return next
+    })
+  }
 
   function choose(next:string){
     onChange(next)
@@ -172,49 +231,87 @@ export function DashboardHierarchyFilter({
               </button>
             )}
 
-            {grouped.map((group)=>(
-              <section className="dashboard-hierarchy-group" key={group.key}>
-                <button
-                  type="button"
-                  className={value===`GRUPO:${group.key}`?'dashboard-hierarchy-group-head selected':'dashboard-hierarchy-group-head'}
-                  onClick={()=>choose(`GRUPO:${group.key}`)}
-                >
-                  <span><GroupIcon kind={group.icon}/><b>{group.label}</b><small>{group.warehouses.length} almacenes</small></span>
-                  {value===`GRUPO:${group.key}`&&<Check size={14}/>}
-                </button>
+            {grouped.map((group)=>{
+              const groupExpanded=expandedGroups.has(group.key)
+              return (
+                <section className="dashboard-hierarchy-group" key={group.key}>
+                  <div className={value===`GRUPO:${group.key}`?'dashboard-hierarchy-group-head selected':'dashboard-hierarchy-group-head'}>
+                    <button
+                      type="button"
+                      className="dashboard-hierarchy-expand"
+                      title={groupExpanded?'Contraer grupo':'Ampliar grupo'}
+                      aria-label={groupExpanded?`Contraer ${group.label}`:`Ampliar ${group.label}`}
+                      onClick={()=>toggleGroup(group.key)}
+                    >
+                      {groupExpanded?<ChevronDown size={14}/>:<ChevronRight size={14}/>}
+                    </button>
+                    <button
+                      type="button"
+                      className="dashboard-hierarchy-select"
+                      onClick={()=>choose(`GRUPO:${group.key}`)}
+                    >
+                      <GroupIcon kind={group.icon}/>
+                      <b>{group.label}</b>
+                      <small>{group.warehouses.length} almacenes</small>
+                    </button>
+                    {value===`GRUPO:${group.key}`&&<Check size={14}/>}
+                  </div>
 
-                <div className="dashboard-hierarchy-warehouses">
-                  {group.warehouses.map((warehouse)=>(
-                    <div className="dashboard-hierarchy-warehouse" key={warehouse.code}>
-                      <button
-                        type="button"
-                        className={value===`ALMACEN:${warehouse.code}`?'selected':''}
-                        onClick={()=>choose(`ALMACEN:${warehouse.code}`)}
-                      >
-                        <span><Warehouse size={13}/><b>{warehouse.name}</b></span>
-                        {value===`ALMACEN:${warehouse.code}`&&<Check size={13}/>}
-                      </button>
+                  {groupExpanded&&(
+                    <div className="dashboard-hierarchy-warehouses">
+                      {group.warehouses.map((warehouse)=>{
+                        const warehouseExpanded=expandedWarehouses.has(warehouse.code)
+                        const hasCenters=warehouse.centers.length>0
+                        return (
+                          <div className="dashboard-hierarchy-warehouse" key={warehouse.code}>
+                            <div className={value===`ALMACEN:${warehouse.code}`?'dashboard-hierarchy-warehouse-row selected':'dashboard-hierarchy-warehouse-row'}>
+                              {hasCenters?(
+                                <button
+                                  type="button"
+                                  className="dashboard-hierarchy-expand"
+                                  title={warehouseExpanded?'Contraer centros':'Ampliar centros'}
+                                  aria-label={warehouseExpanded?`Contraer ${warehouse.name}`:`Ampliar ${warehouse.name}`}
+                                  onClick={()=>toggleWarehouse(warehouse.code)}
+                                >
+                                  {warehouseExpanded?<ChevronDown size={13}/>:<ChevronRight size={13}/>}
+                                </button>
+                              ):(
+                                <span className="dashboard-hierarchy-expand-spacer"/>
+                              )}
+                              <button
+                                type="button"
+                                className="dashboard-hierarchy-select"
+                                onClick={()=>choose(`ALMACEN:${warehouse.code}`)}
+                              >
+                                <Warehouse size={13}/>
+                                <b>{warehouse.name}</b>
+                              </button>
+                              {value===`ALMACEN:${warehouse.code}`&&<Check size={13}/>}
+                            </div>
 
-                      {warehouse.centers.length>0&&(
-                        <div className="dashboard-hierarchy-centers">
-                          {warehouse.centers.map((center)=>(
-                            <button
-                              type="button"
-                              key={center.code}
-                              className={value===`CENTRO:${center.code}`?'selected':''}
-                              onClick={()=>choose(`CENTRO:${center.code}`)}
-                            >
-                              <span>{center.business_unit==='GENERAL'?'General':center.business_unit}</span>
-                              {value===`CENTRO:${center.code}`&&<Check size={12}/>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                            {hasCenters&&warehouseExpanded&&(
+                              <div className="dashboard-hierarchy-centers">
+                                {warehouse.centers.map((center)=>(
+                                  <button
+                                    type="button"
+                                    key={center.code}
+                                    className={value===`CENTRO:${center.code}`?'selected':''}
+                                    onClick={()=>choose(`CENTRO:${center.code}`)}
+                                  >
+                                    <span>{center.business_unit==='GENERAL'?'General':center.business_unit}</span>
+                                    {value===`CENTRO:${center.code}`&&<Check size={12}/>}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                  ))}
-                </div>
-              </section>
-            ))}
+                  )}
+                </section>
+              )
+            })}
 
             {!grouped.length&&(
               <div className="dashboard-hierarchy-empty">No se encontraron coincidencias.</div>
