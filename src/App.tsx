@@ -64,7 +64,16 @@ type PreviewAccessConfig = {
   warehouse: string
   project: string
   position: string
+  warehouse_scope: 'REMOTO' | 'CENTRAL'
+  remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
   group_name?: string | null
+}
+
+type WarehouseMeta = {
+  name: string
+  code: string
+  warehouse_scope: 'REMOTO' | 'CENTRAL'
+  remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
 }
 
 type Profile = {
@@ -347,6 +356,7 @@ function Workspace({ session }: { session: Session }) {
   const [mobileMenu, setMobileMenu] = useState(false)
   const [openSections, setOpenSections] = useState<string[]>(['INICIO'])
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [warehouseCatalog, setWarehouseCatalog] = useState<WarehouseMeta[]>([])
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [appNotifications, setAppNotifications] = useState<AppNotification[]>([])
@@ -376,6 +386,8 @@ function Workspace({ session }: { session: Session }) {
           warehouse: 'CALLAO',
           project: 'CALLAO',
           position: 'SUPERVISOR DE ALMACÉN',
+          warehouse_scope: 'CENTRAL',
+          remote_group: null,
         },
         SUPERVISOR_PROYECTO_MINERO: {
           label: 'Supervisor Almacén Proyecto Minero',
@@ -384,6 +396,8 @@ function Workspace({ session }: { session: Session }) {
           warehouse: 'ANTAMINA',
           project: 'PROYECTO MINERO',
           position: 'SUPERVISOR DE ALMACÉN',
+          warehouse_scope: 'REMOTO',
+          remote_group: 'PROYECTO_MINERO',
         },
         COORDINADOR_PROYECTO_MINERO: {
           label: 'Coordinador de Almacén Proyecto Minero',
@@ -392,6 +406,8 @@ function Workspace({ session }: { session: Session }) {
           warehouse: 'ANTAMINA',
           project: 'PROYECTO MINERO',
           position: 'COORDINADOR DE ALMACÉN',
+          warehouse_scope: 'REMOTO',
+          remote_group: 'PROYECTO_MINERO',
         },
         COORDINADOR_CALLAO: {
           label: 'Coordinador de Almacén Callao',
@@ -400,6 +416,8 @@ function Workspace({ session }: { session: Session }) {
           warehouse: 'CALLAO',
           project: 'CALLAO',
           position: 'COORDINADOR DE ALMACÉN',
+          warehouse_scope: 'CENTRAL',
+          remote_group: null,
         },
         ALMACENERO_PROYECTO_MINERO: {
           label: 'Almacenero de Proyecto Minero',
@@ -408,6 +426,8 @@ function Workspace({ session }: { session: Session }) {
           warehouse: 'ANTAMINA',
           project: 'PROYECTO MINERO',
           position: 'ALMACENERO',
+          warehouse_scope: 'REMOTO',
+          remote_group: 'PROYECTO_MINERO',
         },
         ALMACENERO_SUCURSAL: {
           label: 'Almacenero de Sucursales',
@@ -416,6 +436,8 @@ function Workspace({ session }: { session: Session }) {
           warehouse: 'SUCURSAL',
           project: 'SUCURSAL',
           position: 'ALMACENERO DE SUCURSAL',
+          warehouse_scope: 'REMOTO',
+          remote_group: 'SUCURSAL',
         },
         ALMACENERO_CALLAO: {
           label: 'Almacenero Callao',
@@ -424,6 +446,8 @@ function Workspace({ session }: { session: Session }) {
           warehouse: 'CALLAO',
           project: 'CALLAO',
           position: 'ALMACENERO',
+          warehouse_scope: 'CENTRAL',
+          remote_group: null,
         },
       } as Record<Exclude<AccessView, 'ACTUAL'>, PreviewAccessConfig>)[accessView]
 
@@ -443,14 +467,16 @@ function Workspace({ session }: { session: Session }) {
 
   async function reload() {
     setLoading(true)
-    const [profileRes, incidentsRes, notificationsRes, appNotificationRes] = await Promise.all([
+    const [profileRes, warehouseRes, incidentsRes, notificationsRes, appNotificationRes] = await Promise.all([
       supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('warehouses').select('name,code,warehouse_scope,remote_group').eq('active',true).order('name'),
       supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('email_notifications').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('app_notifications').select('*').order('created_at', { ascending: false }).limit(100),
     ])
 
     if (profileRes.data) setProfile(profileRes.data as Profile)
+    setWarehouseCatalog((warehouseRes.data ?? []) as WarehouseMeta[])
     setIncidents((incidentsRes.data ?? []) as Incident[])
     setNotifications((notificationsRes.data ?? []) as Notification[])
     setAppNotifications((appNotificationRes.data ?? []) as AppNotification[])
@@ -800,6 +826,16 @@ function Workspace({ session }: { session: Session }) {
     },
   ]
 
+  const effectiveWarehouseMeta = warehouseCatalog.find((item)=>
+    item.name.toUpperCase() === effectiveProfile?.warehouse?.toUpperCase() ||
+    item.code.toUpperCase() === effectiveProfile?.warehouse?.toUpperCase()
+  )
+  const effectiveWarehouseScope = previewAccess?.warehouse_scope ?? effectiveWarehouseMeta?.warehouse_scope ?? null
+  const effectiveRemoteGroup = previewAccess?.remote_group ?? effectiveWarehouseMeta?.remote_group ?? null
+  const isDistributionCenter = effectiveWarehouseScope === 'CENTRAL'
+  const canViewRemoteScorecards = role === 'ADMINISTRADOR' ||
+    (!isDistributionCenter && (effectiveRemoteGroup === 'PROYECTO_MINERO' || effectiveRemoteGroup === 'SUCURSAL'))
+
   const isCallaoProfile = effectiveProfile?.warehouse?.toUpperCase() === 'CALLAO'
   const isCallaoUser = isCallaoProfile && role !== 'ADMINISTRADOR'
   const isCallaoCoordinator = role === 'COORDINADOR' && effectiveProfile?.warehouse === 'CALLAO'
@@ -834,7 +870,7 @@ function Workspace({ session }: { session: Session }) {
           }
         })
       : allNavSections.filter((group) => {
-          if (isCallaoProfile && group.section === 'SCORECARD ALMACENES REMOTOS') return false
+          if (!canViewRemoteScorecards && group.section === 'SCORECARD ALMACENES REMOTOS') return false
           if (role !== 'ADMINISTRADOR' && group.section === 'INBOUND · CALLAO') return false
           return true
         })
@@ -1258,7 +1294,7 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
-              {isDashboardTab && !isCallaoProfile && (
+              {isDashboardTab && canViewRemoteScorecards && (
                 <ScorecardRemoteModule
                   mode={tab as typeof dashboardTabs[number]}
                   userId={user.id}
