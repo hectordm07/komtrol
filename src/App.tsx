@@ -47,6 +47,26 @@ import { UniversalDashboardModule } from './components/UniversalDashboardModule'
 
 type Tab = string
 
+type AccessView =
+  | 'ACTUAL'
+  | 'SUPERVISOR_CALLAO'
+  | 'SUPERVISOR_PROYECTO_MINERO'
+  | 'COORDINADOR_PROYECTO_MINERO'
+  | 'COORDINADOR_CALLAO'
+  | 'ALMACENERO_PROYECTO_MINERO'
+  | 'ALMACENERO_SUCURSAL'
+  | 'ALMACENERO_CALLAO'
+
+type PreviewAccessConfig = {
+  label: string
+  shortLabel: string
+  role: Profile['role']
+  warehouse: string
+  project: string
+  position: string
+  group_name?: string | null
+}
+
 type Profile = {
   user_id: string
   dni: string
@@ -339,15 +359,86 @@ function Workspace({ session }: { session: Session }) {
   const [saving, setSaving] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
-  const [accessView, setAccessView] = useState<'ACTUAL' | 'TRABAJADOR'>('ACTUAL')
+  const [accessView, setAccessView] = useState<AccessView>('ACTUAL')
   const [now, setNow] = useState(() => new Date())
 
   const user = session.user
   const actualRole = profile?.role ?? (user.app_metadata?.role as Profile['role'] | undefined) ?? 'TRABAJADOR'
-  const canPreviewWorker = actualRole === 'ADMINISTRADOR' && Boolean(profile?.worker_access)
-  const isWorkerPreview = canPreviewWorker && accessView === 'TRABAJADOR'
-  const role: Profile['role'] = isWorkerPreview ? 'TRABAJADOR' : actualRole
-  const effectiveProfile: Profile | null = profile ? { ...profile, role } : null
+  const canPreviewSystemViews = actualRole === 'ADMINISTRADOR'
+
+  const previewAccess: PreviewAccessConfig | null = accessView === 'ACTUAL'
+    ? null
+    : ({
+        SUPERVISOR_CALLAO: {
+          label: 'Supervisor Almacén Callao',
+          shortLabel: 'Supervisor Callao',
+          role: 'SUPERVISOR',
+          warehouse: 'CALLAO',
+          project: 'CALLAO',
+          position: 'SUPERVISOR DE ALMACÉN',
+        },
+        SUPERVISOR_PROYECTO_MINERO: {
+          label: 'Supervisor Almacén Proyecto Minero',
+          shortLabel: 'Supervisor Proyecto Minero',
+          role: 'SUPERVISOR',
+          warehouse: 'ANTAMINA',
+          project: 'PROYECTO MINERO',
+          position: 'SUPERVISOR DE ALMACÉN',
+        },
+        COORDINADOR_PROYECTO_MINERO: {
+          label: 'Coordinador de Almacén Proyecto Minero',
+          shortLabel: 'Coordinador Proyecto Minero',
+          role: 'COORDINADOR',
+          warehouse: 'ANTAMINA',
+          project: 'PROYECTO MINERO',
+          position: 'COORDINADOR DE ALMACÉN',
+        },
+        COORDINADOR_CALLAO: {
+          label: 'Coordinador de Almacén Callao',
+          shortLabel: 'Coordinador Callao',
+          role: 'COORDINADOR',
+          warehouse: 'CALLAO',
+          project: 'CALLAO',
+          position: 'COORDINADOR DE ALMACÉN',
+        },
+        ALMACENERO_PROYECTO_MINERO: {
+          label: 'Almacenero de Proyecto Minero',
+          shortLabel: 'Almacenero Proyecto Minero',
+          role: 'TRABAJADOR',
+          warehouse: 'ANTAMINA',
+          project: 'PROYECTO MINERO',
+          position: 'ALMACENERO',
+        },
+        ALMACENERO_SUCURSAL: {
+          label: 'Almacenero de Sucursales',
+          shortLabel: 'Almacenero Sucursales',
+          role: 'COORDINADOR',
+          warehouse: 'SUCURSAL',
+          project: 'SUCURSAL',
+          position: 'ALMACENERO DE SUCURSAL',
+        },
+        ALMACENERO_CALLAO: {
+          label: 'Almacenero Callao',
+          shortLabel: 'Almacenero Callao',
+          role: 'TRABAJADOR',
+          warehouse: 'CALLAO',
+          project: 'CALLAO',
+          position: 'ALMACENERO',
+        },
+      } as Record<Exclude<AccessView, 'ACTUAL'>, PreviewAccessConfig>)[accessView]
+
+  const isAccessPreview = Boolean(previewAccess)
+  const role: Profile['role'] = previewAccess?.role ?? actualRole
+  const effectiveProfile: Profile | null = profile
+    ? {
+        ...profile,
+        role,
+        warehouse: previewAccess?.warehouse ?? profile.warehouse,
+        project: previewAccess?.project ?? profile.project,
+        position: previewAccess?.position ?? profile.position,
+        group_name: previewAccess?.group_name ?? profile.group_name,
+      }
+    : null
   const displayName = profile?.full_name ?? user.user_metadata?.full_name ?? 'Usuario KOMTROL'
 
   async function reload() {
@@ -371,22 +462,33 @@ function Workspace({ session }: { session: Session }) {
   }, [user.id])
 
   useEffect(() => {
-    if (!canPreviewWorker && accessView === 'TRABAJADOR') {
+    if (!canPreviewSystemViews && accessView !== 'ACTUAL') {
       setAccessView('ACTUAL')
     }
-  }, [canPreviewWorker, accessView])
+  }, [canPreviewSystemViews, accessView])
 
-  function changeAccessView(next: 'ACTUAL' | 'TRABAJADOR') {
-    if (next === 'TRABAJADOR' && !canPreviewWorker) return
+  function changeAccessView(next: AccessView) {
+    if (next !== 'ACTUAL' && !canPreviewSystemViews) return
     setAccessView(next)
     setTab('inicio')
     setOpenSections(['INICIO'])
     setMobileMenu(false)
     setNotificationOpen(false)
     setTaskToOpen(null)
-    setToast(next === 'TRABAJADOR'
-      ? 'Vista Almacenero activada. Tu rol real sigue siendo Administrador.'
-      : 'Vista Administrador restaurada.')
+    const nextLabel = next === 'ACTUAL'
+      ? 'Administrador'
+      : ({
+          SUPERVISOR_CALLAO: 'Supervisor Almacén Callao',
+          SUPERVISOR_PROYECTO_MINERO: 'Supervisor Almacén Proyecto Minero',
+          COORDINADOR_PROYECTO_MINERO: 'Coordinador de Almacén Proyecto Minero',
+          COORDINADOR_CALLAO: 'Coordinador de Almacén Callao',
+          ALMACENERO_PROYECTO_MINERO: 'Almacenero de Proyecto Minero',
+          ALMACENERO_SUCURSAL: 'Almacenero de Sucursales',
+          ALMACENERO_CALLAO: 'Almacenero Callao',
+        } as Record<Exclude<AccessView, 'ACTUAL'>, string>)[next]
+    setToast(next === 'ACTUAL'
+      ? 'Vista Administrador restaurada.'
+      : 'Vista ' + nextLabel + ' activada. Tu rol real sigue siendo Administrador.')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
