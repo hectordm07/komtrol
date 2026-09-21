@@ -23842,3 +23842,146 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   display: block !important;
   -webkit-line-clamp: unset !important;
 }
+
+
+/* KOMTROL SCORECARD V13 · FORCE PRODUCTIVITY FULL WIDTH */
+
+/*
+  Corrección definitiva del ancho inferior:
+  existen reglas históricas con !important que todavía pueden dejar
+  io-dashboard-bottom en dos columnas. Estas reglas, al final del archivo
+  y con mayor especificidad, fuerzan Productividad a ocupar el 100%.
+*/
+@media (min-width: 821px) {
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    gap: 0 !important;
+    justify-self: stretch !important;
+    align-self: stretch !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only > .io-productivity-area {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    grid-column: 1 / -1 !important;
+    justify-self: stretch !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only > .io-productivity-area > .io-productivity-panel {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0,1fr) !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-productivity-chart {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 12px 10px 2px 18px !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-bars {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    box-sizing: border-box !important;
+    padding: 0 12px 42px 18px !important;
+    display: grid !important;
+    grid-template-columns: repeat(var(--io-bar-count), minmax(0,1fr)) !important;
+    column-gap: clamp(5px,.72vw,13px) !important;
+    align-items: end !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-bar-item {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: calc(100% - 42px) !important;
+    justify-self: stretch !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-bar {
+    width: clamp(16px,54%,34px) !important;
+    max-width: 34px !important;
+    min-width: 12px !important;
+    justify-self: center !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-bar-label {
+    width: calc(100% + 8px) !important;
+    max-width: 92px !important;
+    min-height: 32px !important;
+    top: calc(100% + 8px) !important;
+    font-size: 6.4px !important;
+    line-height: 1.08 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  /* Variación se mantiene arriba a la derecha sin restar ancho al gráfico. */
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-variation {
+    top: 9px !important;
+    right: 12px !important;
+  }
+}
+
+/* Laptop mostrado por el usuario: 1536x791 */
+@media (min-width: 1200px) and (max-width: 1700px) and (max-height: 850px) {
+  .io-dashboard-v3 {
+    grid-template-rows: 32px minmax(0,.88fr) minmax(0,1.12fr) !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-bars {
+    padding-bottom: 40px !important;
+    column-gap: clamp(4px,.58vw,10px) !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-bar-item {
+    height: calc(100% - 40px) !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-bar-label {
+    max-width: 82px !important;
+    min-height: 30px !important;
+    font-size: 6px !important;
+  }
+}
+
+/* PDF: misma corrección de ancho sin depender del viewport. */
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only {
+  display: block !important;
+  width: 100% !important;
+  grid-template-columns: none !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-productivity-area,
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only .io-productivity-panel {
+  width: 100% !important;
+  max-width: none !important;
+}
