@@ -447,22 +447,22 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
-  function matchGuideForText(text: string) {
+  function matchGuideForText(text: string): { guide: Guide; score: number } | null {
     const normalized = normalizeMatchText(text)
     let best: { guide: Guide; score: number } | null = null
 
-    guides.forEach((guide) => {
+    for (const guide of guides) {
       const candidates = [guide.reference, guide.guide_no, guide.document_no]
         .filter((value): value is string => Boolean(value))
         .map((value) => normalizeMatchText(value))
         .filter((value) => value.length >= 5)
 
-      candidates.forEach((candidate) => {
-        if (!normalized.includes(candidate)) return
+      for (const candidate of candidates) {
+        if (!normalized.includes(candidate)) continue
         const score = Math.min(100, 88 + Math.min(12, candidate.length / 2))
         if (!best || score > best.score) best = { guide, score }
-      })
-    })
+      }
+    }
 
     return best
   }
