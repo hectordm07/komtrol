@@ -23100,3 +23100,447 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
 .scorecard-dashboard-export.komtrol-pdf-exporting .io-productivity-panel {
   height: auto !important;
 }
+
+
+/* KOMTROL SCORECARD V11 · FIGMA EXECUTIVE FULL-VIEW */
+
+/*
+  Referencia visual: dashboard ejecutivo validado en Figma.
+  Objetivos:
+  - montaña azul translúcida en el saludo;
+  - Reporte 01 completo dentro del viewport;
+  - sin scrollbar vertical del navegador en escritorio;
+  - proporciones amplias, no aplastadas;
+  - Gauge + Productividad visibles en la misma pantalla.
+*/
+
+/* Montaña de referencia: sustituye el dibujo de almacenes del hero anterior. */
+.user-greeting-inner::before {
+  inset: 0 0 0 auto !important;
+  width: min(72%, 980px) !important;
+  opacity: 1 !important;
+  background-position: center bottom !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 980 180'%3E%3Cg fill='none'%3E%3Cpath d='M30 180L205 108L286 139L392 60L480 122L565 82L650 129L742 89L950 180H30Z' fill='%236786E0' fill-opacity='.17'/%3E%3Cpath d='M145 180L306 124L362 145L470 83L540 127L621 104L706 137L792 111L947 180H145Z' fill='%2390A8F0' fill-opacity='.105'/%3E%3Cpath d='M270 180L392 60L480 122L565 82L650 129L742 89L900 180' stroke='%23B7C7FF' stroke-opacity='.12' stroke-width='3'/%3E%3Cpath d='M322 180L430 93L480 122L530 96L565 82L603 110L650 129' stroke='%23D1DCFF' stroke-opacity='.08' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E") !important;
+}
+
+.user-greeting-inner::after {
+  background:
+    linear-gradient(90deg, rgba(32,59,154,.56) 0%, rgba(32,59,154,.30) 42%, rgba(32,59,154,.06) 72%, rgba(32,59,154,0) 100%) !important;
+}
+
+/* Reporte 01: pantalla completa real en escritorio. */
+@media (min-width: 821px) {
+  html:has(.io-dashboard-v3),
+  body:has(.io-dashboard-v3),
+  #root:has(.io-dashboard-v3),
+  .app-shell:has(.io-dashboard-v3) {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden !important;
+  }
+
+  .app-shell:has(.io-dashboard-v3) {
+    align-items: stretch;
+  }
+
+  .main-area:has(.io-dashboard-v3) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden !important;
+    display: grid;
+    grid-template-rows: 76px 82px minmax(0, 1fr);
+  }
+
+  .main-area:has(.io-dashboard-v3) > .topbar {
+    position: relative;
+    top: auto;
+    min-height: 76px;
+    height: 76px;
+    padding: 12px 28px;
+  }
+
+  .main-area:has(.io-dashboard-v3) > .user-greeting-sticky {
+    position: relative;
+    top: auto;
+    z-index: 2;
+    min-height: 82px;
+    height: 82px;
+    padding: 6px 14px 4px;
+    overflow: hidden;
+  }
+
+  .main-area:has(.io-dashboard-v3) .user-greeting-inner {
+    width: 100%;
+    height: 72px;
+    min-height: 72px;
+    padding: 8px 18px;
+    border-radius: 15px;
+    box-shadow: 0 9px 25px rgba(37,59,144,.10);
+  }
+
+  .main-area:has(.io-dashboard-v3) .user-greeting-date {
+    min-height: 19px;
+    padding: 2px 8px;
+    font-size: 6.8px;
+  }
+
+  .main-area:has(.io-dashboard-v3) .user-greeting-copy {
+    gap: 1px;
+  }
+
+  .main-area:has(.io-dashboard-v3) .user-greeting-copy strong {
+    font-size: 19px;
+    line-height: 1.02;
+  }
+
+  .main-area:has(.io-dashboard-v3) .user-greeting-copy small {
+    font-size: 6.6px;
+  }
+
+  .main-area:has(.io-dashboard-v3) > .content {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 6px 14px 8px;
+    overflow: hidden !important;
+  }
+
+  .main-area:has(.io-dashboard-v3) .viewport-profile-badge {
+    min-height: 24px;
+    padding: 3px 7px;
+    font-size: 6.5px;
+  }
+
+  /* Scorecard ocupa exactamente el alto restante. */
+  .scorecard-module:has(.io-dashboard-v3) {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 64px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) > .scorecard-toolbar {
+    width: 100%;
+    height: 64px;
+    min-height: 64px;
+    margin: 0;
+    padding: 6px 9px;
+    border-radius: 13px;
+    box-shadow: 0 6px 18px rgba(37,59,144,.035);
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context > span {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context b {
+    font-size: 11px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context small {
+    font-size: 6.5px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context em {
+    min-height: 25px;
+    padding: 3px 7px;
+    font-size: 6.5px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+    grid-template-columns: 92px 92px minmax(250px, 1fr) auto auto 40px;
+    gap: 6px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-quick-select,
+  .scorecard-module:has(.io-dashboard-v3) .dashboard-hierarchy-trigger,
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button,
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .icon-button {
+    min-height: 38px;
+    height: 38px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-dashboard-export {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /*
+    Distribución Power BI / Figma:
+    Contexto + fila superior + fila inferior.
+    Se elimina la nota inferior para reservar altura a la visualización.
+  */
+  .io-dashboard-v3 {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 34px minmax(0, .88fr) minmax(0, 1.12fr);
+    gap: 7px;
+    overflow: hidden;
+  }
+
+  .io-dashboard-v3 .io-dashboard-context {
+    width: 100%;
+    height: 34px;
+    min-height: 34px !important;
+    padding: 5px 10px !important;
+    border-radius: 10px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: minmax(188px,.50fr) minmax(0,1.18fr) minmax(0,1.18fr) !important;
+    gap: 8px !important;
+    align-items: stretch;
+  }
+
+  .io-dashboard-v3 .io-mini-stack {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0,1fr));
+    gap: 8px;
+  }
+
+  .io-dashboard-v3 .io-mini-card,
+  .io-dashboard-v3 .io-trend-card {
+    height: 100% !important;
+    min-height: 0 !important;
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(31,57,135,.04);
+  }
+
+  .io-dashboard-v3 .io-mini-card {
+    padding: 9px 11px 7px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy strong {
+    font-size: clamp(24px, 2vw, 31px) !important;
+  }
+
+  .io-dashboard-v3 .io-trend-card {
+    padding: 10px 12px 8px !important;
+    display: grid;
+    grid-template-rows: auto minmax(0,1fr);
+  }
+
+  .io-dashboard-v3 .io-card-heading strong {
+    font-size: clamp(27px, 2.35vw, 36px) !important;
+  }
+
+  .io-dashboard-v3 .io-trend-svg {
+    width: 100%;
+    height: 100% !important;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom {
+    width: 100%;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(224px,.62fr) minmax(0,2.55fr) !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card,
+  .io-dashboard-v3 .io-productivity-area,
+  .io-dashboard-v3 .io-productivity-panel {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card {
+    padding: 9px 11px 7px !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0,1fr) auto;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-wrap {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding-top: 2px !important;
+    justify-content: center !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge {
+    width: min(100%, 230px) !important;
+    height: min(145px, 78%) !important;
+    flex-basis: auto !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-reading {
+    min-width: 108px !important;
+    min-height: 38px !important;
+    margin-top: -5px !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-panel {
+    padding: 9px 11px 7px !important;
+    display: grid;
+    grid-template-rows: auto minmax(0,1fr);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .io-dashboard-v3 .io-productivity-head {
+    min-height: 38px !important;
+    padding-left: 0 !important;
+    padding-right: 112px !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-chart {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin-top: 0 !important;
+    padding: 10px 2px 2px !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+
+  .io-dashboard-v3 .io-bars {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 0 7px 18px 24px !important;
+    grid-template-columns: repeat(var(--io-bar-count), minmax(20px,1fr)) !important;
+    gap: clamp(3px,.45vw,7px) !important;
+    align-items: end;
+  }
+
+  .io-dashboard-v3 .io-bar-item {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .io-dashboard-v3 .io-bar-label {
+    top: calc(100% + 4px);
+    max-width: 64px;
+    font-size: 5.8px;
+    line-height: 1.02;
+  }
+
+  .io-dashboard-v3 .io-dashboard-footnote {
+    display: none !important;
+  }
+}
+
+/* Laptop bajo: sigue cabiendo sin scrollbar y sin miniaturización extrema. */
+@media (min-width: 821px) and (max-height: 820px) {
+  .main-area:has(.io-dashboard-v3) {
+    grid-template-rows: 70px 76px minmax(0, 1fr);
+  }
+
+  .main-area:has(.io-dashboard-v3) > .topbar {
+    height: 70px;
+    min-height: 70px;
+    padding-block: 9px;
+  }
+
+  .main-area:has(.io-dashboard-v3) > .user-greeting-sticky {
+    height: 76px;
+    min-height: 76px;
+    padding-top: 5px;
+  }
+
+  .main-area:has(.io-dashboard-v3) .user-greeting-inner {
+    height: 66px;
+    min-height: 66px;
+    padding-block: 7px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) {
+    grid-template-rows: 60px minmax(0,1fr);
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) > .scorecard-toolbar {
+    height: 60px;
+    min-height: 60px;
+  }
+
+  .io-dashboard-v3 {
+    grid-template-rows: 32px minmax(0,.87fr) minmax(0,1.13fr);
+    gap: 6px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-context {
+    height: 32px;
+    min-height: 32px !important;
+  }
+}
+
+/* Mobile/tablet: conservar navegación natural y scrollbar del documento. */
+@media (max-width: 820px) {
+  html:has(.io-dashboard-v3),
+  body:has(.io-dashboard-v3),
+  #root:has(.io-dashboard-v3),
+  .app-shell:has(.io-dashboard-v3),
+  .main-area:has(.io-dashboard-v3) {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto !important;
+  }
+
+  .main-area:has(.io-dashboard-v3) {
+    display: block;
+  }
+
+  .main-area:has(.io-dashboard-v3) > .content {
+    height: auto;
+    overflow: visible !important;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3),
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-dashboard-export,
+  .io-dashboard-v3 {
+    height: auto;
+    overflow: visible;
+  }
+
+  .io-dashboard-v3 {
+    display: grid;
+    grid-template-rows: auto;
+  }
+
+  .io-dashboard-v3 .io-dashboard-footnote {
+    display: flex !important;
+  }
+}
+
+/* PDF queda desacoplado del viewport del usuario. */
+.scorecard-dashboard-export.komtrol-pdf-exporting,
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-v3 {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-v3 {
+  display: grid;
+  grid-template-rows: auto auto auto auto !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-footnote {
+  display: flex !important;
+}
