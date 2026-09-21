@@ -1056,7 +1056,46 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
               <div><small>Cliente → refrendo</small><b>{daysClientToRefrendo ?? '—'}</b></div>
             </div>
 
+            <div className="oc-billing-control">
+              <div className="oc-billing-copy">
+                <small>FACTURACIÓN</small>
+                <b>{statusLabel(selected.followup?.billing_status || form.billing_status || 'PENDIENTE')}</b>
+                <span>{selected.followup?.billing_sent_at ? 'Enviado ' + fmtDate(selected.followup.billing_sent_at) + ' · ' + (selected.followup.billing_sent_by_name || 'Usuario KOMTROL') : 'Aún no registra envío a Facturación.'}</span>
+              </div>
+              <SearchableSelect
+                value={form.billing_status}
+                onChange={(value)=>setForm({...form,billing_status:(value||'PENDIENTE') as Followup['billing_status']})}
+                options={[
+                  {value:'PENDIENTE',label:'Pendiente'},
+                  {value:'ENVIADO',label:'Enviado'},
+                  {value:'OBSERVADO',label:'Observado'},
+                  {value:'REENVIADO',label:'Reenviado'},
+                  {value:'CONFIRMADO',label:'Confirmado'},
+                ]}
+                placeholder="Estado Facturación…"
+                clearable={false}
+                ariaLabel="Estado Facturación"
+                disabled={!canUpdateBilling}
+              />
+              <button type="button" className="primary-button" disabled={saving||!canUpdateBilling||form.billing_status===(selected.followup?.billing_status||'PENDIENTE')} onClick={()=>updateBillingStatus(form.billing_status)}>
+                <Send size={15}/> Guardar Facturación
+              </button>
+            </div>
+
+            {latestRefrendo(selected)&&(
+              <div className="oc-refrendo-summary">
+                <FileText size={18}/>
+                <div>
+                  <small>REFRENDOS</small>
+                  <b>{latestRefrendo(selected)?.file_name}</b>
+                  <span>{selected.refrendos?.length || 1} documento(s) vinculado(s)</span>
+                </div>
+                <button type="button" className="secondary-button" onClick={()=>viewRefrendo(selected)}><Eye size={15}/> Ver refrendo</button>
+              </div>
+            )}
+
             <form className="oc-followup-form" onSubmit={saveFollowup}>
+              <fieldset className="oc-operational-fieldset span-2" disabled={!canEditOperational}>
               <label>Fecha de entrega al cliente
                 <input type="date" value={form.client_delivery_date} onChange={(e) => setForm({ ...form, client_delivery_date: e.target.value })} />
               </label>
@@ -1131,15 +1170,16 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                 <div><Clock3 size={15} /><span>Cliente a refrendo</span><b>{daysClientToRefrendo ?? '—'}</b></div>
               </div>
 
+              </fieldset>
               <div className="modal-actions span-2 oc-followup-actions">
                 <button type="button" className="secondary-button" onClick={closeFollowup}>Cerrar</button>
                 <button type="button" className="secondary-button" disabled={selected.followup?.final_status !== 'OBSERVADO'} onClick={buildEmail}>
                   <Mail size={16} /> Reportar observado
                 </button>
-                <button className="primary-button" disabled={saving}>
+                {canEditOperational&&<button className="primary-button" disabled={saving}>
                   {saving ? <RefreshCw className="spin" size={16} /> : <Save size={16} />}
                   {saving ? 'Guardando…' : 'Guardar seguimiento'}
-                </button>
+                </button>}
               </div>
             </form>
 
