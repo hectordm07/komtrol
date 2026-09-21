@@ -351,6 +351,26 @@ function Login() {
   )
 }
 
+type ScreenProfile = 'mobile' | 'tablet' | 'laptop' | 'monitor' | 'wide'
+
+function detectScreenProfile(width: number): ScreenProfile {
+  if (width < 640) return 'mobile'
+  if (width < 1024) return 'tablet'
+  if (width < 1600) return 'laptop'
+  if (width < 2200) return 'monitor'
+  return 'wide'
+}
+
+function screenProfileLabel(profile: ScreenProfile) {
+  return ({
+    mobile: 'Móvil',
+    tablet: 'Tablet',
+    laptop: 'Laptop',
+    monitor: 'Monitor',
+    wide: 'Monitor amplio',
+  } as const)[profile]
+}
+
 function Workspace({ session }: { session: Session }) {
   const [tab, setTab] = useState<Tab>('inicio')
   const [mobileMenu, setMobileMenu] = useState(false)
@@ -371,6 +391,37 @@ function Workspace({ session }: { session: Session }) {
   const [toast, setToast] = useState('')
   const [accessView, setAccessView] = useState<AccessView>('ACTUAL')
   const [now, setNow] = useState(() => new Date())
+  const [viewport, setViewport] = useState(() => {
+    const width = typeof window === 'undefined' ? 1440 : window.innerWidth
+    const height = typeof window === 'undefined' ? 900 : window.innerHeight
+    return { width, height, profile: detectScreenProfile(width) }
+  })
+
+  useEffect(() => {
+    let frame = 0
+    const syncViewport = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const width = window.innerWidth
+        const height = window.innerHeight
+        const profile = detectScreenProfile(width)
+        const density = height < 820 ? 'compact' : height < 980 ? 'balanced' : 'comfortable'
+
+        document.documentElement.dataset.screenProfile = profile
+        document.documentElement.dataset.screenDensity = density
+        document.documentElement.style.setProperty('--kt-viewport-width', `${width}px`)
+        document.documentElement.style.setProperty('--kt-viewport-height', `${height}px`)
+        setViewport({ width, height, profile })
+      })
+    }
+
+    syncViewport()
+    window.addEventListener('resize', syncViewport, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', syncViewport)
+    }
+  }, [])
 
   const user = session.user
   const actualRole = profile?.role ?? (user.app_metadata?.role as Profile['role'] | undefined) ?? 'TRABAJADOR'
@@ -1076,6 +1127,12 @@ function Workspace({ session }: { session: Session }) {
             <p>{displayName} · {isAccessPreview ? (previewAccess?.position || role) : role}{effectiveProfile?.warehouse ? ` · ${effectiveProfile.warehouse}` : ''}{effectiveProfile?.group_name ? ` · ${effectiveProfile.group_name}` : ''}{effectiveProfile?.shift_name ? ` · ${effectiveProfile.shift_name}` : ''}</p>
           </div>
           <div className="top-actions">
+            <span
+              className="viewport-profile-badge"
+              title={`Vista detectada: ${screenProfileLabel(viewport.profile)} · ${viewport.width}×${viewport.height}px`}
+            >
+              {screenProfileLabel(viewport.profile)} · {viewport.width}×{viewport.height}
+            </span>
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={19} /></button>
             <div className="notification-center">
               <button
