@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
-import { exportElementToPdfPortrait, exportRowsToExcel } from '../lib/exportUtils'
+import { exportElementToPdfLandscape, exportRowsToExcel } from '../lib/exportUtils'
 import {
   DashboardHierarchyFilter,
   dashboardFilterLabel,
@@ -633,11 +633,14 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     setPdfExporting(true)
     setMessage('')
     try{
-      await exportElementToPdfPortrait(
+      await exportElementToPdfLandscape(
         `KOMTROL_Scorecard_${report.code}_${year}_${String(month).padStart(2,'0')}`,
         `KOMTROL · ${report.name}`,
         dashboardRef.current,
-        {subtitle:`${MONTHS[month-1]} ${year} · ${filterLabel} · ${scorecardExportRows.length} registro(s)`}
+        {
+          subtitle:`${MONTHS[month-1]} ${year} · ${filterLabel} · ${scorecardExportRows.length} registro(s)`,
+          captureWidth: 1440,
+        }
       )
     }catch(error){
       setMessage(error instanceof Error?error.message:'No se pudo generar el PDF del dashboard.')
