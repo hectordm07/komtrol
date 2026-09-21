@@ -59,6 +59,7 @@ type Profile = {
   shift_name?: string | null
   position?: string | null
   worker_access?: boolean
+  oc_cargo_access_level?: 'COMERCIAL' | 'DOCUMENTARIO' | null
 }
 
 type Incident = {
@@ -702,6 +703,7 @@ function Workspace({ session }: { session: Session }) {
   const isCallaoCoordinator = role === 'COORDINADOR' && profile?.warehouse === 'CALLAO'
   const isCallaoSupervisor = role === 'SUPERVISOR' && profile?.warehouse === 'CALLAO'
   const isCallaoWorker = role === 'TRABAJADOR' && profile?.warehouse === 'CALLAO'
+  const hasOcCargoSpecialAccess = Boolean(profile?.oc_cargo_access_level)
 
   const universalSections = ['INICIO', 'ÁREA DE TRABAJO', 'VENCIMIENTOS']
 
@@ -709,8 +711,14 @@ function Workspace({ session }: { session: Session }) {
     ? []
     : isCallaoUser
       ? allNavSections
-        .filter((group) => universalSections.includes(group.section) || group.section === 'INBOUND · CALLAO')
+        .filter((group) => universalSections.includes(group.section) || group.section === 'INBOUND · CALLAO' || (hasOcCargoSpecialAccess && group.section === 'OPERACIONES'))
         .map((group) => {
+          if (group.section === 'OPERACIONES' && hasOcCargoSpecialAccess) {
+            return {
+              ...group,
+              items: group.items.filter((item) => item.id === 'oc-cargos'),
+            }
+          }
           if (group.section !== 'INBOUND · CALLAO') return group
 
           const allowedInbound =
