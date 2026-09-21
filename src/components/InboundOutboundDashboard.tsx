@@ -356,7 +356,7 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
                   <div className={alert?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
                   <div className={alert?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
                 </div>
-                <div className="io-bar-label">{item.name}</div>
+                <div className="io-bar-label" title={item.name}>{item.shortName}</div>
               </div>
             )
           })}
