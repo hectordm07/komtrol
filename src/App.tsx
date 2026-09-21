@@ -834,7 +834,11 @@ function Workspace({ session }: { session: Session }) {
   const effectiveRemoteGroup = previewAccess?.remote_group ?? effectiveWarehouseMeta?.remote_group ?? null
   const isDistributionCenter = effectiveWarehouseScope === 'CENTRAL'
   const canViewRemoteScorecards = role === 'ADMINISTRADOR' ||
-    (!isDistributionCenter && (effectiveRemoteGroup === 'PROYECTO_MINERO' || effectiveRemoteGroup === 'SUCURSAL'))
+    (!isDistributionCenter && (
+      effectiveRemoteGroup === 'PROYECTO_MINERO' ||
+      effectiveRemoteGroup === 'SUCURSAL' ||
+      effectiveRemoteGroup === 'TIENDA'
+    ))
 
   const isCallaoProfile = effectiveProfile?.warehouse?.toUpperCase() === 'CALLAO'
   const isCallaoUser = isCallaoProfile && role !== 'ADMINISTRADOR'
