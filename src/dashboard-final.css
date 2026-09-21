@@ -764,3 +764,449 @@
 .scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-v3 .io-card-heading strong {
   font-size: 30px !important;
 }
+
+
+/* ========================================================================
+   KOMTROL MOBILE FINAL · 2026-09-21
+   Inicio en 2 columnas + dashboard Scorecard sin cruces/solapamientos.
+   ======================================================================== */
+@media (max-width: 760px) {
+  /* Área útil: reservar espacio real para la navegación inferior fija. */
+  .main-area > .content {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 10px 10px calc(112px + env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Hero/saludo más compacto para recuperar altura útil. */
+  .main-area > .user-greeting-sticky {
+    padding: 6px 10px !important;
+  }
+
+  .main-area .user-greeting-inner {
+    min-height: 88px !important;
+    height: auto !important;
+    padding: 10px 13px !important;
+    border-radius: 18px !important;
+  }
+
+  .main-area .user-greeting-date {
+    font-size: 9px !important;
+    min-height: 24px !important;
+    padding: 0 9px !important;
+  }
+
+  .main-area .user-greeting-copy strong {
+    font-size: 18px !important;
+    line-height: 1.08 !important;
+  }
+
+  .main-area .user-greeting-copy small {
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+  }
+
+  /* INICIO: conservar SIEMPRE dos tarjetas por fila en celular. */
+  .universal-dashboard {
+    gap: 10px !important;
+  }
+
+  .universal-dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 9px !important;
+  }
+
+  .universal-kpi {
+    min-width: 0 !important;
+    min-height: 104px !important;
+    padding: 10px 9px !important;
+    grid-template-columns: 36px minmax(0,1fr) 12px !important;
+    gap: 8px !important;
+    border-radius: 16px !important;
+  }
+
+  .universal-kpi-icon {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 11px !important;
+  }
+
+  .universal-kpi-icon svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .universal-kpi-copy small {
+    font-size: 9.5px !important;
+    line-height: 1.08 !important;
+    white-space: normal !important;
+  }
+
+  .universal-kpi-copy b {
+    margin-top: 2px !important;
+    font-size: 27px !important;
+    line-height: .95 !important;
+  }
+
+  .universal-kpi-copy em {
+    margin-top: 2px !important;
+    font-size: 8.5px !important;
+    line-height: 1.12 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    display: block !important;
+  }
+
+  .universal-kpi-arrow {
+    width: 14px !important;
+    height: 14px !important;
+    align-self: start !important;
+    margin-top: 2px !important;
+  }
+
+  .universal-operational-kpis {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 9px !important;
+  }
+
+  .universal-operational-kpis > button {
+    min-height: 88px !important;
+  }
+
+  .universal-operational-charts,
+  .universal-dashboard-charts {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Navegación inferior: flotante, compacta y sin tapar contenido. */
+  .mobile-bottom-nav {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    min-height: 76px !important;
+    height: 76px !important;
+    margin: 0 !important;
+    padding: 7px 8px !important;
+    border: 1px solid #d8e1f4 !important;
+    border-radius: 22px !important;
+    background: rgba(255,255,255,.97) !important;
+    box-shadow: 0 12px 34px rgba(31,57,135,.16) !important;
+    backdrop-filter: blur(12px) !important;
+    z-index: 100 !important;
+  }
+
+  .mobile-bottom-nav button {
+    min-width: 0 !important;
+    min-height: 58px !important;
+    padding: 5px 4px !important;
+    border-radius: 16px !important;
+    font-size: 10px !important;
+    gap: 3px !important;
+  }
+
+  .mobile-bottom-nav button svg {
+    width: 21px !important;
+    height: 21px !important;
+  }
+
+  /* Filtros: valores completos (2026 / Jul), nunca truncados. */
+  .scorecard-filters {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .scorecard-quick-select {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 48px !important;
+    padding: 0 10px 0 12px !important;
+    grid-template-columns: auto minmax(0,1fr) !important;
+    column-gap: 10px !important;
+  }
+
+  .scorecard-quick-select > span {
+    font-size: 10px !important;
+  }
+
+  .scorecard-quick-select select {
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 44px !important;
+    padding: 0 22px 0 0 !important;
+    font-size: 13px !important;
+    text-align: left !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+  }
+
+  .scorecard-filters .dashboard-hierarchy-filter {
+    grid-column: 1 / -1 !important;
+    order: initial !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .scorecard-filters .dashboard-hierarchy-trigger {
+    height: 48px !important;
+    min-height: 48px !important;
+    font-size: 11px !important;
+  }
+
+  .scorecard-filters > .secondary-button {
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 10px !important;
+    font-size: 10px !important;
+  }
+
+  .scorecard-filters > .icon-button {
+    height: 44px !important;
+    min-height: 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+  }
+
+  /* Scorecard móvil: cada bloque en flujo normal, sin elementos absolutos cruzados. */
+  .io-dashboard-v3 {
+    display: grid !important;
+    grid-template-rows: auto auto auto auto !important;
+    gap: 10px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .io-dashboard-v3 .io-mini-stack {
+    display: grid !important;
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-card {
+    min-height: 104px !important;
+  }
+
+  .io-dashboard-v3 .io-trend-card {
+    min-height: 220px !important;
+    height: auto !important;
+  }
+
+  .io-dashboard-v3 .io-gauge-card-top {
+    min-height: 320px !important;
+    height: auto !important;
+    padding: 14px !important;
+  }
+
+  .io-dashboard-v3 .io-gauge-card-top .io-gauge {
+    width: min(100%, 250px) !important;
+    height: 150px !important;
+  }
+
+  .io-dashboard-v3 .io-gauge-reading {
+    margin-top: -2px !important;
+    min-width: 145px !important;
+    min-height: 54px !important;
+  }
+
+  .io-dashboard-v3 .io-gauge-reading b {
+    font-size: 34px !important;
+  }
+
+  .io-dashboard-v3 .io-gauge-reading span {
+    font-size: 8px !important;
+  }
+
+  .io-dashboard-v3 .io-gauge-footer {
+    margin-top: 12px !important;
+    gap: 8px !important;
+  }
+
+  /* Gráfico de productividad: alto suficiente y scroll horizontal seguro si hay muchas sedes. */
+  .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only,
+  .io-dashboard-v3 .io-productivity-area,
+  .io-dashboard-v3 .io-productivity-panel {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-area {
+    position: relative !important;
+  }
+
+  .io-dashboard-v3 .io-variation {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 0 10px !important;
+    padding: 10px 12px !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-panel {
+    padding: 14px 12px 12px !important;
+    border-radius: 18px !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-head {
+    min-height: 58px !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-head b {
+    font-size: 16px !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-chart {
+    position: relative !important;
+    width: 100% !important;
+    min-height: 330px !important;
+    height: auto !important;
+    padding: 18px 0 0 !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .io-dashboard-v3 .io-bars {
+    width: max(100%, calc(var(--io-bar-count) * 82px)) !important;
+    min-width: calc(var(--io-bar-count) * 82px) !important;
+    height: 300px !important;
+    padding: 0 8px !important;
+    display: grid !important;
+    grid-template-columns: repeat(var(--io-bar-count), minmax(72px,1fr)) !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+
+  .io-dashboard-v3 .io-bar-item {
+    height: 300px !important;
+    display: grid !important;
+    grid-template-rows: minmax(0,1fr) 56px !important;
+    min-width: 72px !important;
+  }
+
+  .io-dashboard-v3 .io-bar-plot {
+    min-height: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+  }
+
+  .io-dashboard-v3 .io-bar {
+    width: 42px !important;
+    max-width: 42px !important;
+    min-width: 28px !important;
+  }
+
+  .io-dashboard-v3 .io-bar-value {
+    font-size: 11px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .io-dashboard-v3 .io-bar-label {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 56px !important;
+    min-height: 56px !important;
+    padding: 7px 3px 0 !important;
+    transform: none !important;
+    font-size: 10px !important;
+    line-height: 1.12 !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
+  .io-dashboard-v3 .io-target-line {
+    pointer-events: none !important;
+  }
+
+  .io-dashboard-v3 .io-target-line > span {
+    font-size: 9px !important;
+  }
+
+  /* La explicación queda en una franja propia debajo de los gráficos. */
+  .io-dashboard-v3 .io-dashboard-footnote {
+    position: static !important;
+    width: 100% !important;
+    min-height: 72px !important;
+    margin: 10px 0 0 !important;
+    padding: 10px 12px !important;
+    display: grid !important;
+    gap: 7px !important;
+    border-top: 1px solid #e4e9f4 !important;
+    background: transparent !important;
+    font-size: 9px !important;
+    line-height: 1.28 !important;
+    overflow: visible !important;
+  }
+}
+
+/* Teléfonos pequeños: seguir en 2 columnas, solo compactar un poco más. */
+@media (max-width: 460px) {
+  .universal-dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .universal-kpi {
+    min-height: 98px !important;
+    padding: 9px 8px !important;
+    grid-template-columns: 34px minmax(0,1fr) 11px !important;
+    gap: 7px !important;
+  }
+
+  .universal-kpi-icon {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .universal-kpi-copy small {
+    font-size: 8.8px !important;
+  }
+
+  .universal-kpi-copy b {
+    font-size: 25px !important;
+  }
+
+  .universal-kpi-copy em {
+    font-size: 8px !important;
+  }
+
+  .io-dashboard-v3 .io-productivity-head {
+    flex-wrap: wrap !important;
+  }
+
+  .io-dashboard-v3 .io-target-badge {
+    margin-left: auto !important;
+  }
+}
