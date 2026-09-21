@@ -2,6 +2,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BarChart3,
   CheckCircle2,
+  ChevronDown,
   Database,
   Download,
   Edit3,
@@ -416,6 +417,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
   const [editing,setEditing]=useState(false)
+  const [sourceDataOpen,setSourceDataOpen]=useState(false)
   const [uploading,setUploading]=useState(false)
   const [pdfExporting,setPdfExporting]=useState(false)
   const [editingRows,setEditingRows]=useState<Record<string,ScorecardRow>>({})
@@ -1046,6 +1048,13 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           />}
           <button className="secondary-button" disabled={!scorecardExportRows.length||pdfExporting} onClick={exportScorecardPdf}><FileText size={16}/> {pdfExporting?'Generando…':'PDF'}</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
+          {canSeeSourceData&&<button
+            type="button"
+            className={sourceDataOpen?'secondary-button scorecard-data-toggle open':'secondary-button scorecard-data-toggle'}
+            onClick={()=>setSourceDataOpen((value)=>!value)}
+            aria-expanded={sourceDataOpen}
+            title={sourceDataOpen?'Ocultar datos del reporte':'Ver datos del reporte'}
+          ><Database size={16}/> Datos <ChevronDown size={14}/></button>}
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
         </div>
       </section>
@@ -1100,7 +1109,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         )}
       </div>
 
-      {canSeeSourceData && (
+      {canSeeSourceData && sourceDataOpen && (
         <section className="panel scorecard-data-panel">
           <div className="scorecard-data-head">
             <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {filterLabel}</span></div>
