@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { SearchableSelect } from './SearchableSelect'
 
 type Supplier = 'KOMATSU' | 'CUMMINS' | 'POR_VALIDAR'
 
@@ -236,12 +237,19 @@ export function ReplenishmentModule() {
             title="Fecha de recepción"
           />
 
-          <select value={supplier} onChange={(e) => setSupplier(e.target.value)}>
-            <option value="TODOS">Todos los proveedores</option>
-            <option value="KOMATSU">KOMATSU</option>
-            <option value="CUMMINS">CUMMINS</option>
-            <option value="POR_VALIDAR">Por validar</option>
-          </select>
+          <SearchableSelect
+            value={supplier}
+            onChange={(value)=>setSupplier(value||'TODOS')}
+            options={[
+              {value:'TODOS',label:'Todos los proveedores'},
+              {value:'KOMATSU',label:'KOMATSU'},
+              {value:'CUMMINS',label:'CUMMINS'},
+              {value:'POR_VALIDAR',label:'Por validar'},
+            ]}
+            placeholder="Buscar proveedor…"
+            clearable={false}
+            ariaLabel="Filtrar por proveedor"
+          />
 
           <button
             className="secondary-button"
