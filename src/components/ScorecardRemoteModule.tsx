@@ -3,6 +3,7 @@ import {
   BarChart3,
   CheckCircle2,
   Database,
+  Download,
   Edit3,
   FileSpreadsheet,
   FileText,
@@ -147,6 +148,59 @@ const REPORT_CODES: ScorecardMode[] = [
   'danados-scorecard','dashboard-transitos','activos-inactivos','uca',
   'ahorros','perfect-ship-outbound','perfect-ship-inbound','safe',
 ]
+
+const TEMPLATE_FIELD_HEADERS:Record<string,string> = {
+  inbound:'INBOUND',
+  outbound:'OUTBOUND',
+  person_day:'PERSONAS_X_DIA',
+  work_days:'DIAS_LABORABLES',
+  productivity:'PRODUCTIVIDAD',
+  target:'META',
+  hours:'HORAS',
+  items_pct:'ITEMS_PCT',
+  value_pct:'VALOR_PCT',
+  average_pct:'PROMEDIO_ERI',
+  skus:'SKUS',
+  units:'UNIDADES',
+  usd:'USD',
+  variation_units:'VARIACION_UNIDADES',
+  variation_usd:'VARIACION_USD_PCT',
+  variation:'VARIACION_USD',
+  variation_pct:'VARIACION_PCT',
+  days_0_7:'TRANSITO_0_7_USD',
+  days_7_14:'TRANSITO_7_14_USD',
+  days_14_30:'TRANSITO_14_30_USD',
+  days_30_100:'TRANSITO_30_100_USD',
+  total:'TOTAL',
+  total_pct:'TOTAL_PCT',
+  center:'CENTRO_SAP',
+  company:'SOCIEDAD',
+  value_pen:'VALOR_PEN',
+  comments:'COMENTARIOS',
+  empty:'VACIAS',
+  uca_pct:'UCA_PCT',
+  concept:'CONCEPTO',
+  saving_detail:'DETALLE_AHORRO',
+  amount:'AHORRO_USD',
+  meets:'CUMPLE_PCT',
+  not_meets:'NO_CUMPLE_PCT',
+  negative_behaviors:'CONDUCTAS_NEGATIVAS',
+  score:'PUNTAJE',
+  driving:'CONDUCCION',
+}
+
+function templateHeader(field:FieldDef){
+  return TEMPLATE_FIELD_HEADERS[field.key] || field.label.toUpperCase().replace(/[^A-Z0-9ÁÉÍÓÚÜÑ]+/g,'_')
+}
+
+function pickSource(source:Record<string,unknown>,keys:Array<string|null|undefined>){
+  for(const key of keys){
+    if(!key) continue
+    const value=source[key]
+    if(value!==undefined&&value!==null&&value!=='') return value
+  }
+  return null
+}
 
 function normalizeText(value: unknown) {
   return String(value ?? '')
@@ -704,37 +758,82 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   function parseSheet(def:ReportDef,book:XLSX.WorkBook) {
     const sheet=book.Sheets[def.data_sheet]
     if(!sheet) return [] as ImportRow[]
-    const raw=XLSX.utils.sheet_to_json<Record<string,unknown>>(sheet,{range:def.header_row-1,defval:null,raw:true})
+
+    const preview=XLSX.utils.sheet_to_json<unknown[]>(sheet,{header:1,range:0,defval:null,raw:true})
+    const firstRow=(preview[0]||[]).map((value)=>normalizeText(value).toUpperCase())
+    const standardized=firstRow.includes('ALMACÉN')||firstRow.includes('ALMACEN')
+    const headerIndex=standardized?0:def.header_row-1
+
+    const raw=XLSX.utils.sheet_to_json<Record<string,unknown>>(sheet,{range:headerIndex,defval:null,raw:true})
     const result:ImportRow[]=[]
+
     raw.forEach((source,index)=>{
-      const siteRaw=source[def.site_field||''] ?? source['DETALLE'] ?? source['Proyecto'] ?? source['Proyectos Mineros'] ?? source['SEDE'] ?? source['NOMBRE'] ?? source['PROYECTO / PLACA']
+      const standardWarehouse=pickSource(source,['ALMACÉN','ALMACEN'])
+      const standardCenter=pickSource(source,['CENTRO_UNIDAD','CENTRO / UNIDAD'])
+      const legacySite=pickSource(source,[
+        def.site_field,
+        'DETALLE',
+        'Proyecto',
+        'Proyectos Mineros',
+        'SEDE',
+        'NOMBRE',
+        'PROYECTO / PLACA',
+      ])
+      const siteRaw=standardWarehouse ?? legacySite
       if(siteRaw===null||siteRaw===undefined||String(siteRaw).trim()==='') return
-      const date=excelDate(source[def.date_field || 'MES'])
-      const rowYear=Number(source[def.year_field || 'AÑO'] || date?.getFullYear() || year)
-      const rowMonth=Number(date ? date.getMonth()+1 : month)
+
+      const date=excelDate(pickSource(source,['MES',def.date_field]))
+      const rowYear=Number(pickSource(source,['AÑO','ANO',def.year_field]) || date?.getFullYear() || year)
+      const monthRaw=pickSource(source,['MES',def.date_field])
+      const numericMonth=typeof monthRaw==='number' && monthRaw>=1 && monthRaw<=12 ? Number(monthRaw) : null
+      const rowMonth=Number(date ? date.getMonth()+1 : numericMonth || month)
       if(!rowYear||!rowMonth||rowMonth<1||rowMonth>12) return
+
       const warehouse=canonicalWarehouse(siteRaw)
       const ownWarehouse=normalizeProfileWarehouse(profile)
       if(role==='COORDINADOR'&&warehouse!==ownWarehouse) return
 
       const data:Record<string,unknown>={}
       def.fields.forEach((field)=>{
-        const value=source[field.source]
+        const value=pickSource(source,[
+          templateHeader(field),
+          field.source,
+          field.label,
+          field.key,
+        ])
         data[field.key]=field.type==='text'
           ? normalizeText(value)
           : value===null||value===undefined||value==='' ? null : numeric(value)
       })
-      const status=def.status_field ? normalizeText(source[def.status_field]) || null : null
-      const detailField=def.code==='diferencias-inventario'?'Detalle':null
-      const detail=detailField ? normalizeText(source[detailField]) || null : null
-      const siteName=normalizeText(siteRaw)
+
+      if(def.code==='inbound-outbound' && (data.productivity===null||data.productivity===undefined||data.productivity==='')){
+        const denominator=numeric(data.person_day)*numeric(data.work_days)
+        data.productivity=denominator>0
+          ? (numeric(data.inbound)+numeric(data.outbound))/denominator
+          : 0
+      }
+
+      if(def.code==='eri' && (data.average_pct===null||data.average_pct===undefined||data.average_pct==='')){
+        const values=[numeric(data.items_pct),numeric(data.value_pct)].filter((value)=>Number.isFinite(value))
+        data.average_pct=values.length?values.reduce((sum,value)=>sum+value,0)/values.length:0
+      }
+
+      const status=normalizeText(pickSource(source,['ESTADO',def.status_field])) || null
+      const detail=normalizeText(pickSource(source,['DETALLE',def.code==='diferencias-inventario'?'Detalle':null])) || null
+      const group=normalizeText(pickSource(source,['GRUPO',def.group_field])) || null
+      const centerText=normalizeText(standardCenter)
+      const siteName=centerText
+        ? `${warehouse} ${centerText}`
+        : normalizeText(legacySite || siteRaw)
+
+      const sourceRow=index+headerIndex+2
       result.push({
         report_code:def.code,year:rowYear,month:rowMonth,period_date:periodKey(rowYear,rowMonth),
         warehouse,site_name:siteName,
-        site_group:def.group_field?normalizeText(source[def.group_field])||null:null,
+        site_group:group,
         row_status:status,detail,
-        row_key:`${def.code}:${index+def.header_row+1}:${warehouse}:${status||''}:${detail||''}`,
-        data,source:'UPLOAD',source_sheet:def.data_sheet,source_row:index+def.header_row+1,
+        row_key:`${def.code}:${sourceRow}:${warehouse}:${centerText||''}:${status||''}:${detail||''}`,
+        data,source:'UPLOAD',source_sheet:def.data_sheet,source_row:sourceRow,
         editable:true,created_by:userId,updated_by:userId,updated_at:new Date().toISOString(),
       })
     })
@@ -788,6 +887,55 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     if(file) void uploadWorkbook(file,allReports)
   }
 
+  function downloadLoadModel(){
+    const workbook=XLSX.utils.book_new()
+
+    const instructionRows=[
+      ['KOMTROL · MODELO DE CARGA SCORECARD'],
+      ['Regla general','Una fila representa un almacén / centro / período. No combinar KMMP y DCP en una misma fila cuando existan separados.'],
+      ['Columnas comunes','AÑO | MES | GRUPO | ALMACÉN | CENTRO_UNIDAD | DETALLE | ESTADO'],
+      ['GRUPO','PROYECTO_MINERO | SUCURSAL | TIENDA'],
+      ['ALMACÉN','Equipo físico: ANTAMINA, AREQUIPA, PIURA, SAN LUIS, etc.'],
+      ['CENTRO_UNIDAD','KMMP | DCP | CUMMINS | GENERAL. Si el almacén no tiene división, usar GENERAL o dejar vacío.'],
+      ['MES','Usar número 1–12 o una fecha del mes.'],
+      ['Campos automáticos','Pueden dejarse vacíos cuando KOMTROL los calcule o disponga de fuente automática. Para históricos pueden cargarse.'],
+      [],
+      ['N°','REPORTE','HOJA','MODO','CAMPOS DE NEGOCIO'],
+      ...definitions
+        .filter((def)=>REPORT_CODES.includes(def.code))
+        .map((def)=>[
+          def.ordinal,
+          def.name,
+          def.data_sheet,
+          sourceBadge(def.source_mode),
+          def.fields.map((field)=>`${templateHeader(field)}${field.auto?' [AUTO]':''}`).join(' | '),
+        ]),
+    ]
+    const instructionSheet=XLSX.utils.aoa_to_sheet(instructionRows)
+    instructionSheet['!cols']=[{wch:8},{wch:34},{wch:28},{wch:20},{wch:85}]
+    XLSX.utils.book_append_sheet(workbook,instructionSheet,'INSTRUCCIONES')
+
+    definitions
+      .filter((def)=>REPORT_CODES.includes(def.code))
+      .forEach((def)=>{
+        const headers=[
+          'AÑO',
+          'MES',
+          'GRUPO',
+          'ALMACÉN',
+          'CENTRO_UNIDAD',
+          'DETALLE',
+          'ESTADO',
+          ...def.fields.map(templateHeader),
+        ]
+        const sheet=XLSX.utils.aoa_to_sheet([headers])
+        sheet['!cols']=headers.map((header)=>({wch:Math.max(14,Math.min(28,header.length+4))}))
+        XLSX.utils.book_append_sheet(workbook,sheet,def.data_sheet.slice(0,31))
+      })
+
+    XLSX.writeFile(workbook,'KOMTROL_Modelo_Carga_Scorecard_12_Reportes.xlsx')
+  }
+
   if(loading) return <section className="panel"><div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando Scorecard…</p></div></section>
 
   if(mode==='scorecard-carga'){
@@ -800,10 +948,15 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
               <b>Gestión de datos del Scorecard</b>
               <span>{isAdmin?'Carga masiva de todos los proyectos y 12 reportes.':'Carga mensual de los 12 reportes de tu proyecto.'}</span>
             </div>
-            {canLoad&&<label className="primary-button scorecard-upload-button">
-              <Upload size={17}/>{uploading?'Procesando…':isAdmin?'Cargar Scorecard completo':'Cargar Scorecard de mi proyecto'}
-              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,true)}/>
-            </label>}
+            <div className="button-row">
+              <button type="button" className="secondary-button" onClick={downloadLoadModel}>
+                <Download size={17}/> Modelo de carga
+              </button>
+              {canLoad&&<label className="primary-button scorecard-upload-button">
+                <Upload size={17}/>{uploading?'Procesando…':isAdmin?'Cargar Scorecard completo':'Cargar Scorecard de mi proyecto'}
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,true)}/>
+              </label>}
+            </div>
           </div>
           <div className="scorecard-report-catalog">
             {definitions.filter((item)=>REPORT_CODES.includes(item.code)).map((item)=>(
