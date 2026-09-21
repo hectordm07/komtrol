@@ -235,11 +235,11 @@ function Gauge({value,target}:{value:number;target:number}){
   return (
     <div className="io-gauge-wrap">
       <svg className="io-gauge" viewBox="0 0 200 116" aria-label={`Promedio productividad ${fmtInt(value)}`}>
-        <path d={arc(-90,-54)} className="gauge-red"/>
-        <path d={arc(-54,-18)} className="gauge-orange"/>
+        <path d={arc(-90,-54)} className="gauge-green"/>
+        <path d={arc(-54,-18)} className="gauge-lime"/>
         <path d={arc(-18,18)} className="gauge-yellow"/>
-        <path d={arc(18,54)} className="gauge-lime"/>
-        <path d={arc(54,90)} className="gauge-green"/>
+        <path d={arc(18,54)} className="gauge-orange"/>
+        <path d={arc(54,90)} className="gauge-red"/>
         <line x1={cx} y1={cy} x2={nx} y2={ny} className="needle"/>
         <circle cx={cx} cy={cy} r="6" className="hub"/>
       </svg>
@@ -247,7 +247,6 @@ function Gauge({value,target}:{value:number;target:number}){
         <b>{fmtInt(value)}</b>
         <span>Promedio productividad</span>
       </div>
-      <div className="io-gauge-target"><Target size={12}/> Meta {fmtInt(target)}</div>
     </div>
   )
 }
@@ -353,9 +352,11 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
                   <small>Productividad {fmtInt(item.value)} · Meta {fmtInt(item.target)}</small>
                   <small>Diferencia {item.value>=item.target?'+':''}{fmtInt(item.value-item.target)}</small>
                 </span>
-                <div className={alert?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
-                <div className={alert?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
-                <div className="io-bar-label">{item.shortName}</div>
+                <div className="io-bar-plot">
+                  <div className={alert?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
+                  <div className={alert?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
+                </div>
+                <div className="io-bar-label">{item.name}</div>
               </div>
             )
           })}
