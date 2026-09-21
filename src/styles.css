@@ -17164,3 +17164,439 @@ table tbody tr:hover td {
     width: 100%;
   }
 }
+
+
+/* =========================================================
+   SEARCHABLE FILTERS + VIGENCIAS + INCIDENT MODAL V5
+   ========================================================= */
+.searchable-select {
+  position: relative;
+  min-width: 190px;
+  flex: 0 1 260px;
+  z-index: 5;
+}
+.searchable-select.is-disabled {
+  opacity: .72;
+}
+.searchable-select-control {
+  min-height: 38px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--kt-blue-600);
+  box-shadow: var(--kt-shadow-xs);
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.searchable-select-control:focus-within {
+  border-color: var(--kt-blue-600);
+  box-shadow: var(--kt-focus);
+  background: var(--kt-blue-50);
+}
+.searchable-select-control > svg {
+  flex: 0 0 auto;
+}
+.searchable-select-control input {
+  min-width: 0;
+  min-height: 36px !important;
+  padding: 7px 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--kt-blue-950);
+  font-size: 10px;
+  font-weight: 750;
+}
+.searchable-select-control input::placeholder {
+  color: var(--kt-muted);
+  font-weight: 650;
+}
+.searchable-select-clear {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--kt-muted);
+  display: grid;
+  place-items: center;
+}
+.searchable-select-clear:hover {
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+}
+.searchable-select-chevron {
+  margin-left: auto;
+  color: var(--kt-muted);
+}
+.searchable-select-menu {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 270px;
+  overflow: auto;
+  padding: 5px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(31,40,95,.16);
+}
+.searchable-select-menu > button {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--kt-ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 750;
+}
+.searchable-select-menu > button:hover {
+  background: var(--kt-blue-50);
+  color: var(--kt-blue-900);
+}
+.searchable-select-menu > button.selected {
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-900);
+}
+.searchable-select-empty {
+  padding: 12px 10px;
+  border-radius: 8px;
+  background: var(--kt-blue-50);
+  color: var(--kt-muted);
+  text-align: center;
+  font-size: 9px;
+  font-weight: 750;
+}
+.task-filter-toolbar .searchable-select,
+.expiration-filter-toolbar .searchable-select {
+  min-width: 165px;
+}
+.expiration-filter-toolbar {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.expiration-filter-toolbar .search {
+  flex: 1 1 280px;
+}
+.expiration-filter-toolbar .searchable-select {
+  flex: 1 1 210px;
+}
+
+/* Vigencias: lectura inmediata por color. */
+.expiration-vigency-kpis > .vigency-valid {
+  border-color: #bfe3cf !important;
+  background: linear-gradient(135deg,#edf9f2,#fff 72%) !important;
+  box-shadow: inset 3px 0 0 #2f8a5a,var(--kt-shadow-xs) !important;
+}
+.expiration-vigency-kpis > .vigency-valid b {
+  color: #247048 !important;
+}
+.expiration-vigency-kpis > .vigency-warning {
+  border-color: #f1dda0 !important;
+  background: linear-gradient(135deg,#fff8df,#fff 72%) !important;
+  box-shadow: inset 3px 0 0 #d2a329,var(--kt-shadow-xs) !important;
+}
+.expiration-vigency-kpis > .vigency-warning b {
+  color: #8d6810 !important;
+}
+.expiration-vigency-kpis > .vigency-critical {
+  border-color: #f0c9aa !important;
+  background: linear-gradient(135deg,#fff1e5,#fff 72%) !important;
+  box-shadow: inset 3px 0 0 #d56d1f,var(--kt-shadow-xs) !important;
+}
+.expiration-vigency-kpis > .vigency-critical b {
+  color: #a24e0b !important;
+}
+.expiration-vigency-kpis > .vigency-expired {
+  border-color: var(--kt-danger-border) !important;
+  background: linear-gradient(135deg,var(--kt-danger-soft),#fff 72%) !important;
+  box-shadow: inset 3px 0 0 var(--kt-danger),var(--kt-shadow-xs) !important;
+}
+.expiration-vigency-kpis > .vigency-expired b {
+  color: var(--kt-danger) !important;
+}
+.expiration-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 25px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.expiration-status-pill.is-valid {
+  border-color: #bfe3cf;
+  background: #edf9f2;
+  color: #247048;
+}
+.expiration-status-pill.is-warning {
+  border-color: #f1dda0;
+  background: #fff8df;
+  color: #8d6810;
+}
+.expiration-status-pill.is-critical {
+  border-color: #f0c9aa;
+  background: #fff1e5;
+  color: #a24e0b;
+}
+.expiration-status-pill.is-expired {
+  border-color: var(--kt-danger-border);
+  background: var(--kt-danger-soft);
+  color: var(--kt-danger);
+}
+.expiration-status-pill.is-inactive {
+  border-color: var(--kt-blue-200);
+  background: var(--kt-blue-50);
+  color: var(--kt-muted);
+}
+.expiration-edit-button {
+  width: 32px;
+  height: 32px;
+  color: var(--kt-blue-700);
+  border-color: var(--kt-blue-200);
+}
+.expiration-edit-button:hover {
+  color: var(--kt-blue-900);
+  border-color: var(--kt-blue-400);
+  background: var(--kt-blue-100);
+}
+.expiration-mobile-edit {
+  width: 100%;
+  margin-top: 9px;
+}
+
+/* Modal de incidencias: jerarquía ejecutiva y paleta KOMTROL. */
+.calendar-incident-modal {
+  width: min(820px,calc(100vw - 28px));
+  max-width: 820px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--kt-blue-200);
+  background: linear-gradient(180deg,#fff 0%,var(--kt-blue-50) 100%);
+  box-shadow: var(--kt-shadow-lg);
+}
+.calendar-incident-head {
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid var(--kt-blue-200);
+  background:
+    radial-gradient(circle at 90% 15%,rgba(85,112,216,.10),transparent 30%),
+    linear-gradient(135deg,var(--kt-blue-75),#fff 68%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.calendar-incident-heading {
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.calendar-incident-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 12px;
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+  display: grid;
+  place-items: center;
+}
+.calendar-incident-heading > div {
+  min-width: 0;
+}
+.calendar-incident-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--kt-blue-600);
+  font-size: 7px;
+  font-weight: 950;
+  letter-spacing: .12em;
+}
+.calendar-incident-heading h2 {
+  margin: 0;
+  color: var(--kt-blue-950);
+  font-size: 19px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.calendar-incident-badges {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.incident-type-badge,
+.incident-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.incident-type-badge {
+  border: 1px solid var(--kt-blue-200);
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-900);
+}
+.incident-status-badge.status-abierto {
+  border: 1px solid #f0c9aa;
+  background: #fff1e5;
+  color: #a24e0b;
+}
+.incident-status-badge.status-en-revision {
+  border: 1px solid #f1dda0;
+  background: #fff8df;
+  color: #8d6810;
+}
+.incident-status-badge.status-notificado {
+  border: 1px solid var(--kt-blue-300);
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-800);
+}
+.incident-status-badge.status-cerrado {
+  border: 1px solid #bfe3cf;
+  background: #edf9f2;
+  color: #247048;
+}
+.calendar-incident-close {
+  flex: 0 0 auto;
+  color: var(--kt-blue-700);
+  border-color: var(--kt-blue-200);
+}
+.calendar-incident-grid {
+  padding: 16px 20px 8px;
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+}
+.calendar-incident-field {
+  min-width: 0;
+  min-height: 70px;
+  padding: 10px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: inset 3px 0 0 var(--kt-blue-500),var(--kt-shadow-xs);
+  display: grid;
+  grid-template-columns: 30px minmax(0,1fr);
+  gap: 8px;
+  align-items: start;
+}
+.calendar-incident-field-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-700);
+  display: grid;
+  place-items: center;
+}
+.calendar-incident-field > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.calendar-incident-field small,
+.calendar-incident-note small {
+  color: var(--kt-muted);
+  font-size: 7px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.calendar-incident-field b {
+  color: var(--kt-blue-950);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.calendar-incident-notes-grid {
+  padding: 4px 20px 8px;
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+}
+.calendar-incident-note {
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 11px;
+  background: var(--kt-blue-50);
+}
+.calendar-incident-note p {
+  margin: 7px 0 0;
+  color: var(--kt-ink-2);
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.calendar-incident-actions {
+  margin: 0;
+  padding: 10px 20px 18px;
+  border-top: 0;
+}
+.calendar-incident-actions .primary-button {
+  background: var(--kt-blue-800);
+}
+.calendar-incident-actions .primary-button:hover {
+  background: var(--kt-blue-900);
+}
+
+@media (max-width:760px) {
+  .searchable-select,
+  .task-filter-toolbar .searchable-select,
+  .expiration-filter-toolbar .searchable-select {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  .searchable-select-control {
+    min-height: 44px;
+  }
+  .searchable-select-control input {
+    min-height: 42px !important;
+    font-size: 11px;
+  }
+  .calendar-incident-head {
+    padding: 14px;
+  }
+  .calendar-incident-heading h2 {
+    font-size: 15px;
+  }
+  .calendar-incident-grid,
+  .calendar-incident-notes-grid {
+    grid-template-columns: 1fr;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .calendar-incident-actions {
+    padding: 10px 14px 14px;
+  }
+  .calendar-incident-actions .primary-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
