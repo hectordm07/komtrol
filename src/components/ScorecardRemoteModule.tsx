@@ -435,31 +435,59 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   useEffect(()=>{reload()},[mode,year])
 
   useEffect(()=>{
-    if(role==='ADMINISTRADOR'){
-      setWarehouseFilter('TODOS')
-      return
-    }
     if(canViewRemoteNetwork){
       setWarehouseFilter('TODOS')
       return
     }
-    setWarehouseFilter(normalizeProfileWarehouse(profile))
-  },[role,profile?.warehouse,profile?.project,canViewRemoteNetwork])
+    const own=warehouseCatalog.find((item)=>
+      item.name.toUpperCase()===normalizeProfileWarehouse(profile).toUpperCase() ||
+      item.code.toUpperCase()===normalizeProfileWarehouse(profile).toUpperCase()
+    )
+    setWarehouseFilter(own?`ALMACEN:${own.code}`:'TODOS')
+  },[role,profile?.warehouse,profile?.project,canViewRemoteNetwork,warehouseCatalog])
 
-  const warehouses=useMemo(()=>Array.from(new Set(rows.map((row)=>row.warehouse).filter(Boolean))).sort(),[rows])
+  const filterLabel=useMemo(
+    ()=>dashboardFilterLabel(warehouseFilter,warehouseCatalog,warehouseCenters),
+    [warehouseFilter,warehouseCatalog,warehouseCenters]
+  )
+
+  const filterSingleTarget=useMemo(()=>{
+    if(warehouseFilter.startsWith('ALMACEN:')){
+      const code=warehouseFilter.slice(8)
+      return warehouseCatalog.find((item)=>item.code===code)?.name || ''
+    }
+    if(warehouseFilter.startsWith('CENTRO:')){
+      const code=warehouseFilter.slice(7)
+      return warehouseCenters.find((item)=>item.code===code)?.name || ''
+    }
+    return ''
+  },[warehouseFilter,warehouseCatalog,warehouseCenters])
 
   const scopedRows=useMemo(()=>rows.filter((row)=>
-    row.year===year&&row.month===month&&(warehouseFilter==='TODOS'||row.warehouse===warehouseFilter)
-  ),[rows,year,month,warehouseFilter])
+    row.year===year&&row.month===month&&matchesDashboardHierarchy(
+      warehouseFilter,
+      row.warehouse,
+      row.site_name,
+      warehouseCatalog,
+      warehouseCenters
+    )
+  ),[rows,year,month,warehouseFilter,warehouseCatalog,warehouseCenters])
 
-  const visibleHistorical=useMemo(()=>rows.filter((row)=>warehouseFilter==='TODOS'||row.warehouse===warehouseFilter),[rows,warehouseFilter])
+  const visibleHistorical=useMemo(()=>rows.filter((row)=>matchesDashboardHierarchy(
+    warehouseFilter,
+    row.warehouse,
+    row.site_name,
+    warehouseCatalog,
+    warehouseCenters
+  )),[rows,warehouseFilter,warehouseCatalog,warehouseCenters])
 
   const fieldMap=useMemo(()=>new Map((report?.fields||[]).map((field)=>[field.key,field])),[report])
 
   const chartCategories=(fieldKeys:string[])=>{
     const grouped=new Map<string,ScorecardRow[]>()
     scopedRows.forEach((row)=>{
-      const label=warehouseFilter==='TODOS'
+      const broadFilter=warehouseFilter==='TODOS'||warehouseFilter.startsWith('GRUPO:')
+      const label=broadFilter
         ? row.site_name
         : row.row_status || row.detail || row.site_name
       grouped.set(label,[...(grouped.get(label)||[]),row])
