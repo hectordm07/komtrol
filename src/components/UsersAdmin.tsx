@@ -3,6 +3,7 @@ import { CheckCircle2, Download, FileUp, Pencil, RefreshCw, Save, Search, Shield
 import { supabase } from '../lib/supabase'
 import * as XLSX from 'xlsx'
 import { exportRowsToExcel } from '../lib/exportUtils'
+import { SearchableSelect } from './SearchableSelect'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -20,6 +21,15 @@ type ProfileRow = {
   corporate_email: string | null
   oc_cargo_access_level: 'COMERCIAL' | 'DOCUMENTARIO' | null
   created_at: string
+}
+
+type WarehouseOption = {
+  id: string
+  code: string
+  name: string
+  warehouse_scope: 'REMOTO' | 'CENTRAL'
+  remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
+  active: boolean
 }
 
 type ImportUser = {
@@ -164,6 +174,7 @@ function downloadCsv(filename: string, rows: string[][]) {
 
 export function UsersAdmin() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
+  const [warehouseOptions, setWarehouseOptions] = useState<WarehouseOption[]>([])
   const [loading, setLoading] = useState(true)
   const [importText, setImportText] = useState('')
   const [fileName, setFileName] = useState('usuarios_komtrol.csv')
@@ -204,12 +215,21 @@ export function UsersAdmin() {
 
   async function loadProfiles() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,oc_cargo_access_level,created_at')
-      .order('full_name')
-    if (error) setMessage(error.message)
-    setProfiles((data ?? []) as ProfileRow[])
+    const [profileRes,warehouseRes] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,oc_cargo_access_level,created_at')
+        .order('full_name'),
+      supabase
+        .from('warehouses')
+        .select('id,code,name,warehouse_scope,remote_group,active')
+        .eq('active',true)
+        .order('remote_group')
+        .order('name'),
+    ])
+    if (profileRes.error || warehouseRes.error) setMessage(profileRes.error?.message || warehouseRes.error?.message || 'No se pudo cargar la configuración.')
+    setProfiles((profileRes.data ?? []) as ProfileRow[])
+    setWarehouseOptions((warehouseRes.data ?? []) as WarehouseOption[])
     setLoading(false)
   }
 
@@ -654,8 +674,20 @@ export function UsersAdmin() {
                 <small>El rol controla permisos; el Puesto/Cargo describe la función de la persona.</small>
               </label>
 
-              <label>Almacén
-                <input value={editForm.warehouse} onChange={(e)=>setEditForm({...editForm,warehouse:e.target.value})} placeholder="ANTAMINA"/>
+              <label>Almacén / Equipo
+                <SearchableSelect
+                  value={editForm.warehouse}
+                  onChange={(value)=>setEditForm({...editForm,warehouse:value})}
+                  options={warehouseOptions.map((item)=>({
+                    value:item.name,
+                    label:item.name,
+                    keywords:[item.code,item.remote_group,item.warehouse_scope].filter(Boolean).join(' '),
+                  }))}
+                  placeholder="Buscar almacén…"
+                  noResultsText="Almacén no encontrado"
+                  ariaLabel="Almacén del usuario"
+                />
+                <small>KMMP, DCP y CUMMINS son centros del mismo equipo físico, no almacenes separados.</small>
               </label>
 
               <label>Proyecto
