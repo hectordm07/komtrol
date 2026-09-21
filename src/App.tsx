@@ -957,43 +957,60 @@ function Workspace({ session }: { session: Session }) {
         </nav>
 
         <div className="sidebar-footer">
-          {canPreviewWorker && (
+          {canPreviewSystemViews && (
             <div className="access-view-switcher">
               <div className="access-view-head">
                 <span>VISTA DEL SISTEMA</span>
                 <small>Rol real: Administrador</small>
               </div>
-              <div className="access-view-options">
-                <button
-                  type="button"
-                  className={!isWorkerPreview ? 'active' : ''}
-                  onClick={() => changeAccessView('ACTUAL')}
+
+              <div className="access-view-select-wrap">
+                <ShieldCheck size={14} />
+                <select
+                  aria-label="Seleccionar vista del sistema"
+                  value={accessView}
+                  onChange={(event)=>changeAccessView(event.target.value as AccessView)}
                 >
-                  <ShieldCheck size={14} />
-                  Administrador
-                </button>
-                <button
-                  type="button"
-                  className={isWorkerPreview ? 'active' : ''}
-                  onClick={() => changeAccessView('TRABAJADOR')}
-                >
-                  <ClipboardList size={14} />
-                  Almacenero
-                </button>
+                  <option value="ACTUAL">Administrador</option>
+                  <optgroup label="Callao">
+                    <option value="SUPERVISOR_CALLAO">Supervisor Almacén Callao</option>
+                    <option value="COORDINADOR_CALLAO">Coordinador de Almacén Callao</option>
+                    <option value="ALMACENERO_CALLAO">Almacenero Callao</option>
+                  </optgroup>
+                  <optgroup label="Proyecto Minero">
+                    <option value="SUPERVISOR_PROYECTO_MINERO">Supervisor Almacén Proyecto Minero</option>
+                    <option value="COORDINADOR_PROYECTO_MINERO">Coordinador de Almacén Proyecto Minero</option>
+                    <option value="ALMACENERO_PROYECTO_MINERO">Almacenero de Proyecto Minero</option>
+                  </optgroup>
+                  <optgroup label="Sucursales">
+                    <option value="ALMACENERO_SUCURSAL">Almacenero de Sucursales</option>
+                  </optgroup>
+                </select>
+                <ChevronDown size={13} />
               </div>
-              {isWorkerPreview && (
+
+              <div className={isAccessPreview ? 'access-view-current is-preview' : 'access-view-current'}>
+                <span className="access-view-current-icon">
+                  {previewAccess?.role === 'TRABAJADOR' ? <ClipboardList size={14}/> : previewAccess?.role === 'COORDINADOR' ? <Users size={14}/> : <ShieldCheck size={14}/>} 
+                </span>
+                <div>
+                  <b>{previewAccess?.shortLabel || 'Administrador'}</b>
+                  <small>{previewAccess ? previewAccess.warehouse + ' · ' + previewAccess.role : 'Acceso completo del sistema'}</small>
+                </div>
+              </div>
+
+              {isAccessPreview && (
                 <div className="access-preview-note">
-                  Estás viendo KOMTROL como Almacenero. Cambia a Administrador para recuperar todos los módulos.
+                  Vista de prueba activa. No cambia tu rol real de Administrador.
                 </div>
               )}
             </div>
           )}
-
           <div className="profile-mini">
             <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
             <div>
               <b>{displayName}</b>
-              <span>{isWorkerPreview ? `${profile?.position || 'ALMACENERO'} · VISTA DE PRUEBA` : role}</span>
+              <span>{isAccessPreview ? `${previewAccess?.shortLabel || role} · VISTA DE PRUEBA` : role}</span>
             </div>
           </div>
           <button className="logout-button" onClick={logout}><LogOut size={17} /> Salir</button>
@@ -1014,9 +1031,9 @@ function Workspace({ session }: { session: Session }) {
           <div className="topbar-title-block">
             <div className="topbar-title-line">
               <h1>{currentNav?.label ?? 'KOMTROL'}</h1>
-              {isWorkerPreview && <span className="access-preview-badge">Vista Almacenero</span>}
+              {isAccessPreview && <span className="access-preview-badge">{previewAccess?.shortLabel}</span>}
             </div>
-            <p>{displayName} · {isWorkerPreview ? (profile?.position || 'ALMACENERO') : role}{profile?.warehouse ? ` · ${profile.warehouse}` : ''}{profile?.group_name ? ` · ${profile.group_name}` : ''}{profile?.shift_name ? ` · ${profile.shift_name}` : ''}</p>
+            <p>{displayName} · {isAccessPreview ? (previewAccess?.position || role) : role}{effectiveProfile?.warehouse ? ` · ${effectiveProfile.warehouse}` : ''}{effectiveProfile?.group_name ? ` · ${effectiveProfile.group_name}` : ''}{effectiveProfile?.shift_name ? ` · ${effectiveProfile.shift_name}` : ''}</p>
           </div>
           <div className="top-actions">
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={19} /></button>
@@ -1067,7 +1084,7 @@ function Workspace({ session }: { session: Session }) {
               <span className="user-greeting-date"><i />{todayLabel(now)}</span>
               <div className="user-greeting-copy">
                 <strong>{greetingForDate(now)}, <b>{firstName(displayName)}</b></strong>
-                <small>{profile.warehouse || 'SIN ALMACÉN'}{profile.group_name ? ` · ${profile.group_name}` : ''}{profile.shift_name ? ` · ${profile.shift_name}` : ''}{isWorkerPreview ? ' · VISTA ALMACENERO' : ''}</small>
+                <small>{effectiveProfile?.warehouse || 'SIN ALMACÉN'}{effectiveProfile?.group_name ? ` · ${effectiveProfile.group_name}` : ''}{effectiveProfile?.shift_name ? ` · ${effectiveProfile.shift_name}` : ''}{isAccessPreview ? ` · VISTA ${previewAccess?.shortLabel?.toUpperCase()}` : ''}</small>
               </div>
             </div>
           </section>
