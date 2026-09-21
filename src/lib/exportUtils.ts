@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import html2canvas from 'html2canvas'
 
 export type ExportColumn = {
   header: string
@@ -190,3 +191,77 @@ export function exportRowsToPdfPortrait(
   doc.save(normalizedFileName(filename, 'pdf'))
 }
 
+
+
+export async function exportElementToPdfPortrait(
+  filename: string,
+  title: string,
+  element: HTMLElement,
+  options?: {
+    subtitle?: string
+  }
+) {
+  const exportClass = 'komtrol-pdf-exporting'
+  element.classList.add(exportClass)
+
+  try {
+    const captureWidth = Math.max(element.scrollWidth, element.clientWidth, 1280)
+    const captureHeight = Math.max(element.scrollHeight, element.clientHeight)
+
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#f6f7ff',
+      logging: false,
+      width: captureWidth,
+      height: captureHeight,
+      windowWidth: captureWidth,
+      scrollX: 0,
+      scrollY: 0,
+    })
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const marginX = 7
+    const headerHeight = 22
+    const footerHeight = 8
+    const contentTop = headerHeight + 3
+    const availableHeight = pageHeight - contentTop - footerHeight
+    const imageWidth = pageWidth - marginX * 2
+    const imageHeight = canvas.height * imageWidth / canvas.width
+    const imageData = canvas.toDataURL('image/png', 0.96)
+    const pages = Math.max(1, Math.ceil(imageHeight / availableHeight))
+
+    const drawHeader = (pageIndex: number) => {
+      doc.setFillColor(51, 67, 154)
+      doc.rect(0, 0, pageWidth, headerHeight, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.text(title, marginX, 9)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      const subtitle = options?.subtitle || ('Generado: ' + new Date().toLocaleString('es-PE'))
+      doc.text(subtitle, marginX, 15)
+      doc.text('Página ' + (pageIndex + 1) + ' de ' + pages, pageWidth - marginX, 15, { align: 'right' })
+    }
+
+    for (let pageIndex = 0; pageIndex < pages; pageIndex += 1) {
+      if (pageIndex > 0) doc.addPage('a4', 'portrait')
+      drawHeader(pageIndex)
+      const offsetY = contentTop - pageIndex * availableHeight
+      doc.addImage(imageData, 'PNG', marginX, offsetY, imageWidth, imageHeight, undefined, 'FAST')
+      doc.setFillColor(255, 255, 255)
+      doc.rect(0, pageHeight - footerHeight, pageWidth, footerHeight, 'F')
+      doc.setTextColor(120, 130, 160)
+      doc.setFontSize(6.5)
+      doc.text('KOMTROL · Scorecard operativo', marginX, pageHeight - 3.2)
+      doc.text(new Date().toLocaleDateString('es-PE'), pageWidth - marginX, pageHeight - 3.2, { align: 'right' })
+    }
+
+    doc.save(normalizedFileName(filename, 'pdf'))
+  } finally {
+    element.classList.remove(exportClass)
+  }
+}
