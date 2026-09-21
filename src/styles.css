@@ -20207,3 +20207,283 @@ table tbody tr:hover td {
     font-size: 25px;
   }
 }
+
+
+/* KOMTROL SCORECARD V4 · FULL WIDTH + MINE WAREHOUSE HERO */
+
+/* Hero corporativo: almacén + mina como marca de agua */
+.user-greeting-inner {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(105deg, rgba(48,64,151,.98) 0%, rgba(58,77,175,.96) 48%, rgba(78,101,210,.94) 100%);
+}
+
+.user-greeting-inner::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 0 auto;
+  width: min(68%, 980px);
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: cover;
+  opacity: .95;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 980 190'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.17' stroke-width='2'%3E%3Cpath d='M390 140 L520 72 L615 118 L690 68 L790 128 L890 83 L980 145'/%3E%3Cpath d='M430 151 L545 100 L620 136 L704 92 L790 146' stroke-opacity='.09'/%3E%3Cpath d='M640 148 H956 V82 H640 Z'/%3E%3Cpath d='M662 148 V98 H744 V148 M765 148 V98 H847 V148 M868 148 V98 H934 V148'/%3E%3Cpath d='M640 98 H956 M640 116 H956 M640 134 H956' stroke-opacity='.12'/%3E%3Cpath d='M662 98 L703 82 L744 98 M765 98 L806 82 L847 98 M868 98 L901 82 L934 98'/%3E%3Cpath d='M715 72 V45 H753 V72 M726 45 V31 H742 V45' stroke-opacity='.14'/%3E%3Cpath d='M560 150 H620 V115 H560 Z M570 115 V92 H610 V115'/%3E%3Cpath d='M518 152 H960' stroke-opacity='.12'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.045'%3E%3Cpath d='M390 140 L520 72 L615 118 L690 68 L790 128 L890 83 L980 145 V190 H390 Z'/%3E%3Crect x='640' y='82' width='316' height='68' rx='3'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.user-greeting-inner::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(44,57,139,.32) 0%, rgba(44,57,139,.12) 47%, rgba(44,57,139,0) 73%);
+}
+
+.user-greeting-inner > * {
+  position: relative;
+  z-index: 2;
+}
+
+.user-greeting-copy strong b {
+  color: #fff;
+}
+
+/* Scorecard: cabecera y filtros en una sola franja útil de escritorio */
+.scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+  min-height: 68px;
+  padding: 9px 11px;
+  display: grid;
+  grid-template-columns: minmax(310px,.78fr) minmax(650px,1.35fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-report-context {
+  min-width: 0;
+  max-width: none;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-report-context > div {
+  grid-template-columns: minmax(0,auto) auto;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-report-context b,
+.scorecard-module:has(.io-dashboard-v3) .scorecard-report-context small {
+  grid-column: 1;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-report-context em {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 94px 94px minmax(260px,1fr) auto auto 42px;
+  align-items: center;
+  justify-content: stretch;
+  gap: 7px;
+  flex-wrap: nowrap;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-filters > * {
+  min-width: 0;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-quick-select {
+  min-width: 0;
+  min-height: 39px;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-filters .dashboard-hierarchy-filter {
+  min-width: 0;
+  width: 100%;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button {
+  min-width: 82px;
+  min-height: 39px;
+  padding-inline: 10px;
+  justify-content: center;
+}
+
+.scorecard-module:has(.io-dashboard-v3) .scorecard-filters .icon-button {
+  width: 42px;
+  min-width: 42px;
+  min-height: 39px;
+}
+
+/* El reporte debe utilizar todo el ancho disponible sin scroll horizontal de escritorio */
+.scorecard-dashboard-export,
+.io-dashboard-v3 {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.io-dashboard-v3 .io-dashboard-top,
+.io-dashboard-v3 .io-dashboard-bottom {
+  width: 100%;
+  min-width: 0;
+}
+
+.io-dashboard-v3 .io-trend-card,
+.io-dashboard-v3 .io-productivity-panel,
+.io-dashboard-v3 .io-gauge-card,
+.io-dashboard-v3 .io-mini-card {
+  min-width: 0;
+}
+
+.io-dashboard-v3 .io-productivity-chart {
+  width: 100%;
+}
+
+/* Exportación normalizada: independiente del ancho del monitor del usuario */
+.scorecard-dashboard-export.komtrol-pdf-exporting {
+  width: 1440px !important;
+  min-width: 1440px !important;
+  max-width: 1440px !important;
+  padding: 0 !important;
+  gap: 7px !important;
+  background: #f6f7ff;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-v3 {
+  width: 1440px !important;
+  min-width: 1440px !important;
+  max-width: 1440px !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-context {
+  min-height: 34px;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-top {
+  grid-template-columns: 210px minmax(0,1fr) minmax(0,1fr) !important;
+  gap: 7px !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-bottom {
+  grid-template-columns: 250px minmax(0,1fr) !important;
+  gap: 7px !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-mini-card {
+  min-height: 82px;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-trend-card {
+  min-height: 176px;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-gauge-card,
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-productivity-panel {
+  min-height: 228px;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-productivity-chart {
+  height: 178px;
+  overflow: visible !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-bars {
+  width: 100% !important;
+  min-width: 100% !important;
+  height: 145px;
+  grid-template-columns: repeat(var(--io-bar-count), minmax(24px,1fr)) !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-bar-item {
+  height: 132px;
+}
+
+/* Desktop intermedio: conservar una cabecera compacta sin crear un bloque vertical gigante */
+@media (max-width: 1220px) and (min-width: 821px) {
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+    grid-template-columns: 88px 88px minmax(240px,1fr) auto auto 42px;
+  }
+}
+
+@media (max-width: 820px) {
+  .user-greeting-inner::before {
+    width: 86%;
+    opacity: .66;
+    background-position: 68% center;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: auto;
+    gap: 9px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context > div {
+    grid-template-columns: 1fr;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context em {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 7px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters > .dashboard-hierarchy-filter {
+    grid-column: 1 / -1;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button {
+    width: 100%;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .icon-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .user-greeting-sticky {
+    padding-inline: 8px;
+  }
+
+  .user-greeting-inner {
+    min-height: 96px;
+    padding: 14px 15px;
+    border-radius: 15px;
+  }
+
+  .user-greeting-inner::before {
+    width: 100%;
+    opacity: .48;
+  }
+
+  .user-greeting-copy strong {
+    font-size: 20px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters > * {
+    grid-column: auto !important;
+  }
+}
