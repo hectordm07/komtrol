@@ -558,7 +558,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       `KOMTROL · ${report.name}`,
       scorecardExportColumns,
       scorecardExportRows,
-      {subtitle:`${MONTHS[month-1]} ${year} · ${warehouseFilter==='TODOS'?'Todos los proyectos':warehouseFilter}`,summary:[['Registros',scorecardExportRows.length]]}
+      {subtitle:`${MONTHS[month-1]} ${year} · ${filterLabel}`,summary:[['Registros',scorecardExportRows.length]]}
     )
   }
 
@@ -586,9 +586,8 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
   async function addManualRow() {
     if(!report) return
-    const targetWarehouse=warehouseFilter==='TODOS'
-      ? (role==='COORDINADOR'?normalizeProfileWarehouse(profile):'SIN_ASIGNAR')
-      : warehouseFilter
+    const targetWarehouse=filterSingleTarget ||
+      (role==='COORDINADOR'?normalizeProfileWarehouse(profile):'SIN_ASIGNAR')
     const siteName=role==='COORDINADOR'
       ? (profile?.project||profile?.warehouse||targetWarehouse)
       : targetWarehouse
@@ -610,7 +609,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
   async function submitPeriod() {
     if(!report) return
-    const target=warehouseFilter==='TODOS'?normalizeProfileWarehouse(profile):warehouseFilter
+    const target=filterSingleTarget||normalizeProfileWarehouse(profile)
     if(!target||target==='SIN_ASIGNAR'){setMessage('Selecciona un almacén/proyecto antes de enviar.');return}
     const {error}=await supabase.from('scorecard_submissions').upsert({
       report_code:report.code,year,month,warehouse:target,
@@ -622,7 +621,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
   async function refreshAutomaticData() {
     if(!report||!['AUTO','HYBRID'].includes(report.source_mode)) return
-    const target=warehouseFilter==='TODOS'?normalizeProfileWarehouse(profile):warehouseFilter
+    const target=filterSingleTarget||normalizeProfileWarehouse(profile)
     if(!target||target==='SIN_ASIGNAR'){setMessage('Selecciona un proyecto/almacén para actualizar datos automáticos.');return}
     const start=`${year}-${String(month).padStart(2,'0')}-01`
     const endMonth=month===12?1:month+1
@@ -842,7 +841,13 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         <div className="scorecard-filters">
           <SearchableSelect value={String(year)} onChange={(value)=>value&&setYear(Number(value))} options={[2024,2025,2026,2027].map((value)=>({value:String(value),label:String(value)}))} placeholder="Buscar año…" clearable={false} ariaLabel="Filtrar por año"/>
           <SearchableSelect value={String(month)} onChange={(value)=>value&&setMonth(Number(value))} options={MONTHS.map((label,index)=>({value:String(index+1),label}))} placeholder="Buscar mes…" clearable={false} ariaLabel="Filtrar por mes"/>
-          {canViewRemoteNetwork&&<SearchableSelect value={warehouseFilter} onChange={(value)=>setWarehouseFilter(value||'TODOS')} options={[{value:'TODOS',label:'Proyectos Mineros + Sucursales'},...warehouses.map((warehouse)=>({value:warehouse,label:warehouse}))]} placeholder="Buscar almacén…" clearable={false} ariaLabel="Filtrar por almacén"/>}
+          {canViewRemoteNetwork&&<DashboardHierarchyFilter
+            value={warehouseFilter}
+            onChange={setWarehouseFilter}
+            warehouses={warehouseCatalog}
+            centers={warehouseCenters}
+            ariaLabel="Filtrar Scorecard por grupo, almacén o centro"
+          />}
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardPdf}><FileText size={16}/> PDF</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
@@ -888,7 +893,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       {canSeeSourceData && (
         <section className="panel scorecard-data-panel">
           <div className="scorecard-data-head">
-            <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {warehouseFilter==='TODOS'?'Todos los proyectos':warehouseFilter}</span></div>
+            <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {filterLabel}</span></div>
             <div className="button-row">
               {['AUTO','HYBRID'].includes(report.source_mode)&&canLoad&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
               {canLoad&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
