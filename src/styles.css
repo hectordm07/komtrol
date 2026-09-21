@@ -20855,3 +20855,399 @@ table tbody tr:hover td {
   font-size: 5.8px;
   -webkit-line-clamp: 2;
 }
+
+
+/* KOMTROL SCORECARD V6 · ONE SCREEN DESKTOP WITH SIDEBAR */
+
+/*
+  La captura real del usuario es ~1917×1000 px con sidebar abierto.
+  En escritorios con altura útil reducida compactamos verticalmente el reporte
+  para que el bloque completo de Inbound / Outbound entre en una sola vista.
+*/
+@media (min-width: 1100px) and (max-height: 1050px) {
+  .user-greeting-sticky {
+    padding-top: 6px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .user-greeting-inner {
+    min-height: 72px;
+    padding: 10px 18px;
+    border-radius: 15px;
+    gap: 6px;
+  }
+
+  .user-greeting-date {
+    min-height: 22px;
+    padding: 3px 9px;
+    font-size: 8px;
+  }
+
+  .user-greeting-copy {
+    gap: 1px;
+  }
+
+  .user-greeting-copy strong {
+    font-size: 20px;
+    line-height: 1.02;
+  }
+
+  .user-greeting-copy small {
+    font-size: 7px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) {
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+    min-height: 54px;
+    padding: 6px 9px;
+    gap: 8px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context > span {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context b {
+    font-size: 11px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context small {
+    font-size: 7px;
+    line-height: 1.15;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context em {
+    min-height: 24px;
+    padding: 3px 6px;
+    font-size: 7px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-quick-select,
+  .scorecard-module:has(.io-dashboard-v3) .dashboard-hierarchy-trigger,
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button,
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .icon-button {
+    min-height: 34px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button {
+    font-size: 10px;
+  }
+
+  .io-dashboard-v3 {
+    gap: 6px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-context {
+    min-height: 30px;
+    padding: 5px 10px;
+    border-radius: 9px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-context b,
+  .io-dashboard-v3 .io-dashboard-context span {
+    font-size: 7px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top {
+    grid-template-columns: minmax(170px,.48fr) minmax(0,1.18fr) minmax(0,1.18fr);
+    gap: 6px;
+  }
+
+  .io-dashboard-v3 .io-mini-stack {
+    gap: 6px;
+  }
+
+  .io-dashboard-v3 .io-mini-card {
+    min-height: 74px;
+    padding: 7px 9px 6px;
+    gap: 3px;
+    border-radius: 12px;
+  }
+
+  .io-dashboard-v3 .io-mini-main {
+    grid-template-columns: 32px minmax(0,1fr);
+    gap: 7px;
+  }
+
+  .io-dashboard-v3 .io-mini-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .io-dashboard-v3 .io-mini-copy small {
+    font-size: 6px;
+  }
+
+  .io-dashboard-v3 .io-mini-copy strong {
+    font-size: 24px;
+  }
+
+  .io-dashboard-v3 .io-mini-change {
+    padding-left: 39px;
+    gap: 3px;
+  }
+
+  .io-dashboard-v3 .io-mini-change > span:last-child {
+    display: none;
+  }
+
+  .io-dashboard-v3 .io-change-pill {
+    min-height: 20px;
+    padding: 2px 6px;
+    font-size: 7px;
+  }
+
+  .io-dashboard-v3 .io-trend-card {
+    min-height: 156px;
+    padding: 8px 10px 6px;
+    border-radius: 12px;
+  }
+
+  .io-dashboard-v3 .io-card-head {
+    margin-bottom: 0;
+  }
+
+  .io-dashboard-v3 .io-card-heading {
+    gap: 7px;
+  }
+
+  .io-dashboard-v3 .io-card-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .io-dashboard-v3 .io-card-heading small {
+    font-size: 6px;
+  }
+
+  .io-dashboard-v3 .io-card-heading strong {
+    font-size: 27px;
+  }
+
+  .io-dashboard-v3 .io-card-change > span:last-child {
+    display: none;
+  }
+
+  .io-dashboard-v3 .io-trend-svg {
+    height: 88px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom {
+    grid-template-columns: minmax(205px,.56fr) minmax(0,2.6fr);
+    gap: 6px;
+  }
+
+  .io-dashboard-v3 .io-gauge-card,
+  .io-dashboard-v3 .io-productivity-panel {
+    min-height: 196px;
+    border-radius: 12px;
+  }
+
+  .io-dashboard-v3 .io-gauge-card {
+    padding: 8px 10px 6px;
+  }
+
+  .io-dashboard-v3 .io-gauge-card-head,
+  .io-dashboard-v3 .io-productivity-head {
+    min-height: 32px;
+  }
+
+  .io-dashboard-v3 .io-gauge-card-head small,
+  .io-dashboard-v3 .io-productivity-head small {
+    font-size: 6px;
+  }
+
+  .io-dashboard-v3 .io-gauge-card-head b,
+  .io-dashboard-v3 .io-productivity-head b {
+    font-size: 10px;
+  }
+
+  .io-dashboard-v3 .io-gauge-wrap {
+    min-height: 145px;
+  }
+
+  .io-dashboard-v3 .io-gauge {
+    width: min(100%,180px);
+    height: 102px;
+    flex-basis: 102px;
+  }
+
+  .io-dashboard-v3 .io-gauge-reading {
+    min-width: 98px;
+    min-height: 34px;
+    margin-top: -5px;
+    padding: 3px 9px;
+  }
+
+  .io-dashboard-v3 .io-gauge-reading b {
+    font-size: 22px;
+  }
+
+  .io-dashboard-v3 .io-gauge-reading span {
+    font-size: 5px;
+  }
+
+  .io-dashboard-v3 .io-gauge-target {
+    top: 0;
+  }
+
+  .io-dashboard-v3 .io-gauge-footer {
+    margin-top: 0;
+  }
+
+  .io-dashboard-v3 .io-productivity-panel {
+    padding: 8px 10px 6px;
+  }
+
+  .io-dashboard-v3 .io-productivity-head {
+    padding-right: 112px;
+  }
+
+  .io-dashboard-v3 .io-target-badge {
+    min-height: 19px;
+    padding: 2px 6px;
+    font-size: 6px;
+  }
+
+  .io-dashboard-v3 .io-variation {
+    top: 7px;
+    right: 10px;
+    min-width: 108px;
+    padding: 5px 7px;
+  }
+
+  .io-dashboard-v3 .io-variation > span,
+  .io-dashboard-v3 .io-variation small {
+    font-size: 6px;
+  }
+
+  .io-dashboard-v3 .io-variation b {
+    font-size: 15px;
+  }
+
+  .io-dashboard-v3 .io-productivity-chart {
+    height: 154px;
+    margin-top: 0;
+    padding: 7px 2px 0;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .io-dashboard-v3 .io-bars {
+    height: 118px;
+    padding: 0 7px 0 20px;
+    grid-template-columns: repeat(var(--io-bar-count), minmax(18px,1fr));
+    gap: clamp(2px,.38vw,6px);
+  }
+
+  .io-dashboard-v3 .io-bar-item {
+    height: 105px;
+  }
+
+  .io-dashboard-v3 .io-bar {
+    width: min(24px,68%);
+    min-width: 7px;
+  }
+
+  .io-dashboard-v3 .io-bar-value {
+    margin-bottom: 2px;
+    font-size: 6px;
+  }
+
+  .io-dashboard-v3 .io-bar-label {
+    top: calc(100% + 3px);
+    max-width: 60px;
+    min-height: 16px;
+    font-size: 5.7px;
+    line-height: 1;
+  }
+
+  .io-dashboard-v3 .io-target-line span {
+    top: -14px;
+    font-size: 5.5px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-footnote {
+    min-height: 22px;
+    padding: 3px 7px;
+    font-size: 6px;
+  }
+}
+
+/* 1366×768 / 1536×864: segundo nivel compacto para asegurar una sola pantalla */
+@media (min-width: 1100px) and (max-height: 880px) {
+  .user-greeting-inner {
+    min-height: 62px;
+    padding: 7px 16px;
+  }
+
+  .user-greeting-date {
+    min-height: 18px;
+    padding: 2px 8px;
+    font-size: 7px;
+  }
+
+  .user-greeting-copy strong {
+    font-size: 18px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+    min-height: 48px;
+    padding-block: 5px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-context {
+    min-height: 26px;
+    padding-block: 3px;
+  }
+
+  .io-dashboard-v3 .io-mini-card {
+    min-height: 66px;
+  }
+
+  .io-dashboard-v3 .io-trend-card {
+    min-height: 140px;
+  }
+
+  .io-dashboard-v3 .io-trend-svg {
+    height: 76px;
+  }
+
+  .io-dashboard-v3 .io-gauge-card,
+  .io-dashboard-v3 .io-productivity-panel {
+    min-height: 178px;
+  }
+
+  .io-dashboard-v3 .io-gauge-wrap {
+    min-height: 128px;
+  }
+
+  .io-dashboard-v3 .io-gauge {
+    width: min(100%,164px);
+    height: 90px;
+    flex-basis: 90px;
+  }
+
+  .io-dashboard-v3 .io-productivity-chart {
+    height: 136px;
+  }
+
+  .io-dashboard-v3 .io-bars {
+    height: 102px;
+  }
+
+  .io-dashboard-v3 .io-bar-item {
+    height: 90px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-footnote {
+    display: none;
+  }
+}
