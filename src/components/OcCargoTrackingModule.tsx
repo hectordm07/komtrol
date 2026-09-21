@@ -1035,6 +1035,108 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
         )}
       </section>
 
+      {bulkOpen && (
+        <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget&&!bulkAnalyzing&&!bulkSaving&&setBulkOpen(false)}>
+          <section className="modal refrendo-bulk-modal">
+            <div className="modal-head">
+              <div>
+                <h2>Carga masiva de Refrendos</h2>
+                <p>Selecciona varios PDF o un PDF unido. KOMTROL identifica la Guía / Referencia, separa páginas y vincula cada refrendo.</p>
+              </div>
+              <button className="icon-button" disabled={bulkAnalyzing||bulkSaving} onClick={()=>setBulkOpen(false)}><X size={19}/></button>
+            </div>
+
+            <label className="refrendo-upload-box">
+              <Upload size={24}/>
+              <span>
+                <b>Seleccionar PDF</b>
+                <small>Admite múltiples archivos o un único PDF con varios documentos unidos.</small>
+              </span>
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                multiple
+                disabled={bulkAnalyzing||bulkSaving}
+                onChange={(e)=>{
+                  const files=Array.from(e.target.files||[])
+                  setBulkFiles(files)
+                  setBulkPrepared([])
+                  setBulkIssues([])
+                  setBulkProgress(files.length ? files.length + ' archivo(s) listo(s) para analizar.' : '')
+                }}
+              />
+            </label>
+
+            {bulkFiles.length>0&&(
+              <div className="refrendo-file-list">
+                {bulkFiles.map((file)=>(
+                  <span key={file.name+'-'+file.size}>
+                    <FileText size={14}/>
+                    <b>{file.name}</b>
+                    <small>{Math.max(1,Math.round(file.size/1024))} KB</small>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="refrendo-bulk-actions">
+              <button className="secondary-button" disabled={!bulkFiles.length||bulkAnalyzing||bulkSaving} onClick={()=>analyzeBulkFiles(bulkFiles)}>
+                {bulkAnalyzing?<RefreshCw className="spin" size={16}/>:<Search size={16}/>}
+                {bulkAnalyzing?'Analizando…':'Analizar e individualizar'}
+              </button>
+              <button className="primary-button" disabled={!bulkPrepared.some((item)=>!item.duplicate)||bulkAnalyzing||bulkSaving} onClick={confirmBulkUpload}>
+                {bulkSaving?<RefreshCw className="spin" size={16}/>:<Upload size={16}/>}
+                {bulkSaving?'Cargando…':'Confirmar y cargar ' + bulkPrepared.filter((item)=>!item.duplicate).length}
+              </button>
+            </div>
+
+            {bulkProgress&&<div className="inline-message refrendo-progress">{bulkProgress}</div>}
+
+            {(bulkPrepared.length>0||bulkIssues.length>0)&&(
+              <div className="table-wrap refrendo-analysis-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Archivo origen</th>
+                      <th>Páginas</th>
+                      <th>Guía</th>
+                      <th>Referencia</th>
+                      <th>Lectura</th>
+                      <th>Confianza</th>
+                      <th>Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkPrepared.map((item)=>(
+                      <tr key={item.key}>
+                        <td><b>{item.sourceFileName}</b></td>
+                        <td>{item.pageFrom===item.pageTo?item.pageFrom:item.pageFrom+'-'+item.pageTo}</td>
+                        <td>{item.guideNo}</td>
+                        <td>{item.reference}</td>
+                        <td>{item.extractionMethod==='OCR'?'OCR':'PDF'}</td>
+                        <td>{item.confidence}%</td>
+                        <td><span className={item.duplicate?'status-pill warning':'status-pill'}>{item.duplicate?'YA REGISTRADO':'LISTO'}</span></td>
+                      </tr>
+                    ))}
+                    {bulkIssues.map((item)=>(
+                      <tr key={item.key}>
+                        <td><b>{item.sourceFileName}</b></td>
+                        <td>{item.pageFrom===item.pageTo?item.pageFrom:item.pageFrom+'-'+item.pageTo}</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td><span className="status-pill danger">REVISAR</span><small>{item.message}</small></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
       {selected && (
         <div className="modal-backdrop oc-followup-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeFollowup()}>
           <section className="modal oc-followup-modal">
