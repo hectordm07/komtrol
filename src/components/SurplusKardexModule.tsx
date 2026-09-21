@@ -21,6 +21,7 @@ import { supabase } from '../lib/supabase'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { exportRowsToExcel } from '../lib/exportUtils'
+import { SearchableSelect } from './SearchableSelect'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type KardexView = 'dashboard' | 'initial' | 'movements'
@@ -1143,10 +1144,14 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
                 {bestBalanceMatch && search.trim() && <small className={bestBalanceMatch.score >= 95 ? 'match-high' : bestBalanceMatch.score >= 80 ? 'match-medium' : 'match-low'}>Mejor coincidencia: {bestBalanceMatch.row.material_no} · {bestBalanceMatch.score}%</small>}
               </label>
               {isAdmin && !fixedWarehouse && (
-                <select value={warehouseFilter} onChange={(e)=>setWarehouseFilter(e.target.value)}>
-                  <option value="TODOS">Todos los almacenes</option>
-                  {warehouses.map((warehouse)=><option key={warehouse}>{warehouse}</option>)}
-                </select>
+                <SearchableSelect
+                  value={warehouseFilter}
+                  onChange={(value)=>setWarehouseFilter(value||'TODOS')}
+                  options={[{value:'TODOS',label:'Todos los almacenes'},...warehouses.map((warehouse)=>({value:warehouse,label:warehouse}))]}
+                  placeholder="Buscar almacén…"
+                  clearable={false}
+                  ariaLabel="Filtrar por almacén"
+                />
               )}
             </div>
 
@@ -1269,10 +1274,14 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
             <div className="task-toolbar kardex-toolbar">
               <div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar documento, material, caja, embarque, ubicación…"/></div>
               {isAdmin && !fixedWarehouse && (
-                <select value={warehouseFilter} onChange={(e)=>setWarehouseFilter(e.target.value)}>
-                  <option value="TODOS">Todos los almacenes</option>
-                  {warehouses.map((warehouse)=><option key={warehouse}>{warehouse}</option>)}
-                </select>
+                <SearchableSelect
+                  value={warehouseFilter}
+                  onChange={(value)=>setWarehouseFilter(value||'TODOS')}
+                  options={[{value:'TODOS',label:'Todos los almacenes'},...warehouses.map((warehouse)=>({value:warehouse,label:warehouse}))]}
+                  placeholder="Buscar almacén…"
+                  clearable={false}
+                  ariaLabel="Filtrar por almacén"
+                />
               )}
             </div>
             <div className="kardex-ledger-guide">
@@ -1354,16 +1363,24 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
 
             <div className="kardex-history-filters">
               <label>Embarque
-                <select value={historyShipment} onChange={(e)=>setHistoryShipment(e.target.value)}>
-                  <option value="TODOS">Todos</option>
-                  {historyShipments.map((value)=><option key={value}>{value}</option>)}
-                </select>
+                <SearchableSelect
+                  value={historyShipment}
+                  onChange={(value)=>setHistoryShipment(value||'TODOS')}
+                  options={[{value:'TODOS',label:'Todos'},...historyShipments.map((value)=>({value,label:value}))]}
+                  placeholder="Buscar embarque…"
+                  clearable={false}
+                  ariaLabel="Filtrar por embarque"
+                />
               </label>
               <label>Caja
-                <select value={historyBox} onChange={(e)=>setHistoryBox(e.target.value)}>
-                  <option value="TODOS">Todas</option>
-                  {historyBoxes.map((value)=><option key={value}>{value}</option>)}
-                </select>
+                <SearchableSelect
+                  value={historyBox}
+                  onChange={(value)=>setHistoryBox(value||'TODOS')}
+                  options={[{value:'TODOS',label:'Todas'},...historyBoxes.map((value)=>({value,label:value}))]}
+                  placeholder="Buscar caja…"
+                  clearable={false}
+                  ariaLabel="Filtrar por caja"
+                />
               </label>
             </div>
 
