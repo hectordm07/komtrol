@@ -120,6 +120,13 @@ type ImportRow = {
   updated_at: string
 }
 
+type WarehouseMeta = {
+  name: string
+  code: string
+  warehouse_scope: 'REMOTO' | 'CENTRAL'
+  remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
+}
+
 type Props = {
   mode: ScorecardMode
   userId: string
@@ -336,11 +343,12 @@ function MiniTrendChart({
 export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const now=new Date()
   const [definitions,setDefinitions]=useState<ReportDef[]>([])
+  const [warehouseCatalog,setWarehouseCatalog]=useState<WarehouseMeta[]>([])
   const [rows,setRows]=useState<ScorecardRow[]>([])
   const [imports,setImports]=useState<any[]>([])
   const [year,setYear]=useState(now.getFullYear())
   const [month,setMonth]=useState(now.getMonth()+1)
-  const [warehouseFilter,setWarehouseFilter]=useState(role==='ADMINISTRADOR'||role==='SUPERVISOR'?'TODOS':normalizeProfileWarehouse(profile))
+  const [warehouseFilter,setWarehouseFilter]=useState(role==='ADMINISTRADOR'?'TODOS':normalizeProfileWarehouse(profile))
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
   const [editing,setEditing]=useState(false)
@@ -349,6 +357,13 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const fileInputRef=useRef<HTMLInputElement|null>(null)
 
   const report=definitions.find((item)=>item.code===mode)
+  const ownWarehouseMeta=warehouseCatalog.find((item)=>
+    item.name.toUpperCase()===normalizeProfileWarehouse(profile).toUpperCase() ||
+    item.code.toUpperCase()===normalizeProfileWarehouse(profile).toUpperCase()
+  )
+  const canViewRemoteNetwork=role==='ADMINISTRADOR' ||
+    ownWarehouseMeta?.remote_group==='PROYECTO_MINERO' ||
+    ownWarehouseMeta?.remote_group==='SUCURSAL'
   const canLoad=role==='COORDINADOR'||role==='ADMINISTRADOR'
   const canEdit=role==='COORDINADOR'||role==='ADMINISTRADOR'
   const canSeeSourceData=role!=='TRABAJADOR'
@@ -358,12 +373,17 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   async function reload() {
     setLoading(true)
     setMessage('')
-    const defRes=await supabase.from('scorecard_report_definitions').select('*').eq('active',true).order('ordinal')
-    const impRes=canSeeSourceData
-      ? await supabase.from('scorecard_imports').select('*').order('created_at',{ascending:false}).limit(50)
-      : { data: [], error: null }
+    const [defRes,warehouseRes,impRes]=await Promise.all([
+      supabase.from('scorecard_report_definitions').select('*').eq('active',true).order('ordinal'),
+      supabase.from('warehouses').select('name,code,warehouse_scope,remote_group').eq('active',true).order('name'),
+      canSeeSourceData
+        ? supabase.from('scorecard_imports').select('*').order('created_at',{ascending:false}).limit(50)
+        : Promise.resolve({ data: [], error: null }),
+    ])
     if(defRes.error){setMessage(defRes.error.message);setLoading(false);return}
+    if(warehouseRes.error){setMessage(warehouseRes.error.message);setLoading(false);return}
     setDefinitions((defRes.data??[]) as ReportDef[])
+    setWarehouseCatalog((warehouseRes.data??[]) as WarehouseMeta[])
     setImports(impRes.data??[])
 
   if (mode==='scorecard-carga' && isViewer) {
@@ -405,8 +425,16 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   useEffect(()=>{reload()},[mode,year])
 
   useEffect(()=>{
-    if(!(role==='ADMINISTRADOR'||role==='SUPERVISOR')) setWarehouseFilter(normalizeProfileWarehouse(profile))
-  },[role,profile?.warehouse,profile?.project])
+    if(role==='ADMINISTRADOR'){
+      setWarehouseFilter('TODOS')
+      return
+    }
+    if(canViewRemoteNetwork){
+      setWarehouseFilter('TODOS')
+      return
+    }
+    setWarehouseFilter(normalizeProfileWarehouse(profile))
+  },[role,profile?.warehouse,profile?.project,canViewRemoteNetwork])
 
   const warehouses=useMemo(()=>Array.from(new Set(rows.map((row)=>row.warehouse).filter(Boolean))).sort(),[rows])
 
@@ -776,7 +804,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         <div className="scorecard-filters">
           <SearchableSelect value={String(year)} onChange={(value)=>value&&setYear(Number(value))} options={[2024,2025,2026,2027].map((value)=>({value:String(value),label:String(value)}))} placeholder="Buscar año…" clearable={false} ariaLabel="Filtrar por año"/>
           <SearchableSelect value={String(month)} onChange={(value)=>value&&setMonth(Number(value))} options={MONTHS.map((label,index)=>({value:String(index+1),label}))} placeholder="Buscar mes…" clearable={false} ariaLabel="Filtrar por mes"/>
-          {(role==='ADMINISTRADOR'||role==='SUPERVISOR')&&<SearchableSelect value={warehouseFilter} onChange={(value)=>setWarehouseFilter(value||'TODOS')} options={[{value:'TODOS',label:'Todos los proyectos'},...warehouses.map((warehouse)=>({value:warehouse,label:warehouse}))]} placeholder="Buscar proyecto…" clearable={false} ariaLabel="Filtrar por proyecto"/>}
+          {canViewRemoteNetwork&&<SearchableSelect value={warehouseFilter} onChange={(value)=>setWarehouseFilter(value||'TODOS')} options={[{value:'TODOS',label:'Proyectos Mineros + Sucursales'},...warehouses.map((warehouse)=>({value:warehouse,label:warehouse}))]} placeholder="Buscar almacén…" clearable={false} ariaLabel="Filtrar por almacén"/>}
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardPdf}><FileText size={16}/> PDF</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
