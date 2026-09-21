@@ -100,20 +100,23 @@ export function DashboardHierarchyFilter({
       const groupWarehouses=remoteWarehouses
         .filter((warehouse)=>warehouse.remote_group===group.key)
         .map((warehouse)=>{
-          const childCenters=centers
+          const rawCenters=centers
             .filter((center)=>center.warehouse_code===warehouse.code && center.active!==false)
-            .filter((center)=>{
-              if(!q) return true
-              const haystack=normalize([
-                group.label,
-                warehouse.name,
-                warehouse.code,
-                center.name,
-                center.code,
-                center.business_unit,
-              ].join(' '))
-              return haystack.includes(q)
-            })
+          const displayCenters=rawCenters.filter((center)=>
+            center.business_unit!=='GENERAL' || rawCenters.length>1
+          )
+          const childCenters=displayCenters.filter((center)=>{
+            if(!q) return true
+            const haystack=normalize([
+              group.label,
+              warehouse.name,
+              warehouse.code,
+              center.name,
+              center.code,
+              center.business_unit,
+            ].join(' '))
+            return haystack.includes(q)
+          })
           const warehouseMatches=!q || normalize([group.label,warehouse.name,warehouse.code].join(' ')).includes(q)
           if(!warehouseMatches && !childCenters.length) return null
           return {...warehouse,centers:childCenters}
@@ -201,7 +204,7 @@ export function DashboardHierarchyFilter({
                               className={value===`CENTRO:${center.code}`?'selected':''}
                               onClick={()=>choose(`CENTRO:${center.code}`)}
                             >
-                              <span>{center.business_unit==='GENERAL'?center.name:center.business_unit}</span>
+                              <span>{center.business_unit==='GENERAL'?'General':center.business_unit}</span>
                               {value===`CENTRO:${center.code}`&&<Check size={12}/>}
                             </button>
                           ))}
