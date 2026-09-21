@@ -636,6 +636,91 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     }
   }
 
+  async function confirmBulkUpload() {
+    const pending = bulkPrepared.filter((item) => !item.duplicate)
+    if (!pending.length) return
+
+    setBulkSaving(true)
+    let uploaded = 0
+
+    try {
+      for (let index = 0; index < pending.length; index++) {
+        const item = pending[index]
+        setBulkProgress('Guardando refrendo ' + (index + 1) + ' de ' + pending.length + ' · ' + item.guideNo)
+
+        const targetName =
+          'REFRENDO_' + safeFileName(item.reference || item.guideNo) +
+          '_p' + item.pageFrom + '-' + item.pageTo + '.pdf'
+        const filePath =
+          userId + '/refrendos/' + item.guideId + '/' +
+          Date.now() + '_' + index + '_' + targetName
+        const blob = new Blob([item.bytes], { type: 'application/pdf' })
+
+        const upload = await supabase.storage
+          .from('guide-documents')
+          .upload(filePath, blob, { contentType: 'application/pdf', upsert: false })
+
+        if (upload.error) throw upload.error
+
+        const insert = await supabase.from('guide_refrendos').insert({
+          guide_id: item.guideId,
+          reference_detected: item.reference,
+          file_bucket: 'guide-documents',
+          file_path: filePath,
+          file_name: targetName,
+          source_file_name: item.sourceFileName,
+          page_from: item.pageFrom,
+          page_to: item.pageTo,
+          confidence: item.confidence,
+          extraction_method: item.extractionMethod,
+          created_by: userId,
+        })
+
+        if (insert.error) {
+          await supabase.storage.from('guide-documents').remove([filePath])
+          throw insert.error
+        }
+
+        uploaded++
+      }
+
+      setBulkProgress(uploaded + ' refrendo(s) cargado(s) y vinculados correctamente.')
+      setBulkPrepared([])
+      setBulkFiles([])
+      await reload()
+    } catch (error) {
+      setMessage(
+        'Carga masiva detenida: ' +
+        (error instanceof Error ? error.message : 'error desconocido') + '.'
+      )
+    } finally {
+      setBulkSaving(false)
+    }
+  }
+
+  async function updateBillingStatus(status: Followup['billing_status']) {
+    if (!selected || !canUpdateBilling) return
+
+    setSaving(true)
+    setMessage('')
+
+    const { error } = await supabase.rpc('set_oc_cargo_billing_status', {
+      p_guide_id: selected.id,
+      p_status: status,
+    })
+
+    setSaving(false)
+
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+
+    setForm((current) => ({ ...current, billing_status: status }))
+    setMessage('Facturación actualizada a ' + statusLabel(status) + '.')
+    await reload()
+  }
+
   function openFollowup(guide: Guide) {
     setSelected(guide)
     setForm(followupToForm(guide.followup))
@@ -673,6 +758,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
       parts_location: form.parts_location.trim() || null,
       scan_sent_date: form.scan_sent_date || null,
       scan_send_status: form.scan_send_status,
+      billing_status: selected.followup?.billing_status || form.billing_status || 'PENDIENTE',
       updated_by: userId,
       updated_at: new Date().toISOString(),
     }
