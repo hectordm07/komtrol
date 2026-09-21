@@ -15,6 +15,12 @@ import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 import { SearchableSelect } from './SearchableSelect'
+import {
+  DashboardHierarchyFilter,
+  dashboardFilterLabel,
+  matchesDashboardHierarchy,
+  type DashboardCenter,
+} from './DashboardHierarchyFilter'
 
 export type ScorecardMode =
   | 'scorecard-carga'
@@ -344,11 +350,12 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const now=new Date()
   const [definitions,setDefinitions]=useState<ReportDef[]>([])
   const [warehouseCatalog,setWarehouseCatalog]=useState<WarehouseMeta[]>([])
+  const [warehouseCenters,setWarehouseCenters]=useState<DashboardCenter[]>([])
   const [rows,setRows]=useState<ScorecardRow[]>([])
   const [imports,setImports]=useState<any[]>([])
   const [year,setYear]=useState(now.getFullYear())
   const [month,setMonth]=useState(now.getMonth()+1)
-  const [warehouseFilter,setWarehouseFilter]=useState(role==='ADMINISTRADOR'?'TODOS':normalizeProfileWarehouse(profile))
+  const [warehouseFilter,setWarehouseFilter]=useState('TODOS')
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
   const [editing,setEditing]=useState(false)
@@ -363,7 +370,8 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   )
   const canViewRemoteNetwork=role==='ADMINISTRADOR' ||
     ownWarehouseMeta?.remote_group==='PROYECTO_MINERO' ||
-    ownWarehouseMeta?.remote_group==='SUCURSAL'
+    ownWarehouseMeta?.remote_group==='SUCURSAL' ||
+    ownWarehouseMeta?.remote_group==='TIENDA'
   const canLoad=role==='COORDINADOR'||role==='ADMINISTRADOR'
   const canEdit=role==='COORDINADOR'||role==='ADMINISTRADOR'
   const canSeeSourceData=role!=='TRABAJADOR'
@@ -373,17 +381,19 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   async function reload() {
     setLoading(true)
     setMessage('')
-    const [defRes,warehouseRes,impRes]=await Promise.all([
+    const [defRes,warehouseRes,centerRes,impRes]=await Promise.all([
       supabase.from('scorecard_report_definitions').select('*').eq('active',true).order('ordinal'),
       supabase.from('warehouses').select('name,code,warehouse_scope,remote_group').eq('active',true).order('name'),
+      supabase.from('warehouse_centers').select('warehouse_code,code,name,business_unit,active').eq('active',true).order('warehouse_code').order('name'),
       canSeeSourceData
         ? supabase.from('scorecard_imports').select('*').order('created_at',{ascending:false}).limit(50)
         : Promise.resolve({ data: [], error: null }),
     ])
     if(defRes.error){setMessage(defRes.error.message);setLoading(false);return}
-    if(warehouseRes.error){setMessage(warehouseRes.error.message);setLoading(false);return}
+    if(warehouseRes.error||centerRes.error){setMessage(warehouseRes.error?.message||centerRes.error?.message||'No se pudo cargar la jerarquía de almacenes.');setLoading(false);return}
     setDefinitions((defRes.data??[]) as ReportDef[])
     setWarehouseCatalog((warehouseRes.data??[]) as WarehouseMeta[])
+    setWarehouseCenters((centerRes.data??[]) as DashboardCenter[])
     setImports(impRes.data??[])
 
   if (mode==='scorecard-carga' && isViewer) {
