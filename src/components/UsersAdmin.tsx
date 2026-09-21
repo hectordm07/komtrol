@@ -18,6 +18,7 @@ type ProfileRow = {
   shift_name: string | null
   position: string | null
   corporate_email: string | null
+  oc_cargo_access_level: 'COMERCIAL' | 'DOCUMENTARIO' | null
   created_at: string
 }
 
@@ -180,6 +181,7 @@ export function UsersAdmin() {
     group_name: '',
     shift_name: '',
     corporate_email: '',
+    oc_cargo_access_level: '' as '' | 'COMERCIAL' | 'DOCUMENTARIO',
     active: true,
   })
   const [savingProfile, setSavingProfile] = useState(false)
@@ -204,7 +206,7 @@ export function UsersAdmin() {
     setLoading(true)
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,created_at')
+      .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,oc_cargo_access_level,created_at')
       .order('full_name')
     if (error) setMessage(error.message)
     setProfiles((data ?? []) as ProfileRow[])
@@ -420,6 +422,7 @@ export function UsersAdmin() {
       group_name: profile.group_name || '',
       shift_name: profile.shift_name || '',
       corporate_email: profile.corporate_email || '',
+      oc_cargo_access_level: profile.oc_cargo_access_level || '',
       active: profile.active,
     })
     setMessage('')
@@ -453,6 +456,7 @@ export function UsersAdmin() {
         group_name: editForm.group_name.trim() || null,
         shift_name: editForm.shift_name.trim() || null,
         corporate_email: email || null,
+        oc_cargo_access_level: editForm.oc_cargo_access_level || null,
         active: editForm.active,
         updated_at: new Date().toISOString(),
       })
@@ -473,7 +477,7 @@ export function UsersAdmin() {
   const visibleProfiles = profiles.filter((p) => {
     const q = search.toLowerCase().trim()
     if (!q) return true
-    return [p.dni, p.full_name, p.position, p.role, p.warehouse, p.project, p.group_name, p.shift_name, p.corporate_email]
+    return [p.dni, p.full_name, p.position, p.role, p.warehouse, p.project, p.group_name, p.shift_name, p.corporate_email, p.oc_cargo_access_level]
       .some((value) => String(value ?? '').toLowerCase().includes(q))
   })
 
@@ -597,7 +601,7 @@ export function UsersAdmin() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Puesto / Cargo</th><th>Correo</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Acción</th></tr></thead>
+              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Puesto / Cargo</th><th>Correo</th><th>Rol</th><th>Acceso OC/Cargos</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Acción</th></tr></thead>
               <tbody>
                 {visibleProfiles.map((p) => (
                   <tr key={p.user_id}>
@@ -607,6 +611,7 @@ export function UsersAdmin() {
                     <td><b>{p.position || '—'}</b></td>
                     <td>{p.corporate_email || '—'}</td>
                     <td><span className="role-chip"><ShieldCheck size={13} /> {p.role}</span></td>
+                    <td>{p.oc_cargo_access_level ? <span className="status-pill">{p.oc_cargo_access_level}</span> : '—'}</td>
                     <td>{p.warehouse || '—'}</td>
                     <td>{p.project || '—'}</td>
                     <td>{p.group_name || '—'}</td>
@@ -671,6 +676,15 @@ export function UsersAdmin() {
 
               <label className="span-2">Correo corporativo
                 <input type="email" value={editForm.corporate_email} onChange={(e)=>setEditForm({...editForm,corporate_email:e.target.value})} placeholder="usuario@kmmp.com.pe"/>
+              </label>
+
+              <label className="span-2">Acceso especial OC / Cargos Directos
+                <select value={editForm.oc_cargo_access_level} onChange={(e)=>setEditForm({...editForm,oc_cargo_access_level:e.target.value as '' | 'COMERCIAL' | 'DOCUMENTARIO'})}>
+                  <option value="">Sin acceso especial</option>
+                  <option value="COMERCIAL">COMERCIAL · consulta y refrendos</option>
+                  <option value="DOCUMENTARIO">DOCUMENTARIO · consulta y carga de refrendos</option>
+                </select>
+                <small>Este acceso agrega el reporte OC / Cargos Directos sin cambiar el rol principal del usuario.</small>
               </label>
 
               <label className="user-active-toggle span-2">
