@@ -719,7 +719,7 @@ function Workspace({ session }: { session: Session }) {
         { id: 'vencimientos-licencias' as Tab, label: 'Licencias Internas', icon: BadgeCheck },
       ],
     },
-    ...((profile?.warehouse === 'CALLAO' || role === 'ADMINISTRADOR')
+    ...((effectiveProfile?.warehouse === 'CALLAO' || role === 'ADMINISTRADOR')
       ? [{
           section: 'INBOUND · CALLAO',
           collapsible: true,
@@ -800,11 +800,11 @@ function Workspace({ session }: { session: Session }) {
     },
   ]
 
-  const isCallaoProfile = profile?.warehouse?.toUpperCase() === 'CALLAO'
+  const isCallaoProfile = effectiveProfile?.warehouse?.toUpperCase() === 'CALLAO'
   const isCallaoUser = isCallaoProfile && role !== 'ADMINISTRADOR'
-  const isCallaoCoordinator = role === 'COORDINADOR' && profile?.warehouse === 'CALLAO'
-  const isCallaoSupervisor = role === 'SUPERVISOR' && profile?.warehouse === 'CALLAO'
-  const isCallaoWorker = role === 'TRABAJADOR' && profile?.warehouse === 'CALLAO'
+  const isCallaoCoordinator = role === 'COORDINADOR' && effectiveProfile?.warehouse === 'CALLAO'
+  const isCallaoSupervisor = role === 'SUPERVISOR' && effectiveProfile?.warehouse === 'CALLAO'
+  const isCallaoWorker = role === 'TRABAJADOR' && effectiveProfile?.warehouse === 'CALLAO'
   const hasOcCargoSpecialAccess = Boolean(profile?.oc_cargo_access_level)
 
   const universalSections = ['INICIO', 'ÁREA DE TRABAJO', 'VENCIMIENTOS']
@@ -895,7 +895,7 @@ function Workspace({ session }: { session: Session }) {
     if (allowed.includes(tab)) return
 
     setTab('inicio')
-  }, [tab, role, profile?.warehouse])
+  }, [tab, role, effectiveProfile?.warehouse])
 
   useEffect(() => {
     if (!currentNav?.section) return
@@ -1254,7 +1254,7 @@ function Workspace({ session }: { session: Session }) {
                 <OperationsControlModule
                   mode={operationsControlMode}
                   userId={user.id}
-                  warehouse={profile?.warehouse}
+                  warehouse={effectiveProfile?.warehouse}
                 />
               )}
 
