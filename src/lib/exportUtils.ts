@@ -265,3 +265,101 @@ export async function exportElementToPdfPortrait(
     element.classList.remove(exportClass)
   }
 }
+
+
+export async function exportElementToPdfLandscape(
+  filename: string,
+  title: string,
+  element: HTMLElement,
+  options?: {
+    subtitle?: string
+    captureWidth?: number
+  }
+) {
+  const exportClass = 'komtrol-pdf-exporting'
+  element.classList.add(exportClass)
+
+  try {
+    const captureWidth = Math.max(options?.captureWidth ?? 1440, element.scrollWidth, element.clientWidth)
+    const captureHeight = Math.max(element.scrollHeight, element.clientHeight)
+
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#f6f7ff',
+      logging: false,
+      width: captureWidth,
+      height: captureHeight,
+      windowWidth: captureWidth,
+      scrollX: 0,
+      scrollY: 0,
+    })
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const marginX = 5
+    const headerHeight = 19
+    const footerHeight = 7
+    const contentTop = headerHeight + 2.5
+    const availableHeight = pageHeight - contentTop - footerHeight - 2
+    const imageWidth = pageWidth - marginX * 2
+    const imageHeight = canvas.height * imageWidth / canvas.width
+    const imageData = canvas.toDataURL('image/png', 0.96)
+    const pages = Math.max(1, Math.ceil(imageHeight / availableHeight))
+
+    const drawHeader = (pageIndex: number) => {
+      doc.setFillColor(51, 67, 154)
+      doc.rect(0, 0, pageWidth, headerHeight, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12.5)
+      doc.text(title, marginX + 2, 8)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      const subtitle = options?.subtitle || ('Generado: ' + new Date().toLocaleString('es-PE'))
+      doc.text(subtitle, marginX + 2, 13.8)
+      doc.text(
+        'Página ' + (pageIndex + 1) + ' de ' + pages,
+        pageWidth - marginX - 2,
+        13.8,
+        { align: 'right' }
+      )
+    }
+
+    for (let pageIndex = 0; pageIndex < pages; pageIndex += 1) {
+      if (pageIndex > 0) doc.addPage('a4', 'landscape')
+      drawHeader(pageIndex)
+
+      const offsetY = contentTop - pageIndex * availableHeight
+      doc.addImage(
+        imageData,
+        'PNG',
+        marginX,
+        offsetY,
+        imageWidth,
+        imageHeight,
+        undefined,
+        'FAST'
+      )
+
+      doc.setFillColor(255, 255, 255)
+      doc.rect(0, pageHeight - footerHeight, pageWidth, footerHeight, 'F')
+      doc.setTextColor(120, 130, 160)
+      doc.setFontSize(6.2)
+      doc.text('KOMTROL · Scorecard operativo', marginX + 2, pageHeight - 2.7)
+      doc.text(
+        new Date().toLocaleDateString('es-PE'),
+        pageWidth - marginX - 2,
+        pageHeight - 2.7,
+        { align: 'right' }
+      )
+    }
+
+    doc.save(normalizedFileName(filename, 'pdf'))
+  } finally {
+    element.classList.remove(exportClass)
+  }
+}
