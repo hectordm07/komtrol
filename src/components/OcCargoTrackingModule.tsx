@@ -15,6 +15,7 @@ import {
   Save,
   Search,
   Send,
+  Upload,
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -28,6 +29,7 @@ type Profile = {
   full_name: string
   role: Role
   warehouse?: string | null
+  oc_cargo_access_level?: 'COMERCIAL' | 'DOCUMENTARIO' | null
 }
 
 type GuideType = 'ORDEN_COMPRA' | 'CARGO_DIRECTO'
@@ -54,7 +56,49 @@ type Followup = {
   parts_location: string | null
   scan_sent_date: string | null
   scan_send_status: 'PENDIENTE' | 'ENVIADO' | 'OBSERVADO' | 'NO_APLICA'
+  billing_status: 'PENDIENTE' | 'ENVIADO' | 'OBSERVADO' | 'REENVIADO' | 'CONFIRMADO'
+  billing_sent_at: string | null
+  billing_sent_by: string | null
+  billing_sent_by_name: string | null
   updated_at: string
+}
+
+type Refrendo = {
+  id: string
+  guide_id: string
+  reference_detected: string | null
+  file_bucket: string
+  file_path: string
+  file_name: string
+  source_file_name: string | null
+  page_from: number | null
+  page_to: number | null
+  confidence: number | null
+  extraction_method: 'PDF_TEXT' | 'OCR' | 'MANUAL'
+  created_by: string
+  created_at: string
+}
+
+type BulkPreparedRefrendo = {
+  key: string
+  guideId: string
+  guideNo: string
+  reference: string
+  sourceFileName: string
+  pageFrom: number
+  pageTo: number
+  confidence: number
+  extractionMethod: 'PDF_TEXT' | 'OCR'
+  bytes: Uint8Array
+  duplicate: boolean
+}
+
+type BulkIssue = {
+  key: string
+  sourceFileName: string
+  pageFrom: number
+  pageTo: number
+  message: string
 }
 
 type Guide = {
@@ -76,6 +120,7 @@ type Guide = {
   file_name: string | null
   created_at: string
   followup?: Followup | null
+  refrendos?: Refrendo[]
 }
 
 type Props = {
@@ -96,6 +141,7 @@ type FollowupForm = {
   parts_location: string
   scan_sent_date: string
   scan_send_status: Followup['scan_send_status']
+  billing_status: Followup['billing_status']
 }
 
 const emptyFollowup = (): FollowupForm => ({
@@ -111,6 +157,7 @@ const emptyFollowup = (): FollowupForm => ({
   parts_location: '',
   scan_sent_date: '',
   scan_send_status: 'PENDIENTE',
+  billing_status: 'PENDIENTE',
 })
 
 function normalizeFollowup(value: unknown): Followup | null {
@@ -153,11 +200,33 @@ function followupToForm(followup?: Followup | null): FollowupForm {
     parts_location: followup.parts_location || '',
     scan_sent_date: followup.scan_sent_date || '',
     scan_send_status: followup.scan_send_status || 'PENDIENTE',
+    billing_status: followup.billing_status || 'PENDIENTE',
   }
 }
 
 function statusLabel(value: string) {
   return value.replaceAll('_', ' ')
+}
+
+function normalizeMatchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+}
+
+function safeFileName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 100)
+}
+
+function latestRefrendo(guide: Guide) {
+  return [...(guide.refrendos || [])].sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0] || null
 }
 
 function emails(value: string) {
@@ -177,6 +246,18 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [bulkOpen,setBulkOpen]=useState(false)
+  const [bulkAnalyzing,setBulkAnalyzing]=useState(false)
+  const [bulkSaving,setBulkSaving]=useState(false)
+  const [bulkProgress,setBulkProgress]=useState('')
+  const [bulkPrepared,setBulkPrepared]=useState<BulkPreparedRefrendo[]>([])
+  const [bulkIssues,setBulkIssues]=useState<BulkIssue[]>([])
+  const [bulkFiles,setBulkFiles]=useState<File[]>([])
+
+  const specialAccess=profile?.oc_cargo_access_level || null
+  const canUploadRefrendos=specialAccess!=='COMERCIAL'
+  const canUpdateBilling=specialAccess!=='COMERCIAL'
+  const canEditOperational=!specialAccess || ['COORDINADOR','SUPERVISOR','ADMINISTRADOR'].includes(profile?.role || '')
 
   const [emailOpen, setEmailOpen] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
