@@ -25,3 +25,5 @@ Secretos requeridos en Supabase Edge Functions:
 
 Proyecto Supabase: KOMTROL
 Project ref: ofzugmnsxnmjldmdybed
+
+<!-- redeploy-trigger: 2026-09-21 -->
