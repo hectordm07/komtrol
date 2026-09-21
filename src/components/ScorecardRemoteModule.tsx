@@ -782,11 +782,11 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       const siteRaw=standardWarehouse ?? legacySite
       if(siteRaw===null||siteRaw===undefined||String(siteRaw).trim()==='') return
 
-      const date=excelDate(pickSource(source,['MES',def.date_field]))
-      const rowYear=Number(pickSource(source,['AÑO','ANO',def.year_field]) || date?.getFullYear() || year)
       const monthRaw=pickSource(source,['MES',def.date_field])
       const numericMonth=typeof monthRaw==='number' && monthRaw>=1 && monthRaw<=12 ? Number(monthRaw) : null
-      const rowMonth=Number(date ? date.getMonth()+1 : numericMonth || month)
+      const date=numericMonth ? null : excelDate(monthRaw)
+      const rowYear=Number(pickSource(source,['AÑO','ANO',def.year_field]) || date?.getFullYear() || year)
+      const rowMonth=Number(numericMonth || (date ? date.getMonth()+1 : month))
       if(!rowYear||!rowMonth||rowMonth<1||rowMonth>12) return
 
       const warehouse=canonicalWarehouse(siteRaw)
