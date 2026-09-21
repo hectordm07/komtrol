@@ -14,8 +14,7 @@ import {
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
-import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
-import { SearchableSelect } from './SearchableSelect'
+import { exportElementToPdfPortrait, exportRowsToExcel } from '../lib/exportUtils'
 import {
   DashboardHierarchyFilter,
   dashboardFilterLabel,
@@ -418,8 +417,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const [message,setMessage]=useState('')
   const [editing,setEditing]=useState(false)
   const [uploading,setUploading]=useState(false)
+  const [pdfExporting,setPdfExporting]=useState(false)
   const [editingRows,setEditingRows]=useState<Record<string,ScorecardRow>>({})
   const fileInputRef=useRef<HTMLInputElement|null>(null)
+  const dashboardRef=useRef<HTMLDivElement|null>(null)
   const periodInitializedRef=useRef<string>('')
 
   const report=definitions.find((item)=>item.code===mode)
@@ -627,15 +628,22 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     )
   }
 
-  function exportScorecardPdf(){
-    if(!report||!scorecardExportRows.length) return
-    exportRowsToPdfPortrait(
-      `KOMTROL_Scorecard_${report.code}_${year}_${String(month).padStart(2,'0')}`,
-      `KOMTROL · ${report.name}`,
-      scorecardExportColumns,
-      scorecardExportRows,
-      {subtitle:`${MONTHS[month-1]} ${year} · ${filterLabel}`,summary:[['Registros',scorecardExportRows.length]]}
-    )
+  async function exportScorecardPdf(){
+    if(!report||!scorecardExportRows.length||!dashboardRef.current||pdfExporting) return
+    setPdfExporting(true)
+    setMessage('')
+    try{
+      await exportElementToPdfPortrait(
+        `KOMTROL_Scorecard_${report.code}_${year}_${String(month).padStart(2,'0')}`,
+        `KOMTROL · ${report.name}`,
+        dashboardRef.current,
+        {subtitle:`${MONTHS[month-1]} ${year} · ${filterLabel} · ${scorecardExportRows.length} registro(s)`}
+      )
+    }catch(error){
+      setMessage(error instanceof Error?error.message:'No se pudo generar el PDF del dashboard.')
+    }finally{
+      setPdfExporting(false)
+    }
   }
 
   async function saveRow(row:ScorecardRow) {
@@ -1014,8 +1022,18 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           <em className={`source-${report.source_mode.toLowerCase()}`}><ReportIcon mode={report.source_mode}/>{sourceBadge(report.source_mode)}</em>
         </div>
         <div className="scorecard-filters">
-          <SearchableSelect value={String(year)} onChange={(value)=>value&&setYear(Number(value))} options={[2024,2025,2026,2027].map((value)=>({value:String(value),label:String(value)}))} placeholder="Buscar año…" clearable={false} ariaLabel="Filtrar por año"/>
-          <SearchableSelect value={String(month)} onChange={(value)=>value&&setMonth(Number(value))} options={MONTHS.map((label,index)=>({value:String(index+1),label}))} placeholder="Buscar mes…" clearable={false} ariaLabel="Filtrar por mes"/>
+          <label className="scorecard-quick-select" aria-label="Filtrar por año">
+            <span>Año</span>
+            <select value={year} onChange={(event)=>setYear(Number(event.target.value))}>
+              {[2024,2025,2026,2027].map((value)=><option value={value} key={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="scorecard-quick-select" aria-label="Filtrar por mes">
+            <span>Mes</span>
+            <select value={month} onChange={(event)=>setMonth(Number(event.target.value))}>
+              {MONTHS.map((label,index)=><option value={index+1} key={label}>{label}</option>)}
+            </select>
+          </label>
           {canViewRemoteNetwork&&<DashboardHierarchyFilter
             value={warehouseFilter}
             onChange={setWarehouseFilter}
@@ -1023,7 +1041,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
             centers={warehouseCenters}
             ariaLabel="Filtrar Scorecard por grupo, almacén o centro"
           />}
-          <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardPdf}><FileText size={16}/> PDF</button>
+          <button className="secondary-button" disabled={!scorecardExportRows.length||pdfExporting} onClick={exportScorecardPdf}><FileText size={16}/> {pdfExporting?'Generando…':'PDF'}</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
         </div>
@@ -1031,51 +1049,53 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
       {message&&<div className="inline-message">{message}</div>}
 
-      {report.code==='inbound-outbound' ? (
-        <InboundOutboundDashboard
-          rows={scopedRows}
-          historical={visibleHistorical}
-          year={year}
-          month={month}
-          contextLabel={filterLabel}
-        />
-      ) : (
-        <>
-          <div className="scorecard-kpis">
-            {summaryFields.map((field)=>(
-              <article key={field.key}>
-                <span>{field.label}</span>
-                <b>{fmtValue(aggregate(scopedRows,field),field.type)}</b>
-                <small>{scopedRows.length} registro(s)</small>
-              </article>
-            ))}
-          </div>
+      <div ref={dashboardRef} className="scorecard-dashboard-export">
+        {report.code==='inbound-outbound' ? (
+          <InboundOutboundDashboard
+            rows={scopedRows}
+            historical={visibleHistorical}
+            year={year}
+            month={month}
+            contextLabel={filterLabel}
+          />
+        ) : (
+          <>
+            <div className="scorecard-kpis">
+              {summaryFields.map((field)=>(
+                <article key={field.key}>
+                  <span>{field.label}</span>
+                  <b>{fmtValue(aggregate(scopedRows,field),field.type)}</b>
+                  <small>{scopedRows.length} registro(s)</small>
+                </article>
+              ))}
+            </div>
 
-          <div className="scorecard-chart-grid">
-            {(report.chart_layout||[]).map((spec,index)=>{
-              const keys=spec.metrics || (spec.metric?[spec.metric]:[])
-              const fields=keys.map((key)=>fieldMap.get(key)||{key,source:key,label:key,type:'number' as const})
-              const colors=spec.colors?.length?spec.colors:['#002060','#00B050','#FF0000','#FFC000']
-              if(spec.type==='donut'){
-                const segments=fields.map((field)=>({label:field.label,value:aggregate(scopedRows,field),type:field.type}))
-                return <div className={`scorecard-chart-slot size-${spec.size||'medium'}`} key={index}><MiniDonutChart title={fields.map((field)=>field.label).join(' / ')} segments={segments} colors={colors}/></div>
-              }
-              if(spec.type==='trend'||spec.type==='area'){
-                const field=fields[0]
-                return <div className={`scorecard-chart-slot size-${spec.size||'small'}`} key={index}><MiniTrendChart title={field.label} points={trendPoints(field.key)} color={spec.seriesColor||colors[0]} area={spec.type==='area'} type={field.type}/></div>
-              }
-              return <div className={`scorecard-chart-slot size-${spec.size||'large'}`} key={index}><MiniBarChart title={fields.map((field)=>field.label).join(' vs ')} rows={chartCategories(keys)} fields={fields} colors={colors}/></div>
-            })}
-          </div>
-        </>
-      )}
+            <div className="scorecard-chart-grid">
+              {(report.chart_layout||[]).map((spec,index)=>{
+                const keys=spec.metrics || (spec.metric?[spec.metric]:[])
+                const fields=keys.map((key)=>fieldMap.get(key)||{key,source:key,label:key,type:'number' as const})
+                const colors=spec.colors?.length?spec.colors:['#002060','#00B050','#FF0000','#FFC000']
+                if(spec.type==='donut'){
+                  const segments=fields.map((field)=>({label:field.label,value:aggregate(scopedRows,field),type:field.type}))
+                  return <div className={`scorecard-chart-slot size-${spec.size||'medium'}`} key={index}><MiniDonutChart title={fields.map((field)=>field.label).join(' / ')} segments={segments} colors={colors}/></div>
+                }
+                if(spec.type==='trend'||spec.type==='area'){
+                  const field=fields[0]
+                  return <div className={`scorecard-chart-slot size-${spec.size||'small'}`} key={index}><MiniTrendChart title={field.label} points={trendPoints(field.key)} color={spec.seriesColor||colors[0]} area={spec.type==='area'} type={field.type}/></div>
+                }
+                return <div className={`scorecard-chart-slot size-${spec.size||'large'}`} key={index}><MiniBarChart title={fields.map((field)=>field.label).join(' vs ')} rows={chartCategories(keys)} fields={fields} colors={colors}/></div>
+              })}
+            </div>
+          </>
+        )}
 
-      {isViewer && !scopedRows.length && (
-        <section className="panel scorecard-viewer-empty">
-          <BarChart3 size={26}/>
-          <div><b>Sin información publicada para este período</b><span>Cuando el Coordinador actualice el Scorecard, los gráficos aparecerán aquí automáticamente.</span></div>
-        </section>
-      )}
+        {isViewer && !scopedRows.length && (
+          <section className="panel scorecard-viewer-empty">
+            <BarChart3 size={26}/>
+            <div><b>Sin información publicada para este período</b><span>Cuando el Coordinador actualice el Scorecard, los gráficos aparecerán aquí automáticamente.</span></div>
+          </section>
+        )}
+      </div>
 
       {canSeeSourceData && (
         <section className="panel scorecard-data-panel">
