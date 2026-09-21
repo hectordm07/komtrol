@@ -467,6 +467,175 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     return best
   }
 
+  async function analyzeBulkFiles(files: File[]) {
+    if (!files.length) return
+
+    setBulkAnalyzing(true)
+    setBulkPrepared([])
+    setBulkIssues([])
+    setBulkProgress('Preparando lector PDF…')
+
+    try {
+      const pdfModuleUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs'
+      const pdfWorkerUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs'
+      const pdfLibUrl = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm'
+      const pdfjs: any = await import(/* @vite-ignore */ pdfModuleUrl)
+      const PDFLib: any = await import(/* @vite-ignore */ pdfLibUrl)
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+
+      const prepared: BulkPreparedRefrendo[] = []
+      const issues: BulkIssue[] = []
+      let tesseract: any = null
+
+      for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+        const file = files[fileIndex]
+        setBulkProgress('Analizando ' + file.name + ' · archivo ' + (fileIndex + 1) + ' de ' + files.length)
+
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        const pdf = await pdfjs.getDocument({ data: bytes.slice() }).promise
+        const pageAssignments: {
+          page: number
+          guide: Guide | null
+          confidence: number
+          method: 'PDF_TEXT' | 'OCR'
+        }[] = []
+
+        let previousGuide: Guide | null = null
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+          setBulkProgress(file.name + ' · página ' + pageNumber + ' de ' + pdf.numPages)
+          const page = await pdf.getPage(pageNumber)
+          const content = await page.getTextContent()
+          const directText = (content.items || []).map((item: any) => String(item.str || '')).join(' ')
+          let match = matchGuideForText(directText)
+          let method: 'PDF_TEXT' | 'OCR' = 'PDF_TEXT'
+
+          if (!match) {
+            try {
+              if (!tesseract) {
+                const tesseractUrl = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm'
+                tesseract = await import(/* @vite-ignore */ tesseractUrl)
+              }
+
+              const viewport = page.getViewport({ scale: 1.45 })
+              const canvas = document.createElement('canvas')
+              canvas.width = Math.ceil(viewport.width)
+              canvas.height = Math.ceil(viewport.height)
+              const context = canvas.getContext('2d')
+
+              if (context) {
+                await page.render({ canvasContext: context, viewport }).promise
+                const result = await tesseract.recognize(canvas, 'spa')
+                match = matchGuideForText(String(result?.data?.text || ''))
+                method = 'OCR'
+
+                if (match) {
+                  match = {
+                    guide: match.guide,
+                    score: Math.min(match.score, Number(result?.data?.confidence || 82)),
+                  }
+                }
+              }
+            } catch {
+              // Si OCR no está disponible, la página puede heredarse al documento anterior.
+            }
+          }
+
+          const assignedGuide = match?.guide || previousGuide
+          pageAssignments.push({
+            page: pageNumber,
+            guide: assignedGuide,
+            confidence: match?.score || (assignedGuide ? 72 : 0),
+            method: match ? method : 'PDF_TEXT',
+          })
+
+          if (match?.guide) previousGuide = match.guide
+        }
+
+        const groups: {
+          guide: Guide | null
+          pages: number[]
+          confidence: number
+          method: 'PDF_TEXT' | 'OCR'
+        }[] = []
+
+        pageAssignments.forEach((assignment) => {
+          const last = groups[groups.length - 1]
+          if (last && last.guide?.id === assignment.guide?.id) {
+            last.pages.push(assignment.page)
+            last.confidence = Math.min(last.confidence, assignment.confidence || last.confidence)
+            if (assignment.method === 'OCR') last.method = 'OCR'
+          } else {
+            groups.push({
+              guide: assignment.guide,
+              pages: [assignment.page],
+              confidence: assignment.confidence,
+              method: assignment.method,
+            })
+          }
+        })
+
+        const sourceDoc = await PDFLib.PDFDocument.load(bytes)
+
+        for (const group of groups) {
+          const pageFrom = group.pages[0]
+          const pageTo = group.pages[group.pages.length - 1]
+
+          if (!group.guide) {
+            issues.push({
+              key: file.name + '-' + pageFrom + '-' + pageTo,
+              sourceFileName: file.name,
+              pageFrom,
+              pageTo,
+              message: 'No se encontró una Guía / Referencia registrada en KOMTROL.',
+            })
+            continue
+          }
+
+          const splitDoc = await PDFLib.PDFDocument.create()
+          const copied = await splitDoc.copyPages(sourceDoc, group.pages.map((page) => page - 1))
+          copied.forEach((page: any) => splitDoc.addPage(page))
+          const splitBytes = new Uint8Array(await splitDoc.save())
+
+          const duplicate = (group.guide.refrendos || []).some((item) =>
+            item.source_file_name === file.name &&
+            item.page_from === pageFrom &&
+            item.page_to === pageTo
+          )
+
+          prepared.push({
+            key: file.name + '-' + group.guide.id + '-' + pageFrom + '-' + pageTo,
+            guideId: group.guide.id,
+            guideNo: group.guide.guide_no,
+            reference: group.guide.reference,
+            sourceFileName: file.name,
+            pageFrom,
+            pageTo,
+            confidence: Math.round(group.confidence || 75),
+            extractionMethod: group.method,
+            bytes: splitBytes,
+            duplicate,
+          })
+        }
+      }
+
+      setBulkPrepared(prepared)
+      setBulkIssues(issues)
+      setBulkProgress(
+        'Análisis listo · ' + prepared.length + ' refrendo(s) identificado(s) · ' +
+        issues.length + ' bloque(s) por revisar.'
+      )
+    } catch (error) {
+      setBulkProgress('')
+      setMessage(
+        'No se pudo analizar la carga masiva: ' +
+        (error instanceof Error ? error.message : 'error desconocido') + '.'
+      )
+    } finally {
+      setBulkAnalyzing(false)
+    }
+  }
+
   function openFollowup(guide: Guide) {
     setSelected(guide)
     setForm(followupToForm(guide.followup))
