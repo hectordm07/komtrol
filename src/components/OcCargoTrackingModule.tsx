@@ -900,9 +900,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
         <div className="panel-title">
           <div>
             <h3>OC / Cargos Directos</h3>
-            <p>Seguimiento separado por tipo de guía, trazabilidad operativa y reporte de observaciones.</p>
+            <p>Seguimiento de guías, refrendos PDF y control de envío a Facturación.</p>
           </div>
           <div className="button-row">
+            {canUploadRefrendos&&<button className="secondary-button" onClick={()=>{setBulkOpen(true);setBulkProgress('');setBulkPrepared([]);setBulkIssues([])}}><Upload size={16}/> Carga masiva refrendos</button>}
             <button className="secondary-button" disabled={!visible.length} onClick={exportOcPdf}><FileText size={16}/> PDF</button>
             <button className="secondary-button" disabled={!visible.length} onClick={exportOcExcel}><FileSpreadsheet size={16}/> Excel</button>
             <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
@@ -926,11 +927,12 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
           </button>
         </div>
 
-        <div className="oc-cargo-kpis">
+        <div className="oc-cargo-kpis oc-cargo-kpis-expanded">
           <div><CheckCircle2 size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
           <div><Clock3 size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
           <div><AlertTriangle size={17} /><span><b>{counts.observed}</b><small>Observados</small></span></div>
-          <div><CalendarDays size={17} /><span><b>{counts.refrendado}</b><small>Refrendados</small></span></div>
+          <div><CalendarDays size={17} /><span><b>{counts.withRefrendo}</b><small>Con refrendo PDF</small></span></div>
+          <div><Send size={17} /><span><b>{counts.billingSent}</b><small>Enviados a Facturación</small></span></div>
         </div>
 
         <div className="task-toolbar oc-cargo-toolbar">
@@ -979,6 +981,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                   <th>Estatus final</th>
                   <th>Encargado</th>
                   <th>Ubicación</th>
+                  <th>Refrendos</th>
+                  <th>Estado Facturación</th>
+                  <th>Fecha de Envío</th>
+                  <th>Enviado por</th>
                   <th>Seguimiento</th>
                 </tr>
               </thead>
@@ -1000,6 +1006,14 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                     </td>
                     <td>{guide.followup?.management_owner || '—'}</td>
                     <td>{guide.followup?.parts_location || '—'}</td>
+                    <td>
+                      {latestRefrendo(guide)
+                        ? <button className="secondary-button small-report refrendo-view-button" onClick={()=>viewRefrendo(guide)}><Eye size={14}/> Ver refrendo{(guide.refrendos?.length||0)>1?' (' + guide.refrendos?.length + ')':''}</button>
+                        : <span className="status-pill warning">PENDIENTE</span>}
+                    </td>
+                    <td><span className={['ENVIADO','REENVIADO','CONFIRMADO'].includes(guide.followup?.billing_status||'')?'status-pill':'status-pill warning'}>{statusLabel(guide.followup?.billing_status||'PENDIENTE')}</span></td>
+                    <td>{fmtDate(guide.followup?.billing_sent_at)}</td>
+                    <td>{guide.followup?.billing_sent_by_name || '—'}</td>
                     <td>
                       <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
                         <Eye size={14} /> Ver / Editar
