@@ -82,8 +82,7 @@ function shortSiteLabel(row:Row){
     ''
 
   const alreadyHasSuffix=new RegExp(`\\b${suffix.trim()}\\b`,'i').test(base)
-  const label=(base+(suffix&&!alreadyHasSuffix?suffix:'')).replace(/\s+/g,' ').trim()
-  return label.length>24 ? label.slice(0,22).trimEnd()+'…' : label
+  return (base+(suffix&&!alreadyHasSuffix?suffix:'')).replace(/\s+/g,' ').trim()
 }
 
 function withoutConsolidated(rows:Row[]){
@@ -461,10 +460,8 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
           change={outboundChange}
           icon={<PackageMinus size={18}/>}
         />
-      </div>
 
-      <div className="io-dashboard-bottom">
-        <article className="io-gauge-card">
+        <article className="io-gauge-card io-gauge-card-top">
           <div className="io-gauge-card-head">
             <span className="io-section-icon"><Target size={15}/></span>
             <div><small>PROMEDIO</small><b>Productividad IL</b></div>
@@ -475,7 +472,9 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
             <span>vs. mes anterior</span>
           </div>
         </article>
+      </div>
 
+      <div className="io-dashboard-bottom io-dashboard-bottom-bars-only">
         <div className="io-productivity-area">
           <div className={productivityChange>=0?'io-variation positive':'io-variation negative'}>
             <small>VARIACIÓN %</small>
