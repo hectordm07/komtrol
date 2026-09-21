@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
+import { SearchableSelect } from './SearchableSelect'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type ScopeMode = 'CALLAO' | 'REMOTE'
@@ -913,9 +914,14 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
       {profile?.role === 'ADMINISTRADOR' && scopeMode === 'REMOTE' && (
         <section className="panel receiving-warehouse-select">
           <label>Almacén remoto
-            <select value={warehouse} onChange={(e) => setWarehouse(e.target.value)}>
-              {warehouses.map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
+            <SearchableSelect
+              value={warehouse}
+              onChange={(value)=>value&&setWarehouse(value)}
+              options={warehouses.map((name)=>({value:name,label:name}))}
+              placeholder="Buscar almacén…"
+              clearable={false}
+              ariaLabel="Filtrar por almacén remoto"
+            />
           </label>
         </section>
       )}
