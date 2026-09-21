@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { ProfessionalBarChart, ProfessionalDonutChart, ProfessionalTrendChart } from './DashboardVisuals'
+import { SearchableSelect } from './SearchableSelect'
 
 type DashboardMode =
   | 'dashboard-operacion'
@@ -418,35 +419,56 @@ export function DashboardModule({ mode, role, warehouse }: Props) {
   const selector = (
     <div className="dashboard-filters">
       <label>Año
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
-          {[year - 2, year - 1, year, year + 1].map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
+        <SearchableSelect
+          value={String(year)}
+          onChange={(value)=>value&&setYear(Number(value))}
+          options={[year-2,year-1,year,year+1].map((value)=>({value:String(value),label:String(value)}))}
+          placeholder="Buscar año…"
+          clearable={false}
+          ariaLabel="Filtrar por año"
+        />
       </label>
       <label>Mes
-        <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-          {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].map((name, index) => <option key={name} value={index + 1}>{name}</option>)}
-        </select>
+        <SearchableSelect
+          value={String(month)}
+          onChange={(value)=>value&&setMonth(Number(value))}
+          options={['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].map((name,index)=>({value:String(index+1),label:name}))}
+          placeholder="Buscar mes…"
+          clearable={false}
+          ariaLabel="Filtrar por mes"
+        />
       </label>
       {(role === 'SUPERVISOR' || role === 'ADMINISTRADOR') && <label>Grupo
-        <select value={remoteGroup} onChange={(e)=>setRemoteGroup(e.target.value as RemoteGroup)}>
-          <option value="TODOS">Todos los remotos</option>
-          <option value="PROYECTO_MINERO">Proyectos Mineros</option>
-          <option value="SUCURSAL">Sucursales</option>
-          <option value="TIENDA">Tiendas</option>
-        </select>
+        <SearchableSelect
+          value={remoteGroup}
+          onChange={(value)=>setRemoteGroup((value||'TODOS') as RemoteGroup)}
+          options={[
+            {value:'TODOS',label:'Todos los remotos'},
+            {value:'PROYECTO_MINERO',label:'Proyectos Mineros'},
+            {value:'SUCURSAL',label:'Sucursales'},
+            {value:'TIENDA',label:'Tiendas'},
+          ]}
+          placeholder="Buscar grupo…"
+          clearable={false}
+          ariaLabel="Filtrar por grupo"
+        />
       </label>}
       <label>Almacén
-        <select
+        <SearchableSelect
           value={warehouseFilter}
           disabled={!(role === 'SUPERVISOR' || role === 'ADMINISTRADOR')}
-          onChange={(e) => setWarehouseFilter(e.target.value)}
-        >
-          {(role === 'SUPERVISOR' || role === 'ADMINISTRADOR') && <option value="TODOS">Todos los remotos</option>}
-          {warehouse && !data.warehouses.includes(warehouse) && warehouse.toUpperCase()!=='CALLAO' && <option value={warehouse}>{warehouse}</option>}
-          {data.warehouseMeta
-            .filter((item)=>item.warehouse_scope==='REMOTO'&&item.name.toUpperCase()!=='CALLAO'&&(remoteGroup==='TODOS'||item.remote_group===remoteGroup))
-            .map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
-        </select>
+          onChange={(value)=>value&&setWarehouseFilter(value)}
+          options={[
+            ...((role === 'SUPERVISOR' || role === 'ADMINISTRADOR') ? [{value:'TODOS',label:'Todos los remotos'}] : []),
+            ...(warehouse && !data.warehouses.includes(warehouse) && warehouse.toUpperCase()!=='CALLAO' ? [{value:warehouse,label:warehouse}] : []),
+            ...data.warehouseMeta
+              .filter((item)=>item.warehouse_scope==='REMOTO'&&item.name.toUpperCase()!=='CALLAO'&&(remoteGroup==='TODOS'||item.remote_group===remoteGroup))
+              .map((item)=>({value:item.name,label:item.name,keywords:item.remote_group||''})),
+          ]}
+          placeholder="Buscar almacén…"
+          clearable={false}
+          ariaLabel="Filtrar por almacén"
+        />
       </label>
       <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18} /></button>
     </div>
