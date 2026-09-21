@@ -419,6 +419,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const [editing,setEditing]=useState(false)
   const [sourceDataOpen,setSourceDataOpen]=useState(false)
   const [uploading,setUploading]=useState(false)
+
+  useEffect(()=>{
+    setSourceDataOpen(false)
+  },[mode,year,month,warehouseFilter])
   const [pdfExporting,setPdfExporting]=useState(false)
   const [editingRows,setEditingRows]=useState<Record<string,ScorecardRow>>({})
   const fileInputRef=useRef<HTMLInputElement|null>(null)
@@ -1110,10 +1114,14 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       </div>
 
       {canSeeSourceData && sourceDataOpen && (
-        <section className="panel scorecard-data-panel">
+        <div className="scorecard-data-overlay" role="presentation" onMouseDown={(event)=>{
+          if(event.target===event.currentTarget) setSourceDataOpen(false)
+        }}>
+          <section className="panel scorecard-data-panel" role="dialog" aria-modal="true" aria-label="Datos del reporte">
           <div className="scorecard-data-head">
             <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {filterLabel}</span></div>
             <div className="button-row">
+              <button className="icon-button scorecard-data-close" onClick={()=>setSourceDataOpen(false)} title="Cerrar datos"><X size={16}/></button>
               {['AUTO','HYBRID'].includes(report.source_mode)&&canLoad&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
               {canLoad&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
               {canEdit&&<button className="secondary-button" onClick={()=>setEditing((value)=>!value)}>{editing?<X size={16}/>:<Edit3 size={16}/>} {editing?'Cerrar edición':'Editar datos'}</button>}
@@ -1150,7 +1158,8 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
             </table>
             {!scopedRows.length&&<div className="scorecard-empty"><BarChart3 size={28}/><b>Sin información para este periodo</b><span>Carga el Excel, registra valores manuales o actualiza datos automáticos.</span></div>}
           </div>
-        </section>
+          </section>
+        </div>
       )}
     </div>
   )
