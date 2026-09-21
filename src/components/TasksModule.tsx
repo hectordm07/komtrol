@@ -29,6 +29,7 @@ import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { TaskDetailModal } from './TaskDetailModal'
+import { SearchableSelect } from './SearchableSelect'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type AssignmentType = 'PERSONAL' | 'PERSONA' | 'GRUPO' | 'GUARDIA'
@@ -106,6 +107,7 @@ type CalendarIncident = {
   project: string | null
   group_name: string | null
   detected_at: string
+  created_by: string
   created_at: string
 }
 
@@ -251,7 +253,7 @@ export function TasksModule({
       supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(500),
       supabase
         .from('incidents')
-        .select('id,incident_no,incident_type,status,guide_no,document_no,purchase_order,material_no,stock_code,description,notes,warehouse,project,group_name,detected_at,created_at')
+        .select('id,incident_no,incident_type,status,guide_no,document_no,purchase_order,material_no,stock_code,description,notes,warehouse,project,group_name,created_by,detected_at,created_at')
         .order('detected_at', { ascending: false })
         .limit(1000),
       supabase.from('user_profiles').select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name').eq('active', true).order('full_name'),
@@ -603,6 +605,34 @@ export function TasksModule({
 
   const profileName = (id?: string | null) =>
     profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
+
+  const statusFilterOptions = [
+    {value:'TODOS',label:'Todos los estados'},
+    {value:'PENDIENTE',label:'Pendiente'},
+    {value:'EN_PROCESO',label:'En proceso'},
+    {value:'BLOQUEADO',label:'Bloqueado'},
+    {value:'CERRADO',label:'Cerrado'},
+    {value:'VENCIDA',label:'Vencida'},
+  ]
+  const priorityFilterOptions = [
+    {value:'TODAS',label:'Todas las prioridades'},
+    {value:'BAJA',label:'Baja'},
+    {value:'MEDIA',label:'Media'},
+    {value:'ALTA',label:'Alta'},
+    {value:'URGENTE',label:'Urgente'},
+  ]
+  const categoryFilterOptions = [
+    {value:'TODAS',label:'Todas las categorías'},
+    ...categories.map((category)=>({value:category,label:category})),
+  ]
+  const responsibleFilterOptions = [
+    {value:'TODOS',label:'Todos los responsables',keywords:'todos personas usuarios'},
+    ...scopedProfiles.map((p)=>({
+      value:p.user_id,
+      label:p.full_name,
+      keywords:[p.dni,p.warehouse,p.project,p.group_name,p.shift_name].filter(Boolean).join(' '),
+    })),
+  ]
 
   const assignmentLabel = (task: Task) => {
     if (task.assignment_type === 'PERSONAL') return profileName(task.assigned_user_id || task.responsible_id)
@@ -1147,32 +1177,42 @@ export function TasksModule({
         <div className="task-toolbar task-filter-toolbar">
           <div className="search task-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo, categoría…" /></div>
 
-          <select aria-label="Filtrar por estado" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value as 'TODOS' | Task['status'])}>
-            <option value="TODOS">Todos los estados</option>
-            <option value="PENDIENTE">Pendiente</option>
-            <option value="EN_PROCESO">En proceso</option>
-            <option value="BLOQUEADO">Bloqueado</option>
-            <option value="CERRADO">Cerrado</option>
-            <option value="VENCIDA">Vencida</option>
-          </select>
+          <SearchableSelect
+            ariaLabel="Filtrar por estado"
+            value={statusFilter}
+            onChange={(value)=>setStatusFilter((value||'TODOS') as 'TODOS' | Task['status'])}
+            options={statusFilterOptions}
+            placeholder="Buscar estado…"
+            clearable={false}
+          />
 
-          <select aria-label="Filtrar por prioridad" value={priorityFilter} onChange={(e)=>setPriorityFilter(e.target.value as 'TODAS' | Task['priority'])}>
-            <option value="TODAS">Todas las prioridades</option>
-            <option value="BAJA">Baja</option>
-            <option value="MEDIA">Media</option>
-            <option value="ALTA">Alta</option>
-            <option value="URGENTE">Urgente</option>
-          </select>
+          <SearchableSelect
+            ariaLabel="Filtrar por prioridad"
+            value={priorityFilter}
+            onChange={(value)=>setPriorityFilter((value||'TODAS') as 'TODAS' | Task['priority'])}
+            options={priorityFilterOptions}
+            placeholder="Buscar prioridad…"
+            clearable={false}
+          />
 
-          <select aria-label="Filtrar por categoría" value={categoryFilter} onChange={(e)=>setCategoryFilter(e.target.value)}>
-            <option value="TODAS">Todas las categorías</option>
-            {categories.map((category)=><option key={category} value={category}>{category}</option>)}
-          </select>
+          <SearchableSelect
+            ariaLabel="Filtrar por categoría"
+            value={categoryFilter}
+            onChange={(value)=>setCategoryFilter(value||'TODAS')}
+            options={categoryFilterOptions}
+            placeholder="Buscar categoría…"
+            clearable={false}
+          />
 
-          <select aria-label="Filtrar por responsable" value={responsibleFilter} onChange={(e)=>setResponsibleFilter(e.target.value)}>
-            <option value="TODOS">Todos los responsables</option>
-            {scopedProfiles.map((p)=><option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}
-          </select>
+          <SearchableSelect
+            ariaLabel="Filtrar por responsable"
+            value={responsibleFilter}
+            onChange={(value)=>setResponsibleFilter(value||'TODOS')}
+            options={responsibleFilterOptions}
+            placeholder="Escribe nombre, DNI, almacén o guardia…"
+            noResultsText="Usuario no encontrado"
+            clearable={false}
+          />
 
           <div className="task-export-actions">
             <button type="button" className="secondary-button" onClick={exportTasksPdf} title="Exportar filtro actual a PDF"><FileText size={16}/> PDF</button>
@@ -1297,6 +1337,7 @@ export function TasksModule({
       {selectedIncident && (
         <CalendarIncidentModal
           incident={selectedIncident}
+          creatorName={profileName(selectedIncident.created_by)}
           onClose={() => setSelectedIncident(null)}
         />
       )}
@@ -1877,30 +1918,76 @@ function TaskCalendar({
   )
 }
 
-function CalendarIncidentModal({ incident, onClose }: { incident: CalendarIncident; onClose: () => void }) {
+function CalendarIncidentModal({ incident, creatorName, onClose }: { incident: CalendarIncident; creatorName: string; onClose: () => void }) {
+  const incidentType=incident.incident_type.replace(/_/g,' ')
+  const incidentStatus=incident.status.replace(/_/g,' ')
+  const statusClass=`status-${incident.status.toLowerCase().replace(/_/g,'-')}`
+
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <section className="modal calendar-incident-modal">
-        <div className="modal-head">
-          <div>
-            <h2>{incident.incident_no}</h2>
-            <p>{incident.incident_type.replace('_', ' ')} · {incident.status.replace('_', ' ')}</p>
+        <div className="calendar-incident-head">
+          <div className="calendar-incident-heading">
+            <span className="calendar-incident-icon"><AlertTriangle size={22}/></span>
+            <div>
+              <span className="calendar-incident-eyebrow">INCIDENCIA OPERATIVA</span>
+              <h2>{incident.incident_no}</h2>
+              <div className="calendar-incident-badges">
+                <span className="incident-type-badge">{incidentType}</span>
+                <span className={`incident-status-badge ${statusClass}`}>{incidentStatus}</span>
+              </div>
+            </div>
           </div>
-          <button type="button" className="icon-button" onClick={onClose}><X size={20} /></button>
+          <button type="button" className="icon-button calendar-incident-close" onClick={onClose} title="Cerrar"><X size={20}/></button>
         </div>
 
         <div className="calendar-incident-grid">
-          <div className="calendar-incident-field"><small>Fecha detectada</small><b>{new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(incident.detected_at))}</b></div>
-          <div className="calendar-incident-field"><small>Almacén</small><b>{incident.warehouse || '—'}</b></div>
-          <div className="calendar-incident-field"><small>Guía</small><b>{incident.guide_no || '—'}</b></div>
-          <div className="calendar-incident-field"><small>OC / Documento</small><b>{incident.purchase_order || incident.document_no || '—'}</b></div>
-          <div className="calendar-incident-field"><small>Material</small><b>{incident.material_no || incident.stock_code || '—'}</b></div>
-          <div className="calendar-incident-field"><small>Proyecto / Grupo</small><b>{incident.project || incident.group_name || '—'}</b></div>
-          <div className="calendar-incident-field span-2"><small>Descripción</small><p>{incident.description || 'Sin descripción'}</p></div>
-          <div className="calendar-incident-field span-2"><small>Observación</small><p>{incident.notes || 'Sin observación'}</p></div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><CalendarDays size={16}/></span>
+            <div><small>Fecha detectada</small><b>{new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(incident.detected_at))}</b></div>
+          </div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><Warehouse size={16}/></span>
+            <div><small>Almacén</small><b>{incident.warehouse || '—'}</b></div>
+          </div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><FileText size={16}/></span>
+            <div><small>Guía</small><b>{incident.guide_no || '—'}</b></div>
+          </div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><ClipboardList size={16}/></span>
+            <div><small>OC / Documento</small><b>{incident.purchase_order || incident.document_no || '—'}</b></div>
+          </div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><Layers3 size={16}/></span>
+            <div><small>Material</small><b>{incident.material_no || incident.stock_code || '—'}</b></div>
+          </div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><Warehouse size={16}/></span>
+            <div><small>Proyecto / Grupo</small><b>{[incident.project,incident.group_name].filter(Boolean).join(' · ') || '—'}</b></div>
+          </div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><UserRound size={16}/></span>
+            <div><small>Registrado por</small><b>{creatorName}</b></div>
+          </div>
+          <div className="calendar-incident-field">
+            <span className="calendar-incident-field-icon"><AlertTriangle size={16}/></span>
+            <div><small>Estado</small><b>{incidentStatus}</b></div>
+          </div>
         </div>
 
-        <div className="modal-actions">
+        <div className="calendar-incident-notes-grid">
+          <div className="calendar-incident-note">
+            <small>Descripción</small>
+            <p>{incident.description || 'Sin descripción registrada.'}</p>
+          </div>
+          <div className="calendar-incident-note">
+            <small>Observación</small>
+            <p>{incident.notes || 'Sin observación registrada.'}</p>
+          </div>
+        </div>
+
+        <div className="modal-actions calendar-incident-actions">
           <button type="button" className="primary-button" onClick={onClose}>Cerrar</button>
         </div>
       </section>
