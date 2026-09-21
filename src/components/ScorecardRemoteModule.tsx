@@ -1052,7 +1052,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           />}
           <button className="secondary-button" disabled={!scorecardExportRows.length||pdfExporting} onClick={exportScorecardPdf}><FileText size={16}/> {pdfExporting?'Generando…':'PDF'}</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
-          {canSeeSourceData&&<button
+          {canSeeSourceData&&report.code!=='inbound-outbound'&&<button
             type="button"
             className={sourceDataOpen?'secondary-button scorecard-data-toggle open':'secondary-button scorecard-data-toggle'}
             onClick={()=>setSourceDataOpen((value)=>!value)}
