@@ -1,0 +1,3 @@
+KOMTROL deployment test
+Date: 2026-09-21
+Purpose: trigger Vercel build verification.
