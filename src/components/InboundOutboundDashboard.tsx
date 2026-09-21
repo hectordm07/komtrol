@@ -47,6 +47,45 @@ function fmtInt(value:number){
   return Math.round(Number.isFinite(value)?value:0).toLocaleString('es-PE')
 }
 
+function titleCase(value:string){
+  return value
+    .toLowerCase()
+    .replace(/(^|[\s/-])([a-záéíóúñ])/g,(_,prefix,letter)=>prefix+letter.toUpperCase())
+}
+
+function shortSiteLabel(row:Row){
+  const raw=(row.site_name||'').trim()
+  const upper=raw.toUpperCase()
+  const warehouse=(row.warehouse||'').trim()
+
+  let base=warehouse && warehouse!=='GLOBAL'
+    ? titleCase(warehouse)
+    : raw
+        .replace(/^K[-\s]*/i,'')
+        .replace(/^C\s*-\s*/i,'')
+        .replace(/^TIENDA\s+/i,'')
+        .replace(/^LAF\s+/i,'')
+        .trim()
+
+  if(/ANTAPAC/.test(upper)) base='Antapacay'
+  if(/MISKI MAYO|BAYOVAR/.test(upper)) base='Bayovar'
+  if(/LAS BAMBAS|BAMBAS/.test(upper)) base='Las Bambas'
+  if(/TOQUEPALA/.test(upper)) base='Toquepala'
+  if(/CUAJONE/.test(upper)) base='Cuajone'
+  if(/QUELLAVECO/.test(upper)) base='Quellaveco'
+
+  const suffix=
+    upper.includes('CUMMINS') ? ' Cummins' :
+    upper.includes('DCP') ? ' DCP' :
+    upper.includes('KMMP') ? ' KMMP' :
+    upper.includes('LAF') ? ' LAF' :
+    ''
+
+  const alreadyHasSuffix=new RegExp(`\\b${suffix.trim()}\\b`,'i').test(base)
+  const label=(base+(suffix&&!alreadyHasSuffix?suffix:'')).replace(/\s+/g,' ').trim()
+  return label.length>24 ? label.slice(0,22).trimEnd()+'…' : label
+}
+
 function withoutConsolidated(rows:Row[]){
   return rows.filter((row)=>
     row.warehouse!=='GLOBAL' &&
@@ -274,6 +313,7 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
     .sort((a,b)=>(a.source_row??9999)-(b.source_row??9999))
     .map((row)=>({
       name:row.site_name,
+      shortName:shortSiteLabel(row),
       value:num(row.data.productivity),
       target:num(row.data.target)||target,
     }))
@@ -306,11 +346,17 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
               <div
                 className="io-bar-item"
                 key={`${item.name}-${index}`}
-                title={`${item.name} · Productividad ${fmtInt(item.value)} · Meta ${fmtInt(item.target)}`}
+                title={`${item.name} · Productividad ${fmtInt(item.value)} · Meta ${fmtInt(item.target)} · Diferencia ${item.value>=item.target?'+':''}${fmtInt(item.value-item.target)}`}
+                aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Meta ${fmtInt(item.target)}.`}
               >
+                <span className="io-bar-tooltip" role="tooltip">
+                  <b>{item.name}</b>
+                  <small>Productividad {fmtInt(item.value)} · Meta {fmtInt(item.target)}</small>
+                  <small>Diferencia {item.value>=item.target?'+':''}{fmtInt(item.value-item.target)}</small>
+                </span>
                 <div className={alert?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
                 <div className={alert?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
-                <div className="io-bar-label">{item.name}</div>
+                <div className="io-bar-label">{item.shortName}</div>
               </div>
             )
           })}
