@@ -215,7 +215,7 @@ function canonicalWarehouse(value: unknown) {
   if (!raw) return 'SIN_ASIGNAR'
   const rules: [RegExp,string][] = [
     [/ANTAMINA/, 'ANTAMINA'],
-    [/ANTAPAC/, 'ANTAPACCAY'],
+    [/ANTAPAC/, 'ANTAPACAY'],
     [/BAYOVAR|MISKI MAYO/, 'BAYOVAR'],
     [/CUAJONE/, 'CUAJONE'],
     [/TOQUEPALA|TOQEPALA/, 'TOQUEPALA'],
@@ -231,11 +231,14 @@ function canonicalWarehouse(value: unknown) {
     [/CHICLAYO/, 'CHICLAYO'],
     [/TARAPOTO/, 'TARAPOTO'],
     [/PUCALLPA/, 'PUCALLPA'],
-    [/CUSCO|CUZCO/, 'CUSCO'],
+    [/CUSCO|CUZCO/, 'CUZCO'],
     [/TACNA/, 'TACNA'],
     [/MOQUEGUA/, 'MOQUEGUA'],
     [/LOS OLIVOS/, 'LOS OLIVOS'],
     [/SAN LUIS/, 'SAN LUIS'],
+    [/ILO/, 'ILO'],
+    [/CALLAO/, 'CALLAO'],
+    [/PUCUSANA/, 'PUCUSANA'],
   ]
   const found = rules.find(([pattern]) => pattern.test(raw))
   if (found) return found[1]
@@ -417,6 +420,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const [uploading,setUploading]=useState(false)
   const [editingRows,setEditingRows]=useState<Record<string,ScorecardRow>>({})
   const fileInputRef=useRef<HTMLInputElement|null>(null)
+  const periodInitializedRef=useRef<string>('')
 
   const report=definitions.find((item)=>item.code===mode)
   const ownWarehouseMeta=warehouseCatalog.find((item)=>
@@ -483,7 +487,24 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
     const rowRes=await query
     if(rowRes.error) setMessage(rowRes.error.message)
-    setRows((rowRes.data??[]) as ScorecardRow[])
+    const loaded=(rowRes.data??[]) as ScorecardRow[]
+    setRows(loaded)
+
+    const initializationKey=String(mode)
+    if(loaded.length && periodInitializedRef.current!==initializationKey){
+      const hasSelectedPeriod=loaded.some((row)=>row.year===year&&row.month===month)
+      if(!hasSelectedPeriod){
+        const latest=[...loaded].sort((a,b)=>b.period_date.localeCompare(a.period_date))[0]
+        if(latest){
+          periodInitializedRef.current=initializationKey
+          if(latest.year!==year) setYear(latest.year)
+          setMonth(latest.month)
+        }
+      }else{
+        periodInitializedRef.current=initializationKey
+      }
+    }
+
     setLoading(false)
   }
 
