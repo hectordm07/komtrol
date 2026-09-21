@@ -14,6 +14,7 @@ import {
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
+import { SearchableSelect } from './SearchableSelect'
 
 export type ScorecardMode =
   | 'scorecard-carga'
@@ -773,9 +774,9 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           <em className={`source-${report.source_mode.toLowerCase()}`}><ReportIcon mode={report.source_mode}/>{sourceBadge(report.source_mode)}</em>
         </div>
         <div className="scorecard-filters">
-          <select value={year} onChange={(event)=>setYear(Number(event.target.value))}>{[2024,2025,2026,2027].map((value)=><option key={value} value={value}>{value}</option>)}</select>
-          <select value={month} onChange={(event)=>setMonth(Number(event.target.value))}>{MONTHS.map((label,index)=><option key={label} value={index+1}>{label}</option>)}</select>
-          {(role==='ADMINISTRADOR'||role==='SUPERVISOR')&&<select value={warehouseFilter} onChange={(event)=>setWarehouseFilter(event.target.value)}><option value="TODOS">Todos los proyectos</option>{warehouses.map((warehouse)=><option key={warehouse} value={warehouse}>{warehouse}</option>)}</select>}
+          <SearchableSelect value={String(year)} onChange={(value)=>value&&setYear(Number(value))} options={[2024,2025,2026,2027].map((value)=>({value:String(value),label:String(value)}))} placeholder="Buscar año…" clearable={false} ariaLabel="Filtrar por año"/>
+          <SearchableSelect value={String(month)} onChange={(value)=>value&&setMonth(Number(value))} options={MONTHS.map((label,index)=>({value:String(index+1),label}))} placeholder="Buscar mes…" clearable={false} ariaLabel="Filtrar por mes"/>
+          {(role==='ADMINISTRADOR'||role==='SUPERVISOR')&&<SearchableSelect value={warehouseFilter} onChange={(value)=>setWarehouseFilter(value||'TODOS')} options={[{value:'TODOS',label:'Todos los proyectos'},...warehouses.map((warehouse)=>({value:warehouse,label:warehouse}))]} placeholder="Buscar proyecto…" clearable={false} ariaLabel="Filtrar por proyecto"/>}
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardPdf}><FileText size={16}/> PDF</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
