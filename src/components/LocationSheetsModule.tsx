@@ -11,6 +11,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { SearchableSelect } from './SearchableSelect'
 
 type Supplier = 'KOMATSU' | 'CUMMINS' | 'POR_VALIDAR'
 
@@ -624,21 +625,35 @@ export function LocationSheetsModule() {
 
           <label>
             Proveedor
-            <select value={supplier} onChange={(e) => setSupplier(e.target.value)}>
-              <option value="TODOS">Todos</option>
-              <option value="KOMATSU">KOMATSU</option>
-              <option value="CUMMINS">CUMMINS</option>
-              <option value="POR_VALIDAR">Por validar</option>
-            </select>
+            <SearchableSelect
+              value={supplier}
+              onChange={(value)=>setSupplier(value||'TODOS')}
+              options={[
+                {value:'TODOS',label:'Todos'},
+                {value:'KOMATSU',label:'KOMATSU'},
+                {value:'CUMMINS',label:'CUMMINS'},
+                {value:'POR_VALIDAR',label:'Por validar'},
+              ]}
+              placeholder="Buscar proveedor…"
+              clearable={false}
+              ariaLabel="Filtrar por proveedor"
+            />
           </label>
 
           <label>
             Estado SAP
-            <select value={sapFilter} onChange={(e) => setSapFilter(e.target.value as 'PENDIENTE' | 'INGRESADO' | 'TODOS')}>
-              <option value="PENDIENTE">Pendientes SAP</option>
-              <option value="INGRESADO">Ingresados SAP</option>
-              <option value="TODOS">Todos</option>
-            </select>
+            <SearchableSelect
+              value={sapFilter}
+              onChange={(value)=>setSapFilter((value||'PENDIENTE') as 'PENDIENTE' | 'INGRESADO' | 'TODOS')}
+              options={[
+                {value:'PENDIENTE',label:'Pendientes SAP'},
+                {value:'INGRESADO',label:'Ingresados SAP'},
+                {value:'TODOS',label:'Todos'},
+              ]}
+              placeholder="Buscar estado SAP…"
+              clearable={false}
+              ariaLabel="Filtrar por estado SAP"
+            />
           </label>
 
           <button
