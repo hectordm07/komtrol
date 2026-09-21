@@ -20487,3 +20487,371 @@ table tbody tr:hover td {
     grid-column: auto !important;
   }
 }
+
+
+/* KOMTROL SCORECARD V5 · RESPONSIVE LABELS + MOBILE VALIDATION */
+
+/* En monitor los centros deben caber dentro del panel; nombres compactos en 2 líneas */
+.io-dashboard-v3 .io-productivity-panel {
+  min-width: 0;
+  overflow: visible;
+}
+
+.io-dashboard-v3 .io-productivity-chart {
+  height: 224px;
+  padding: 14px 4px 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.io-dashboard-v3 .io-bars {
+  width: 100%;
+  min-width: 0;
+  height: 174px;
+  padding: 0 10px 0 26px;
+  grid-template-columns: repeat(var(--io-bar-count), minmax(22px,1fr));
+  gap: clamp(3px,.52vw,8px);
+}
+
+.io-dashboard-v3 .io-bar-item {
+  position: relative;
+  height: 154px;
+  min-width: 0;
+}
+
+.io-dashboard-v3 .io-bar {
+  width: min(28px,70%);
+  min-width: 9px;
+}
+
+.io-dashboard-v3 .io-bar-label {
+  top: calc(100% + 5px);
+  left: 50%;
+  width: calc(100% + 12px);
+  max-width: 72px;
+  min-height: 19px;
+  transform: translateX(-50%);
+  transform-origin: center top;
+  padding: 0 1px;
+  color: #516087;
+  font-size: 6.2px;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.io-dashboard-v3 .io-bar-value {
+  position: relative;
+  z-index: 4;
+  font-size: 7px;
+}
+
+/* Tooltip profesional con nombre completo y comparación contra la meta */
+.io-dashboard-v3 .io-bar-tooltip {
+  position: absolute;
+  z-index: 30;
+  top: 2px;
+  left: 50%;
+  width: 176px;
+  max-width: min(176px,70vw);
+  padding: 7px 9px;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 9px;
+  background: #15255f;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(21,37,95,.22);
+  display: grid;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%,-5px);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
+  pointer-events: none;
+  text-align: left;
+}
+
+.io-dashboard-v3 .io-bar-tooltip b {
+  color: #fff;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.io-dashboard-v3 .io-bar-tooltip small {
+  color: #dce3ff;
+  font-size: 7px;
+  line-height: 1.25;
+}
+
+.io-dashboard-v3 .io-bar-item:hover .io-bar-tooltip,
+.io-dashboard-v3 .io-bar-item:focus-within .io-bar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%,0);
+}
+
+/* En el ancho de monitor del usuario el dashboard debe permanecer dentro de la pantalla */
+@media (min-width: 1221px) {
+  .scorecard-module:has(.io-dashboard-v3) {
+    width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar,
+  .scorecard-dashboard-export,
+  .io-dashboard-v3,
+  .io-dashboard-v3 .io-dashboard-top,
+  .io-dashboard-v3 .io-dashboard-bottom {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top {
+    grid-template-columns: minmax(188px,.5fr) minmax(0,1.16fr) minmax(0,1.16fr);
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom {
+    grid-template-columns: minmax(235px,.62fr) minmax(0,2.45fr);
+  }
+}
+
+/* Tablet: mantener dashboard legible, y usar desplazamiento solo en el gráfico de centros */
+@media (max-width: 1050px) {
+  .io-dashboard-v3 .io-productivity-chart {
+    height: 236px;
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: thin;
+    scrollbar-color: #aebbf0 #eef1ff;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .io-dashboard-v3 .io-bars {
+    min-width: calc(var(--io-bar-count) * 54px);
+    height: 184px;
+    grid-template-columns: repeat(var(--io-bar-count), minmax(46px,1fr));
+    gap: 7px;
+  }
+
+  .io-dashboard-v3 .io-bar-item {
+    height: 164px;
+  }
+
+  .io-dashboard-v3 .io-bar-label {
+    width: 50px;
+    max-width: 50px;
+    font-size: 6.5px;
+  }
+}
+
+/* Celular: validado conceptualmente para 430 / 390 / 360 px */
+@media (max-width: 620px) {
+  .scorecard-module:has(.io-dashboard-v3) {
+    gap: 7px;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context {
+    align-items: flex-start;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context > span {
+    width: 38px;
+    height: 38px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-report-context b {
+    font-size: 12px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 7px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters > .scorecard-quick-select {
+    grid-column: auto !important;
+    min-height: 44px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters > .dashboard-hierarchy-filter {
+    grid-column: 1 / -1 !important;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .dashboard-hierarchy-trigger,
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button,
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .icon-button {
+    min-height: 44px;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .icon-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .io-dashboard-v3 .io-dashboard-context {
+    padding-inline: 9px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top {
+    grid-template-columns: 1fr;
+  }
+
+  .io-dashboard-v3 .io-trend-card {
+    min-height: 184px;
+  }
+
+  .io-dashboard-v3 .io-trend-svg {
+    height: 104px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .io-dashboard-v3 .io-gauge-card {
+    min-height: 228px;
+  }
+
+  .io-dashboard-v3 .io-productivity-panel {
+    min-height: 282px;
+    padding-inline: 9px;
+  }
+
+  .io-dashboard-v3 .io-productivity-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .io-dashboard-v3 .io-productivity-chart {
+    height: 226px;
+    margin-top: 3px;
+    padding-top: 12px;
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .io-dashboard-v3 .io-bars {
+    min-width: calc(var(--io-bar-count) * 62px);
+    height: 177px;
+    padding-left: 18px;
+    grid-template-columns: repeat(var(--io-bar-count), 54px);
+    gap: 8px;
+  }
+
+  .io-dashboard-v3 .io-bar-item {
+    height: 157px;
+  }
+
+  .io-dashboard-v3 .io-bar {
+    width: 26px;
+    min-width: 26px;
+  }
+
+  .io-dashboard-v3 .io-bar-label {
+    width: 56px;
+    max-width: 56px;
+    min-height: 22px;
+    font-size: 6.8px;
+    line-height: 1.1;
+    -webkit-line-clamp: 2;
+  }
+
+  .io-dashboard-v3 .io-bar-tooltip {
+    display: none;
+  }
+
+  .io-dashboard-v3 .io-variation {
+    width: auto;
+    max-width: 100%;
+  }
+}
+
+/* 390–620 px: las dos tarjetas compactas aprovechan mejor el ancho */
+@media (min-width: 390px) and (max-width: 620px) {
+  .io-dashboard-v3 .io-mini-stack {
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    grid-template-rows: auto !important;
+  }
+
+  .io-dashboard-v3 .io-mini-card {
+    min-height: 92px;
+  }
+
+  .io-dashboard-v3 .io-mini-main {
+    grid-template-columns: 34px minmax(0,1fr);
+    gap: 7px;
+  }
+
+  .io-dashboard-v3 .io-mini-copy strong {
+    font-size: 24px;
+  }
+
+  .io-dashboard-v3 .io-mini-change {
+    padding-left: 41px;
+  }
+}
+
+/* 360–389 px: máxima seguridad contra recortes */
+@media (max-width: 389px) {
+  .io-dashboard-v3 .io-mini-stack {
+    grid-template-columns: 1fr !important;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters > .dashboard-hierarchy-filter,
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .icon-button {
+    grid-column: 1 / -1 !important;
+  }
+
+  .io-dashboard-v3 .io-card-heading strong {
+    font-size: 25px;
+  }
+}
+
+/* PDF: conservar etiquetas horizontales y compactas */
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-productivity-chart {
+  height: 202px !important;
+  overflow: visible !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-bars {
+  height: 158px !important;
+  grid-template-columns: repeat(var(--io-bar-count), minmax(22px,1fr)) !important;
+  gap: 4px !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-bar-item {
+  height: 140px !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-bar-label {
+  width: calc(100% + 8px);
+  max-width: 58px;
+  transform: translateX(-50%);
+  font-size: 5.8px;
+  -webkit-line-clamp: 2;
+}
