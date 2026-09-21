@@ -22969,3 +22969,134 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   min-height: 38px !important;
   padding-left: 0 !important;
 }
+
+
+/* KOMTROL SCORECARD V10 · FILL AVAILABLE VIEWPORT HEIGHT */
+
+/*
+  Objetivo: el Reporte 01 debe terminar prácticamente en el borde inferior útil
+  del viewport. El espacio vertical adicional se asigna al bloque inferior,
+  manteniendo el dashboard legible y sin volver a mostrar "Datos del reporte".
+*/
+@media (min-width: 821px) {
+  .scorecard-module:has(.io-dashboard-v3) {
+    min-height: 0;
+  }
+
+  .scorecard-module:has(.io-dashboard-v3) .scorecard-dashboard-export {
+    min-height: 0;
+  }
+
+  .io-dashboard-v3 {
+    min-height: 0;
+  }
+
+  /*
+    Para Laptop/Monitor calculamos el alto del bloque inferior con el viewport real.
+    En 1536×791 esto agrega aproximadamente 90px al área de Gauge/Productividad.
+  */
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-dashboard-bottom,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-bottom,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-bottom {
+    --io-fill-bottom-height: clamp(
+      255px,
+      calc(var(--kt-viewport-height, 900px) - 455px),
+      390px
+    );
+    min-height: var(--io-fill-bottom-height) !important;
+    height: var(--io-fill-bottom-height) !important;
+    align-items: stretch !important;
+  }
+
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card,
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-productivity-area,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-productivity-area,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-productivity-area,
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-productivity-panel,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-productivity-panel,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-productivity-panel {
+    min-height: var(--io-fill-bottom-height) !important;
+    height: var(--io-fill-bottom-height) !important;
+  }
+
+  /* Gauge: crecer de manera proporcionada, sin agrandar demasiado el encabezado. */
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-gauge-wrap,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-gauge-wrap,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-gauge-wrap {
+    min-height: calc(var(--io-fill-bottom-height) - 72px) !important;
+    height: calc(var(--io-fill-bottom-height) - 72px) !important;
+    justify-content: center !important;
+  }
+
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-gauge,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-gauge,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-gauge {
+    width: min(100%, 238px) !important;
+    height: clamp(128px, calc(var(--io-fill-bottom-height) - 145px), 182px) !important;
+    flex-basis: clamp(128px, calc(var(--io-fill-bottom-height) - 145px), 182px) !important;
+  }
+
+  /* Productividad: ocupar el espacio vertical recuperado hasta el borde inferior. */
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-productivity-chart,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-productivity-chart,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-productivity-chart {
+    height: calc(var(--io-fill-bottom-height) - 54px) !important;
+    min-height: calc(var(--io-fill-bottom-height) - 54px) !important;
+    padding-top: 12px !important;
+  }
+
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-bars,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-bars,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-bars {
+    height: calc(var(--io-fill-bottom-height) - 96px) !important;
+    min-height: calc(var(--io-fill-bottom-height) - 96px) !important;
+  }
+
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-bar-item,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-bar-item,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-bar-item {
+    height: calc(var(--io-fill-bottom-height) - 112px) !important;
+  }
+
+  /*
+    La nota inferior permanece mínima; el crecimiento se concentra en los gráficos.
+  */
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-dashboard-footnote,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-footnote,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-footnote {
+    min-height: 18px !important;
+    height: 18px !important;
+    padding: 2px 7px !important;
+  }
+}
+
+/*
+  Si el viewport es realmente bajo no forzamos crecimiento que cause scroll.
+*/
+@media (min-width: 821px) and (max-height: 720px) {
+  html[data-screen-profile="laptop"] .io-dashboard-v3 .io-dashboard-bottom,
+  html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-bottom,
+  html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-bottom {
+    --io-fill-bottom-height: 245px;
+  }
+}
+
+/* Móvil/tablet conserva el flujo vertical existente. */
+@media (max-width: 820px) {
+  .io-dashboard-v3 .io-dashboard-bottom,
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card,
+  .io-dashboard-v3 .io-productivity-area,
+  .io-dashboard-v3 .io-productivity-panel {
+    height: auto !important;
+  }
+}
+
+/* PDF no debe depender del alto del monitor. */
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-bottom,
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-bottom > .io-gauge-card,
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-productivity-area,
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-productivity-panel {
+  height: auto !important;
+}
