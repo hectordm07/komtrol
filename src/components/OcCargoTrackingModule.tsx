@@ -292,7 +292,8 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
         file_path,
         file_name,
         created_at,
-        oc_cargo_followups (*)
+        oc_cargo_followups (*),
+        guide_refrendos (*)
       `)
       .in('guide_type', ['ORDEN_COMPRA', 'CARGO_DIRECTO'])
       .order('created_at', { ascending: false })
@@ -305,6 +306,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
       const rows = (data ?? []).map((row: any) => ({
         ...row,
         followup: normalizeFollowup(row.oc_cargo_followups),
+        refrendos: (row.guide_refrendos ?? []) as Refrendo[],
       })) as Guide[]
       setGuides(rows)
       if (selected) {
@@ -347,6 +349,8 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
       observed: rows.filter((guide) => guide.followup?.final_status === 'OBSERVADO').length,
       refrendado: rows.filter((guide) => guide.followup?.final_status === 'REFRENDADO').length,
       pending: rows.filter((guide) => !guide.followup || ['PENDIENTE', 'EN_SEGUIMIENTO'].includes(guide.followup.final_status)).length,
+      withRefrendo: rows.filter((guide) => (guide.refrendos?.length || 0) > 0).length,
+      billingSent: rows.filter((guide) => ['ENVIADO','REENVIADO','CONFIRMADO'].includes(guide.followup?.billing_status || '')).length,
     }
   }, [guides, activeType])
 
@@ -363,6 +367,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     client_delivery_date:fmtDate(guide.followup?.client_delivery_date),
     refrendo_delivery_date:fmtDate(guide.followup?.refrendo_delivery_date),
     scan_send_status:guide.followup?.scan_send_status||'',
+    refrendos:(guide.refrendos?.length||0) ? String(guide.refrendos?.length) + ' PDF' : 'PENDIENTE',
+    billing_status:statusLabel(guide.followup?.billing_status||'PENDIENTE'),
+    billing_sent_at:fmtDate(guide.followup?.billing_sent_at),
+    billing_sent_by:guide.followup?.billing_sent_by_name||'',
     warehouse:guide.warehouse||'',
   }))
 
@@ -379,6 +387,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     {header:'ENTREGA CLIENTE',key:'client_delivery_date',width:16},
     {header:'REFRENDO',key:'refrendo_delivery_date',width:16},
     {header:'ENVÍO SCAN',key:'scan_send_status',width:16},
+    {header:'REFRENDOS',key:'refrendos',width:16},
+    {header:'ESTADO FACTURACIÓN',key:'billing_status',width:20},
+    {header:'FECHA DE ENVÍO',key:'billing_sent_at',width:18},
+    {header:'ENVIADO POR',key:'billing_sent_by',width:24},
     {header:'ALMACÉN',key:'warehouse',width:18},
   ]
 
@@ -391,6 +403,9 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     {header:'ESTADO',key:'final_status'},
     {header:'ENCARGADO',key:'management_owner'},
     {header:'UBICACIÓN',key:'parts_location'},
+    {header:'REFRENDOS',key:'refrendos'},
+    {header:'FACTURACIÓN',key:'billing_status'},
+    {header:'ENVÍO',key:'billing_sent_at'},
   ]
 
   function exportOcExcel(){
