@@ -452,7 +452,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
     setSaving(true)
     setMessage('')
     const canChooseUser=isAdmin
-    const targetUserId=canChooseUser?form.user_id:userId
+    const targetUserId=canChooseUser?form.user_id:(editingRow?.user_id||userId)
     const target=profiles.find((p)=>p.user_id===targetUserId) || profile
     const payload={
       user_id:targetUserId,
