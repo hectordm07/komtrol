@@ -428,6 +428,45 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     )
   }
 
+  async function viewRefrendo(guide: Guide) {
+    const refrendo = latestRefrendo(guide)
+    if (!refrendo) {
+      setMessage('Esta guía todavía no tiene refrendo cargado.')
+      return
+    }
+
+    const { data, error } = await supabase.storage
+      .from(refrendo.file_bucket)
+      .createSignedUrl(refrendo.file_path, 300)
+
+    if (error || !data?.signedUrl) {
+      setMessage(error?.message || 'No se pudo abrir el refrendo.')
+      return
+    }
+
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  function matchGuideForText(text: string) {
+    const normalized = normalizeMatchText(text)
+    let best: { guide: Guide; score: number } | null = null
+
+    guides.forEach((guide) => {
+      const candidates = [guide.reference, guide.guide_no, guide.document_no]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => normalizeMatchText(value))
+        .filter((value) => value.length >= 5)
+
+      candidates.forEach((candidate) => {
+        if (!normalized.includes(candidate)) return
+        const score = Math.min(100, 88 + Math.min(12, candidate.length / 2))
+        if (!best || score > best.score) best = { guide, score }
+      })
+    })
+
+    return best
+  }
+
   function openFollowup(guide: Guide) {
     setSelected(guide)
     setForm(followupToForm(guide.followup))
