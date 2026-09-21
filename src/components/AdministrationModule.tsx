@@ -44,6 +44,15 @@ type Warehouse = {
   remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
 }
 
+type WarehouseCenter = {
+  id: string
+  warehouse_code: string
+  code: string
+  name: string
+  business_unit: 'KMMP' | 'DCP' | 'CUMMINS' | 'GENERAL'
+  active: boolean
+}
+
 type Project = {
   id: string
   code: string
@@ -218,6 +227,7 @@ export function AdministrationModule({ mode, userId, isAdmin }: Props) {
 
 function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [centers, setCenters] = useState<WarehouseCenter[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [groups, setGroups] = useState<OperationalGroup[]>([])
   const [message, setMessage] = useState('')
@@ -227,19 +237,27 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
     warehouse_scope: 'REMOTO' as 'REMOTO' | 'CENTRAL',
     remote_group: 'PROYECTO_MINERO' as 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA',
   })
+  const [centerForm, setCenterForm] = useState({
+    warehouse_code: '',
+    code: '',
+    name: '',
+    business_unit: 'KMMP' as WarehouseCenter['business_unit'],
+  })
   const [projectForm, setProjectForm] = useState({ code: '', name: '', warehouse_code: '' })
   const [groupForm, setGroupForm] = useState({ project_code: '', name: '' })
 
   async function reload() {
-    const [w, p, g] = await Promise.all([
+    const [w, c, p, g] = await Promise.all([
       supabase.from('warehouses').select('*').order('name'),
+      supabase.from('warehouse_centers').select('*').order('warehouse_code').order('name'),
       supabase.from('projects').select('*').order('name'),
       supabase.from('operational_groups').select('*').order('name'),
     ])
     setWarehouses((w.data ?? []) as Warehouse[])
+    setCenters((c.data ?? []) as WarehouseCenter[])
     setProjects((p.data ?? []) as Project[])
     setGroups((g.data ?? []) as OperationalGroup[])
-    const error = w.error || p.error || g.error
+    const error = w.error || c.error || p.error || g.error
     if (error) setMessage(error.message)
   }
 
@@ -265,6 +283,24 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
       remote_group: 'PROYECTO_MINERO',
     })
     setMessage('Almacén creado.')
+    reload()
+  }
+
+  async function addCenter(event: FormEvent) {
+    event.preventDefault()
+    if (!isAdmin || !centerForm.warehouse_code) return
+    const payload = {
+      warehouse_code: centerForm.warehouse_code,
+      code: centerForm.code.trim().toUpperCase(),
+      name: centerForm.name.trim().toUpperCase(),
+      business_unit: centerForm.business_unit,
+      created_by: userId,
+    }
+    const { error } = await supabase.from('warehouse_centers').insert(payload)
+    if (error) { setMessage(error.message); return }
+    await writeAudit(userId, 'CREATE_WAREHOUSE_CENTER', 'WAREHOUSE_CENTER', payload)
+    setCenterForm({ warehouse_code: '', code: '', name: '', business_unit: 'KMMP' })
+    setMessage('Centro / unidad creado.')
     reload()
   }
 
@@ -340,13 +376,30 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
               )}
               <button className="primary-button"><Plus size={15} /> Crear</button>
             </form>
+            <form className="catalog-form" onSubmit={addCenter}>
+              <b><Boxes size={16} /> Nuevo centro / unidad</b>
+              <select required value={centerForm.warehouse_code} onChange={(e)=>setCenterForm({...centerForm,warehouse_code:e.target.value})}>
+                <option value="">Seleccionar almacén / equipo</option>
+                {warehouses.filter((item)=>item.active).map((item)=><option key={item.id} value={item.code}>{item.name}</option>)}
+              </select>
+              <input required placeholder="Código centro · Ej. ANTAMINA_KMMP" value={centerForm.code} onChange={(e)=>setCenterForm({...centerForm,code:e.target.value})}/>
+              <input required placeholder="Nombre · Ej. ANTAMINA KMMP" value={centerForm.name} onChange={(e)=>setCenterForm({...centerForm,name:e.target.value})}/>
+              <select value={centerForm.business_unit} onChange={(e)=>setCenterForm({...centerForm,business_unit:e.target.value as WarehouseCenter['business_unit']})}>
+                <option value="KMMP">KMMP</option>
+                <option value="DCP">DCP</option>
+                <option value="CUMMINS">CUMMINS</option>
+                <option value="GENERAL">GENERAL</option>
+              </select>
+              <button className="primary-button"><Plus size={15}/> Crear</button>
+            </form>
+
             <form className="catalog-form" onSubmit={addProject}>
               <b><FolderKanban size={16} /> Nuevo proyecto</b>
               <input required placeholder="Código" value={projectForm.code} onChange={(e) => setProjectForm({ ...projectForm, code: e.target.value })} />
               <input required placeholder="Nombre" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} />
               <select value={projectForm.warehouse_code} onChange={(e) => setProjectForm({ ...projectForm, warehouse_code: e.target.value })}>
                 <option value="">Sin almacén</option>
-                {warehouses.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}
+                {warehouses.filter((item)=>item.active).map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}
               </select>
               <button className="primary-button"><Plus size={15} /> Crear</button>
             </form>
@@ -382,6 +435,11 @@ function CatalogsAdmin({ userId, isAdmin }: { userId: string; isAdmin: boolean }
                     : 'SIN CLASIFICAR',
             r.active ? 'ACTIVO' : 'INACTIVO',
           ])}
+        />
+        <CatalogTable
+          title="Centros / Unidades"
+          headers={['Almacén / Equipo','Código','Nombre','Unidad','Estado']}
+          rows={centers.map((r)=>[r.warehouse_code,r.code,r.name,r.business_unit,r.active?'ACTIVO':'INACTIVO'])}
         />
         <CatalogTable title="Proyectos" headers={['Código','Nombre','Almacén']} rows={projects.map((r) => [r.code, r.name, r.warehouse_code || '—'])} />
         <CatalogTable title="Grupos" headers={['Proyecto','Grupo','Estado']} rows={groups.map((r) => [r.project_code || 'GENERAL', r.name, r.active ? 'ACTIVO' : 'INACTIVO'])} />
