@@ -1189,7 +1189,8 @@ export function TasksModule({
         ) : workView === 'CALENDARIO' ? (
           <TaskCalendar
             tasks={filtered}
-            incidents={incidents}
+            incidents={mode === 'area-personal' || workArea === 'MI_TRABAJO' ? [] : incidents}
+            showIncidents={mode !== 'area-personal' && workArea !== 'MI_TRABAJO'}
             profiles={profiles}
             profile={profile}
             onUpdate={updateTask}
@@ -1715,9 +1716,12 @@ function monthOffset(date: Date, amount: number) {
 function monthCalendarCells(month: Date) {
   const first = startOfMonth(month)
   const mondayIndex = (first.getDay() + 6) % 7
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0, 12, 0, 0, 0).getDate()
+  const cellCount = Math.ceil((mondayIndex + daysInMonth) / 7) * 7
   const gridStart = new Date(first)
   gridStart.setDate(first.getDate() - mondayIndex)
-  return Array.from({ length: 42 }, (_, index) => {
+
+  return Array.from({ length: cellCount }, (_, index) => {
     const cell = new Date(gridStart)
     cell.setDate(gridStart.getDate() + index)
     cell.setHours(12,0,0,0)
@@ -1734,6 +1738,7 @@ function startOfToday() {
 function TaskCalendar({
   tasks,
   incidents,
+  showIncidents,
   profiles,
   profile,
   onUpdate,
@@ -1742,6 +1747,7 @@ function TaskCalendar({
 }: {
   tasks: Task[]
   incidents: CalendarIncident[]
+  showIncidents: boolean
   profiles: Profile[]
   profile: Profile | null
   onUpdate: (task: Task, changes: Partial<Task>) => void
@@ -1754,9 +1760,10 @@ function TaskCalendar({
   const monthValue = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth()+1).padStart(2,'0')}`
 
   const visibleIncidents = useMemo(() => {
+    if (!showIncidents) return []
     if (!profile?.warehouse || profile.role === 'ADMINISTRADOR') return incidents
     return incidents.filter((incident) => incident.warehouse === profile.warehouse)
-  }, [incidents, profile?.warehouse, profile?.role])
+  }, [incidents, profile?.warehouse, profile?.role, showIncidents])
 
   const taskByDay = useMemo(() => {
     return tasks
@@ -1787,7 +1794,7 @@ function TaskCalendar({
       <div className="calendar-month-controls">
         <div>
           <b>{monthLabel.charAt(0).toUpperCase()+monthLabel.slice(1)}</b>
-          <span>Vista mensual completa · tareas, relevos e incidencias</span>
+          <span>{showIncidents ? 'Vista mensual completa · tareas, relevos e incidencias' : 'Vista mensual completa · tareas personales'}</span>
         </div>
         <div className="calendar-month-nav">
           <button className="icon-button" onClick={() => setCalendarMonth((current)=>monthOffset(current,-1))} title="Mes anterior"><ChevronLeft size={18}/></button>
@@ -1809,7 +1816,7 @@ function TaskCalendar({
       <div className="calendar-30-legend">
         <span><i className="calendar-legend-dot task" /> Tarea / pendiente</span>
         <span><i className="calendar-legend-dot relevo" /> Relevo</span>
-        <span><i className="calendar-legend-dot incident" /> Incidencia</span>
+        {showIncidents && <span><i className="calendar-legend-dot incident" /> Incidencia</span>}
       </div>
 
       <div className="calendar-weekdays">
@@ -1819,11 +1826,11 @@ function TaskCalendar({
       <div className="calendar-month-grid">
         {dayCells.map((date) => {
           const key = localDateKey(date)
-          const dayTasks = taskByDay[key] ?? []
-          const dayIncidents = incidentByDay[key] ?? []
-          const total = dayTasks.length + dayIncidents.length
           const isToday = key === todayKey
           const inMonth = date.getMonth()===calendarMonth.getMonth() && date.getFullYear()===calendarMonth.getFullYear()
+          const dayTasks = inMonth ? (taskByDay[key] ?? []) : []
+          const dayIncidents = inMonth && showIncidents ? (incidentByDay[key] ?? []) : []
+          const total = dayTasks.length + dayIncidents.length
 
           return (
             <section className={`calendar-month-day ${isToday?'is-today ':''}${!inMonth?'is-outside-month':''}`} key={key}>
