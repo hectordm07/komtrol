@@ -21556,3 +21556,272 @@ html[data-screen-profile="mobile"] .scorecard-data-toggle {
     min-height: 44px;
   }
 }
+
+
+/* KOMTROL SCORECARD V8 · FULL WIDTH PRODUCTIVITY */
+
+/*
+  En escritorio el gráfico Productividad IL debe ocupar TODO el ancho útil del
+  dashboard. El gauge se conserva, pero pasa a ser un resumen flotante dentro
+  de la cabecera del mismo bloque para no consumir una columna completa.
+*/
+@media (min-width: 821px) {
+  .io-dashboard-v3 .io-dashboard-bottom {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) !important;
+    gap: 0 !important;
+    min-width: 0;
+  }
+
+  .io-dashboard-v3 .io-productivity-area {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    grid-column: 1 / -1;
+  }
+
+  .io-dashboard-v3 .io-productivity-panel {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /*
+    El gauge queda integrado visualmente al panel superior izquierdo.
+    De esta forma la zona de barras comienza en el mismo borde útil del dashboard.
+  */
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card {
+    position: absolute;
+    z-index: 12;
+    top: 8px;
+    left: 10px;
+    width: 184px;
+    min-height: 48px !important;
+    height: 48px;
+    padding: 5px 8px;
+    border: 0;
+    border-right: 1px solid var(--kt-blue-100);
+    border-radius: 9px;
+    background: rgba(247,249,255,.96);
+    box-shadow: none;
+    display: grid;
+    grid-template-columns: 34px minmax(0,1fr) auto;
+    grid-template-rows: 1fr;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-card-head {
+    display: contents;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-section-icon {
+    width: 30px;
+    height: 30px;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-card-head > div {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    align-content: center;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-card-head small {
+    font-size: 5.6px;
+    line-height: 1;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-card-head b {
+    font-size: 8px;
+    line-height: 1.08;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-wrap {
+    grid-column: 3;
+    grid-row: 1;
+    min-height: 0 !important;
+    height: auto;
+    padding: 0;
+    display: grid;
+    align-items: center;
+    justify-items: end;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge {
+    display: none;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-reading {
+    min-width: 52px;
+    min-height: 30px;
+    margin: 0;
+    padding: 3px 7px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-reading b {
+    font-size: 18px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-reading span {
+    display: none;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-target {
+    display: none;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-footer {
+    display: none;
+  }
+
+  /*
+    Reservamos únicamente la cabecera para el resumen de productividad.
+    El área real de barras usa el 100% del ancho del panel.
+  */
+  .io-dashboard-v3 .io-productivity-head {
+    min-height: 58px;
+    padding-left: 202px !important;
+    padding-right: 120px;
+    align-items: center;
+  }
+
+  .io-dashboard-v3 .io-productivity-chart {
+    width: 100%;
+    max-width: none;
+  }
+
+  .io-dashboard-v3 .io-bars {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* En monitor/laptop el gráfico se alinea desde el borde útil junto al sidebar. */
+html[data-screen-profile="laptop"] .io-dashboard-v3 .io-dashboard-bottom,
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-bottom,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-bottom {
+  grid-template-columns: minmax(0,1fr) !important;
+}
+
+html[data-screen-profile="laptop"] .io-dashboard-v3 .io-productivity-area,
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-productivity-area,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-productivity-area {
+  width: 100%;
+}
+
+/* Alturas compactas: mantener el mismo principio sin robar ancho al gráfico. */
+html[data-screen-density="compact"] .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card {
+  top: 5px;
+  left: 7px;
+  width: 166px;
+  height: 42px;
+  min-height: 42px !important;
+  padding: 4px 6px;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-productivity-head {
+  min-height: 50px;
+  padding-left: 182px !important;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card {
+  width: 174px;
+  height: 45px;
+  min-height: 45px !important;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-productivity-head {
+  min-height: 54px;
+  padding-left: 192px !important;
+}
+
+/*
+  Tablet/móvil: volver a flujo normal. Ahí es preferible conservar el gauge
+  completo encima del gráfico y usar scroll interno para muchas sedes.
+*/
+@media (max-width: 820px) {
+  .io-dashboard-v3 .io-dashboard-bottom {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 7px !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card {
+    position: static;
+    width: auto;
+    height: auto;
+    min-height: 220px !important;
+    padding: 10px;
+    border: 1px solid var(--kt-blue-150);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--kt-shadow-xs);
+    display: block;
+    overflow: visible;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-card-head {
+    display: flex;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-wrap {
+    display: flex;
+    min-height: 152px !important;
+    height: auto;
+    padding-top: 2px;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge {
+    display: block;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-reading {
+    min-width: 104px;
+    min-height: 38px;
+    margin-top: -7px;
+    padding: 4px 10px;
+  }
+
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-reading span,
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-target,
+  .io-dashboard-v3 .io-dashboard-bottom > .io-gauge-card .io-gauge-footer {
+    display: flex;
+  }
+
+  .io-dashboard-v3 .io-productivity-head {
+    min-height: initial;
+    padding-left: 0 !important;
+    padding-right: 0;
+  }
+}
+
+/* PDF: productividad a todo el ancho; resumen del gauge dentro de cabecera. */
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-bottom {
+  position: relative;
+  grid-template-columns: minmax(0,1fr) !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-dashboard-bottom > .io-gauge-card {
+  position: absolute;
+  z-index: 12;
+  top: 6px;
+  left: 8px;
+  width: 170px;
+  height: 44px;
+  min-height: 44px !important;
+}
+
+.scorecard-dashboard-export.komtrol-pdf-exporting .io-productivity-head {
+  min-height: 52px;
+  padding-left: 188px !important;
+}
