@@ -21251,3 +21251,308 @@ table tbody tr:hover td {
     display: none;
   }
 }
+
+
+/* KOMTROL SCORECARD V7 · ADAPTIVE SCREEN PROFILE */
+
+/* Identificador técnico de viewport: discreto y útil para soporte/diseño */
+.viewport-profile-badge {
+  min-height: 26px;
+  padding: 4px 8px;
+  border: 1px solid var(--kt-blue-100);
+  border-radius: 999px;
+  background: #f7f8ff;
+  color: #6673a9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+/* La nueva acción Datos vive en la barra superior y no ocupa espacio bajo las gráficas */
+.scorecard-data-toggle {
+  gap: 5px;
+  min-width: 82px;
+}
+
+.scorecard-data-toggle svg:last-child {
+  transition: transform .18s ease;
+}
+
+.scorecard-data-toggle.open svg:last-child {
+  transform: rotate(180deg);
+}
+
+/* 7 controles: año, mes, jerarquía, PDF, Excel, Datos y actualizar */
+.scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+  grid-template-columns: 94px 94px minmax(220px,1fr) auto auto auto 42px;
+}
+
+/*
+  PERFIL MONITOR / MONITOR AMPLIO
+  Recupera proporción visual cómoda. La tabla inferior ya no participa del alto
+  inicial porque queda contraída detrás del botón "Datos".
+*/
+html[data-screen-profile="monitor"] .user-greeting-inner,
+html[data-screen-profile="wide"] .user-greeting-inner {
+  min-height: 80px;
+  padding: 11px 18px;
+  gap: 7px;
+}
+
+html[data-screen-profile="monitor"] .user-greeting-copy strong,
+html[data-screen-profile="wide"] .user-greeting-copy strong {
+  font-size: 22px;
+}
+
+html[data-screen-profile="monitor"] .scorecard-module:has(.io-dashboard-v3),
+html[data-screen-profile="wide"] .scorecard-module:has(.io-dashboard-v3) {
+  gap: 7px;
+}
+
+html[data-screen-profile="monitor"] .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar,
+html[data-screen-profile="wide"] .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+  min-height: 58px;
+  padding: 7px 10px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3,
+html[data-screen-profile="wide"] .io-dashboard-v3 {
+  gap: 7px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-context,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-context {
+  min-height: 31px;
+  padding: 5px 10px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-top,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-top {
+  grid-template-columns: minmax(185px,.5fr) minmax(0,1.18fr) minmax(0,1.18fr);
+  gap: 7px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-mini-stack,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-mini-stack {
+  gap: 7px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-mini-card,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-mini-card {
+  min-height: 82px;
+  padding: 8px 10px 7px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-mini-copy strong,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-mini-copy strong {
+  font-size: 27px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-trend-card,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-trend-card {
+  min-height: 176px;
+  padding: 9px 11px 7px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-trend-svg,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-trend-svg {
+  height: 104px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-dashboard-bottom,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-dashboard-bottom {
+  grid-template-columns: minmax(220px,.62fr) minmax(0,2.55fr);
+  gap: 7px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-gauge-card,
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-productivity-panel,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-gauge-card,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-productivity-panel {
+  min-height: 226px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-gauge-wrap,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-gauge-wrap {
+  min-height: 162px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-gauge,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-gauge {
+  width: min(100%,198px);
+  height: 116px;
+  flex-basis: 116px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-productivity-chart,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-productivity-chart {
+  height: 182px;
+  padding-top: 10px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-bars,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-bars {
+  height: 140px;
+  grid-template-columns: repeat(var(--io-bar-count),minmax(20px,1fr));
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-bar-item,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-bar-item {
+  height: 125px;
+}
+
+html[data-screen-profile="monitor"] .io-dashboard-v3 .io-bar-label,
+html[data-screen-profile="wide"] .io-dashboard-v3 .io-bar-label {
+  font-size: 6px;
+  max-width: 66px;
+}
+
+/* Altura balanceada: solo compactar lo necesario, sin miniaturizar */
+html[data-screen-density="balanced"][data-screen-profile="monitor"] .user-greeting-inner,
+html[data-screen-density="balanced"][data-screen-profile="wide"] .user-greeting-inner,
+html[data-screen-density="balanced"][data-screen-profile="laptop"] .user-greeting-inner {
+  min-height: 70px;
+  padding-block: 8px;
+}
+
+html[data-screen-density="balanced"] .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+  min-height: 52px;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-trend-card {
+  min-height: 158px;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-trend-svg {
+  height: 90px;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-gauge-card,
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-productivity-panel {
+  min-height: 202px;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-productivity-chart {
+  height: 158px;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-bars {
+  height: 120px;
+}
+
+html[data-screen-density="balanced"] .io-dashboard-v3 .io-bar-item {
+  height: 106px;
+}
+
+/* Altura realmente baja: modo compacto automático */
+html[data-screen-density="compact"] .user-greeting-inner {
+  min-height: 58px !important;
+  padding: 6px 14px !important;
+  gap: 3px !important;
+}
+
+html[data-screen-density="compact"] .user-greeting-date {
+  min-height: 18px;
+  padding: 2px 7px;
+  font-size: 6.5px;
+}
+
+html[data-screen-density="compact"] .user-greeting-copy strong {
+  font-size: 17px !important;
+}
+
+html[data-screen-density="compact"] .scorecard-module:has(.io-dashboard-v3) .scorecard-toolbar {
+  min-height: 46px !important;
+  padding-block: 4px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-dashboard-context {
+  min-height: 25px !important;
+  padding-block: 3px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-mini-card {
+  min-height: 64px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-trend-card {
+  min-height: 136px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-trend-svg {
+  height: 74px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-gauge-card,
+html[data-screen-density="compact"] .io-dashboard-v3 .io-productivity-panel {
+  min-height: 174px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-gauge {
+  height: 88px !important;
+  flex-basis: 88px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-productivity-chart {
+  height: 132px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-bars {
+  height: 99px !important;
+}
+
+html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
+  height: 86px !important;
+}
+
+/* Laptop: sidebar abierto reduce ancho útil; conservar gráfica sin desbordar página */
+html[data-screen-profile="laptop"] .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+  grid-template-columns: 86px 86px minmax(180px,1fr) auto auto auto 40px;
+  gap: 5px;
+}
+
+html[data-screen-profile="laptop"] .scorecard-module:has(.io-dashboard-v3) .scorecard-filters .secondary-button {
+  min-width: 68px;
+  padding-inline: 7px;
+}
+
+/* Tablet y móvil: el perfil se detecta automáticamente y los controles se reordenan */
+html[data-screen-profile="tablet"] .viewport-profile-badge,
+html[data-screen-profile="mobile"] .viewport-profile-badge {
+  display: none;
+}
+
+html[data-screen-profile="tablet"] .scorecard-module:has(.io-dashboard-v3) .scorecard-filters,
+html[data-screen-profile="mobile"] .scorecard-module:has(.io-dashboard-v3) .scorecard-filters {
+  grid-template-columns: repeat(2,minmax(0,1fr));
+}
+
+html[data-screen-profile="tablet"] .scorecard-module:has(.io-dashboard-v3) .scorecard-filters > .dashboard-hierarchy-filter,
+html[data-screen-profile="mobile"] .scorecard-module:has(.io-dashboard-v3) .scorecard-filters > .dashboard-hierarchy-filter {
+  grid-column: 1 / -1;
+}
+
+html[data-screen-profile="tablet"] .scorecard-data-toggle,
+html[data-screen-profile="mobile"] .scorecard-data-toggle {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Panel de datos: solo aparece cuando el usuario lo solicita */
+.scorecard-data-panel {
+  scroll-margin-top: 92px;
+}
+
+@media (max-width: 520px) {
+  .viewport-profile-badge {
+    display: none;
+  }
+
+  .scorecard-data-toggle {
+    min-height: 44px;
+  }
+}
