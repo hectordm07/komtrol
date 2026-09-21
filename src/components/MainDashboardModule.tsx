@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { ProfessionalBarChart, ProfessionalDonutChart, ProfessionalTrendChart } from './DashboardVisuals'
+import { SearchableSelect } from './SearchableSelect'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 type Profile = {
@@ -258,27 +259,41 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
       <div className="main-dashboard-filter">
         {scope === 'REMOTE' && canViewAll && (
           <label>Grupo
-            <select value={remoteGroup} onChange={(e)=>setRemoteGroup(e.target.value as RemoteGroup)}>
-              <option value="TODOS">Todos los remotos</option>
-              <option value="PROYECTO_MINERO">Proyectos Mineros</option>
-              <option value="SUCURSAL">Sucursales</option>
-              <option value="TIENDA">Tiendas</option>
-            </select>
+            <SearchableSelect
+              value={remoteGroup}
+              onChange={(value)=>setRemoteGroup((value||'TODOS') as RemoteGroup)}
+              options={[
+                {value:'TODOS',label:'Todos los remotos'},
+                {value:'PROYECTO_MINERO',label:'Proyectos Mineros'},
+                {value:'SUCURSAL',label:'Sucursales'},
+                {value:'TIENDA',label:'Tiendas'},
+              ]}
+              placeholder="Buscar grupo…"
+              clearable={false}
+              ariaLabel="Filtrar por grupo"
+            />
           </label>
         )}
         {canViewAll && <label>Almacén
-          <select value={warehouse} onChange={(e)=>setWarehouse(e.target.value)}>
-            {scope === 'REMOTE'
-              ? <option value="TODOS_REMOTOS">Todos los almacenes remotos</option>
-              : <option value="TODOS">Todos los almacenes</option>}
-            {warehouseCatalog
-              .filter((item)=>{
-                if(scope!=='REMOTE') return true
-                if(item.warehouse_scope==='CENTRAL' || item.name.toUpperCase()==='CALLAO') return false
-                return remoteGroup==='TODOS' || item.remote_group===remoteGroup
-              })
-              .map((item)=><option key={item.name} value={item.name}>{item.name}</option>)}
-          </select>
+          <SearchableSelect
+            value={warehouse}
+            onChange={(value)=>value&&setWarehouse(value)}
+            options={[
+              scope === 'REMOTE'
+                ? {value:'TODOS_REMOTOS',label:'Todos los almacenes remotos'}
+                : {value:'TODOS',label:'Todos los almacenes'},
+              ...warehouseCatalog
+                .filter((item)=>{
+                  if(scope!=='REMOTE') return true
+                  if(item.warehouse_scope==='CENTRAL' || item.name.toUpperCase()==='CALLAO') return false
+                  return remoteGroup==='TODOS' || item.remote_group===remoteGroup
+                })
+                .map((item)=>({value:item.name,label:item.name,keywords:item.remote_group||''})),
+            ]}
+            placeholder="Buscar almacén…"
+            clearable={false}
+            ariaLabel="Filtrar por almacén"
+          />
         </label>}
         <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18}/></button>
       </div>
