@@ -18386,3 +18386,134 @@ table tbody tr:hover td {
     max-height: calc(76dvh - 64px);
   }
 }
+
+
+/* DASHBOARD HIERARCHY COLLAPSE V2 */
+.dashboard-hierarchy-group-head,
+.dashboard-hierarchy-warehouse-row {
+  width: 100%;
+  min-height: 38px;
+  padding: 5px 7px;
+  border-radius: 9px;
+  display: grid;
+  grid-template-columns: 26px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.dashboard-hierarchy-group-head:hover,
+.dashboard-hierarchy-group-head.selected,
+.dashboard-hierarchy-warehouse-row:hover,
+.dashboard-hierarchy-warehouse-row.selected {
+  background: var(--kt-blue-50);
+}
+
+.dashboard-hierarchy-group-head.selected,
+.dashboard-hierarchy-warehouse-row.selected {
+  background: var(--kt-blue-100);
+}
+
+.dashboard-hierarchy-expand,
+.dashboard-hierarchy-select {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.dashboard-hierarchy-expand {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: var(--kt-blue-600);
+}
+
+.dashboard-hierarchy-expand:hover {
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-900);
+}
+
+.dashboard-hierarchy-expand-spacer {
+  width: 26px;
+  height: 26px;
+}
+
+.dashboard-hierarchy-select {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+}
+
+.dashboard-hierarchy-select > svg {
+  flex: 0 0 auto;
+  color: var(--kt-blue-600);
+}
+
+.dashboard-hierarchy-select b {
+  min-width: 0;
+  font-size: 8px;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-hierarchy-group-head .dashboard-hierarchy-select b {
+  font-size: 9px;
+}
+
+.dashboard-hierarchy-select small {
+  margin-left: auto;
+  color: var(--kt-muted);
+  font-size: 7px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dashboard-hierarchy-warehouses {
+  padding-top: 3px;
+}
+
+.dashboard-hierarchy-warehouse {
+  padding-left: 6px;
+}
+
+.dashboard-hierarchy-warehouse-row {
+  grid-template-columns: 26px minmax(0,1fr) auto;
+}
+
+.dashboard-hierarchy-centers {
+  padding-top: 4px;
+  padding-bottom: 6px;
+}
+
+.dashboard-hierarchy-group:not(:has(.dashboard-hierarchy-warehouses)) {
+  padding-bottom: 2px;
+}
+
+@media (max-width:760px) {
+  .dashboard-hierarchy-group-head,
+  .dashboard-hierarchy-warehouse-row {
+    min-height: 42px;
+  }
+
+  .dashboard-hierarchy-expand {
+    width: 30px;
+    height: 30px;
+  }
+
+  .dashboard-hierarchy-select b,
+  .dashboard-hierarchy-group-head .dashboard-hierarchy-select b {
+    font-size: 10px;
+  }
+
+  .dashboard-hierarchy-select small {
+    font-size: 8px;
+  }
+}
