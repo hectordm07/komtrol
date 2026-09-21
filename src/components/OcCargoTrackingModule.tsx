@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
+import { SearchableSelect } from './SearchableSelect'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -551,16 +552,23 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
               placeholder="Buscar guía, referencia, documento, encargado, ubicación…"
             />
           </div>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="TODOS">Todos los estados</option>
-            <option value="PENDIENTE">Pendiente</option>
-            <option value="EN_SEGUIMIENTO">En seguimiento</option>
-            <option value="OBSERVADO">Observado</option>
-            <option value="ENTREGADO_CLIENTE">Entregado cliente</option>
-            <option value="REFRENDADO">Refrendado</option>
-            <option value="ANULADO">Anulado</option>
-            <option value="CERRADO">Cerrado</option>
-          </select>
+          <SearchableSelect
+            value={statusFilter}
+            onChange={(value)=>setStatusFilter(value||'TODOS')}
+            options={[
+              {value:'TODOS',label:'Todos los estados'},
+              {value:'PENDIENTE',label:'Pendiente'},
+              {value:'EN_SEGUIMIENTO',label:'En seguimiento'},
+              {value:'OBSERVADO',label:'Observado'},
+              {value:'ENTREGADO_CLIENTE',label:'Entregado cliente'},
+              {value:'REFRENDADO',label:'Refrendado'},
+              {value:'ANULADO',label:'Anulado'},
+              {value:'CERRADO',label:'Cerrado'},
+            ]}
+            placeholder="Buscar estado…"
+            clearable={false}
+            ariaLabel="Filtrar por estado"
+          />
         </div>
 
         {message && !selected && <div className="inline-message">{message}</div>}
