@@ -25,6 +25,7 @@ import {
 } from './DashboardHierarchyFilter'
 import { InboundOutboundDashboard } from './InboundOutboundDashboard'
 import { ERIDashboard } from './ERIDashboard'
+import { ProfessionalScorecardDashboard, type ProfessionalScorecardCode } from './ProfessionalScorecardDashboard'
 
 export type ScorecardMode =
   | 'scorecard-carga'
@@ -1078,7 +1079,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
             onClick={()=>setSourceDataOpen((value)=>!value)}
             aria-expanded={sourceDataOpen}
             title={sourceDataOpen?'Ocultar datos del reporte':'Ver datos del reporte'}
-          ><Database size={16}/> Datos <ChevronDown size={14}/></button>}
+          ><Database size={16}/> Datos / Cargar <ChevronDown size={14}/></button>}
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
         </div>
       </section>
@@ -1111,34 +1112,14 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
             onCenterGroupChange={setWarehouseFilter}
           />
         ) : (
-          <>
-            <div className="scorecard-kpis">
-              {summaryFields.map((field)=>(
-                <article key={field.key}>
-                  <span>{field.label}</span>
-                  <b>{fmtValue(aggregate(scopedRows,field),field.type)}</b>
-                  <small>{scopedRows.length} registro(s)</small>
-                </article>
-              ))}
-            </div>
-
-            <div className="scorecard-chart-grid">
-              {(report.chart_layout||[]).map((spec,index)=>{
-                const keys=spec.metrics || (spec.metric?[spec.metric]:[])
-                const fields=keys.map((key)=>fieldMap.get(key)||{key,source:key,label:key,type:'number' as const})
-                const colors=spec.colors?.length?spec.colors:['#002060','#00B050','#FF0000','#FFC000']
-                if(spec.type==='donut'){
-                  const segments=fields.map((field)=>({label:field.label,value:aggregate(scopedRows,field),type:field.type}))
-                  return <div className={`scorecard-chart-slot size-${spec.size||'medium'}`} key={index}><MiniDonutChart title={fields.map((field)=>field.label).join(' / ')} segments={segments} colors={colors}/></div>
-                }
-                if(spec.type==='trend'||spec.type==='area'){
-                  const field=fields[0]
-                  return <div className={`scorecard-chart-slot size-${spec.size||'small'}`} key={index}><MiniTrendChart title={field.label} points={trendPoints(field.key)} color={spec.seriesColor||colors[0]} area={spec.type==='area'} type={field.type}/></div>
-                }
-                return <div className={`scorecard-chart-slot size-${spec.size||'large'}`} key={index}><MiniBarChart title={fields.map((field)=>field.label).join(' vs ')} rows={chartCategories(keys)} fields={fields} colors={colors}/></div>
-              })}
-            </div>
-          </>
+          <ProfessionalScorecardDashboard
+            reportCode={report.code as ProfessionalScorecardCode}
+            rows={rows}
+            year={year}
+            month={month}
+            onYearChange={setYear}
+            onMonthChange={setMonth}
+          />
         )}
 
         {isViewer && !scopedRows.length && (
