@@ -684,11 +684,8 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   async function addManualRow() {
     if(!isAdmin){setMessage('Solo el Administrador puede crear registros del Scorecard.');return}
     if(!report) return
-    const targetWarehouse=filterSingleTarget ||
-      (role==='COORDINADOR'?normalizeProfileWarehouse(profile):'SIN_ASIGNAR')
-    const siteName=role==='COORDINADOR'
-      ? (profile?.project||profile?.warehouse||targetWarehouse)
-      : targetWarehouse
+    const targetWarehouse=filterSingleTarget || normalizeProfileWarehouse(profile) || 'SIN_ASIGNAR'
+    const siteName=profile?.project || profile?.warehouse || targetWarehouse
     const rowKey=`manual:${Date.now()}`
     const emptyData=Object.fromEntries(report.fields.map((field)=>[field.key,field.type==='text'?'':null]))
     const {data,error}=await supabase.from('scorecard_rows').insert({
