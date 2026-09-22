@@ -1088,7 +1088,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
       <div
         ref={dashboardRef}
-        className={`scorecard-dashboard-export scorecard-monitor-fit report-${report.code}`}
+        className={`scorecard-dashboard-export scorecard-monitor-fit report-${report.code} ${report.code==='inbound-outbound'?'scorecard-layout-io':report.code==='eri'?'scorecard-layout-eri':'scorecard-layout-professional'}`}
         data-report-code={report.code}
       >
         {report.code==='inbound-outbound' ? (
