@@ -18,7 +18,6 @@ import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { exportElementToPdfLandscape, exportRowsToExcel } from '../lib/exportUtils'
 import {
-  DashboardHierarchyFilter,
   dashboardFilterLabel,
   matchesDashboardHierarchy,
   type DashboardCenter,
@@ -1069,26 +1068,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           <div><b>{report.name}</b><small>{report.description}</small></div>
           <em className={`source-${report.source_mode.toLowerCase()}`}><ReportIcon mode={report.source_mode}/>{sourceBadge(report.source_mode)}</em>
         </div>
-        <div className="scorecard-filters">
-          <label className="scorecard-quick-select" aria-label="Filtrar por año">
-            <span>Año</span>
-            <select value={year} onChange={(event)=>setYear(Number(event.target.value))}>
-              {[2024,2025,2026,2027].map((value)=><option value={value} key={value}>{value}</option>)}
-            </select>
-          </label>
-          <label className="scorecard-quick-select" aria-label="Filtrar por mes">
-            <span>Mes</span>
-            <select value={month} onChange={(event)=>setMonth(Number(event.target.value))}>
-              {MONTHS.map((label,index)=><option value={index+1} key={label}>{label}</option>)}
-            </select>
-          </label>
-          {canViewRemoteNetwork&&<DashboardHierarchyFilter
-            value={warehouseFilter}
-            onChange={setWarehouseFilter}
-            warehouses={warehouseCatalog}
-            centers={warehouseCenters}
-            ariaLabel="Filtrar Scorecard por grupo, almacén o centro"
-          />}
+        <div className="scorecard-filters scorecard-actions-only">
           <button className="secondary-button" disabled={!scorecardExportRows.length||pdfExporting} onClick={exportScorecardPdf}><FileText size={16}/> {pdfExporting?'Generando…':'PDF'}</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
           {canSeeSourceData&&<button
