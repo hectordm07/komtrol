@@ -303,6 +303,11 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
     const diff=Math.max(0,Number(row.qty_received||0)-Number(row.qty_expected||0))
     return sum+diff
   },0)
+  const shortageIncidents=operationalIncidents.filter((row)=>row.incident_type==='FALTANTE')
+  const shortageQty=shortageIncidents.reduce((sum,row)=>{
+    const diff=Math.max(0,Number(row.qty_expected||0)-Number(row.qty_received||0))
+    return sum+diff
+  },0)
   const kardexEntries=operationalKardex
     .filter((row)=>row.movement_type==='ENTRADA')
     .reduce((sum,row)=>sum+Number(row.quantity||0),0)
@@ -573,6 +578,11 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
           <button type="button" onClick={()=>onNavigate(kardexRoute)}>
             <span className="operational-report-icon"><ClipboardList size={19}/></span>
             <span><small>KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:2})}</b><em>{kardexMaterials} materiales registrados</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" className="operational-report-missing" onClick={()=>onNavigate(incidentRoute)}>
+            <span className="operational-report-icon"><AlertTriangle size={19}/></span>
+            <span><small>FALTANTES</small><b>{shortageIncidents.length}</b><em>{shortageQty.toLocaleString('es-PE',{maximumFractionDigits:2})} UND detectadas</em></span>
             <ChevronRight size={16}/>
           </button>
         </div>
