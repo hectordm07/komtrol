@@ -441,9 +441,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     ownWarehouseMeta?.remote_group==='SUCURSAL' ||
     ownWarehouseMeta?.remote_group==='TIENDA'
   const isAdmin=role==='ADMINISTRADOR'
+  const canManageReportData=isAdmin
   const canLoad=role==='COORDINADOR'||isAdmin
-  const canEdit=isAdmin
-  const canSeeSourceData=isAdmin
+  const canEdit=canManageReportData
+  const canSeeSourceData=canManageReportData
   const isViewer=role==='TRABAJADOR'
 
   async function reload() {
@@ -1069,6 +1070,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
           {canSeeSourceData&&<button
             type="button"
+            data-admin-only="true"
             className={sourceDataOpen?'secondary-button scorecard-data-toggle open':'secondary-button scorecard-data-toggle'}
             onClick={()=>setSourceDataOpen((value)=>!value)}
             aria-expanded={sourceDataOpen}
@@ -1080,7 +1082,11 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
       {message&&<div className="inline-message">{message}</div>}
 
-      <div ref={dashboardRef} className="scorecard-dashboard-export">
+      <div
+        ref={dashboardRef}
+        className={`scorecard-dashboard-export scorecard-monitor-fit report-${report.code}`}
+        data-report-code={report.code}
+      >
         {report.code==='inbound-outbound' ? (
           <InboundOutboundDashboard
             rows={scopedRows}
@@ -1145,10 +1151,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
             <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {filterLabel} · Acceso Administrador</span></div>
             <div className="button-row">
               <button className="icon-button scorecard-data-close" onClick={()=>setSourceDataOpen(false)} title="Cerrar datos"><X size={16}/></button>
-              {['AUTO','HYBRID'].includes(report.source_mode)&&canLoad&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
-              {canLoad&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
-              {canEdit&&<button className="secondary-button" onClick={()=>setEditing((value)=>!value)}>{editing?<X size={16}/>:<Edit3 size={16}/>} {editing?'Cerrar edición':'Editar datos'}</button>}
-              {canEdit&&<button className="secondary-button" onClick={addManualRow}><Database size={16}/> Nuevo registro</button>}
+              {['AUTO','HYBRID'].includes(report.source_mode)&&canManageReportData&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
+              {canManageReportData&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
+              {canManageReportData&&<button className="secondary-button" onClick={()=>setEditing((value)=>!value)}>{editing?<X size={16}/>:<Edit3 size={16}/>} {editing?'Cerrar edición':'Editar datos'}</button>}
+              {canManageReportData&&<button className="secondary-button" onClick={addManualRow}><Database size={16}/> Nuevo registro</button>}
 
             </div>
           </div>
