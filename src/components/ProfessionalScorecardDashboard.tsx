@@ -248,7 +248,7 @@ function MetricCard({
   showHistoryValues?:boolean
 }){
   const up=(variation??0)>=0
-  return <article className={"psc-metric-card "+tone}>
+  return <article className={"psc-metric-card kom-unified-card "+tone}>
     <div className="psc-card-ribbon">{title}</div>
     <div className="psc-metric-main">
       <span className="psc-metric-icon">{icon||<Database size={28}/>}</span>
@@ -493,7 +493,7 @@ function TopSitesPanel({
 }
 
 function Report3Filters({
-  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus,top
+  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus,top,topVariation,topHistory
 }:{
   rows:Row[]
   year:number
@@ -505,6 +505,8 @@ function Report3Filters({
   status:string
   setStatus:(status:string)=>void
   top?:{name:string;value:number;skus:number;units:number}
+  topVariation?:number|null
+  topHistory?:number[]
 }){
   const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
   const months=useMemo(()=>Array.from(new Set(
@@ -569,15 +571,23 @@ function Report3Filters({
       </div>
     </section>
 
-    <article className={"sf3-highlight "+(status==='SOBRANTE'?'green':'red')}>
+    <article className={"sf3-highlight kom-unified-card "+(status==='SOBRANTE'?'green':'red')}>
       <div className="sf3-highlight-title">PROYECTO CON MAYOR DIFERENCIA</div>
       <div className="sf3-highlight-body">
-        <span className="sf3-highlight-icon"><TrendingUp size={22}/></span>
-        <div>
-          <b>{top?.name||'Sin diferencias'}</b>
-          <strong>{compactMoney(top?.value||0)}</strong>
-          <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
-          <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
+        <span className="sf3-highlight-icon"><TrendingUp size={24}/></span>
+        <b>{top?.name||'Sin diferencias'}</b>
+        <strong>{compactMoney(top?.value||0)}</strong>
+        <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
+        <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
+        <div className="sf3-highlight-spark">
+          <Sparkline points={topHistory?.length?topHistory:[0,0,0,0,0,0]} tone={status==='SOBRANTE'?'green':'red'}/>
+        </div>
+        <div className={"sf3-highlight-variation "+((topVariation??0)>=0?'up':'down')}>
+          <span className="sf3-highlight-variation-icon"><TrendingUp size={17}/></span>
+          <div>
+            <b>{topVariation===null||topVariation===undefined?'—':`${topVariation>=0?'+':''}${(topVariation*100).toFixed(1)}%`}</b>
+            <small>vs. mes anterior</small>
+          </div>
         </div>
       </div>
     </article>
@@ -739,6 +749,24 @@ function SobrantesFaltantesDashboard({
   }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
 
   const top=bySite[0]
+  const topPreviousValue=top
+    ? sum(prevRows.filter((row)=>row.site_name===top.name),'usd')
+    : 0
+  const topVariation=top
+    ? (topPreviousValue?changeRate(top.value,topPreviousValue):null)
+    : null
+  const topHistory=top
+    ? periods.map((period)=>sum(
+        rows.filter((row)=>
+          row.year===period.year&&
+          row.month===period.month&&
+          row.site_name===top.name&&
+          matchesSegment(row,segment)&&
+          matchesExtra(row,extra)
+        ),
+        'usd'
+      ))
+    : [0,0,0,0,0,0]
   const tone: 'red'|'green'|'navy' = extra==='SOBRANTE'?'green':extra==='FALTANTE'?'red':'navy'
 
   return <section className="sf3-dashboard">
@@ -753,6 +781,8 @@ function SobrantesFaltantesDashboard({
       status={extra}
       setStatus={setExtra}
       top={top}
+      topVariation={topVariation}
+      topHistory={topHistory}
     />
 
     <div className="sf3-kpis">
