@@ -492,7 +492,6 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       .select('*')
       .eq('report_code',mode)
       .gte('year',startYear)
-      .lte('year',year)
       .order('period_date',{ascending:true})
       .limit(10000)
 
