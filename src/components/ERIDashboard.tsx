@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -283,6 +283,11 @@ export function ERIDashboard({
     historical.filter((row)=>row.year===year).map((row)=>row.month)
   )).sort((a,b)=>a-b)
   const displayedMonths=availableMonths.length?availableMonths:[month]
+  useEffect(()=>{
+    if(availableMonths.length && !availableMonths.includes(month)){
+      onMonthChange(availableMonths[availableMonths.length-1])
+    }
+  },[availableMonths.join(','),month,onMonthChange])
 
   return (
     <section className="eri-dashboard eri-dashboard-reference">
