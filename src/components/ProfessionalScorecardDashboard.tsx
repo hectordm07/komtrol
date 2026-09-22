@@ -176,7 +176,11 @@ function BarPanel({
     <div className="psc-panel-ribbon">{title}</div>
     <div className="psc-bar-chart" style={{'--psc-count':Math.max(rows.length,1)} as CSSProperties}>
       {target!==undefined&&<div className="psc-target" style={{bottom:`${Math.max(0,Math.min(100,target/max*100))}%`}}><span>Meta {valueFormatter(target)}</span></div>}
-      {rows.map((row)=><div className="psc-bar-item" key={row.name}>
+      {rows.map((row)=><div
+        className="psc-bar-item"
+        key={row.name}
+        data-tooltip={`${row.name} · ${valueFormatter(row.value)}`}
+      >
         <span className="psc-bar-value">{valueFormatter(row.value)}</span>
         <div className="psc-bar-track"><i style={{height:`${Math.max(2,row.value/max*100)}%`}}/></div>
         <b title={row.name}>{row.name}</b>
