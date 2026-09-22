@@ -66,6 +66,10 @@ function previousPeriod(year:number,month:number){
   if(month===1) return {year:year-1,month:12}
   return {year,month:month-1}
 }
+function changeRate(current:number,previous:number){
+  if(!previous) return current ? 1 : 0
+  return current/previous-1
+}
 function groupLabel(raw:string){
   const key=norm(raw)
   if(key.includes('PROYECT')) return 'PROYECTO'
@@ -89,6 +93,57 @@ function Sparkline({points,tone='navy'}:{points:number[];tone?:'navy'|'green'|'r
   return <svg className={"psc-spark "+tone} viewBox="0 0 100 90" preserveAspectRatio="none">
     <polyline points={coords}/>
   </svg>
+}
+
+function InteractiveMetricTrend({
+  points,
+  labels,
+  tone='navy',
+  formatter=(value)=>numberText(value),
+}:{
+  points:number[]
+  labels:string[]
+  tone?:'navy'|'green'|'red'|'orange'|'purple'
+  formatter?:(value:number)=>string
+}){
+  const [hovered,setHovered]=useState<number|null>(null)
+  const clean=points.length?points:[0,0,0,0,0,0]
+  const min=Math.min(...clean)
+  const max=Math.max(...clean)
+  const span=Math.max(max-min,1)
+  const plotted=clean.map((value,index)=>({
+    value,
+    x:clean.length===1?50:6+index*(88/(clean.length-1)),
+    y:8+((max-value)/span)*29,
+  }))
+  const line=plotted.map((point)=>`${point.x},${point.y}`).join(' ')
+  const active=hovered===null?null:plotted[hovered]
+
+  return <div className={"psc-metric-trend6 "+tone}>
+    <svg viewBox="0 0 100 48" preserveAspectRatio="none">
+      <line x1="4" y1="38" x2="96" y2="38" className="base"/>
+      <polyline points={line} className="trend-line"/>
+      {plotted.map((point,index)=><circle
+        key={index}
+        cx={point.x}
+        cy={point.y}
+        r={hovered===index?2.5:1.65}
+        className="trend-dot"
+        onMouseEnter={()=>setHovered(index)}
+        onMouseLeave={()=>setHovered(null)}
+      />)}
+    </svg>
+    <div className="psc-metric-months">
+      {labels.map((label,index)=><span key={label+'-'+index}>{label}</span>)}
+    </div>
+    {active&&<div
+      className="psc-metric-trend-tooltip"
+      style={{left:`${Math.max(9,Math.min(91,active.x))}%`}}
+    >
+      <b>{labels[hovered??0]}</b>
+      <span>{formatter(active.value)}</span>
+    </div>}
+  </div>
 }
 
 function Filters({
@@ -149,9 +204,16 @@ function Filters({
 }
 
 function MetricCard({
-  title,value,variation,history,tone='navy',icon
+  title,value,variation,history,tone='navy',icon,historyLabels,historyFormatter
 }:{
-  title:string;value:string;variation?:number;history:number[];tone?:'navy'|'green'|'red'|'orange'|'purple';icon?:ReactNode
+  title:string
+  value:string
+  variation?:number
+  history:number[]
+  tone?:'navy'|'green'|'red'|'orange'|'purple'
+  icon?:ReactNode
+  historyLabels?:string[]
+  historyFormatter?:(value:number)=>string
 }){
   const up=(variation??0)>=0
   return <article className={"psc-metric-card "+tone}>
@@ -159,9 +221,14 @@ function MetricCard({
     <div className="psc-metric-main">
       <span className="psc-metric-icon">{icon||<Database size={28}/>}</span>
       <strong>{value}</strong>
-      {variation!==undefined&&<em className={up?'up':'down'}>{up?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</em>}
+      {variation!==undefined&&<div className="psc-metric-variation">
+        <em className={up?'up':'down'}>{up?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</em>
+        <span>vs. mes anterior</span>
+      </div>}
     </div>
-    <Sparkline points={history} tone={tone}/>
+    {historyLabels?.length
+      ? <InteractiveMetricTrend points={history} labels={historyLabels} tone={tone} formatter={historyFormatter}/>
+      : <Sparkline points={history} tone={tone}/>}
   </article>
 }
 
@@ -343,7 +410,12 @@ function SobrantesFaltantesDashboard({
   const totalUnits=sum(current,'units')
   const prev=previousPeriod(year,month)
   const prevRows=useReportFilter(rows,prev.year,prev.month,segment,extra)
-  const variation=prevRows.length&&sum(prevRows,'usd')?totalUsd/sum(prevRows,'usd')-1:0
+  const previousUsd=sum(prevRows,'usd')
+  const previousSkus=sum(prevRows,'skus')
+  const previousUnits=sum(prevRows,'units')
+  const variation=changeRate(totalUsd,previousUsd)
+  const skuVariation=changeRate(totalSkus,previousSkus)
+  const unitVariation=changeRate(totalUnits,previousUnits)
 
   const sixPeriods=lastSixPeriods(year,month)
   const sixMonthSets=sixPeriods.map((period)=>rows.filter((row)=>
@@ -352,6 +424,7 @@ function SobrantesFaltantesDashboard({
   const usdHistory=sixMonthSets.map((set)=>sum(set,'usd'))
   const skuHistory=sixMonthSets.map((set)=>sum(set,'skus'))
   const unitHistory=sixMonthSets.map((set)=>sum(set,'units'))
+  const sixMonthLabels=sixPeriods.map((period)=>period.label+' '+String(period.year).slice(-2))
 
   const top=current
     .filter((row)=>n(row.data.usd)>0)
@@ -374,9 +447,9 @@ function SobrantesFaltantesDashboard({
     />
 
     <div className="psc-top-metrics sf-top-metrics">
-      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={usdHistory} tone={extra==='SOBRANTE'?'green':'red'} icon={<Database size={29}/>}/>
-      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} history={skuHistory} tone={extra==='SOBRANTE'?'green':'red'} icon={<FileText size={29}/>}/>
-      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={usdHistory} historyLabels={sixMonthLabels} historyFormatter={compactMoney} tone={extra==='SOBRANTE'?'green':'red'} icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} history={skuHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone={extra==='SOBRANTE'?'green':'red'} icon={<FileText size={29}/>}/>
+      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} history={unitHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone="navy" icon={<Database size={29}/>}/>
     </div>
 
     <article className="sf-focus-card">
@@ -407,7 +480,11 @@ function DifferenceLike({
   const prev=previousPeriod(year,month)
   const prevRows=useReportFilter(rows,prev.year,prev.month,segment,extra)
   const previousUsd=sum(prevRows,'usd')
-  const variation=previousUsd?totalUsd/previousUsd-1:0
+  const previousSkus=sum(prevRows,'skus')
+  const previousUnits=sum(prevRows,'units')
+  const variation=changeRate(totalUsd,previousUsd)
+  const skuVariation=changeRate(totalSkus,previousSkus)
+  const unitVariation=changeRate(totalUnits,previousUnits)
 
   const bySite=Array.from(new Map(current.map((row)=>[row.site_name,0])).keys()).map((name)=>({
     name,
@@ -426,9 +503,9 @@ function DifferenceLike({
       extraTitle={code==='sobrantes-faltantes'?'STATUS':code==='diferencias-inventario'?'DETALLE':undefined}
       extraOptions={code==='danados-scorecard'?undefined:extraOptions} extra={extra} setExtra={setExtra}/>
     <div className="psc-top-metrics">
-      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={totalHistory} tone={code==='sobrantes-faltantes'?'red':'navy'} icon={<Database size={29}/>}/>
-      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} history={skuHistory} tone="red" icon={<FileText size={29}/>}/>
-      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={totalHistory} tone="navy" icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} history={skuHistory} tone="red" icon={<FileText size={29}/>}/>
+      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
     </div>
     <TopDifference title="PROYECTO CON MAYOR DIFERENCIA" row={top?.name} value={compactMoney(top?.value||0)} secondary={top?numberText(totalSkus)+' SKUs':undefined}/>
     <BarPanel title={title} rows={bySite.slice(0,24)} tone={code==='sobrantes-faltantes'?'red':'navy'} valueFormatter={compactMoney}/>
@@ -476,14 +553,25 @@ function UcaDashboard(props:Props){
   const average=avg(current,'uca_pct')
   const freePct=total?empty/total:0
   const historyEmpty=monthlyHistory(rows,year,(set)=>sum(set,'empty'),segment,'TODOS')
+  const historyFreePct=monthlyHistory(rows,year,(set)=>{
+    const available=sum(set,'empty')
+    const capacity=sum(set,'total')
+    return capacity?available/capacity:0
+  },segment,'TODOS')
   const historyPct=monthlyHistory(rows,year,(set)=>avg(set,'uca_pct'),segment,'TODOS')
+  const prev=previousPeriod(year,month)
+  const prevRows=useReportFilter(rows,prev.year,prev.month,segment,'TODOS')
+  const prevEmpty=sum(prevRows,'empty')
+  const prevTotal=sum(prevRows,'total')
+  const prevFreePct=prevTotal?prevEmpty/prevTotal:0
+  const prevAverage=avg(prevRows,'uca_pct')
   const bySite=current.map((row)=>({name:row.site_name,value:pct(row.data.uca_pct)})).filter((r)=>r.value>0).sort((a,b)=>b.value-a.value)
   return <section className="psc-dashboard psc-uca-dashboard">
     <Filters rows={rows} year={year} month={month} onYearChange={onYearChange} onMonthChange={onMonthChange} segment={segment} setSegment={setSegment}/>
     <div className="psc-top-metrics">
-      <MetricCard title="TOTAL UBICACIONES LIBRES" value={numberText(empty)} history={historyEmpty} tone="red"/>
-      <MetricCard title="TOTAL % UBICACIONES LIBRES" value={(freePct*100).toFixed(0)+'%'} history={historyPct} tone="green"/>
-      <MetricCard title="UCA PROMEDIO %" value={(average*100).toFixed(0)+'%'} history={historyPct} tone="navy"/>
+      <MetricCard title="TOTAL UBICACIONES LIBRES" value={numberText(empty)} variation={changeRate(empty,prevEmpty)} history={historyEmpty} tone="red"/>
+      <MetricCard title="TOTAL % UBICACIONES LIBRES" value={(freePct*100).toFixed(0)+'%'} variation={changeRate(freePct,prevFreePct)} history={historyFreePct} tone="green"/>
+      <MetricCard title="UCA PROMEDIO %" value={(average*100).toFixed(0)+'%'} variation={changeRate(average,prevAverage)} history={historyPct} tone="navy"/>
     </div>
     <BarPanel title="% UCA PM & S & T" rows={bySite.slice(0,24)} tone="purple" valueFormatter={percentText} target={1}/>
   </section>
@@ -518,6 +606,10 @@ function PerfectShipDashboard(props:Props){
   const average=avg(current,'meets')
   const target=avg(current,'target')||.98
   const history=monthlyHistory(rows,year,(set)=>avg(set,'meets'),segment,'TODOS')
+  const prev=previousPeriod(year,month)
+  const previousRows=useReportFilter(rows,prev.year,prev.month,segment,'TODOS')
+  const previousAverage=avg(previousRows,'meets')
+  const variation=changeRate(average,previousAverage)
   const bySite=current.map((row)=>({name:row.site_name,value:pct(row.data.meets)})).filter((r)=>r.value>0).sort((a,b)=>b.value-a.value)
   const inbound=reportCode==='perfect-ship-inbound'
   return <section className={"psc-dashboard psc-perfect-dashboard "+(inbound?'inbound':'outbound')}>
@@ -525,6 +617,10 @@ function PerfectShipDashboard(props:Props){
     <article className={"psc-compliance-card "+(inbound?'orange':'green')}>
       <div className="psc-card-ribbon">PROMEDIO % CUMPLIMIENTO</div>
       <div className="psc-compliance-ring"><strong>{percentText(average)}</strong></div>
+      <div className="psc-compliance-variation">
+        <b className={variation>=0?'up':'down'}>{variation>=0?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</b>
+        <span>vs. mes anterior</span>
+      </div>
       <Sparkline points={history} tone={inbound?'orange':'green'}/>
     </article>
     <BarPanel title={`VARIACIÓN P.S ${inbound?'INBOUND':'OUTBOUND'} - META 98 %`} rows={bySite.slice(0,24)} tone={inbound?'orange':'green'} valueFormatter={percentText} target={target}/>
@@ -536,6 +632,10 @@ function SafeDashboard(props:Props){
   const current=useReportFilter(rows,year,month,'TODOS','TODOS')
   const dangerous=current.filter((row)=>norm(row.row_status).includes('PELIGRO'))
   const unsafe=current.filter((row)=>norm(row.row_status).includes('INSEG'))
+  const prev=previousPeriod(year,month)
+  const previous=useReportFilter(rows,prev.year,prev.month,'TODOS','TODOS')
+  const prevDangerous=previous.filter((row)=>norm(row.row_status).includes('PELIGRO'))
+  const prevUnsafe=previous.filter((row)=>norm(row.row_status).includes('INSEG'))
   const grouped=current.map((row)=>({name:row.site_name,value:Math.abs(n(row.data.score)),status:norm(row.row_status)}))
     .filter((row)=>row.value>0)
     .sort((a,b)=>b.value-a.value)
@@ -543,6 +643,11 @@ function SafeDashboard(props:Props){
     <Filters rows={rows} year={year} month={month} onYearChange={onYearChange} onMonthChange={onMonthChange} segment="TODOS" setSegment={()=>{}}/>
     <article className="psc-safe-risk">
       <div className="psc-card-ribbon">PROYECTOS CON REPORTES DE CONDUCCIÓN PELIGROSA E INSEGURA</div>
+      <div className="psc-safe-summary">
+        <div><span>TOTAL</span><b>{current.length}</b><em>{changeRate(current.length,previous.length)>=0?'▲':'▼'} {Math.abs(changeRate(current.length,previous.length)*100).toFixed(1)}%</em></div>
+        <div><span>PELIGROSA</span><b>{dangerous.length}</b><em>{changeRate(dangerous.length,prevDangerous.length)>=0?'▲':'▼'} {Math.abs(changeRate(dangerous.length,prevDangerous.length)*100).toFixed(1)}%</em></div>
+        <div><span>INSEGURA</span><b>{unsafe.length}</b><em>{changeRate(unsafe.length,prevUnsafe.length)>=0?'▲':'▼'} {Math.abs(changeRate(unsafe.length,prevUnsafe.length)*100).toFixed(1)}%</em></div>
+      </div>
       <div className="psc-risk-columns">
         <div><b>PELIGROSA</b>{dangerous.slice(0,3).map((row)=><span key={row.id}>{row.site_name}</span>)}</div>
         <div><b>INSEGURA</b>{unsafe.slice(0,3).map((row)=><span key={row.id}>{row.site_name}</span>)}</div>
@@ -562,15 +667,25 @@ function AssetsDashboard(props:Props){
   const inactive=current.filter((row)=>norm(row.row_status)==='INACTIVO').length
   const value=sum(current,'value_pen')
   const units=sum(current,'units')
+  const prev=previousPeriod(year,month)
+  const prevRows=useReportFilter(rows,prev.year,prev.month,segment,extra)
+  const prevActive=prevRows.filter((row)=>norm(row.row_status)==='ACTIVO').length
+  const prevInactive=prevRows.filter((row)=>norm(row.row_status)==='INACTIVO').length
+  const prevValue=sum(prevRows,'value_pen')
+  const prevUnits=sum(prevRows,'units')
+  const activeHistory=monthlyHistory(rows,year,(set)=>set.filter((row)=>norm(row.row_status)==='ACTIVO').length,segment,extra)
+  const inactiveHistory=monthlyHistory(rows,year,(set)=>set.filter((row)=>norm(row.row_status)==='INACTIVO').length,segment,extra)
+  const valueHistory=monthlyHistory(rows,year,(set)=>sum(set,'value_pen'),segment,extra)
+  const unitsHistory=monthlyHistory(rows,year,(set)=>sum(set,'units'),segment,extra)
   const bySite=current.map((row)=>({name:row.site_name,value:n(row.data.value_pen)})).filter((r)=>r.value>0).sort((a,b)=>b.value-a.value)
   return <section className="psc-dashboard psc-assets-dashboard">
     <Filters rows={rows} year={year} month={month} onYearChange={onYearChange} onMonthChange={onMonthChange}
       segment={segment} setSegment={setSegment} extraTitle="ESTADO" extraOptions={extraOptions} extra={extra} setExtra={setExtra}/>
     <div className="psc-top-metrics psc-four">
-      <MetricCard title="CENTROS ACTIVOS" value={numberText(active)} history={[]} tone="green" icon={<CheckCircle2 size={28}/>}/>
-      <MetricCard title="CENTROS INACTIVOS" value={numberText(inactive)} history={[]} tone="red" icon={<AlertTriangle size={28}/>}/>
-      <MetricCard title="VALOR S/" value={'S/ '+value.toLocaleString('es-PE',{maximumFractionDigits:0})} history={[]} tone="navy"/>
-      <MetricCard title="UNIDADES" value={numberText(units)} history={[]} tone="orange"/>
+      <MetricCard title="CENTROS ACTIVOS" value={numberText(active)} variation={changeRate(active,prevActive)} history={activeHistory} tone="green" icon={<CheckCircle2 size={28}/>}/>
+      <MetricCard title="CENTROS INACTIVOS" value={numberText(inactive)} variation={changeRate(inactive,prevInactive)} history={inactiveHistory} tone="red" icon={<AlertTriangle size={28}/>}/>
+      <MetricCard title="VALOR S/" value={'S/ '+value.toLocaleString('es-PE',{maximumFractionDigits:0})} variation={changeRate(value,prevValue)} history={valueHistory} tone="navy"/>
+      <MetricCard title="UNIDADES" value={numberText(units)} variation={changeRate(units,prevUnits)} history={unitsHistory} tone="orange"/>
     </div>
     <BarPanel title="VALOR DE CENTROS ACTIVOS / INACTIVOS" rows={bySite.slice(0,24)} tone="navy" valueFormatter={(v)=>'S/ '+v.toLocaleString('es-PE',{maximumFractionDigits:0})}/>
   </section>
