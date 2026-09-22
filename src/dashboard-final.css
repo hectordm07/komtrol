@@ -2699,3 +2699,408 @@
     font-size: 7px !important;
   }
 }
+
+
+/* KOMTROL ERI REFERENCE LAYOUT V2 · MATCH APPROVED SCREEN */
+
+@media (min-width: 1200px) {
+  /* ERI uses its own left-side filters like the approved reference. */
+  .scorecard-module:has(.report-eri) .scorecard-toolbar {
+    min-height: 54px !important;
+    height: 54px !important;
+    padding: 5px 8px !important;
+  }
+
+  .scorecard-module:has(.report-eri) .scorecard-toolbar .scorecard-quick-select,
+  .scorecard-module:has(.report-eri) .scorecard-toolbar .dashboard-hierarchy-filter {
+    display: none !important;
+  }
+
+  .scorecard-module:has(.report-eri) .scorecard-toolbar .scorecard-filters {
+    margin-left: auto !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+  }
+
+  .scorecard-module:has(.report-eri) .scorecard-toolbar .secondary-button,
+  .scorecard-module:has(.report-eri) .scorecard-toolbar .icon-button {
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+
+  .scorecard-monitor-fit.report-eri {
+    height: clamp(535px, calc(100dvh - 238px), 660px) !important;
+    max-height: 660px !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-monitor-fit.report-eri .eri-dashboard-reference {
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: 178px minmax(0,1fr) !important;
+    grid-template-rows: minmax(220px, 43%) minmax(295px, 57%) !important;
+    gap: 8px 9px !important;
+    padding: 0 !important;
+  }
+
+  .eri-dashboard-reference .eri-filter-rail {
+    grid-column: 1 !important;
+    grid-row: 1 / 3 !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-rows: auto auto auto auto !important;
+    align-content: start !important;
+    gap: 7px !important;
+  }
+
+  .eri-filter-card {
+    padding: 8px !important;
+    border: 1px solid #dbe4f3 !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: 0 4px 14px rgba(27,55,119,.05) !important;
+  }
+
+  .eri-filter-title {
+    min-height: 23px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    color: #17336f !important;
+  }
+
+  .eri-filter-title b {
+    font-size: 10px !important;
+    font-weight: 900 !important;
+  }
+
+  .eri-filter-card select {
+    width: 100% !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    margin-top: 4px !important;
+    padding: 0 28px 0 10px !important;
+    border: 1px solid #d8e1f1 !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    color: #17336f !important;
+    font-size: 10px !important;
+    font-weight: 850 !important;
+  }
+
+  .eri-center-buttons {
+    display: grid !important;
+    gap: 4px !important;
+    margin-top: 4px !important;
+  }
+
+  .eri-center-buttons button,
+  .eri-month-grid button {
+    border: 1px solid #e0e6ef !important;
+    border-radius: 6px !important;
+    background: #eef1f5 !important;
+    color: #273d6b !important;
+    font-size: 8.5px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+  }
+
+  .eri-center-buttons button {
+    min-height: 25px !important;
+    text-align: left !important;
+    padding: 0 10px !important;
+  }
+
+  .eri-center-buttons button.active,
+  .eri-month-grid button.active {
+    border-color: #0aad59 !important;
+    background: linear-gradient(180deg,#15bb68,#09a954) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 6px rgba(4,157,79,.18) !important;
+  }
+
+  .eri-month-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    gap: 4px !important;
+    margin-top: 4px !important;
+  }
+
+  .eri-month-grid button {
+    min-height: 25px !important;
+    padding: 0 2px !important;
+  }
+
+  .eri-filter-context {
+    padding: 7px 8px !important;
+    border-radius: 9px !important;
+    background: #f5f7fb !important;
+    display: grid !important;
+    gap: 2px !important;
+  }
+
+  .eri-filter-context b {
+    color: #18316f !important;
+    font-size: 9px !important;
+  }
+
+  .eri-filter-context span {
+    color: #7180a0 !important;
+    font-size: 7.5px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .eri-dashboard-reference .eri-top-grid {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    display: grid !important;
+    grid-template-columns:
+      minmax(145px,.9fr)
+      minmax(145px,.9fr)
+      minmax(150px,.92fr)
+      minmax(150px,.92fr)
+      minmax(310px,1.65fr) !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-card {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    grid-template-rows: 38px minmax(0,1fr) !important;
+  }
+
+  .eri-dashboard-reference .eri-ring-card,
+  .eri-dashboard-reference .eri-status-card,
+  .eri-dashboard-reference .eri-trend-card {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .eri-dashboard-reference .eri-card-title {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 9px !important;
+    border-radius: 0 !important;
+  }
+
+  .eri-dashboard-reference .eri-card-title b {
+    font-size: 9.5px !important;
+    white-space: nowrap !important;
+  }
+
+  .eri-dashboard-reference .eri-ring-wrap {
+    min-height: 0 !important;
+    padding: 2px 0 0 !important;
+  }
+
+  .eri-dashboard-reference .eri-ring {
+    width: min(128px,88%) !important;
+    height: min(128px,88%) !important;
+  }
+
+  .eri-dashboard-reference .eri-ring-wrap strong {
+    font-size: 22px !important;
+  }
+
+  .eri-dashboard-reference .eri-meta-chip {
+    min-height: 27px !important;
+    margin: 0 9px 8px !important;
+    font-size: 8px !important;
+  }
+
+  .eri-dashboard-reference .eri-status-body {
+    padding: 10px 11px !important;
+  }
+
+  .eri-dashboard-reference .eri-status-body.empty-state {
+    gap: 8px !important;
+  }
+
+  .eri-dashboard-reference .eri-empty-icon {
+    width: 50px !important;
+    height: 50px !important;
+  }
+
+  .eri-dashboard-reference .eri-status-body p {
+    font-size: 8.5px !important;
+    line-height: 1.28 !important;
+  }
+
+  .eri-dashboard-reference .eri-name-list {
+    gap: 6px !important;
+  }
+
+  .eri-dashboard-reference .eri-name-list b {
+    font-size: 9px !important;
+    line-height: 1.12 !important;
+  }
+
+  .eri-dashboard-reference .eri-trend-title .eri-trend-legend {
+    gap: 7px !important;
+  }
+
+  .eri-dashboard-reference .eri-trend-legend em {
+    font-size: 7px !important;
+  }
+
+  .eri-dashboard-reference .eri-trend-chart {
+    padding: 8px 8px 18px 36px !important;
+  }
+
+  .eri-dashboard-reference .eri-trend-chart svg {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .eri-dashboard-reference .eri-trend-axis {
+    left: 5px !important;
+    top: 8px !important;
+    bottom: 19px !important;
+    font-size: 7px !important;
+  }
+
+  .eri-dashboard-reference .eri-trend-months {
+    left: 40px !important;
+    right: 8px !important;
+    bottom: 4px !important;
+    font-size: 7px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-head {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 10px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-head b {
+    font-size: 9.5px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-legend {
+    gap: 9px !important;
+    font-size: 7px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-chart {
+    min-height: 0 !important;
+    height: 100% !important;
+    grid-template-columns: 42px minmax(0,1fr) !important;
+    padding: 8px 8px 2px 4px !important;
+  }
+
+  .eri-dashboard-reference .eri-y-axis {
+    min-height: 0 !important;
+    padding: 0 3px 53px 0 !important;
+    font-size: 7px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-plot {
+    min-height: 0 !important;
+    height: 100% !important;
+    grid-template-columns: repeat(var(--eri-count), minmax(36px,1fr)) !important;
+    gap: 2px !important;
+    overflow: hidden !important;
+  }
+
+  .eri-dashboard-reference .eri-bar-group {
+    min-height: 0 !important;
+    grid-template-rows: minmax(0,1fr) 53px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-pair {
+    gap: 1px !important;
+  }
+
+  .eri-dashboard-reference .eri-bar-col {
+    width: min(16px,45%) !important;
+  }
+
+  .eri-dashboard-reference .eri-bar-top {
+    font-size: 5.8px !important;
+  }
+
+  .eri-dashboard-reference .eri-site-label {
+    padding-top: 5px !important;
+    font-size: 6.2px !important;
+    line-height: .98 !important;
+    transform: rotate(-46deg) !important;
+    white-space: nowrap !important;
+  }
+
+  .eri-dashboard-reference .eri-target-line span {
+    display: none !important;
+  }
+}
+
+/* Large full-HD monitors: preserve the same approved proportions without stretching cards excessively. */
+@media (min-width: 1701px) {
+  .scorecard-monitor-fit.report-eri {
+    height: clamp(590px, calc(100dvh - 250px), 720px) !important;
+    max-height: 720px !important;
+  }
+
+  .scorecard-monitor-fit.report-eri .eri-dashboard-reference {
+    grid-template-columns: 190px minmax(0,1fr) !important;
+    grid-template-rows: minmax(245px,43%) minmax(330px,57%) !important;
+  }
+
+  .eri-dashboard-reference .eri-top-grid {
+    grid-template-columns:
+      minmax(160px,.9fr)
+      minmax(160px,.9fr)
+      minmax(170px,.92fr)
+      minmax(170px,.92fr)
+      minmax(360px,1.7fr) !important;
+  }
+}
+
+/* On mobile/tablet retain the existing responsive stacked experience. */
+@media (max-width: 1199px) {
+  .eri-dashboard-reference {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+    height: auto !important;
+  }
+
+  .eri-dashboard-reference .eri-filter-rail {
+    display: grid !important;
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .eri-filter-context {
+    display: none !important;
+  }
+
+  .eri-dashboard-reference .eri-top-grid,
+  .eri-dashboard-reference .eri-bars-card {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .eri-month-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    gap: 4px !important;
+  }
+
+  .eri-center-buttons {
+    display: grid !important;
+    gap: 4px !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .eri-dashboard-reference .eri-filter-rail {
+    grid-template-columns: 1fr !important;
+  }
+}
