@@ -9503,3 +9503,207 @@
     grid-template-rows:minmax(0,1fr) 58px !important;
   }
 }
+
+
+/* KOMTROL REPORT 01 NON-OVERLAP LAYOUT V24 */
+
+/* After removing the redundant context strip, Report 01 has only:
+   1) KPI row
+   2) Productivity chart
+   3) hidden footnote
+   Force the real two-row layout so the chart can never cover the KPI row. */
+@media (min-width:821px){
+  .scorecard-monitor-fit .io-click-layout{
+    height:100% !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit .io-click-layout > .io-dashboard-v3{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    grid-template-rows:minmax(178px,42%) minmax(250px,58%) !important;
+    grid-auto-rows:0 !important;
+    gap:9px !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    overflow:hidden !important;
+    align-content:stretch !important;
+  }
+
+  .scorecard-monitor-fit .io-click-layout > .io-dashboard-v3 > .io-dashboard-top{
+    grid-row:1 !important;
+    position:relative !important;
+    inset:auto !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    margin:0 !important;
+    overflow:hidden !important;
+    align-self:stretch !important;
+  }
+
+  .scorecard-monitor-fit .io-click-layout > .io-dashboard-v3 > .io-dashboard-bottom.io-dashboard-bottom-bars-only{
+    grid-row:2 !important;
+    position:relative !important;
+    inset:auto !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    margin:0 !important;
+    overflow:hidden !important;
+    align-self:stretch !important;
+  }
+
+  .scorecard-monitor-fit .io-click-layout > .io-dashboard-v3 > .io-dashboard-footnote{
+    display:none !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-stack,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-card,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-gauge-card-top{
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-card{
+    display:grid !important;
+    grid-template-rows:auto minmax(0,1fr) !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-svg{
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-area,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-panel{
+    position:relative !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    margin:0 !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-panel{
+    display:grid !important;
+    grid-template-rows:52px minmax(0,1fr) !important;
+    padding:0 14px 8px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-head{
+    min-height:52px !important;
+    height:52px !important;
+    margin:0 !important;
+    padding:6px 8px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-chart{
+    position:relative !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    margin:0 !important;
+    padding:10px 2px 0 !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-bars{
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    padding:0 10px !important;
+    align-items:stretch !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-bar-item{
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    grid-template-rows:minmax(0,1fr) 54px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-bar-label{
+    height:54px !important;
+    min-height:54px !important;
+    padding-top:6px !important;
+    font-size:8.8px !important;
+    line-height:1.08 !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-bar-value{
+    font-size:11px !important;
+  }
+
+  /* Variation is an overlay within the productivity card only. */
+  .scorecard-monitor-fit .io-dashboard-v3 .io-variation{
+    position:absolute !important;
+    z-index:5 !important;
+    top:9px !important;
+    right:12px !important;
+    margin:0 !important;
+  }
+}
+
+/* Corporate laptop 1366–1700px: preserve a comfortable KPI row,
+   but never let the chart exceed the dashboard frame. */
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  .scorecard-monitor-fit .io-click-layout > .io-dashboard-v3{
+    grid-template-rows:minmax(172px,41%) minmax(245px,59%) !important;
+    gap:8px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-panel{
+    grid-template-rows:48px minmax(0,1fr) !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-head{
+    min-height:48px !important;
+    height:48px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-bar-item{
+    grid-template-rows:minmax(0,1fr) 50px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-bar-label{
+    height:50px !important;
+    min-height:50px !important;
+    font-size:8.2px !important;
+  }
+}
+
+/* Mobile/tablet: natural document flow, no fixed desktop rows. */
+@media (max-width:820px){
+  .io-click-layout > .io-dashboard-v3{
+    display:grid !important;
+    grid-template-rows:auto auto !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+    gap:10px !important;
+  }
+
+  .io-click-layout > .io-dashboard-v3 > .io-dashboard-top,
+  .io-click-layout > .io-dashboard-v3 > .io-dashboard-bottom{
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-footnote{
+    display:none !important;
+  }
+}
