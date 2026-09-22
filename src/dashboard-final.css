@@ -4142,3 +4142,93 @@
   visibility:visible !important;
   opacity:1 !important;
 }
+
+
+/* KOMTROL YEAR BUTTONS + ADMIN DATA V7 */
+
+/* AÑO: mismo patrón visual en los 12 reportes. */
+.psc-year-grid,
+.eri-year-grid {
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:5px !important;
+  margin-top:4px !important;
+}
+
+.psc-year-grid button,
+.eri-year-grid button {
+  min-height:27px !important;
+  padding:0 7px !important;
+  border:1px solid #dce3ed !important;
+  border-radius:7px !important;
+  background:#edf1f5 !important;
+  color:#17336f !important;
+  font-size:9px !important;
+  font-weight:900 !important;
+  line-height:1 !important;
+  cursor:pointer !important;
+  box-shadow:none !important;
+}
+
+.psc-year-grid button.active,
+.eri-year-grid button.active {
+  border-color:#09aa57 !important;
+  background:linear-gradient(180deg,#16bd69,#08a852) !important;
+  color:#fff !important;
+  box-shadow:0 4px 10px rgba(8,169,83,.20) !important;
+}
+
+.psc-year-grid button:hover,
+.eri-year-grid button:hover {
+  border-color:#9db0d7 !important;
+}
+
+/* El tercer año queda naturalmente en la segunda fila, como el diseño aprobado. */
+.psc-year-filter,
+.eri-year-filter {
+  overflow:visible !important;
+}
+
+/* Datos / Cargar: misma presencia y acceso en todos los reportes para Administrador. */
+.scorecard-data-toggle {
+  min-width:132px !important;
+  justify-content:center !important;
+  gap:7px !important;
+  font-weight:850 !important;
+}
+
+.scorecard-data-toggle.open {
+  background:#eef3ff !important;
+  border-color:#b9c8ef !important;
+  color:#173a88 !important;
+}
+
+.scorecard-data-panel .scorecard-row-actions {
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:6px !important;
+}
+
+.scorecard-data-panel .scorecard-row-actions .icon-button.danger {
+  display:inline-grid !important;
+  place-items:center !important;
+  visibility:visible !important;
+}
+
+/* Desktop compacto. */
+@media (min-width:1200px) and (max-height:850px) {
+  .psc-year-grid button,
+  .eri-year-grid button {
+    min-height:23px !important;
+    font-size:8px !important;
+  }
+}
+
+/* Móvil: conservar dos años por fila si caben. */
+@media (max-width:700px) {
+  .psc-year-grid,
+  .eri-year-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
