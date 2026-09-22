@@ -240,6 +240,11 @@ export function ERIDashboard({
     {label:'SUCURSAL',value:'GRUPO:SUCURSAL'},
     {label:'TIENDA',value:'GRUPO:TIENDA'},
   ]
+  const availableYears=Array.from(new Set([...historical.map((row)=>row.year),year])).sort((a,b)=>b-a)
+  const availableMonths=Array.from(new Set(
+    historical.filter((row)=>row.year===year).map((row)=>row.month)
+  )).sort((a,b)=>a-b)
+  const displayedMonths=availableMonths.length?availableMonths:[month]
 
   return (
     <section className="eri-dashboard eri-dashboard-reference">
@@ -247,7 +252,7 @@ export function ERIDashboard({
         <section className="eri-filter-card">
           <div className="eri-filter-title"><CalendarDays size={15}/><b>AÑO</b></div>
           <select value={year} onChange={(event)=>onYearChange(Number(event.target.value))}>
-            {[2024,2025,2026,2027].map((value)=><option key={value} value={value}>{value}</option>)}
+            {availableYears.map((value)=><option key={value} value={value}>{value}</option>)}
           </select>
         </section>
 
@@ -258,8 +263,8 @@ export function ERIDashboard({
               <button
                 key={option.value}
                 type="button"
-                className={centerGroup===option.value?'active':''}
-                onClick={()=>onCenterGroupChange(option.value)}
+                className={centerGroup==='TODOS'||centerGroup===option.value?'active':''}
+                onClick={()=>onCenterGroupChange(centerGroup===option.value?'TODOS':option.value)}
               >{option.label}</button>
             ))}
           </div>
@@ -268,13 +273,13 @@ export function ERIDashboard({
         <section className="eri-filter-card eri-month-filter">
           <div className="eri-filter-title"><CalendarDays size={15}/><b>MES</b></div>
           <div className="eri-month-grid">
-            {MONTHS.map((label,index)=>(
+            {displayedMonths.map((monthNumber)=>(
               <button
-                key={label}
+                key={monthNumber}
                 type="button"
-                className={month===index+1?'active':''}
-                onClick={()=>onMonthChange(index+1)}
-              >{label}</button>
+                className={month===monthNumber?'active':''}
+                onClick={()=>onMonthChange(monthNumber)}
+              >{MONTHS[monthNumber-1]}</button>
             ))}
           </div>
         </section>
