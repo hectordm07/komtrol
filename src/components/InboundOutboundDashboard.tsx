@@ -5,6 +5,7 @@ import {
   Clock3,
   PackageMinus,
   PackagePlus,
+  Minus,
   Target,
   TrendingDown,
   TrendingUp,
@@ -104,11 +105,13 @@ function periodKey(year:number,month:number){
 
 function ChangePill({value,inverse=false}:{value:number;inverse?:boolean}){
   const rounded=Math.round(value)
-  const positive=rounded>=0
+  const isZero=rounded===0
+  const positive=rounded>0
   const good=inverse?!positive:positive
+  const tone=isZero?'neutral':good?'good':'bad'
   return (
-    <span className={`io-change-pill ${good?'good':'bad'}`}>
-      {positive?<TrendingUp size={12}/>:<TrendingDown size={12}/>}
+    <span className={`io-change-pill ${tone}`}>
+      {isZero?<Minus size={12}/>:positive?<TrendingUp size={12}/>:<TrendingDown size={12}/>}
       {positive?'+':''}{fmtInt(rounded)}%
     </span>
   )
@@ -367,6 +370,50 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
   )
 }
 
+
+export function InboundOutboundSidebarProductivityCard({
+  rows,
+  historical,
+  year,
+  month,
+}:{
+  rows:Row[]
+  historical:Row[]
+  year:number
+  month:number
+}){
+  const current=withoutConsolidated(rows)
+  const history=withoutConsolidated(historical)
+  const avgProductivity=avg(current.map((row)=>num(row.data.productivity)))
+  const avgTarget=avg(current.map((row)=>num(row.data.target)).filter((value)=>value>0)) || 45
+
+  const prevDate=new Date(year,month-2,1)
+  const prevYear=prevDate.getFullYear()
+  const prevMonth=prevDate.getMonth()+1
+  const previousRows=history.filter((row)=>row.year===prevYear&&row.month===prevMonth)
+  const previousProductivity=avg(previousRows.map((row)=>num(row.data.productivity)))
+  const change=pctChange(avgProductivity,previousProductivity)
+  const tone=change>0?'positive':change<0?'negative':'neutral'
+
+  return (
+    <article className={`io-sidebar-productivity ${tone}`}>
+      <div className="io-sidebar-productivity-head">
+        <span className="io-section-icon"><Target size={15}/></span>
+        <div><small>PROMEDIO</small><b>Productividad IL</b></div>
+      </div>
+      <Gauge value={avgProductivity} target={avgTarget}/>
+      <div className="io-sidebar-productivity-variation">
+        <small>VARIACIÓN %</small>
+        <div>
+          {change>0?<TrendingUp size={15}/>:change<0?<TrendingDown size={15}/>:<Minus size={15}/>}
+          <b>{change>0?'+':''}{fmtInt(change)}%</b>
+        </div>
+        <span>vs. mes anterior</span>
+      </div>
+    </article>
+  )
+}
+
 export function InboundOutboundDashboard({rows,historical,year,month,contextLabel}:Props){
   const current=withoutConsolidated(rows)
   const history=withoutConsolidated(historical)
@@ -448,25 +495,16 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
           change={outboundChange}
           icon={<PackageMinus size={18}/>}
         />
-
-        <article className="io-gauge-card io-gauge-card-top">
-          <div className="io-gauge-card-head">
-            <span className="io-section-icon"><Target size={15}/></span>
-            <div><small>PROMEDIO</small><b>Productividad IL</b></div>
-          </div>
-          <Gauge value={avgProductivity} target={avgTarget}/>
-          <div className="io-gauge-footer">
-            <ChangePill value={productivityChange}/>
-            <span>vs. mes anterior</span>
-          </div>
-        </article>
       </div>
 
       <div className="io-dashboard-bottom io-dashboard-bottom-bars-only">
         <div className="io-productivity-area">
-          <div className={productivityChange>=0?'io-variation positive':'io-variation negative'}>
+          <div className={`io-variation ${productivityChange>0?'positive':productivityChange<0?'negative':'neutral'}`}>
             <small>VARIACIÓN %</small>
-            <div>{productivityChange>=0?<TrendingUp size={15}/>:<TrendingDown size={15}/>}<b>{productivityChange>=0?'+':''}{fmtInt(productivityChange)}%</b></div>
+            <div>
+              {productivityChange>0?<TrendingUp size={15}/>:productivityChange<0?<TrendingDown size={15}/>:<Minus size={15}/>}
+              <b>{productivityChange>0?'+':''}{fmtInt(productivityChange)}%</b>
+            </div>
             <span>vs. mes anterior</span>
           </div>
           <ProductivityBars rows={current} target={avgTarget}/>
