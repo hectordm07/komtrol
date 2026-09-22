@@ -26,6 +26,7 @@ import {
 import { InboundOutboundDashboard } from './InboundOutboundDashboard'
 import { ERIDashboard } from './ERIDashboard'
 import { ProfessionalScorecardDashboard, type ProfessionalScorecardCode } from './ProfessionalScorecardDashboard'
+import { ScorecardClickFilters } from './ScorecardClickFilters'
 
 export type ScorecardMode =
   | 'scorecard-carga'
@@ -1091,13 +1092,24 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         data-report-code={report.code}
       >
         {report.code==='inbound-outbound' ? (
-          <InboundOutboundDashboard
-            rows={scopedRows}
-            historical={visibleHistorical}
-            year={year}
-            month={month}
-            contextLabel={filterLabel}
-          />
+          <div className="io-click-layout">
+            <ScorecardClickFilters
+              rows={rows}
+              year={year}
+              month={month}
+              group={warehouseFilter}
+              onYearChange={setYear}
+              onMonthChange={setMonth}
+              onGroupChange={setWarehouseFilter}
+            />
+            <InboundOutboundDashboard
+              rows={scopedRows}
+              historical={visibleHistorical}
+              year={year}
+              month={month}
+              contextLabel={filterLabel}
+            />
+          </div>
         ) : report.code==='eri' ? (
           <ERIDashboard
             rows={scopedRows}
