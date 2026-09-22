@@ -8642,3 +8642,458 @@
     width:100% !important;
   }
 }
+
+
+/* KOMTROL UNIFIED KPI CARD SYSTEM V20 */
+
+/* =========================================================
+   UNIFIED KPI / SUMMARY CARD SYSTEM
+   Visual reference: centered executive card with navy header,
+   large value, status/detail, trend and variation footer.
+   Applies to dashboard KPI/summary cards across KOMTROL.
+   ========================================================= */
+:root{
+  --kom-card-navy:#0b357b;
+  --kom-card-navy-2:#0e438f;
+  --kom-card-border:#d7e1ef;
+  --kom-card-text:#0a2b68;
+  --kom-card-muted:#7787a5;
+  --kom-card-green:#0aa353;
+  --kom-card-red:#e92e28;
+  --kom-card-orange:#e98b0c;
+  --kom-card-shadow:0 10px 28px rgba(27,52,113,.08);
+}
+
+.kom-unified-card{
+  position:relative !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  border:1px solid var(--kom-card-border) !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  box-shadow:var(--kom-card-shadow) !important;
+}
+
+.kom-card-head{
+  width:100% !important;
+  min-height:36px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:6px 10px !important;
+  background:linear-gradient(180deg,var(--kom-card-navy-2),var(--kom-card-navy)) !important;
+  color:#fff !important;
+  font-size:9px !important;
+  line-height:1.08 !important;
+  font-weight:900 !important;
+  letter-spacing:.015em !important;
+  text-transform:uppercase !important;
+  text-align:center !important;
+}
+
+.kom-card-body{
+  min-height:0 !important;
+  width:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+  padding:14px 12px 15px !important;
+  text-align:center !important;
+}
+
+.kom-card-icon{
+  width:48px !important;
+  height:48px !important;
+  display:grid !important;
+  place-items:center !important;
+  border-radius:14px !important;
+  background:#eef3fb !important;
+  color:#244b98 !important;
+  flex:0 0 auto !important;
+}
+
+.kom-card-value{
+  color:var(--kom-card-text) !important;
+  font-size:clamp(26px,2.3vw,40px) !important;
+  line-height:1 !important;
+  font-weight:950 !important;
+  letter-spacing:-.02em !important;
+}
+
+.kom-card-note{
+  color:var(--kom-card-muted) !important;
+  font-size:8px !important;
+  line-height:1.2 !important;
+  font-weight:750 !important;
+  font-style:normal !important;
+}
+
+/* Main dashboard cards */
+.main-dashboard-card.kom-unified-card{
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  min-height:150px !important;
+  padding:0 !important;
+  gap:0 !important;
+  text-align:center !important;
+}
+
+.main-dashboard-card.kom-unified-card > div,
+.main-dashboard-card.kom-unified-card > span:not(.kom-card-head):not(.kom-card-body),
+.main-dashboard-card.kom-unified-card > b:not(.kom-card-value){
+  margin:0 !important;
+}
+
+.main-dashboard-card.kom-unified-card .dashboard-card-arrow{
+  position:absolute !important;
+  right:12px !important;
+  bottom:12px !important;
+  color:#7790bd !important;
+}
+
+.main-dashboard-card-link.kom-unified-card:hover{
+  transform:translateY(-2px) !important;
+  box-shadow:0 15px 34px rgba(27,52,113,.12) !important;
+}
+
+/* Generic operational KPI cards */
+.dashboard-stat.kom-unified-card{
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  min-height:148px !important;
+  padding:0 !important;
+  gap:0 !important;
+}
+
+.dashboard-stat.kom-unified-card > .dashboard-stat-icon{
+  display:none !important;
+}
+
+/* Universal dashboard KPI cards */
+.universal-kpi.kom-unified-card{
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  min-height:154px !important;
+  padding:0 !important;
+  gap:0 !important;
+  text-align:center !important;
+}
+
+.universal-kpi.kom-unified-card .universal-kpi-copy{
+  display:contents !important;
+}
+
+.universal-kpi.kom-unified-card .universal-kpi-arrow{
+  position:absolute !important;
+  right:12px !important;
+  bottom:12px !important;
+  color:#7891bd !important;
+}
+
+/* KPI record cards */
+.kpi-record-card{
+  overflow:hidden !important;
+  border:1px solid var(--kom-card-border) !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  box-shadow:var(--kom-card-shadow) !important;
+}
+
+.kpi-record-card .kpi-record-head{
+  margin:-1px -1px 12px !important;
+  min-height:38px !important;
+  padding:7px 10px !important;
+  display:grid !important;
+  place-items:center !important;
+  background:linear-gradient(180deg,var(--kom-card-navy-2),var(--kom-card-navy)) !important;
+  color:#fff !important;
+  text-align:center !important;
+}
+
+.kpi-record-card .kpi-record-head span,
+.kpi-record-card .kpi-record-head small{
+  color:#fff !important;
+}
+
+/* Existing Scorecard cards: unify header, border, radius and hierarchy. */
+.psc-metric-card,
+.psc-highlight-card,
+.psc-compliance-card,
+.psc-safe-risk,
+.eri-ring-card,
+.eri-trend-card,
+.eri-status-card,
+.io-mini-card,
+.io-trend-card,
+.io-gauge-card{
+  border:1px solid var(--kom-card-border) !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  box-shadow:var(--kom-card-shadow) !important;
+  overflow:hidden !important;
+}
+
+.psc-metric-card .psc-card-ribbon,
+.psc-highlight-card .psc-card-ribbon,
+.psc-compliance-card .psc-card-ribbon,
+.psc-safe-risk .psc-card-ribbon,
+.eri-card-title,
+.io-card-head,
+.io-gauge-card-head,
+.sf3-highlight-title,
+.sf3-kpi-head{
+  background:linear-gradient(180deg,var(--kom-card-navy-2),var(--kom-card-navy)) !important;
+  color:#fff !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+
+.psc-metric-card .psc-card-ribbon,
+.psc-highlight-card .psc-card-ribbon,
+.psc-compliance-card .psc-card-ribbon,
+.psc-safe-risk .psc-card-ribbon,
+.eri-card-title{
+  min-height:36px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:6px 10px !important;
+  font-size:9px !important;
+  line-height:1.1 !important;
+  font-weight:900 !important;
+  text-align:center !important;
+}
+
+/* Center the primary metric area while preserving charts/trends. */
+.psc-metric-card .psc-metric-main{
+  grid-template-columns:auto minmax(0,1fr) auto !important;
+  align-items:center !important;
+  gap:10px !important;
+  padding:10px 12px 5px !important;
+}
+
+.psc-metric-card .psc-metric-icon{
+  width:46px !important;
+  height:46px !important;
+  display:grid !important;
+  place-items:center !important;
+  border-radius:14px !important;
+  background:#eef3fb !important;
+  color:#284f99 !important;
+}
+
+.psc-metric-card .psc-metric-main > strong{
+  color:var(--kom-card-text) !important;
+  font-size:clamp(27px,2.2vw,40px) !important;
+  font-weight:950 !important;
+}
+
+/* Reference-style highlight / top-difference card */
+.sf3-highlight{
+  border-radius:18px !important;
+}
+
+.sf3-highlight-body{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:5px !important;
+  padding:10px 12px 12px !important;
+  text-align:center !important;
+}
+
+.sf3-highlight-icon{
+  width:46px !important;
+  height:46px !important;
+  display:grid !important;
+  place-items:center !important;
+  border-radius:14px !important;
+}
+
+.sf3-highlight-body > b{
+  width:100% !important;
+  color:#143b7e !important;
+  font-size:13px !important;
+  line-height:1.05 !important;
+  font-weight:900 !important;
+  text-align:center !important;
+  white-space:normal !important;
+}
+
+.sf3-highlight-body > strong{
+  color:var(--kom-card-red) !important;
+  font-size:30px !important;
+  line-height:1 !important;
+  font-weight:950 !important;
+}
+
+.sf3-highlight.green .sf3-highlight-body > strong{
+  color:var(--kom-card-green) !important;
+}
+
+.sf3-highlight-body > small{
+  color:#7183a3 !important;
+  font-size:8px !important;
+  font-weight:750 !important;
+}
+
+.sf3-highlight-body > em{
+  padding:4px 9px !important;
+  border-radius:999px !important;
+  font-size:7px !important;
+  font-weight:850 !important;
+}
+
+.sf3-highlight-spark{
+  width:100% !important;
+  height:30px !important;
+  margin-top:1px !important;
+  overflow:hidden !important;
+}
+
+.sf3-highlight-spark .psc-spark{
+  width:100% !important;
+  height:30px !important;
+}
+
+.sf3-highlight-variation{
+  width:100% !important;
+  min-height:46px !important;
+  margin-top:3px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:9px !important;
+  padding:7px 10px !important;
+  border-radius:13px !important;
+  background:#eef9f3 !important;
+}
+
+.sf3-highlight-variation.down{
+  background:#fff0f1 !important;
+}
+
+.sf3-highlight-variation-icon{
+  width:30px !important;
+  height:30px !important;
+  display:grid !important;
+  place-items:center !important;
+  border-radius:10px !important;
+  background:#dff5e8 !important;
+  color:var(--kom-card-green) !important;
+}
+
+.sf3-highlight-variation.down .sf3-highlight-variation-icon{
+  background:#ffe1e4 !important;
+  color:var(--kom-card-red) !important;
+  transform:rotate(90deg) !important;
+}
+
+.sf3-highlight-variation > div{
+  display:grid !important;
+  gap:1px !important;
+  text-align:left !important;
+}
+
+.sf3-highlight-variation b{
+  color:var(--kom-card-green) !important;
+  font-size:13px !important;
+  line-height:1 !important;
+  font-weight:950 !important;
+}
+
+.sf3-highlight-variation.down b{
+  color:var(--kom-card-red) !important;
+}
+
+.sf3-highlight-variation small{
+  color:#7183a3 !important;
+  font-size:7px !important;
+  font-weight:750 !important;
+}
+
+/* ERI cards follow same header system. */
+.eri-ring-card .eri-ring-wrap{
+  place-items:center !important;
+}
+
+.eri-ring-footer{
+  padding:0 8px 8px !important;
+}
+
+/* Inbound/Outbound card headers follow same system. */
+.io-card-head,
+.io-gauge-card-head{
+  min-height:36px !important;
+  padding:6px 10px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+}
+
+.io-card-heading{
+  text-align:center !important;
+}
+
+/* Mobile: same visual identity, stacked and legible. */
+@media (max-width:760px){
+  .kom-unified-card,
+  .psc-metric-card,
+  .psc-highlight-card,
+  .psc-compliance-card,
+  .eri-ring-card,
+  .eri-trend-card,
+  .eri-status-card,
+  .io-mini-card,
+  .io-trend-card,
+  .io-gauge-card,
+  .sf3-highlight{
+    border-radius:16px !important;
+  }
+
+  .kom-card-head,
+  .psc-metric-card .psc-card-ribbon,
+  .psc-highlight-card .psc-card-ribbon,
+  .eri-card-title,
+  .io-card-head,
+  .io-gauge-card-head,
+  .sf3-highlight-title{
+    min-height:34px !important;
+    font-size:9px !important;
+  }
+
+  .kom-card-body{
+    padding:12px 10px 14px !important;
+  }
+
+  .kom-card-icon{
+    width:44px !important;
+    height:44px !important;
+  }
+
+  .kom-card-value{
+    font-size:31px !important;
+  }
+
+  .main-dashboard-card.kom-unified-card,
+  .dashboard-stat.kom-unified-card,
+  .universal-kpi.kom-unified-card{
+    min-height:145px !important;
+  }
+
+  .sf3-highlight-body > b{
+    font-size:12px !important;
+  }
+
+  .sf3-highlight-body > strong{
+    font-size:28px !important;
+  }
+
+  .sf3-highlight-variation{
+    min-height:44px !important;
+  }
+}
