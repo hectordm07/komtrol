@@ -10,6 +10,7 @@ import {
   FileText,
   RefreshCw,
   Save,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react'
@@ -438,11 +439,11 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     ownWarehouseMeta?.remote_group==='PROYECTO_MINERO' ||
     ownWarehouseMeta?.remote_group==='SUCURSAL' ||
     ownWarehouseMeta?.remote_group==='TIENDA'
-  const canLoad=role==='COORDINADOR'||role==='ADMINISTRADOR'
-  const canEdit=role==='COORDINADOR'||role==='ADMINISTRADOR'
-  const canSeeSourceData=role!=='TRABAJADOR'
-  const isViewer=role==='TRABAJADOR'
   const isAdmin=role==='ADMINISTRADOR'
+  const canLoad=role==='COORDINADOR'||isAdmin
+  const canEdit=isAdmin
+  const canSeeSourceData=isAdmin
+  const isViewer=role==='TRABAJADOR'
 
   async function reload() {
     setLoading(true)
@@ -656,6 +657,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   }
 
   async function saveRow(row:ScorecardRow) {
+    if(!isAdmin){setMessage('Solo el Administrador puede editar datos del Scorecard.');return}
     const editableData={...row.data}
     const {data,error}=await supabase
       .from('scorecard_rows')
@@ -678,6 +680,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   }
 
   async function addManualRow() {
+    if(!isAdmin){setMessage('Solo el Administrador puede crear registros del Scorecard.');return}
     if(!report) return
     const targetWarehouse=filterSingleTarget ||
       (role==='COORDINADOR'?normalizeProfileWarehouse(profile):'SIN_ASIGNAR')
@@ -698,6 +701,17 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     setRows((current)=>[...current,data as ScorecardRow])
     setEditing(true)
     setEditingRows((current)=>({...current,[data.id]:data as ScorecardRow}))
+  }
+
+  async function deleteRow(row:ScorecardRow) {
+    if(!isAdmin){setMessage('Solo el Administrador puede eliminar datos del Scorecard.');return}
+    const accepted=window.confirm(`¿Eliminar definitivamente el registro de ${row.site_name}? Esta acción no se puede deshacer.`)
+    if(!accepted) return
+    const {error}=await supabase.from('scorecard_rows').delete().eq('id',row.id)
+    if(error){setMessage(error.message);return}
+    setRows((current)=>current.filter((item)=>item.id!==row.id))
+    setEditingRows((current)=>{const next={...current};delete next[row.id];return next})
+    setMessage('Registro eliminado correctamente.')
   }
 
   async function submitPeriod() {
@@ -1052,7 +1066,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           />}
           <button className="secondary-button" disabled={!scorecardExportRows.length||pdfExporting} onClick={exportScorecardPdf}><FileText size={16}/> {pdfExporting?'Generando…':'PDF'}</button>
           <button className="secondary-button" disabled={!scorecardExportRows.length} onClick={exportScorecardExcel}><FileSpreadsheet size={16}/> Excel</button>
-          {canSeeSourceData&&report.code!=='inbound-outbound'&&<button
+          {canSeeSourceData&&<button
             type="button"
             className={sourceDataOpen?'secondary-button scorecard-data-toggle open':'secondary-button scorecard-data-toggle'}
             onClick={()=>setSourceDataOpen((value)=>!value)}
@@ -1119,14 +1133,14 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         }}>
           <section className="panel scorecard-data-panel" role="dialog" aria-modal="true" aria-label="Datos del reporte">
           <div className="scorecard-data-head">
-            <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {filterLabel}</span></div>
+            <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {filterLabel} · Acceso Administrador</span></div>
             <div className="button-row">
               <button className="icon-button scorecard-data-close" onClick={()=>setSourceDataOpen(false)} title="Cerrar datos"><X size={16}/></button>
               {['AUTO','HYBRID'].includes(report.source_mode)&&canLoad&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
               {canLoad&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
               {canEdit&&<button className="secondary-button" onClick={()=>setEditing((value)=>!value)}>{editing?<X size={16}/>:<Edit3 size={16}/>} {editing?'Cerrar edición':'Editar datos'}</button>}
               {canEdit&&<button className="secondary-button" onClick={addManualRow}><Database size={16}/> Nuevo registro</button>}
-              {role==='COORDINADOR'&&<button className="primary-button" onClick={submitPeriod}><CheckCircle2 size={16}/> Enviar mes</button>}
+
             </div>
           </div>
 
@@ -1151,7 +1165,12 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
                           />
                         : <span>{fmtValue(value,field.type)}</span>}</td>
                     })}
-                    {editing&&<td><button className="icon-button" disabled={!editingRows[row.id]} onClick={()=>saveRow(edited)}><Save size={15}/></button></td>}
+                    {editing&&<td>
+                      <div className="scorecard-row-actions">
+                        <button className="icon-button" disabled={!editingRows[row.id]} onClick={()=>saveRow(edited)} title="Guardar cambios"><Save size={15}/></button>
+                        {isAdmin&&<button className="icon-button danger" onClick={()=>deleteRow(row)} title="Eliminar registro"><Trash2 size={15}/></button>}
+                      </div>
+                    </td>}
                   </tr>
                 })}
               </tbody>
