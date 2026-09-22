@@ -216,11 +216,12 @@ function Filters({
 }
 
 function MetricCard({
-  title,value,variation,history,tone='navy',icon,historyLabels,historyFormatter
+  title,value,variation,sixMonthVariation,history,tone='navy',icon,historyLabels,historyFormatter
 }:{
   title:string
   value:string
   variation?:number
+  sixMonthVariation?:number|null
   history:number[]
   tone?:'navy'|'green'|'red'|'orange'|'purple'
   icon?:ReactNode
@@ -234,8 +235,15 @@ function MetricCard({
       <span className="psc-metric-icon">{icon||<Database size={28}/>}</span>
       <strong>{value}</strong>
       {variation!==undefined&&<div className="psc-metric-variation">
-        <em className={up?'up':'down'}>{up?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</em>
-        <span>vs. mes anterior</span>
+        <div>
+          <em className={up?'up':'down'}>{up?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</em>
+          <span>vs. mes anterior</span>
+        </div>
+        {sixMonthVariation!==undefined&&<div className="six-month">
+          {sixMonthVariation===null
+            ? <><em className="neutral">—</em><span>vs. hace 6 meses</span></>
+            : <><em className={sixMonthVariation>=0?'up':'down'}>{sixMonthVariation>=0?'▲':'▼'} {Math.abs(sixMonthVariation*100).toFixed(2)}%</em><span>vs. hace 6 meses</span></>}
+        </div>}
       </div>}
     </div>
     {historyLabels?.length
@@ -476,6 +484,18 @@ function SobrantesFaltantesDashboard({
   const skuVariation=changeRate(totalSkus,sum(prevRows,'skus'))
   const unitVariation=changeRate(totalUnits,sum(prevRows,'units'))
 
+  const sixMonthsBackDate=new Date(year,month-7,1)
+  const sixMonthsBackRows=useReportFilter(
+    rows,
+    sixMonthsBackDate.getFullYear(),
+    sixMonthsBackDate.getMonth()+1,
+    segment,
+    extra
+  )
+  const sixMonthUsdVariation=sixMonthsBackRows.length?changeRate(totalUsd,sum(sixMonthsBackRows,'usd')):null
+  const sixMonthSkuVariation=sixMonthsBackRows.length?changeRate(totalSkus,sum(sixMonthsBackRows,'skus')):null
+  const sixMonthUnitVariation=sixMonthsBackRows.length?changeRate(totalUnits,sum(sixMonthsBackRows,'units')):null
+
   const sixPeriods=lastSixPeriods(year,month)
   const sixMonthSets=sixPeriods.map((period)=>rows.filter((row)=>
     row.year===period.year&&
@@ -516,9 +536,9 @@ function SobrantesFaltantesDashboard({
     />
 
     <div className="psc-top-metrics">
-      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={usdHistory} tone={chartTone} icon={<Database size={29}/>}/>
-      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} history={skuHistory} tone={chartTone} icon={<FileText size={29}/>}/>
-      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} sixMonthVariation={sixMonthUsdVariation} history={usdHistory} tone={chartTone} icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} sixMonthVariation={sixMonthSkuVariation} history={skuHistory} tone={chartTone} icon={<FileText size={29}/>}/>
+      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} sixMonthVariation={sixMonthUnitVariation} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
     </div>
 
     <TopDifference
