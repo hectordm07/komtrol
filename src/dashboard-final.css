@@ -4813,9 +4813,9 @@
 /* Report 3: no vertical overflow on common corporate monitor sizes. */
 @media (min-width:1200px) {
   .scorecard-dashboard-export.report-sobrantes-faltantes.scorecard-layout-professional {
-    height:calc(100dvh - 250px) !important;
-    min-height:470px !important;
-    max-height:570px !important;
+    height:clamp(440px, calc(100dvh - 300px), 620px) !important;
+    min-height:440px !important;
+    max-height:620px !important;
     overflow:hidden !important;
   }
 
@@ -4829,14 +4829,14 @@
 
 @media (min-width:1200px) and (max-width:1700px) and (max-height:850px) {
   .scorecard-dashboard-export.report-sobrantes-faltantes.scorecard-layout-professional {
-    height:calc(100dvh - 242px) !important;
-    min-height:455px !important;
-    max-height:545px !important;
+    height:clamp(438px, calc(100dvh - 300px), 510px) !important;
+    min-height:438px !important;
+    max-height:510px !important;
   }
 
   .sf-dashboard {
     grid-template-columns:168px minmax(0,1fr) !important;
-    grid-template-rows:145px minmax(0,1fr) !important;
+    grid-template-rows:136px minmax(0,1fr) !important;
     gap:7px 8px !important;
   }
 
