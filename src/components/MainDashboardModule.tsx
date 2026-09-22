@@ -439,15 +439,21 @@ export function MainDashboardModule({ profile, role, scope = 'ALL', onNavigate }
 }
 
 function DashCard({icon,label,value,onClick}:{icon:React.ReactNode;label:string;value:string|number;onClick?:()=>void}) {
+  const content = <>
+    <span className="kom-card-head">{label}</span>
+    <span className="kom-card-body">
+      <span className="kom-card-icon">{icon}</span>
+      <b className="kom-card-value">{value}</b>
+      <small className="kom-card-note">{onClick?'Ver detalle':'Resumen'}</small>
+    </span>
+    {onClick&&<ChevronRight className="dashboard-card-arrow" size={16}/>}
+  </>
   if (onClick) {
     return (
-      <button type="button" className="main-dashboard-card main-dashboard-card-link" onClick={onClick}>
-        <div>{icon}</div>
-        <span>{label}</span>
-        <b>{value}</b>
-        <ChevronRight className="dashboard-card-arrow" size={16}/>
+      <button type="button" className="main-dashboard-card main-dashboard-card-link kom-unified-card" onClick={onClick}>
+        {content}
       </button>
     )
   }
-  return <div className="main-dashboard-card"><div>{icon}</div><span>{label}</span><b>{value}</b></div>
+  return <div className="main-dashboard-card kom-unified-card">{content}</div>
 }
