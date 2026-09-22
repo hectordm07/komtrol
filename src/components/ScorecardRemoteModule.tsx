@@ -534,7 +534,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       item.code.toUpperCase()===normalizeProfileWarehouse(profile).toUpperCase()
     )
     setWarehouseFilter(own?`ALMACEN:${own.code}`:'TODOS')
-  },[role,profile?.warehouse,profile?.project,canViewRemoteNetwork,warehouseCatalog])
+  },[mode,role,profile?.warehouse,profile?.project,canViewRemoteNetwork,warehouseCatalog])
 
   const filterLabel=useMemo(
     ()=>dashboardFilterLabel(warehouseFilter,warehouseCatalog,warehouseCenters),
