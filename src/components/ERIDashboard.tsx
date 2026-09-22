@@ -252,11 +252,12 @@ export function ERIDashboard({
     })
 
   const centerOptions=[
+    {label:'TODOS',value:'TODOS'},
     {label:'PROYECTO',value:'GRUPO:PROYECTO_MINERO'},
     {label:'SUCURSAL',value:'GRUPO:SUCURSAL'},
     {label:'TIENDA',value:'GRUPO:TIENDA'},
   ]
-  const availableYears=[2024,2025,2026]
+  const availableYears=Array.from(new Set(historical.map((row)=>row.year))).sort((a,b)=>b-a)
   const availableMonths=Array.from(new Set(
     historical.filter((row)=>row.year===year).map((row)=>row.month)
   )).sort((a,b)=>a-b)
@@ -265,11 +266,16 @@ export function ERIDashboard({
   return (
     <section className="eri-dashboard eri-dashboard-reference">
       <aside className="eri-filter-rail" aria-label="Filtros ERI">
-        <section className="eri-filter-card">
+        <section className="eri-filter-card eri-year-filter">
           <div className="eri-filter-title"><CalendarClock size={15}/><b>AÑO</b></div>
-          <select value={year} onChange={(event)=>onYearChange(Number(event.target.value))}>
-            {availableYears.map((value)=><option key={value} value={value}>{value}</option>)}
-          </select>
+          <div className="eri-year-grid">
+            {availableYears.map((value)=><button
+              key={value}
+              type="button"
+              className={year===value?'active':''}
+              onClick={()=>onYearChange(value)}
+            >{value}</button>)}
+          </div>
         </section>
 
         <section className="eri-filter-card">
@@ -279,8 +285,8 @@ export function ERIDashboard({
               <button
                 key={option.value}
                 type="button"
-                className={centerGroup==='TODOS'||centerGroup===option.value?'active':''}
-                onClick={()=>onCenterGroupChange(centerGroup===option.value?'TODOS':option.value)}
+                className={centerGroup===option.value?'active':''}
+                onClick={()=>onCenterGroupChange(option.value)}
               >{option.label}</button>
             ))}
           </div>
