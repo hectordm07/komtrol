@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { AlertTriangle, BarChart3, CheckCircle2, Database, FileText } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, Database, FileText, TrendingUp } from 'lucide-react'
 
 export type ProfessionalScorecardCode =
   | 'sobrantes-faltantes'
@@ -492,15 +492,220 @@ function TopSitesPanel({
   </article>
 }
 
+function Report3Filters({
+  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus,top
+}:{
+  rows:Row[]
+  year:number
+  month:number
+  onYearChange:(year:number)=>void
+  onMonthChange:(month:number)=>void
+  segment:string
+  setSegment:(segment:string)=>void
+  status:string
+  setStatus:(status:string)=>void
+  top?:{name:string;value:number;skus:number;units:number}
+}){
+  const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
+  const months=useMemo(()=>Array.from(new Set(
+    rows.filter((row)=>row.year===year).map((row)=>row.month)
+  )).sort((a,b)=>a-b),[rows,year])
+
+  useEffect(()=>{
+    if(months.length&&!months.includes(month)){
+      onMonthChange(months[months.length-1])
+    }
+  },[months.join(','),month,onMonthChange])
+
+  const centers=['TODOS','PROYECTO','SUCURSAL','TIENDA']
+  const statuses=['TODOS','FALTANTE','SOBRANTE']
+
+  return <aside className="sf3-left">
+    <section className="sf3-filter-card">
+      <b>AÑO</b>
+      <div className="sf3-grid sf3-years">
+        {years.map((item)=><button
+          type="button"
+          key={item}
+          className={year===item?'active':''}
+          onClick={()=>onYearChange(item)}
+        >{item}</button>)}
+      </div>
+    </section>
+
+    <section className="sf3-filter-card">
+      <b>CENTRO</b>
+      <div className="sf3-grid sf3-centers">
+        {centers.map((item)=><button
+          type="button"
+          key={item}
+          className={segment===item?'active':''}
+          onClick={()=>setSegment(item)}
+        >{item}</button>)}
+      </div>
+    </section>
+
+    <section className="sf3-filter-card">
+      <b>STATUS</b>
+      <div className="sf3-grid sf3-status">
+        {statuses.map((item)=><button
+          type="button"
+          key={item}
+          className={status===item?'active':''}
+          onClick={()=>setStatus(item)}
+        >{item}</button>)}
+      </div>
+    </section>
+
+    <section className="sf3-filter-card">
+      <b>MES</b>
+      <div className="sf3-grid sf3-months">
+        {months.map((item)=><button
+          type="button"
+          key={item}
+          className={month===item?'active':''}
+          onClick={()=>onMonthChange(item)}
+        >{MONTHS[item-1]}</button>)}
+      </div>
+    </section>
+
+    <article className={"sf3-highlight "+(status==='SOBRANTE'?'green':'red')}>
+      <div className="sf3-highlight-title">PROYECTO CON MAYOR DIFERENCIA</div>
+      <div className="sf3-highlight-body">
+        <span className="sf3-highlight-icon"><TrendingUp size={22}/></span>
+        <div>
+          <b>{top?.name||'Sin diferencias'}</b>
+          <strong>{compactMoney(top?.value||0)}</strong>
+          <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
+          <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
+        </div>
+      </div>
+    </article>
+  </aside>
+}
+
+function Report3Trend({
+  points,labels,tone,formatter
+}:{
+  points:number[]
+  labels:string[]
+  tone:'red'|'green'|'navy'
+  formatter:(value:number)=>string
+}){
+  const [hovered,setHovered]=useState<number|null>(null)
+  const clean=points.length?points:[0,0,0,0,0,0]
+  const max=Math.max(...clean,1)
+  const x=(index:number)=>8+index*(86/Math.max(clean.length-1,1))
+  const y=(value:number)=>8+(1-value/max)*34
+  const line=clean.map((value,index)=>`${x(index)},${y(value)}`).join(' ')
+  const area=`${x(0)},44 ${line} ${x(clean.length-1)},44`
+  const active=hovered===null?null:{value:clean[hovered],label:labels[hovered]}
+
+  return <div className={"sf3-trend "+tone}>
+    <div className="sf3-yaxis">
+      <span>{formatter(max)}</span>
+      <span>{formatter(max/2)}</span>
+      <span>0</span>
+    </div>
+    <svg viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="6" y1="8" x2="96" y2="8" className="grid"/>
+      <line x1="6" y1="25" x2="96" y2="25" className="grid"/>
+      <line x1="6" y1="44" x2="96" y2="44" className="base"/>
+      <polygon points={area} className="area"/>
+      <polyline points={line} className="line"/>
+      {clean.map((value,index)=><g
+        key={index}
+        onMouseEnter={()=>setHovered(index)}
+        onMouseLeave={()=>setHovered(null)}
+      >
+        <circle cx={x(index)} cy={y(value)} r={hovered===index?2.3:1.55} className="dot"/>
+        <rect x={x(index)-6} y="4" width="12" height="42" className="hit"/>
+      </g>)}
+    </svg>
+    <div className="sf3-trend-months">
+      {labels.map((label)=><span key={label}>{label}</span>)}
+    </div>
+    {active&&<div className="sf3-trend-tooltip" style={{left:`${Math.max(12,Math.min(88,x(hovered??0)))}%`}}>
+      <b>{active.label}</b>
+      <span>{formatter(active.value)}</span>
+    </div>}
+  </div>
+}
+
+function Report3Kpi({
+  title,value,icon,variation,sixMonthVariation,history,labels,tone,formatter
+}:{
+  title:string
+  value:string
+  icon:ReactNode
+  variation:number
+  sixMonthVariation:number|null
+  history:number[]
+  labels:string[]
+  tone:'red'|'green'|'navy'
+  formatter:(value:number)=>string
+}){
+  return <article className="sf3-kpi">
+    <div className="sf3-kpi-head">{title}</div>
+    <div className="sf3-kpi-value-row">
+      <span className="sf3-kpi-icon">{icon}</span>
+      <strong>{value}</strong>
+      <div className="sf3-kpi-variations">
+        <div className={variation>=0?'up':'down'}>
+          <b>{variation>=0?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</b>
+          <span>vs. mes anterior</span>
+        </div>
+        <div className={(sixMonthVariation??0)>=0?'up':'down'}>
+          {sixMonthVariation===null
+            ? <><b>—</b><span>vs. hace 6 meses</span></>
+            : <><b>{sixMonthVariation>=0?'▲':'▼'} {Math.abs(sixMonthVariation*100).toFixed(2)}%</b><span>vs. hace 6 meses</span></>}
+        </div>
+      </div>
+    </div>
+    <Report3Trend points={history} labels={labels} tone={tone} formatter={formatter}/>
+  </article>
+}
+
+function Report3Evolution({
+  rows,tone
+}:{
+  rows:Array<{name:string;value:number;skus:number;units:number}>
+  tone:'red'|'green'|'navy'
+}){
+  const visible=rows.slice(0,12)
+  const max=Math.max(...visible.map((row)=>row.value),1)
+  const axis=[max,max*.75,max*.5,max*.25,0]
+
+  return <article className={"sf3-evolution "+tone}>
+    <div className="sf3-evolution-head">EVOLUCIÓN $</div>
+    <div className="sf3-evolution-body">
+      <div className="sf3-evolution-axis">
+        {axis.map((value,index)=><span key={index}>{compactMoney(value)}</span>)}
+      </div>
+      <div className="sf3-evolution-grid">
+        <i/><i/><i/><i/><i/>
+      </div>
+      <div className="sf3-bars" style={{'--sf3-count':Math.max(visible.length,1)} as CSSProperties}>
+        {visible.map((row)=><div
+          className="sf3-bar-item"
+          key={row.name}
+          data-tooltip={`${row.name} · ${compactMoney(row.value)} · ${numberText(row.skus)} SKU · ${numberText(row.units)} UND`}
+        >
+          <span>{compactMoney(row.value)}</span>
+          <div className="sf3-bar-track"><i style={{height:`${Math.max(2,row.value/max*100)}%`}}/></div>
+          <b>{row.name}</b>
+        </div>)}
+        {!visible.length&&<div className="sf3-empty">Sin datos para el filtro seleccionado.</div>}
+      </div>
+    </div>
+  </article>
+}
+
 function SobrantesFaltantesDashboard({
   rows,year,month,onYearChange,onMonthChange
 }:Props){
   const [segment,setSegment]=useState('TODOS')
   const [extra,setExtra]=useState('FALTANTE')
-  const extraOptions=useMemo(
-    ()=>Array.from(new Set(rows.map((row)=>String(row.row_status||'').trim()).filter(Boolean))).sort(),
-    [rows]
-  )
 
   const current=useReportFilter(rows,year,month,segment,extra)
   const totalUsd=sum(current,'usd')
@@ -514,44 +719,30 @@ function SobrantesFaltantesDashboard({
   const unitVariation=changeRate(totalUnits,sum(prevRows,'units'))
 
   const sixMonthsBackDate=new Date(year,month-7,1)
-  const sixMonthsBackRows=useReportFilter(
-    rows,
-    sixMonthsBackDate.getFullYear(),
-    sixMonthsBackDate.getMonth()+1,
-    segment,
-    extra
-  )
+  const sixMonthsBackRows=useReportFilter(rows,sixMonthsBackDate.getFullYear(),sixMonthsBackDate.getMonth()+1,segment,extra)
   const sixMonthUsdVariation=sixMonthsBackRows.length?changeRate(totalUsd,sum(sixMonthsBackRows,'usd')):null
   const sixMonthSkuVariation=sixMonthsBackRows.length?changeRate(totalSkus,sum(sixMonthsBackRows,'skus')):null
   const sixMonthUnitVariation=sixMonthsBackRows.length?changeRate(totalUnits,sum(sixMonthsBackRows,'units')):null
 
-  const sixPeriods=lastSixPeriods(year,month)
-  const sixMonthSets=sixPeriods.map((period)=>rows.filter((row)=>
-    row.year===period.year&&
-    row.month===period.month&&
-    matchesSegment(row,segment)&&
-    matchesExtra(row,extra)
+  const periods=lastSixPeriods(year,month)
+  const periodSets=periods.map((period)=>rows.filter((row)=>
+    row.year===period.year&&row.month===period.month&&matchesSegment(row,segment)&&matchesExtra(row,extra)
   ))
-  const usdHistory=sixMonthSets.map((set)=>sum(set,'usd'))
-  const skuHistory=sixMonthSets.map((set)=>sum(set,'skus'))
-  const unitHistory=sixMonthSets.map((set)=>sum(set,'units'))
-  const sixMonthLabels=sixPeriods.map((period)=>period.label+' '+String(period.year).slice(-2))
+  const labels=periods.map((period)=>period.label+' '+String(period.year).slice(-2))
+  const usdHistory=periodSets.map((set)=>sum(set,'usd'))
+  const skuHistory=periodSets.map((set)=>sum(set,'skus'))
+  const unitHistory=periodSets.map((set)=>sum(set,'units'))
 
   const bySite=Array.from(new Set(current.map((row)=>row.site_name))).map((name)=>{
     const set=current.filter((row)=>row.site_name===name)
-    return {
-      name,
-      value:sum(set,'usd'),
-      skus:sum(set,'skus'),
-      units:sum(set,'units'),
-    }
+    return {name,value:sum(set,'usd'),skus:sum(set,'skus'),units:sum(set,'units')}
   }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
 
   const top=bySite[0]
-  const chartTone=extra==='SOBRANTE'?'green':'red'
+  const tone: 'red'|'green'|'navy' = extra==='SOBRANTE'?'green':extra==='FALTANTE'?'red':'navy'
 
-  return <section className="psc-dashboard report3-dashboard">
-    <Filters
+  return <section className="sf3-dashboard">
+    <Report3Filters
       rows={rows}
       year={year}
       month={month}
@@ -559,64 +750,48 @@ function SobrantesFaltantesDashboard({
       onMonthChange={onMonthChange}
       segment={segment}
       setSegment={setSegment}
-      extraTitle="STATUS"
-      extraOptions={extraOptions}
-      extra={extra}
-      setExtra={setExtra}
+      status={extra}
+      setStatus={setExtra}
+      top={top}
     />
 
-    <div className="psc-top-metrics">
-      <MetricCard
+    <div className="sf3-kpis">
+      <Report3Kpi
         title="TOTAL $"
         value={compactMoney(totalUsd)}
+        icon={<Database size={31}/>}
         variation={variation}
         sixMonthVariation={sixMonthUsdVariation}
         history={usdHistory}
-        historyLabels={sixMonthLabels}
-        historyFormatter={compactMoney}
-        showHistoryValues
-        tone={chartTone}
-        icon={<Database size={29}/>}
+        labels={labels}
+        tone={tone}
+        formatter={compactMoney}
       />
-      <MetricCard
+      <Report3Kpi
         title="TOTAL SKUs"
         value={numberText(totalSkus)}
+        icon={<FileText size={31}/>}
         variation={skuVariation}
         sixMonthVariation={sixMonthSkuVariation}
         history={skuHistory}
-        historyLabels={sixMonthLabels}
-        historyFormatter={numberText}
-        showHistoryValues
-        tone={chartTone}
-        icon={<FileText size={29}/>}
+        labels={labels}
+        tone={tone}
+        formatter={numberText}
       />
-      <MetricCard
+      <Report3Kpi
         title="TOTAL UNIDADES"
         value={numberText(totalUnits)}
+        icon={<Database size={31}/>}
         variation={unitVariation}
         sixMonthVariation={sixMonthUnitVariation}
         history={unitHistory}
-        historyLabels={sixMonthLabels}
-        historyFormatter={numberText}
-        showHistoryValues
+        labels={labels}
         tone="navy"
-        icon={<Database size={29}/>}
+        formatter={numberText}
       />
     </div>
 
-    <TopDifference
-      title="PROYECTO CON MAYOR DIFERENCIA"
-      row={top?.name}
-      value={compactMoney(top?.value||0)}
-      secondary={top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':undefined}
-    />
-
-    <BarPanel
-      title="EVOLUCIÓN $"
-      rows={bySite.slice(0,24)}
-      tone={chartTone}
-      valueFormatter={compactMoney}
-    />
+    <Report3Evolution rows={bySite} tone={tone}/>
   </section>
 }
 
