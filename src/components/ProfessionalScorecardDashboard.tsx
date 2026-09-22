@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { AlertTriangle, BarChart3, CheckCircle2, Database, FileText, TrendingUp } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, Database, FileText, TrendingDown, TrendingUp } from 'lucide-react'
 
 export type ProfessionalScorecardCode =
   | 'sobrantes-faltantes'
@@ -574,7 +574,6 @@ function Report3Filters({
     <article className={"sf3-highlight kom-unified-card "+(status==='SOBRANTE'?'green':'red')}>
       <div className="sf3-highlight-title">PROYECTO CON MAYOR DIFERENCIA</div>
       <div className="sf3-highlight-body">
-        <span className="sf3-highlight-icon"><TrendingUp size={24}/></span>
         <b>{top?.name||'Sin diferencias'}</b>
         <strong>{compactMoney(top?.value||0)}</strong>
         <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
@@ -582,10 +581,20 @@ function Report3Filters({
         <div className="sf3-highlight-spark">
           <Sparkline points={topHistory?.length?topHistory:[0,0,0,0,0,0]} tone={status==='SOBRANTE'?'green':'red'}/>
         </div>
-        <div className={"sf3-highlight-variation "+((topVariation??0)>=0?'up':'down')}>
-          <span className="sf3-highlight-variation-icon"><TrendingUp size={17}/></span>
+        <div className={"sf3-highlight-variation "+(
+          topVariation===null||topVariation===undefined||topVariation===0
+            ? 'neutral'
+            : topVariation>0?'up':'down'
+        )}>
+          <span className="sf3-highlight-variation-icon">
+            {topVariation===null||topVariation===undefined||topVariation===0
+              ? <span className="sf3-neutral-mark">—</span>
+              : topVariation>0?<TrendingUp size={17}/>:<TrendingDown size={17}/>}
+          </span>
           <div>
-            <b>{topVariation===null||topVariation===undefined?'—':`${topVariation>=0?'+':''}${(topVariation*100).toFixed(1)}%`}</b>
+            <b>{topVariation===null||topVariation===undefined
+              ? '—'
+              : `${topVariation>0?'+':''}${(topVariation*100).toFixed(1)}%`}</b>
             <small>vs. mes anterior</small>
           </div>
         </div>
@@ -749,24 +758,31 @@ function SobrantesFaltantesDashboard({
   }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
 
   const top=bySite[0]
-  const topPreviousValue=top
-    ? sum(prevRows.filter((row)=>row.site_name===top.name),'usd')
-    : 0
-  const topVariation=top
-    ? (topPreviousValue?changeRate(top.value,topPreviousValue):null)
+
+  const previousBySite=Array.from(new Set(prevRows.map((row)=>row.site_name))).map((name)=>{
+    const set=prevRows.filter((row)=>row.site_name===name)
+    return {name,value:sum(set,'usd')}
+  }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
+  const previousTop=previousBySite[0]
+
+  // Compare the monthly KPI "largest difference" against the previous month's
+  // largest difference, even when the leading project changes between months.
+  const topVariation=top&&previousTop
+    ? changeRate(top.value,previousTop.value)
     : null
-  const topHistory=top
-    ? periods.map((period)=>sum(
-        rows.filter((row)=>
-          row.year===period.year&&
-          row.month===period.month&&
-          row.site_name===top.name&&
-          matchesSegment(row,segment)&&
-          matchesExtra(row,extra)
-        ),
-        'usd'
-      ))
-    : [0,0,0,0,0,0]
+
+  const topHistory=periods.map((period)=>{
+    const periodRows=rows.filter((row)=>
+      row.year===period.year&&
+      row.month===period.month&&
+      matchesSegment(row,segment)&&
+      matchesExtra(row,extra)
+    )
+    const periodBySite=Array.from(new Set(periodRows.map((row)=>row.site_name))).map((name)=>
+      sum(periodRows.filter((row)=>row.site_name===name),'usd')
+    )
+    return Math.max(0,...periodBySite)
+  })
   const tone: 'red'|'green'|'navy' = extra==='SOBRANTE'?'green':extra==='FALTANTE'?'red':'navy'
 
   return <section className="sf3-dashboard">
