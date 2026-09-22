@@ -156,8 +156,8 @@ function TrendPanel({historical,year,month}:{historical:Row[];year:number;month:
           {[12,30.5,49,67.5,86].map((y)=><line key={y} x1="4" y1={y} x2="98" y2={y} className="eri-gridline"/>)}
           <polyline points={line('value')} className="eri-trend-line green"/>
           <polyline points={line('items')} className="eri-trend-line navy"/>
-          {periods.map((row,index)=><circle key={'v'+row.key} cx={toX(index)} cy={toY(row.value)} r="1.5" className="eri-dot green"/>)}
-          {periods.map((row,index)=><circle key={'i'+row.key} cx={toX(index)} cy={toY(row.items)} r="1.5" className="eri-dot navy"/>)}
+          {periods.map((row,index)=><circle key={'v'+row.key} cx={toX(index)} cy={toY(row.value)} r="2.2" className="eri-dot green"><title>{row.label} · Promedio $ {fmtPct(row.value)}</title></circle>)}
+          {periods.map((row,index)=><circle key={'i'+row.key} cx={toX(index)} cy={toY(row.items)} r="2.2" className="eri-dot navy"><title>{row.label} · Promedio IL {fmtPct(row.items)}</title></circle>)}
         </svg>
         <div className="eri-trend-months">{periods.map((row)=><span key={row.key}>{row.label}</span>)}</div>
       </div>
@@ -203,7 +203,11 @@ function ComparisonBars({rows}:{rows:Row[]}){
         <div className="eri-bars-plot" style={{'--eri-count':Math.max(items.length,1)} as CSSProperties}>
           <div className="eri-target-line" style={{bottom:`${targetPct}%`}}><span>Meta 99.50%</span></div>
           {items.map((item,index)=>(
-            <div className="eri-bar-group" key={item.name+'-'+index} title={`${item.name} · IL ${fmtPct(item.items)} · $ ${fmtPct(item.value)}`}>
+            <div
+              className="eri-bar-group"
+              key={item.name+'-'+index}
+              data-tooltip={`${item.name} · IL ${fmtPct(item.items)} · $ ${fmtPct(item.value)} · Meta 99.50%`}
+            >
               <div className="eri-bars-pair">
                 <div className="eri-bar-col">
                   <span className="eri-bar-top navy">{fmtPct(item.items)}</span>
