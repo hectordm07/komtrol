@@ -100,11 +100,13 @@ function InteractiveMetricTrend({
   labels,
   tone='navy',
   formatter=(value)=>numberText(value),
+  showValues=false,
 }:{
   points:number[]
   labels:string[]
   tone?:'navy'|'green'|'red'|'orange'|'purple'
   formatter?:(value:number)=>string
+  showValues?:boolean
 }){
   const [hovered,setHovered]=useState<number|null>(null)
   const clean=points.length?points:[0,0,0,0,0,0]
@@ -134,6 +136,12 @@ function InteractiveMetricTrend({
         onMouseEnter={()=>setHovered(index)}
         onMouseLeave={()=>setHovered(null)}
       >
+        {showValues&&<text
+          x={point.x}
+          y={Math.max(5,point.y-3)}
+          textAnchor="middle"
+          className="trend-value-label"
+        >{formatter(point.value)}</text>}
         <circle
           cx={point.x}
           cy={point.y}
@@ -226,7 +234,7 @@ function Filters({
 }
 
 function MetricCard({
-  title,value,variation,sixMonthVariation,history,tone='navy',icon,historyLabels,historyFormatter
+  title,value,variation,sixMonthVariation,history,tone='navy',icon,historyLabels,historyFormatter,showHistoryValues=false
 }:{
   title:string
   value:string
@@ -237,6 +245,7 @@ function MetricCard({
   icon?:ReactNode
   historyLabels?:string[]
   historyFormatter?:(value:number)=>string
+  showHistoryValues?:boolean
 }){
   const up=(variation??0)>=0
   return <article className={"psc-metric-card "+tone}>
@@ -257,7 +266,13 @@ function MetricCard({
       </div>}
     </div>
     {historyLabels?.length
-      ? <InteractiveMetricTrend points={history} labels={historyLabels} tone={tone} formatter={historyFormatter}/>
+      ? <InteractiveMetricTrend
+          points={history}
+          labels={historyLabels}
+          tone={tone}
+          formatter={historyFormatter}
+          showValues={showHistoryValues}
+        />
       : <Sparkline points={history} tone={tone}/>}
   </article>
 }
@@ -510,9 +525,17 @@ function SobrantesFaltantesDashboard({
   const sixMonthSkuVariation=sixMonthsBackRows.length?changeRate(totalSkus,sum(sixMonthsBackRows,'skus')):null
   const sixMonthUnitVariation=sixMonthsBackRows.length?changeRate(totalUnits,sum(sixMonthsBackRows,'units')):null
 
-  const usdHistory=monthlyHistory(rows,year,(set)=>sum(set,'usd'),segment,extra)
-  const skuHistory=monthlyHistory(rows,year,(set)=>sum(set,'skus'),segment,extra)
-  const unitHistory=monthlyHistory(rows,year,(set)=>sum(set,'units'),segment,extra)
+  const sixPeriods=lastSixPeriods(year,month)
+  const sixMonthSets=sixPeriods.map((period)=>rows.filter((row)=>
+    row.year===period.year&&
+    row.month===period.month&&
+    matchesSegment(row,segment)&&
+    matchesExtra(row,extra)
+  ))
+  const usdHistory=sixMonthSets.map((set)=>sum(set,'usd'))
+  const skuHistory=sixMonthSets.map((set)=>sum(set,'skus'))
+  const unitHistory=sixMonthSets.map((set)=>sum(set,'units'))
+  const sixMonthLabels=sixPeriods.map((period)=>period.label+' '+String(period.year).slice(-2))
 
   const bySite=Array.from(new Set(current.map((row)=>row.site_name))).map((name)=>{
     const set=current.filter((row)=>row.site_name===name)
@@ -549,6 +572,9 @@ function SobrantesFaltantesDashboard({
         variation={variation}
         sixMonthVariation={sixMonthUsdVariation}
         history={usdHistory}
+        historyLabels={sixMonthLabels}
+        historyFormatter={compactMoney}
+        showHistoryValues
         tone={chartTone}
         icon={<Database size={29}/>}
       />
@@ -558,6 +584,9 @@ function SobrantesFaltantesDashboard({
         variation={skuVariation}
         sixMonthVariation={sixMonthSkuVariation}
         history={skuHistory}
+        historyLabels={sixMonthLabels}
+        historyFormatter={numberText}
+        showHistoryValues
         tone={chartTone}
         icon={<FileText size={29}/>}
       />
@@ -567,6 +596,9 @@ function SobrantesFaltantesDashboard({
         variation={unitVariation}
         sixMonthVariation={sixMonthUnitVariation}
         history={unitHistory}
+        historyLabels={sixMonthLabels}
+        historyFormatter={numberText}
+        showHistoryValues
         tone="navy"
         icon={<Database size={29}/>}
       />
