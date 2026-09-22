@@ -1210,3 +1210,166 @@
     margin-left: auto !important;
   }
 }
+
+
+/* KOMTROL FINAL EXECUTION V2 · FILTERS + IO HEIGHT + MOBILE OPS */
+
+/* AÑO / MES: ancho real suficiente para 2026 y Jul, sin recortes. */
+@media (min-width: 1101px) {
+  .scorecard-toolbar {
+    grid-template-columns: minmax(360px, auto) minmax(0, 1fr) !important;
+  }
+
+  .scorecard-filters {
+    justify-content: flex-end !important;
+    overflow: visible !important;
+  }
+
+  .scorecard-quick-select {
+    width: 142px !important;
+    min-width: 142px !important;
+    height: 48px !important;
+    padding: 0 12px !important;
+    grid-template-columns: 36px minmax(84px, 1fr) !important;
+    column-gap: 8px !important;
+    overflow: visible !important;
+  }
+
+  .scorecard-quick-select > span {
+    width: 36px !important;
+    min-width: 36px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  .scorecard-quick-select select {
+    width: 100% !important;
+    min-width: 84px !important;
+    max-width: none !important;
+    padding: 0 26px 0 0 !important;
+    font-size: 13px !important;
+    line-height: 46px !important;
+    font-weight: 900 !important;
+    text-align: left !important;
+    text-overflow: clip !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+  }
+
+  /* Inbound y Outbound llegan al mismo borde inferior de Horas/Personal y Gauge. */
+  .io-dashboard-v3 .io-dashboard-top {
+    align-items: stretch !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top > .io-trend-card {
+    align-self: stretch !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top > .io-trend-card > .io-trend-svg {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    align-self: stretch !important;
+  }
+
+  .io-dashboard-v3 .io-dashboard-top > .io-mini-stack,
+  .io-dashboard-v3 .io-dashboard-top > .io-gauge-card-top {
+    height: 100% !important;
+    align-self: stretch !important;
+  }
+}
+
+/* Reportes operativos: 4 cajas balanceadas (Incidencias/Sobrantes/Kardex/Faltantes). */
+.universal-operational-kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.universal-operational-kpis > button {
+  min-width: 0 !important;
+}
+
+.universal-operational-kpis > button > span:nth-child(2) {
+  min-width: 0 !important;
+}
+
+.universal-operational-kpis > button em {
+  display: block !important;
+  max-width: 100% !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.universal-operational-kpis .operational-report-missing .operational-report-icon {
+  background: #eef2ff !important;
+  color: #3047a5 !important;
+}
+
+/* Tablet y celular: conservar diseño de 2 columnas, no volver a una tarjeta por fila. */
+@media (max-width: 1100px) {
+  .universal-operational-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .universal-operational-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+
+  .universal-operational-kpis > button {
+    min-height: 112px !important;
+    padding: 12px 10px !important;
+    grid-template-columns: 48px minmax(0, 1fr) 14px !important;
+    gap: 8px !important;
+  }
+
+  .universal-operational-kpis .operational-report-icon {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 14px !important;
+  }
+
+  .universal-operational-kpis > button small {
+    font-size: 10px !important;
+  }
+
+  .universal-operational-kpis > button b {
+    font-size: 27px !important;
+  }
+
+  .universal-operational-kpis > button em {
+    font-size: 9px !important;
+  }
+
+  /* Espacio seguro para que la navegación inferior no tape los reportes. */
+  .universal-dashboard {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .universal-operational-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .universal-operational-kpis > button {
+    min-height: 104px !important;
+    padding: 10px 8px !important;
+    grid-template-columns: 42px minmax(0, 1fr) 12px !important;
+    gap: 7px !important;
+  }
+
+  .universal-operational-kpis .operational-report-icon {
+    width: 42px !important;
+    height: 42px !important;
+  }
+}
