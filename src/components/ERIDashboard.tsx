@@ -225,7 +225,7 @@ function ComparisonBars({rows}:{rows:Row[]}){
                   <div className="eri-bar green" style={{height:`${heightPct(item.value)}%`}}/>
                 </div>
               </div>
-              <span className="eri-site-label">{item.name}</span>
+              <span className="eri-site-label" title={item.name}>{item.name}</span>
             </div>
           ))}
           {!items.length&&<div className="eri-empty-bars">Sin registros para el período seleccionado.</div>}
