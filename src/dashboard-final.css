@@ -8450,3 +8450,195 @@
     min-width:92% !important;
   }
 }
+
+
+/* KOMTROL ERI LABEL READABILITY + REPORT 1 DATA ACTION V19 */
+
+/* ERI: center/project names must be readable at corporate laptop sizes.
+   Override older rotated 6px labels with wrapped labels and more room. */
+@media (min-width:1200px){
+  .scorecard-layout-eri .eri-bars-card{
+    overflow:hidden !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-chart{
+    grid-template-columns:44px minmax(0,1fr) !important;
+    padding:8px 9px 4px 5px !important;
+  }
+
+  .scorecard-layout-eri .eri-y-axis{
+    padding-bottom:66px !important;
+    font-size:8px !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-plot{
+    overflow:visible !important;
+    grid-template-columns:repeat(var(--eri-count),minmax(42px,1fr)) !important;
+    gap:3px !important;
+  }
+
+  .scorecard-layout-eri .eri-bar-group{
+    grid-template-rows:minmax(0,1fr) 66px !important;
+    min-width:0 !important;
+  }
+
+  .scorecard-layout-eri .eri-site-label,
+  .eri-dashboard-reference .eri-site-label,
+  .scorecard-monitor-fit .eri-site-label{
+    height:62px !important;
+    min-height:62px !important;
+    padding:7px 2px 0 !important;
+    display:-webkit-box !important;
+    -webkit-box-orient:vertical !important;
+    -webkit-line-clamp:3 !important;
+    overflow:hidden !important;
+    transform:none !important;
+    transform-origin:initial !important;
+    white-space:normal !important;
+    word-break:normal !important;
+    overflow-wrap:anywhere !important;
+    color:#102a67 !important;
+    font-size:8.4px !important;
+    line-height:1.12 !important;
+    font-weight:850 !important;
+    text-align:center !important;
+  }
+
+  .scorecard-layout-eri .eri-bar-top,
+  .eri-dashboard-reference .eri-bar-top,
+  .scorecard-monitor-fit .eri-bar-top{
+    font-size:6.8px !important;
+    font-weight:900 !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-head b{
+    font-size:10px !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-legend{
+    font-size:7.8px !important;
+    gap:11px !important;
+  }
+
+  .scorecard-layout-eri .eri-bar-group::after{
+    font-size:8px !important;
+    line-height:1.3 !important;
+  }
+
+  /* Report 01: keep Datos / Cargar + Refresh visually identical to the approved control. */
+  .scorecard-module:has(.report-inbound-outbound) .scorecard-data-toggle{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:7px !important;
+    min-width:142px !important;
+    height:40px !important;
+    border-radius:11px !important;
+    white-space:nowrap !important;
+  }
+
+  .scorecard-module:has(.report-inbound-outbound) .scorecard-actions-only > .icon-button{
+    width:40px !important;
+    min-width:40px !important;
+    height:40px !important;
+    border-radius:11px !important;
+  }
+}
+
+/* Corporate 1536x791 / 1366x768: preserve readable names. */
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  .scorecard-layout-eri .eri-y-axis{
+    padding-bottom:62px !important;
+    font-size:7.6px !important;
+  }
+
+  .scorecard-layout-eri .eri-bar-group{
+    grid-template-rows:minmax(0,1fr) 62px !important;
+  }
+
+  .scorecard-layout-eri .eri-site-label,
+  .eri-dashboard-reference .eri-site-label,
+  .scorecard-monitor-fit .eri-site-label{
+    height:58px !important;
+    min-height:58px !important;
+    padding-top:6px !important;
+    font-size:7.8px !important;
+    line-height:1.1 !important;
+    -webkit-line-clamp:3 !important;
+  }
+
+  .scorecard-layout-eri .eri-bar-top,
+  .eri-dashboard-reference .eri-bar-top,
+  .scorecard-monitor-fit .eri-bar-top{
+    font-size:6.4px !important;
+  }
+}
+
+/* Mobile ERI: do not squeeze 20+ centers into phone width.
+   Keep labels legible and scroll only the chart horizontally. */
+@media (max-width:760px){
+  .scorecard-layout-eri > .eri-dashboard-reference{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    grid-template-rows:auto !important;
+    height:auto !important;
+    overflow:visible !important;
+  }
+
+  .scorecard-layout-eri .eri-filter-rail,
+  .scorecard-layout-eri .eri-top-grid,
+  .scorecard-layout-eri .eri-bars-card{
+    grid-column:1 !important;
+    grid-row:auto !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-card{
+    min-height:470px !important;
+    height:auto !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-chart{
+    height:420px !important;
+    min-height:420px !important;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    grid-template-columns:42px minmax(1050px,1fr) !important;
+    scrollbar-width:thin !important;
+  }
+
+  .scorecard-layout-eri .eri-y-axis{
+    position:sticky !important;
+    left:0 !important;
+    z-index:9 !important;
+    padding-bottom:78px !important;
+    background:linear-gradient(90deg,#fff 86%,rgba(255,255,255,0)) !important;
+    font-size:8px !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-plot{
+    min-width:1050px !important;
+    grid-template-columns:repeat(var(--eri-count),minmax(48px,1fr)) !important;
+    overflow:visible !important;
+  }
+
+  .scorecard-layout-eri .eri-bar-group{
+    grid-template-rows:minmax(0,1fr) 76px !important;
+  }
+
+  .scorecard-layout-eri .eri-site-label{
+    height:72px !important;
+    min-height:72px !important;
+    padding:8px 2px 0 !important;
+    transform:none !important;
+    white-space:normal !important;
+    font-size:8.5px !important;
+    line-height:1.12 !important;
+    -webkit-line-clamp:4 !important;
+  }
+
+  .scorecard-module:has(.report-inbound-outbound) .scorecard-data-toggle{
+    min-width:0 !important;
+    width:100% !important;
+  }
+}
