@@ -85,9 +85,10 @@ function noPresented(row:Row){
 function MetricRing({
   title,
   value,
+  variation,
   tone,
   icon,
-}:{title:string;value:number;tone:'navy'|'green';icon:ReactNode}){
+}:{title:string;value:number;variation:number;tone:'navy'|'green';icon:ReactNode}){
   const radius=58
   const circumference=2*Math.PI*radius
   const progress=Math.max(0,Math.min(1,value))
@@ -112,7 +113,13 @@ function MetricRing({
         </svg>
         <strong>{fmtPct(value)}</strong>
       </div>
-      <div className="eri-meta-chip"><Target size={13}/> Meta 99.50%</div>
+      <div className="eri-ring-footer">
+        <div className="eri-meta-chip"><Target size={13}/> Meta 99.50%</div>
+        <div className={variation>=0?'eri-variation-chip up':'eri-variation-chip down'}>
+          <b>{variation>=0?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</b>
+          <span>vs. mes anterior</span>
+        </div>
+      </div>
     </article>
   )
 }
@@ -243,6 +250,16 @@ export function ERIDashboard({
   const noPresentation=rows.filter(noPresented)
   const avgItems=avg(current.map((row)=>pct(row.data.items_pct)))
   const avgValue=avg(current.map((row)=>pct(row.data.value_pct)))
+  const previousDate=new Date(year,month-2,1)
+  const previousRows=historical.filter((row)=>
+    row.year===previousDate.getFullYear()&&
+    row.month===previousDate.getMonth()+1&&
+    !noPresented(row)
+  )
+  const previousItems=avg(previousRows.map((row)=>pct(row.data.items_pct)))
+  const previousValue=avg(previousRows.map((row)=>pct(row.data.value_pct)))
+  const itemsVariation=previousItems?avgItems/previousItems-1:(avgItems?1:0)
+  const valueVariation=previousValue?avgValue/previousValue-1:(avgValue?1:0)
 
   const below=rows
     .filter((row)=>!noPresented(row))
@@ -317,8 +334,8 @@ export function ERIDashboard({
       </aside>
 
       <div className="eri-top-grid">
-        <MetricRing title="PROMEDIO IL" value={avgItems} tone="navy" icon={<BarChart3 size={17}/>}/>
-        <MetricRing title="PROMEDIO $" value={avgValue} tone="green" icon={<Database size={17}/>}/>
+        <MetricRing title="PROMEDIO IL" value={avgItems} variation={itemsVariation} tone="navy" icon={<BarChart3 size={17}/>}/>
+        <MetricRing title="PROMEDIO $" value={avgValue} variation={valueVariation} tone="green" icon={<Database size={17}/>}/>
 
         <article className="eri-status-card">
           <div className="eri-card-title gray"><span><ClipboardList size={17}/></span><b>NO PRESENTARON</b></div>
