@@ -488,17 +488,36 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     }
 
     const startYear=2024
-    let query=supabase
-      .from('scorecard_rows')
-      .select('*')
-      .eq('report_code',mode)
-      .gte('year',startYear)
-      .order('period_date',{ascending:true})
-      .limit(10000)
+    const pageSize=1000
+    const loaded:ScorecardRow[]=[]
+    let pageFrom=0
+    let loadError=''
 
-    const rowRes=await query
-    if(rowRes.error) setMessage(rowRes.error.message)
-    const loaded=(rowRes.data??[]) as ScorecardRow[]
+    // Supabase/PostgREST can cap a single response at 1,000 rows.
+    // Read the full history in deterministic pages so 2026 and later periods
+    // are never truncated from reports with more than 1,000 records.
+    for(let page=0;page<25;page+=1){
+      const rowRes=await supabase
+        .from('scorecard_rows')
+        .select('*')
+        .eq('report_code',mode)
+        .gte('year',startYear)
+        .order('period_date',{ascending:true})
+        .order('id',{ascending:true})
+        .range(pageFrom,pageFrom+pageSize-1)
+
+      if(rowRes.error){
+        loadError=rowRes.error.message
+        break
+      }
+
+      const batch=(rowRes.data??[]) as ScorecardRow[]
+      loaded.push(...batch)
+      if(batch.length<pageSize) break
+      pageFrom+=pageSize
+    }
+
+    if(loadError) setMessage(loadError)
     setRows(loaded)
 
     const initializationKey=String(mode)
