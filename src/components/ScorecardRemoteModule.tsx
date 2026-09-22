@@ -521,6 +521,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   useEffect(()=>{reload()},[mode,year])
 
   useEffect(()=>{
+    if(mode==='eri'&&canViewRemoteNetwork&&warehouseFilter==='TODOS'){
+      setWarehouseFilter('GRUPO:PROYECTO_MINERO')
+      return
+    }
     if(canViewRemoteNetwork){
       setWarehouseFilter('TODOS')
       return
@@ -1102,6 +1106,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
             year={year}
             month={month}
             contextLabel={filterLabel}
+            centerGroup={warehouseFilter}
+            onYearChange={setYear}
+            onMonthChange={setMonth}
+            onCenterGroupChange={setWarehouseFilter}
           />
         ) : (
           <>
