@@ -1124,6 +1124,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           />
         ) : (
           <ProfessionalScorecardDashboard
+            key={report.code}
             reportCode={report.code as ProfessionalScorecardCode}
             rows={rows}
             year={year}
