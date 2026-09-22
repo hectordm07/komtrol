@@ -2,6 +2,8 @@ import { useMemo, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
+  Building2,
+  CalendarDays,
   CircleDollarSign,
   ClipboardX,
   Target,
@@ -28,6 +30,10 @@ type Props = {
   year:number
   month:number
   contextLabel:string
+  centerGroup:string
+  onYearChange:(year:number)=>void
+  onMonthChange:(month:number)=>void
+  onCenterGroupChange:(value:string)=>void
 }
 
 const MONTHS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -205,7 +211,17 @@ function ComparisonBars({rows}:{rows:Row[]}){
   )
 }
 
-export function ERIDashboard({rows,historical,year,month,contextLabel}:Props){
+export function ERIDashboard({
+  rows,
+  historical,
+  year,
+  month,
+  contextLabel,
+  centerGroup,
+  onYearChange,
+  onMonthChange,
+  onCenterGroupChange,
+}:Props){
   const current=rows.filter((row)=>!noPresented(row))
   const noPresentation=rows.filter(noPresented)
   const avgItems=avg(current.map((row)=>pct(row.data.items_pct)))
@@ -219,12 +235,55 @@ export function ERIDashboard({rows,historical,year,month,contextLabel}:Props){
       return (items>0&&items<TARGET)||(value>0&&value<TARGET)
     })
 
+  const centerOptions=[
+    {label:'PROYECTO',value:'GRUPO:PROYECTO_MINERO'},
+    {label:'SUCURSAL',value:'GRUPO:SUCURSAL'},
+    {label:'TIENDA',value:'GRUPO:TIENDA'},
+  ]
+
   return (
-    <section className="eri-dashboard">
-      <div className="eri-context">
-        <div><span className="eri-context-dot"/><b>{MONTHS[month-1]} {year}</b><i/><span>{contextLabel}</span></div>
-        <div><span>{current.length} centro(s) con ERI</span><b>Meta 99.50%</b></div>
-      </div>
+    <section className="eri-dashboard eri-dashboard-reference">
+      <aside className="eri-filter-rail" aria-label="Filtros ERI">
+        <section className="eri-filter-card">
+          <div className="eri-filter-title"><CalendarDays size={15}/><b>AÑO</b></div>
+          <select value={year} onChange={(event)=>onYearChange(Number(event.target.value))}>
+            {[2024,2025,2026,2027].map((value)=><option key={value} value={value}>{value}</option>)}
+          </select>
+        </section>
+
+        <section className="eri-filter-card">
+          <div className="eri-filter-title"><Building2 size={15}/><b>CENTRO</b></div>
+          <div className="eri-center-buttons">
+            {centerOptions.map((option)=>(
+              <button
+                key={option.value}
+                type="button"
+                className={centerGroup===option.value?'active':''}
+                onClick={()=>onCenterGroupChange(option.value)}
+              >{option.label}</button>
+            ))}
+          </div>
+        </section>
+
+        <section className="eri-filter-card eri-month-filter">
+          <div className="eri-filter-title"><CalendarDays size={15}/><b>MES</b></div>
+          <div className="eri-month-grid">
+            {MONTHS.map((label,index)=>(
+              <button
+                key={label}
+                type="button"
+                className={month===index+1?'active':''}
+                onClick={()=>onMonthChange(index+1)}
+              >{label}</button>
+            ))}
+          </div>
+        </section>
+
+        <div className="eri-filter-context">
+          <b>{MONTHS[month-1]} {year}</b>
+          <span>{contextLabel}</span>
+        </div>
+      </aside>
 
       <div className="eri-top-grid">
         <MetricRing title="PROMEDIO IL" value={avgItems} tone="navy" icon={<BarChart3 size={17}/>}/>
