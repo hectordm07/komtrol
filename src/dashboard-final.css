@@ -3847,3 +3847,135 @@
     overflow-x:auto;
   }
 }
+
+
+/* KOMTROL INBOUND CLICK FILTERS V1 */
+
+.io-click-layout {
+  width:100%;
+  height:100%;
+  min-height:0;
+  display:grid;
+  grid-template-columns:180px minmax(0,1fr);
+  gap:9px;
+  overflow:hidden;
+}
+
+.scorecard-click-filters {
+  min-width:0;
+  display:grid;
+  align-content:start;
+  gap:7px;
+  overflow:auto;
+}
+
+.scorecard-click-filters > section {
+  padding:8px;
+  border:1px solid #dbe3f2;
+  border-radius:13px;
+  background:#fff;
+  box-shadow:0 5px 16px rgba(29,54,117,.05);
+}
+
+.scorecard-click-filters > section > b {
+  display:block;
+  margin-bottom:5px;
+  color:#133576;
+  font-size:10px;
+  font-weight:900;
+}
+
+.scorecard-click-years,
+.scorecard-click-centers,
+.scorecard-click-months {
+  display:grid;
+  gap:4px;
+}
+
+.scorecard-click-years {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.scorecard-click-centers {
+  grid-template-columns:1fr;
+}
+
+.scorecard-click-months {
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+.scorecard-click-filters button {
+  min-height:24px;
+  padding:0 5px;
+  border:1px solid #dfe5ee;
+  border-radius:6px;
+  background:#edf0f4;
+  color:#253967;
+  font-size:7.8px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.scorecard-click-filters button.active {
+  border-color:#09aa57;
+  background:linear-gradient(180deg,#15bd69,#08a852);
+  color:#fff;
+  box-shadow:0 3px 8px rgba(8,169,83,.18);
+}
+
+.io-click-layout > .io-dashboard-v3 {
+  min-width:0;
+  height:100%;
+}
+
+@media (min-width:1200px) {
+  .scorecard-module:has(.io-click-layout) .scorecard-toolbar .scorecard-quick-select,
+  .scorecard-module:has(.io-click-layout) .scorecard-toolbar .dashboard-hierarchy-filter {
+    display:none !important;
+  }
+
+  .scorecard-monitor-fit:has(.io-click-layout) {
+    height:clamp(525px,calc(100dvh - 238px),660px) !important;
+    max-height:660px !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit .io-click-layout .io-dashboard-v3 {
+    grid-template-rows:30px minmax(175px,.43fr) minmax(225px,.57fr) 25px !important;
+  }
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px) {
+  .io-click-layout {
+    grid-template-columns:168px minmax(0,1fr);
+    gap:7px;
+  }
+
+  .scorecard-click-filters > section {
+    padding:6px;
+  }
+
+  .scorecard-click-filters button {
+    min-height:21px;
+    font-size:7.1px;
+  }
+}
+
+@media (max-width:1199px) {
+  .io-click-layout {
+    height:auto;
+    overflow:visible;
+    grid-template-columns:1fr;
+  }
+
+  .scorecard-click-filters {
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    overflow:visible;
+  }
+}
+
+@media (max-width:700px) {
+  .scorecard-click-filters {
+    grid-template-columns:1fr;
+  }
+}
