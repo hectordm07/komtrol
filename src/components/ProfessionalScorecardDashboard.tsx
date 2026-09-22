@@ -118,7 +118,7 @@ function Filters({
       </select>
     </section>
 
-    {!!segments.length&&<section className="psc-filter-box">
+    {!!segments.length&&<section className="psc-filter-box psc-center-filter">
       <div className="psc-filter-head"><b>CENTRO</b></div>
       <div className="psc-click-grid single">
         <button className={segment==='TODOS'?'active':''} onClick={()=>setSegment('TODOS')}>TODOS</button>
@@ -134,7 +134,7 @@ function Filters({
       </div>
     </section>}
 
-    <section className="psc-filter-box">
+    <section className="psc-filter-box psc-month-filter">
       <div className="psc-filter-head"><b>MES</b></div>
       <div className="psc-month-grid">
         {MONTHS.map((label,index)=><button key={label} className={month===index+1?'active':''} onClick={()=>onMonthChange(index+1)}>{label}</button>)}
