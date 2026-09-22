@@ -485,7 +485,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       return
     }
 
-    const startYear=Math.max(2024,year-2)
+    const startYear=2024
     let query=supabase
       .from('scorecard_rows')
       .select('*')
@@ -549,23 +549,29 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     return ''
   },[warehouseFilter,warehouseCatalog,warehouseCenters])
 
-  const scopedRows=useMemo(()=>rows.filter((row)=>
-    row.year===year&&row.month===month&&matchesDashboardHierarchy(
+  const matchesScorecardScope=(row:ScorecardRow)=>{
+    if(mode==='eri'&&warehouseFilter.startsWith('GRUPO:')){
+      const requested=warehouseFilter.slice(6)
+      const actual=String(row.site_group||'').trim().toUpperCase()
+      if(requested==='PROYECTO_MINERO') return actual==='PROYECTO'||actual==='PROYECTO_MINERO'
+      if(requested==='SUCURSAL') return actual==='SUCURSAL'
+      if(requested==='TIENDA') return actual==='TIENDA'
+    }
+    return matchesDashboardHierarchy(
       warehouseFilter,
       row.warehouse,
       row.site_name,
       warehouseCatalog,
       warehouseCenters
     )
-  ),[rows,year,month,warehouseFilter,warehouseCatalog,warehouseCenters])
+  }
 
-  const visibleHistorical=useMemo(()=>rows.filter((row)=>matchesDashboardHierarchy(
-    warehouseFilter,
-    row.warehouse,
-    row.site_name,
-    warehouseCatalog,
-    warehouseCenters
-  )),[rows,warehouseFilter,warehouseCatalog,warehouseCenters])
+  const scopedRows=useMemo(()=>rows.filter((row)=>
+    row.year===year&&row.month===month&&matchesScorecardScope(row)
+  ),[rows,year,month,warehouseFilter,warehouseCatalog,warehouseCenters,mode])
+
+  const visibleHistorical=useMemo(()=>rows.filter((row)=>matchesScorecardScope(row)),
+    [rows,warehouseFilter,warehouseCatalog,warehouseCenters,mode])
 
   const fieldMap=useMemo(()=>new Map((report?.fields||[]).map((field)=>[field.key,field])),[report])
 
