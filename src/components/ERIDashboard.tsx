@@ -38,6 +38,14 @@ type Props = {
 
 const MONTHS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const TARGET=.995
+const ERI_SITE_ORDER=[
+  'Antamina','Antamina DCP','Antapacay','Antapaccay DCP',
+  'AREQUIPA CUMMINS','AREQUIPA KMMP','Bayovar','Bayovar DCP',
+  'CAJAMARCA CUMMINS','CAJAMARCA KMMP','Cuajone','Cuajone DCP',
+  'IQUITOS','Las Bambas','Las Bambas DCP','PIURA CUMMINS',
+  'PIURA KMMP','Quellaveco','Tienda Los Olivos','Tienda San Luis',
+  'Toquepala','Toquepala DCP','Trujillo KMMP',
+].map((value)=>value.toUpperCase())
 
 function num(value:unknown){
   if(typeof value==='number') return Number.isFinite(value)?value:0
@@ -161,7 +169,12 @@ function ComparisonBars({rows}:{rows:Row[]}){
   const items=rows
     .filter((row)=>!noPresented(row))
     .slice()
-    .sort((a,b)=>(a.source_row??9999)-(b.source_row??9999))
+    .sort((a,b)=>{
+      const ai=ERI_SITE_ORDER.indexOf(a.site_name.toUpperCase())
+      const bi=ERI_SITE_ORDER.indexOf(b.site_name.toUpperCase())
+      if(ai>=0||bi>=0) return (ai<0?9999:ai)-(bi<0?9999:bi)
+      return (a.source_row??9999)-(b.source_row??9999)
+    })
     .map((row)=>({
       name:row.site_name,
       items:pct(row.data.items_pct),
@@ -230,9 +243,12 @@ export function ERIDashboard({
   const below=rows
     .filter((row)=>!noPresented(row))
     .filter((row)=>{
+      const storedAverage=pct(row.data.average_pct)
       const items=pct(row.data.items_pct)
       const value=pct(row.data.value_pct)
-      return (items>0&&items<TARGET)||(value>0&&value<TARGET)
+      const calculatedAverage=(items+value)/2
+      const eriAverage=storedAverage>0?storedAverage:calculatedAverage
+      return eriAverage>0&&eriAverage<TARGET
     })
 
   const centerOptions=[
