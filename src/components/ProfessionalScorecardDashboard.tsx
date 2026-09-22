@@ -482,7 +482,11 @@ function SobrantesFaltantesDashboard({
 }:Props){
   const [segment,setSegment]=useState('TODOS')
   const [extra,setExtra]=useState('FALTANTE')
-  const extraOptions=useMemo(()=>Array.from(new Set(rows.map((row)=>String(row.row_status||'').trim()).filter(Boolean))).sort(),[rows])
+  const extraOptions=useMemo(
+    ()=>Array.from(new Set(rows.map((row)=>String(row.row_status||'').trim()).filter(Boolean))).sort(),
+    [rows]
+  )
+
   const current=useReportFilter(rows,year,month,segment,extra)
   const totalUsd=sum(current,'usd')
   const totalSkus=sum(current,'skus')
@@ -506,17 +510,9 @@ function SobrantesFaltantesDashboard({
   const sixMonthSkuVariation=sixMonthsBackRows.length?changeRate(totalSkus,sum(sixMonthsBackRows,'skus')):null
   const sixMonthUnitVariation=sixMonthsBackRows.length?changeRate(totalUnits,sum(sixMonthsBackRows,'units')):null
 
-  const sixPeriods=lastSixPeriods(year,month)
-  const sixMonthSets=sixPeriods.map((period)=>rows.filter((row)=>
-    row.year===period.year&&
-    row.month===period.month&&
-    matchesSegment(row,segment)&&
-    matchesExtra(row,extra)
-  ))
-  const usdHistory=sixMonthSets.map((set)=>sum(set,'usd'))
-  const skuHistory=sixMonthSets.map((set)=>sum(set,'skus'))
-  const unitHistory=sixMonthSets.map((set)=>sum(set,'units'))
-  const sixMonthLabels=sixPeriods.map((period)=>period.label+' '+String(period.year).slice(-2))
+  const usdHistory=monthlyHistory(rows,year,(set)=>sum(set,'usd'),segment,extra)
+  const skuHistory=monthlyHistory(rows,year,(set)=>sum(set,'skus'),segment,extra)
+  const unitHistory=monthlyHistory(rows,year,(set)=>sum(set,'units'),segment,extra)
 
   const bySite=Array.from(new Set(current.map((row)=>row.site_name))).map((name)=>{
     const set=current.filter((row)=>row.site_name===name)
@@ -531,35 +527,57 @@ function SobrantesFaltantesDashboard({
   const top=bySite[0]
   const chartTone=extra==='SOBRANTE'?'green':'red'
 
-  return <section className="psc-dashboard sf-dashboard-classic">
-    <div className="sf-left-column">
-      <Filters
-        rows={rows}
-        year={year}
-        month={month}
-        onYearChange={onYearChange}
-        onMonthChange={onMonthChange}
-        segment={segment}
-        setSegment={setSegment}
-        extraTitle="STATUS"
-        extraOptions={extraOptions}
-        extra={extra}
-        setExtra={setExtra}
-      />
-
-      <TopDifference
-        title="PROYECTO CON MAYOR DIFERENCIA"
-        row={top?.name}
-        value={compactMoney(top?.value||0)}
-        secondary={top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':undefined}
-      />
-    </div>
+  return <section className="psc-dashboard report3-dashboard">
+    <Filters
+      rows={rows}
+      year={year}
+      month={month}
+      onYearChange={onYearChange}
+      onMonthChange={onMonthChange}
+      segment={segment}
+      setSegment={setSegment}
+      extraTitle="STATUS"
+      extraOptions={extraOptions}
+      extra={extra}
+      setExtra={setExtra}
+    />
 
     <div className="psc-top-metrics">
-      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} sixMonthVariation={sixMonthUsdVariation} history={usdHistory} historyLabels={sixMonthLabels} historyFormatter={compactMoney} tone={chartTone} icon={<Database size={29}/>}/>
-      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} sixMonthVariation={sixMonthSkuVariation} history={skuHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone={chartTone} icon={<FileText size={29}/>}/>
-      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} sixMonthVariation={sixMonthUnitVariation} history={unitHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone="navy" icon={<Database size={29}/>}/>
+      <MetricCard
+        title="TOTAL $"
+        value={compactMoney(totalUsd)}
+        variation={variation}
+        sixMonthVariation={sixMonthUsdVariation}
+        history={usdHistory}
+        tone={chartTone}
+        icon={<Database size={29}/>}
+      />
+      <MetricCard
+        title="TOTAL SKUs"
+        value={numberText(totalSkus)}
+        variation={skuVariation}
+        sixMonthVariation={sixMonthSkuVariation}
+        history={skuHistory}
+        tone={chartTone}
+        icon={<FileText size={29}/>}
+      />
+      <MetricCard
+        title="TOTAL UNIDADES"
+        value={numberText(totalUnits)}
+        variation={unitVariation}
+        sixMonthVariation={sixMonthUnitVariation}
+        history={unitHistory}
+        tone="navy"
+        icon={<Database size={29}/>}
+      />
     </div>
+
+    <TopDifference
+      title="PROYECTO CON MAYOR DIFERENCIA"
+      row={top?.name}
+      value={compactMoney(top?.value||0)}
+      secondary={top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':undefined}
+    />
 
     <BarPanel
       title="EVOLUCIÓN $"
