@@ -3,9 +3,9 @@ import {
   AlertTriangle,
   BarChart3,
   Building2,
-  CalendarDays,
-  CircleDollarSign,
-  ClipboardX,
+  CalendarClock,
+  Database,
+  ClipboardList,
   Target,
   TrendingUp,
 } from 'lucide-react'
@@ -266,7 +266,7 @@ export function ERIDashboard({
     <section className="eri-dashboard eri-dashboard-reference">
       <aside className="eri-filter-rail" aria-label="Filtros ERI">
         <section className="eri-filter-card">
-          <div className="eri-filter-title"><CalendarDays size={15}/><b>AÑO</b></div>
+          <div className="eri-filter-title"><CalendarClock size={15}/><b>AÑO</b></div>
           <select value={year} onChange={(event)=>onYearChange(Number(event.target.value))}>
             {availableYears.map((value)=><option key={value} value={value}>{value}</option>)}
           </select>
@@ -287,7 +287,7 @@ export function ERIDashboard({
         </section>
 
         <section className="eri-filter-card eri-month-filter">
-          <div className="eri-filter-title"><CalendarDays size={15}/><b>MES</b></div>
+          <div className="eri-filter-title"><CalendarClock size={15}/><b>MES</b></div>
           <div className="eri-month-grid">
             {displayedMonths.map((monthNumber)=>(
               <button
@@ -308,12 +308,12 @@ export function ERIDashboard({
 
       <div className="eri-top-grid">
         <MetricRing title="PROMEDIO IL" value={avgItems} tone="navy" icon={<BarChart3 size={17}/>}/>
-        <MetricRing title="PROMEDIO $" value={avgValue} tone="green" icon={<CircleDollarSign size={17}/>}/>
+        <MetricRing title="PROMEDIO $" value={avgValue} tone="green" icon={<Database size={17}/>}/>
 
         <article className="eri-status-card">
-          <div className="eri-card-title gray"><span><ClipboardX size={17}/></span><b>NO PRESENTARON</b></div>
+          <div className="eri-card-title gray"><span><ClipboardList size={17}/></span><b>NO PRESENTARON</b></div>
           <div className="eri-status-body empty-state">
-            <span className="eri-empty-icon"><ClipboardX size={30}/></span>
+            <span className="eri-empty-icon"><ClipboardList size={30}/></span>
             {noPresentation.length
               ? <div className="eri-name-list">{noPresentation.slice(0,8).map((row)=><b key={row.site_name}>{row.site_name}</b>)}</div>
               : <p>No se registran centros que no presentaron.</p>}
