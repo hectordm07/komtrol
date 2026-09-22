@@ -4232,3 +4232,157 @@
     grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   }
 }
+
+
+/* KOMTROL SCORECARD HARD LAYOUT FIX V8 · EXPLICIT REPORT CLASSES */
+
+/* Avoid relying on :has() for the critical monitor layout.
+   These classes are rendered directly by ScorecardRemoteModule. */
+@media (min-width:1200px) {
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional {
+    display:block !important;
+    grid-template-columns:none !important;
+    grid-template-rows:none !important;
+    grid-auto-rows:unset !important;
+    align-items:stretch !important;
+    justify-items:stretch !important;
+    width:100% !important;
+    min-width:0 !important;
+    height:calc(100dvh - 236px) !important;
+    min-height:500px !important;
+    max-height:680px !important;
+    overflow:hidden !important;
+    gap:0 !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional > .psc-dashboard {
+    display:grid !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
+    margin:0 !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  > .psc-dashboard:not(.psc-perfect-dashboard):not(.psc-safe-dashboard) {
+    grid-template-columns:190px minmax(0,1fr) !important;
+    grid-template-rows:178px minmax(180px,1fr) 148px !important;
+    gap:8px 10px !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-filter-rail {
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    overflow:auto !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-top-metrics {
+    height:100% !important;
+    min-height:0 !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-metric-card,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-main-panel,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-highlight-card,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-transit-grid,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-savings-table,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-compliance-card,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-safe-risk {
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .psc-bar-chart {
+    min-height:0 !important;
+    height:100% !important;
+    overflow:hidden !important;
+  }
+
+  /* Perfect Ship / SAFE use a two-block left rail + one large chart. */
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  > .psc-perfect-dashboard,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  > .psc-safe-dashboard {
+    grid-template-columns:330px minmax(0,1fr) !important;
+    grid-template-rows:170px minmax(0,1fr) !important;
+    gap:8px 10px !important;
+  }
+
+  /* The professional dashboards must never inherit the old legacy 60px monitor row. */
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .scorecard-kpis,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  .scorecard-chart-grid {
+    display:none !important;
+  }
+}
+
+/* 1536×791 / corporate laptop exact fit. */
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px) {
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional {
+    height:calc(100dvh - 224px) !important;
+    min-height:505px !important;
+    max-height:610px !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  > .psc-dashboard:not(.psc-perfect-dashboard):not(.psc-safe-dashboard) {
+    grid-template-columns:176px minmax(0,1fr) !important;
+    grid-template-rows:160px minmax(175px,1fr) 132px !important;
+    gap:7px 8px !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  > .psc-perfect-dashboard,
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  > .psc-safe-dashboard {
+    grid-template-columns:308px minmax(0,1fr) !important;
+    grid-template-rows:150px minmax(0,1fr) !important;
+  }
+}
+
+/* Full HD: give the charts more air without exceeding one monitor view. */
+@media (min-width:1701px) {
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional {
+    height:calc(100dvh - 248px) !important;
+    min-height:570px !important;
+    max-height:720px !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional
+  > .psc-dashboard:not(.psc-perfect-dashboard):not(.psc-safe-dashboard) {
+    grid-template-columns:200px minmax(0,1fr) !important;
+    grid-template-rows:190px minmax(205px,1fr) 155px !important;
+  }
+}
+
+/* Tablet/mobile: remove desktop fixed height completely. */
+@media (max-width:1199px) {
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional {
+    display:block !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  .scorecard-dashboard-export.scorecard-monitor-fit.scorecard-layout-professional > .psc-dashboard {
+    height:auto !important;
+    min-height:0 !important;
+    overflow:visible !important;
+  }
+}
