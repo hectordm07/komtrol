@@ -701,17 +701,18 @@ function DashboardKpi({
 }){
   const className=[
     'universal-kpi',
+    'kom-unified-card',
     critical?'critical':'',
     tone?`tone-${tone}`:'',
   ].filter(Boolean).join(' ')
 
   return (
     <button type="button" className={className} onClick={onClick}>
-      <span className="universal-kpi-icon">{icon}</span>
-      <span className="universal-kpi-copy">
-        <small>{label}</small>
-        <b>{typeof value==='number'?value.toLocaleString('es-PE'):value}</b>
-        <em>{detail}</em>
+      <span className="kom-card-head">{label}</span>
+      <span className="kom-card-body">
+        <span className="kom-card-icon universal-kpi-icon">{icon}</span>
+        <b className="kom-card-value">{typeof value==='number'?value.toLocaleString('es-PE'):value}</b>
+        <small className="kom-card-note">{detail}</small>
       </span>
       <ChevronRight className="universal-kpi-arrow" size={16}/>
     </button>
