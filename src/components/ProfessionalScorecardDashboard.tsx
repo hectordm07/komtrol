@@ -216,6 +216,179 @@ function monthlyHistory(rows:Row[],year:number,metric:(rows:Row[])=>number,segme
   })
 }
 
+function lastSixPeriods(year:number,month:number){
+  return Array.from({length:6},(_,index)=>{
+    const offset=5-index
+    const date=new Date(year,month-1-offset,1)
+    return {year:date.getFullYear(),month:date.getMonth()+1,label:MONTHS[date.getMonth()]}
+  })
+}
+
+function matchesSegment(row:Row,segment:string){
+  return segment==='TODOS'||groupLabel(row.site_group||'')===segment
+}
+
+function matchesExtra(row:Row,extra:string){
+  if(extra==='TODOS') return true
+  return norm(row.row_status||row.detail)===norm(extra)
+}
+
+function SixMonthEvolution({
+  rows,year,month,segment,extra
+}:{rows:Row[];year:number;month:number;segment:string;extra:string}){
+  const periods=lastSixPeriods(year,month).map((period)=>{
+    const set=rows.filter((row)=>
+      row.year===period.year&&
+      row.month===period.month&&
+      matchesSegment(row,segment)&&
+      matchesExtra(row,extra)
+    )
+    return {
+      ...period,
+      usd:sum(set,'usd'),
+      skus:sum(set,'skus'),
+      units:sum(set,'units'),
+    }
+  })
+  const max=Math.max(...periods.map((item)=>item.usd),1)
+  const tone=extra==='SOBRANTE'?'green':'red'
+  const statusLabel=extra==='TODOS'?'Todos':extra.charAt(0)+extra.slice(1).toLowerCase()
+
+  return <article className={"sf-six-month-panel "+tone}>
+    <div className="sf-panel-head">
+      <div>
+        <b>EVOLUCIÓN · ÚLTIMOS 6 MESES</b>
+        <span>{statusLabel} · USD / SKU / unidades</span>
+      </div>
+      <div className="sf-legend"><i/> {statusLabel}</div>
+    </div>
+    <div className="sf-six-month-chart">
+      {periods.map((item,index)=>(
+        <div
+          className="sf-month-column"
+          key={item.year+'-'+item.month}
+          data-tooltip={`${item.label} ${String(item.year).slice(-2)} · ${compactMoney(item.usd)} · ${numberText(item.skus)} SKU · ${numberText(item.units)} UND`}
+        >
+          <span className="sf-month-value">{compactMoney(item.usd)}</span>
+          <div className="sf-month-bar-track">
+            <i style={{height:`${Math.max(item.usd>0?5:1,(item.usd/max)*100)}%`}}/>
+          </div>
+          <b>{item.label}</b>
+          <small>{String(item.year).slice(-2)}</small>
+        </div>
+      ))}
+    </div>
+  </article>
+}
+
+function TopSitesPanel({
+  rows
+}:{rows:Row[]}){
+  const items=Array.from(new Set(rows.map((row)=>row.site_name))
+    .values())
+    .map((name)=>{
+      const set=rows.filter((row)=>row.site_name===name)
+      return {
+        name,
+        usd:sum(set,'usd'),
+        skus:sum(set,'skus'),
+        units:sum(set,'units'),
+      }
+    })
+    .filter((item)=>item.usd>0)
+    .sort((a,b)=>b.usd-a.usd)
+    .slice(0,5)
+  const max=Math.max(...items.map((item)=>item.usd),1)
+
+  return <article className="sf-top-sites">
+    <div className="sf-panel-head">
+      <div>
+        <b>TOP SEDES DEL MES</b>
+        <span>Mayor diferencia por USD</span>
+      </div>
+    </div>
+    <div className="sf-top-sites-list">
+      {items.map((item,index)=>(
+        <div
+          className="sf-site-row"
+          key={item.name}
+          data-tooltip={`${item.name} · ${compactMoney(item.usd)} · ${numberText(item.skus)} SKU · ${numberText(item.units)} UND`}
+        >
+          <span>{index+1}</span>
+          <div>
+            <b>{item.name}</b>
+            <i><em style={{width:`${Math.max(5,item.usd/max*100)}%`}}/></i>
+          </div>
+          <strong>{compactMoney(item.usd)}</strong>
+        </div>
+      ))}
+      {!items.length&&<div className="sf-empty">Sin diferencias registradas en el mes seleccionado.</div>}
+    </div>
+  </article>
+}
+
+function SobrantesFaltantesDashboard({
+  rows,year,month,onYearChange,onMonthChange
+}:Props){
+  const [segment,setSegment]=useState('TODOS')
+  const [extra,setExtra]=useState('FALTANTE')
+  const extraOptions=useMemo(()=>Array.from(new Set(rows.map((row)=>String(row.row_status||'').trim()).filter(Boolean))).sort(),[rows])
+  const current=useReportFilter(rows,year,month,segment,extra)
+  const totalUsd=sum(current,'usd')
+  const totalSkus=sum(current,'skus')
+  const totalUnits=sum(current,'units')
+  const prev=previousPeriod(year,month)
+  const prevRows=useReportFilter(rows,prev.year,prev.month,segment,extra)
+  const variation=prevRows.length&&sum(prevRows,'usd')?totalUsd/sum(prevRows,'usd')-1:0
+
+  const sixPeriods=lastSixPeriods(year,month)
+  const sixMonthSets=sixPeriods.map((period)=>rows.filter((row)=>
+    row.year===period.year&&row.month===period.month&&matchesSegment(row,segment)&&matchesExtra(row,extra)
+  ))
+  const usdHistory=sixMonthSets.map((set)=>sum(set,'usd'))
+  const skuHistory=sixMonthSets.map((set)=>sum(set,'skus'))
+  const unitHistory=sixMonthSets.map((set)=>sum(set,'units'))
+
+  const top=current
+    .filter((row)=>n(row.data.usd)>0)
+    .slice()
+    .sort((a,b)=>n(b.data.usd)-n(a.data.usd))[0]
+
+  return <section className="psc-dashboard sf-dashboard">
+    <Filters
+      rows={rows}
+      year={year}
+      month={month}
+      onYearChange={onYearChange}
+      onMonthChange={onMonthChange}
+      segment={segment}
+      setSegment={setSegment}
+      extraTitle="STATUS"
+      extraOptions={extraOptions}
+      extra={extra}
+      setExtra={setExtra}
+    />
+
+    <div className="psc-top-metrics sf-top-metrics">
+      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={usdHistory} tone={extra==='SOBRANTE'?'green':'red'} icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} history={skuHistory} tone={extra==='SOBRANTE'?'green':'red'} icon={<FileText size={29}/>}/>
+      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
+    </div>
+
+    <article className="sf-focus-card">
+      <div className="psc-card-ribbon">MAYOR DIFERENCIA DEL MES</div>
+      <b>{top?.site_name||'Sin diferencias'}</b>
+      <strong>{compactMoney(top?n(top.data.usd):0)}</strong>
+      <span>{top?numberText(n(top.data.skus))+' SKU · '+numberText(n(top.data.units))+' UND':'Sin datos para el filtro seleccionado'}</span>
+    </article>
+
+    <div className="sf-analysis-grid">
+      <SixMonthEvolution rows={rows} year={year} month={month} segment={segment} extra={extra}/>
+      <TopSitesPanel rows={current}/>
+    </div>
+  </section>
+}
+
 function DifferenceLike({
   reportCode:code,rows,year,month,onYearChange,onMonthChange
 }:Props){
@@ -400,7 +573,8 @@ function AssetsDashboard(props:Props){
 }
 
 export function ProfessionalScorecardDashboard(props:Props){
-  if(props.reportCode==='sobrantes-faltantes'||props.reportCode==='diferencias-inventario'||props.reportCode==='danados-scorecard') return <DifferenceLike {...props}/>
+  if(props.reportCode==='sobrantes-faltantes') return <SobrantesFaltantesDashboard {...props}/>
+  if(props.reportCode==='diferencias-inventario'||props.reportCode==='danados-scorecard') return <DifferenceLike {...props}/>
   if(props.reportCode==='dashboard-transitos') return <TransitDashboard {...props}/>
   if(props.reportCode==='activos-inactivos') return <AssetsDashboard {...props}/>
   if(props.reportCode==='uca') return <UcaDashboard {...props}/>
