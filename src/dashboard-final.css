@@ -3584,7 +3584,7 @@
   overflow:hidden;
 }
 
-.psc-perfect-dashboard > .psc-filter-rail .psc-filter-box:nth-child(2) {
+.psc-perfect-dashboard > .psc-filter-rail .psc-center-filter {
   display:none;
 }
 
@@ -3647,7 +3647,7 @@
   overflow:hidden;
 }
 
-.psc-safe-dashboard > .psc-filter-rail .psc-filter-box:nth-child(2) {
+.psc-safe-dashboard > .psc-filter-rail .psc-center-filter {
   display:none;
 }
 
