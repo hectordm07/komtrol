@@ -215,9 +215,13 @@ function selectedWarehouse(value: string | null, filter: string, meta: Warehouse
 
 function IndicatorCard({ label, value, note, icon }: { label: string; value: string | number; note?: string; icon?: React.ReactNode }) {
   return (
-    <div className="dashboard-stat">
-      <div className="dashboard-stat-icon">{icon || <BarChart3 size={19} />}</div>
-      <div><span>{label}</span><b>{value}</b>{note && <small>{note}</small>}</div>
+    <div className="dashboard-stat kom-unified-card">
+      <span className="kom-card-head">{label}</span>
+      <span className="kom-card-body">
+        <span className="kom-card-icon">{icon || <BarChart3 size={22} />}</span>
+        <b className="kom-card-value">{value}</b>
+        {note && <small className="kom-card-note">{note}</small>}
+      </span>
     </div>
   )
 }
