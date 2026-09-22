@@ -22,7 +22,7 @@ import {
   matchesDashboardHierarchy,
   type DashboardCenter,
 } from './DashboardHierarchyFilter'
-import { InboundOutboundDashboard } from './InboundOutboundDashboard'
+import { InboundOutboundDashboard, InboundOutboundSidebarProductivityCard } from './InboundOutboundDashboard'
 import { ERIDashboard } from './ERIDashboard'
 import { ProfessionalScorecardDashboard, type ProfessionalScorecardCode } from './ProfessionalScorecardDashboard'
 import { ScorecardClickFilters } from './ScorecardClickFilters'
@@ -1092,15 +1092,23 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       >
         {report.code==='inbound-outbound' ? (
           <div className="io-click-layout">
-            <ScorecardClickFilters
-              rows={rows}
-              year={year}
-              month={month}
-              group={warehouseFilter}
-              onYearChange={setYear}
-              onMonthChange={setMonth}
-              onGroupChange={setWarehouseFilter}
-            />
+            <div className="io-sidebar-stack">
+              <ScorecardClickFilters
+                rows={rows}
+                year={year}
+                month={month}
+                group={warehouseFilter}
+                onYearChange={setYear}
+                onMonthChange={setMonth}
+                onGroupChange={setWarehouseFilter}
+              />
+              <InboundOutboundSidebarProductivityCard
+                rows={scopedRows}
+                historical={visibleHistorical}
+                year={year}
+                month={month}
+              />
+            </div>
             <InboundOutboundDashboard
               rows={scopedRows}
               historical={visibleHistorical}
