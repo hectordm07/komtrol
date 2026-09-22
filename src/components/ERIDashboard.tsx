@@ -240,7 +240,7 @@ export function ERIDashboard({
     {label:'SUCURSAL',value:'GRUPO:SUCURSAL'},
     {label:'TIENDA',value:'GRUPO:TIENDA'},
   ]
-  const availableYears=Array.from(new Set([...historical.map((row)=>row.year),year])).sort((a,b)=>b-a)
+  const availableYears=[2024,2025,2026]
   const availableMonths=Array.from(new Set(
     historical.filter((row)=>row.year===year).map((row)=>row.month)
   )).sort((a,b)=>a-b)
