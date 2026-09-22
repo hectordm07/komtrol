@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -73,7 +73,7 @@ function MetricRing({
   value,
   tone,
   icon,
-}:{title:string;value:number;tone:'navy'|'green';icon:React.ReactNode}){
+}:{title:string;value:number;tone:'navy'|'green';icon:ReactNode}){
   const radius=58
   const circumference=2*Math.PI*radius
   const progress=Math.max(0,Math.min(1,value))
@@ -181,7 +181,7 @@ function ComparisonBars({rows}:{rows:Row[]}){
         <div className="eri-y-axis">
           <span>102%</span><span>100%</span><span>98%</span><span>96%</span><span>94%</span><span>92%</span><span>90%</span>
         </div>
-        <div className="eri-bars-plot" style={{'--eri-count':Math.max(items.length,1)} as React.CSSProperties}>
+        <div className="eri-bars-plot" style={{'--eri-count':Math.max(items.length,1)} as CSSProperties}>
           <div className="eri-target-line" style={{bottom:`${targetPct}%`}}><span>Meta 99.50%</span></div>
           {items.map((item,index)=>(
             <div className="eri-bar-group" key={item.name+'-'+index} title={`${item.name} · IL ${fmtPct(item.items)} · $ ${fmtPct(item.value)}`}>
