@@ -419,19 +419,6 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
 
   return (
     <section className="io-dashboard io-dashboard-v3">
-      <div className="io-dashboard-context">
-        <div className="io-context-left">
-          <span className="io-context-dot"/>
-          <b>{MONTHS[month-1]} {year}</b>
-          <i/>
-          <span>{contextLabel}</span>
-        </div>
-        <div className="io-context-right">
-          <span>{current.length} centro(s) con datos</span>
-          <b className={current.length?'ready':'empty'}>{current.length?'Datos actualizados':'Sin datos publicados'}</b>
-        </div>
-      </div>
-
       <div className="io-dashboard-top">
         <div className="io-mini-stack">
           <MiniKpi title="Promedio horas" value={avgHours} icon={<Clock3 size={18}/>} change={hoursChange}/>
