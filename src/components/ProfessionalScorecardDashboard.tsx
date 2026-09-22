@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { AlertTriangle, BarChart3, CheckCircle2, Database, FileText } from 'lucide-react'
 
 export type ProfessionalScorecardCode =
@@ -154,6 +154,14 @@ function Filters({
   extraTitle?:string;extraOptions?:string[];extra?:string;setExtra?:(v:string)=>void
 }){
   const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
+  const availableMonths=useMemo(()=>Array.from(new Set(
+    rows.filter((row)=>row.year===year).map((row)=>row.month)
+  )).sort((a,b)=>a-b),[rows,year])
+  useEffect(()=>{
+    if(availableMonths.length && !availableMonths.includes(month)){
+      onMonthChange(availableMonths[availableMonths.length-1])
+    }
+  },[availableMonths.join(','),month,onMonthChange])
   const segments=useMemo(()=>{
     const labels=Array.from(new Set(rows.map((row)=>groupLabel(row.site_group||''))).values()).filter(Boolean)
     const preferred=['PROYECTO','SUCURSAL','TIENDA','CONSIGNACIONES','CONEXOS','DISTRIBUCIÓN']
@@ -197,7 +205,11 @@ function Filters({
     <section className="psc-filter-box psc-month-filter">
       <div className="psc-filter-head"><b>MES</b></div>
       <div className="psc-month-grid">
-        {MONTHS.map((label,index)=><button key={label} className={month===index+1?'active':''} onClick={()=>onMonthChange(index+1)}>{label}</button>)}
+        {availableMonths.map((monthNumber)=><button
+          key={monthNumber}
+          className={month===monthNumber?'active':''}
+          onClick={()=>onMonthChange(monthNumber)}
+        >{MONTHS[monthNumber-1]}</button>)}
       </div>
     </section>
   </aside>
@@ -457,30 +469,38 @@ function SobrantesFaltantesDashboard({
   const totalUsd=sum(current,'usd')
   const totalSkus=sum(current,'skus')
   const totalUnits=sum(current,'units')
+
   const prev=previousPeriod(year,month)
   const prevRows=useReportFilter(rows,prev.year,prev.month,segment,extra)
-  const previousUsd=sum(prevRows,'usd')
-  const previousSkus=sum(prevRows,'skus')
-  const previousUnits=sum(prevRows,'units')
-  const variation=changeRate(totalUsd,previousUsd)
-  const skuVariation=changeRate(totalSkus,previousSkus)
-  const unitVariation=changeRate(totalUnits,previousUnits)
+  const variation=changeRate(totalUsd,sum(prevRows,'usd'))
+  const skuVariation=changeRate(totalSkus,sum(prevRows,'skus'))
+  const unitVariation=changeRate(totalUnits,sum(prevRows,'units'))
 
   const sixPeriods=lastSixPeriods(year,month)
   const sixMonthSets=sixPeriods.map((period)=>rows.filter((row)=>
-    row.year===period.year&&row.month===period.month&&matchesSegment(row,segment)&&matchesExtra(row,extra)
+    row.year===period.year&&
+    row.month===period.month&&
+    matchesSegment(row,segment)&&
+    matchesExtra(row,extra)
   ))
   const usdHistory=sixMonthSets.map((set)=>sum(set,'usd'))
   const skuHistory=sixMonthSets.map((set)=>sum(set,'skus'))
   const unitHistory=sixMonthSets.map((set)=>sum(set,'units'))
-  const sixMonthLabels=sixPeriods.map((period)=>period.label+' '+String(period.year).slice(-2))
 
-  const top=current
-    .filter((row)=>n(row.data.usd)>0)
-    .slice()
-    .sort((a,b)=>n(b.data.usd)-n(a.data.usd))[0]
+  const bySite=Array.from(new Set(current.map((row)=>row.site_name))).map((name)=>{
+    const set=current.filter((row)=>row.site_name===name)
+    return {
+      name,
+      value:sum(set,'usd'),
+      skus:sum(set,'skus'),
+      units:sum(set,'units'),
+    }
+  }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
 
-  return <section className="psc-dashboard sf-dashboard">
+  const top=bySite[0]
+  const chartTone=extra==='SOBRANTE'?'green':'red'
+
+  return <section className="psc-dashboard sf-dashboard-classic">
     <Filters
       rows={rows}
       year={year}
@@ -495,23 +515,25 @@ function SobrantesFaltantesDashboard({
       setExtra={setExtra}
     />
 
-    <div className="psc-top-metrics sf-top-metrics">
-      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={usdHistory} historyLabels={sixMonthLabels} historyFormatter={compactMoney} tone={extra==='SOBRANTE'?'green':'red'} icon={<Database size={29}/>}/>
-      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} history={skuHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone={extra==='SOBRANTE'?'green':'red'} icon={<FileText size={29}/>}/>
-      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} history={unitHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone="navy" icon={<Database size={29}/>}/>
+    <div className="psc-top-metrics">
+      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} history={usdHistory} tone={chartTone} icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} history={skuHistory} tone={chartTone} icon={<FileText size={29}/>}/>
+      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
     </div>
 
-    <article className="sf-focus-card">
-      <div className="psc-card-ribbon">MAYOR DIFERENCIA DEL MES</div>
-      <b>{top?.site_name||'Sin diferencias'}</b>
-      <strong>{compactMoney(top?n(top.data.usd):0)}</strong>
-      <span>{top?numberText(n(top.data.skus))+' SKU · '+numberText(n(top.data.units))+' UND':'Sin datos para el filtro seleccionado'}</span>
-    </article>
+    <TopDifference
+      title="PROYECTO CON MAYOR DIFERENCIA"
+      row={top?.name}
+      value={compactMoney(top?.value||0)}
+      secondary={top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':undefined}
+    />
 
-    <div className="sf-analysis-grid">
-      <SixMonthEvolution rows={rows} year={year} month={month} segment={segment} extra={extra}/>
-      <TopSitesPanel rows={current}/>
-    </div>
+    <BarPanel
+      title="EVOLUCIÓN $"
+      rows={bySite.slice(0,24)}
+      tone={chartTone}
+      valueFormatter={compactMoney}
+    />
   </section>
 }
 
