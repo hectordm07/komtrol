@@ -111,11 +111,16 @@ function Filters({
     })
   },[rows])
   return <aside className="psc-filter-rail">
-    <section className="psc-filter-box">
+    <section className="psc-filter-box psc-year-filter">
       <div className="psc-filter-head"><b>AÑO</b></div>
-      <select value={year} onChange={(event)=>onYearChange(Number(event.target.value))}>
-        {years.map((item)=><option key={item} value={item}>{item}</option>)}
-      </select>
+      <div className="psc-year-grid">
+        {years.map((item)=><button
+          key={item}
+          type="button"
+          className={year===item?'active':''}
+          onClick={()=>onYearChange(item)}
+        >{item}</button>)}
+      </div>
     </section>
 
     {!!segments.length&&<section className="psc-filter-box psc-center-filter">
