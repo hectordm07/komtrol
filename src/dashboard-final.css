@@ -9097,3 +9097,46 @@
     min-height:44px !important;
   }
 }
+
+
+/* KOMTROL TOP DIFFERENCE VARIATION FIX V21 */
+
+.sf3-highlight-body{
+  padding-top:12px !important;
+}
+
+.sf3-highlight-icon{
+  display:none !important;
+}
+
+.sf3-highlight-variation.down .sf3-highlight-variation-icon{
+  transform:none !important;
+}
+
+.sf3-highlight-variation.neutral{
+  background:#f2f4f8 !important;
+}
+
+.sf3-highlight-variation.neutral .sf3-highlight-variation-icon{
+  background:#e5e9f0 !important;
+  color:#7a879f !important;
+  transform:none !important;
+}
+
+.sf3-highlight-variation.neutral b{
+  color:#6f7d95 !important;
+}
+
+.sf3-neutral-mark{
+  font-size:17px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+}
+
+.sf3-highlight-body > b,
+.sf3-highlight-body > strong,
+.sf3-highlight-body > small,
+.sf3-highlight-body > em{
+  text-align:center !important;
+  align-self:center !important;
+}
