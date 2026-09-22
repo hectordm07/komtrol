@@ -10034,3 +10034,310 @@
     grid-column:1 !important;
   }
 }
+
+
+/* KOMTROL REPORT 01 MINI KPI ALIGNMENT V26 */
+
+/* Align Promedio Horas + Promedio Personal with the approved
+   Inbound / Outbound card system. */
+@media (min-width:821px){
+  .scorecard-monitor-fit .io-dashboard-v3 .io-dashboard-top{
+    align-items:stretch !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-stack{
+    height:100% !important;
+    min-height:0 !important;
+    display:grid !important;
+    grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+    gap:10px !important;
+    align-self:stretch !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card{
+    height:100% !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:12px 14px 10px !important;
+    display:grid !important;
+    grid-template-rows:minmax(0,1fr) auto !important;
+    align-items:center !important;
+    gap:6px !important;
+    border:1px solid #dce4f1 !important;
+    border-radius:18px !important;
+    background:#fff !important;
+    box-shadow:0 6px 18px rgba(28,45,94,.055) !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-main{
+    min-width:0 !important;
+    display:grid !important;
+    grid-template-columns:48px minmax(0,1fr) !important;
+    align-items:center !important;
+    gap:12px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-icon{
+    width:48px !important;
+    height:48px !important;
+    display:grid !important;
+    place-items:center !important;
+    border-radius:14px !important;
+    background:#eef3fb !important;
+    color:#3152b8 !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-icon svg{
+    width:28px !important;
+    height:28px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-copy{
+    min-width:0 !important;
+    display:grid !important;
+    align-content:center !important;
+    gap:4px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-copy > span{
+    color:#60719b !important;
+    font-size:10.5px !important;
+    line-height:1.08 !important;
+    font-weight:900 !important;
+    letter-spacing:.025em !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-copy strong{
+    color:#0f2b66 !important;
+    font-size:38px !important;
+    line-height:.95 !important;
+    font-weight:950 !important;
+    letter-spacing:-.025em !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-change{
+    width:100% !important;
+    min-height:30px !important;
+    margin:0 !important;
+    padding:0 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:6px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-change > span:last-child{
+    display:none !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card .io-change-pill{
+    min-height:30px !important;
+    padding:0 12px !important;
+    gap:5px !important;
+    border-radius:999px !important;
+    font-size:11px !important;
+    font-weight:900 !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card .io-change-pill.good{
+    background:#e9f8f0 !important;
+    color:#078847 !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card .io-change-pill.bad{
+    background:#fff0f1 !important;
+    color:#d92c27 !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card .io-change-pill.neutral{
+    background:#f2f4f7 !important;
+    color:#7a8498 !important;
+  }
+
+  /* Match the two trend cards to the same card geometry. */
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-card{
+    height:100% !important;
+    min-height:0 !important;
+    margin:0 !important;
+    padding:14px 16px 10px !important;
+    border-radius:18px !important;
+    border:1px solid #dce4f1 !important;
+    background:#fff !important;
+    box-shadow:0 6px 18px rgba(28,45,94,.055) !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-head{
+    min-height:66px !important;
+    padding:0 !important;
+    align-items:flex-start !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-icon{
+    width:48px !important;
+    height:48px !important;
+    flex:0 0 48px !important;
+    border-radius:14px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-icon svg{
+    width:25px !important;
+    height:25px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-heading{
+    align-items:center !important;
+    gap:12px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-heading small{
+    font-size:10.5px !important;
+    line-height:1.05 !important;
+    font-weight:900 !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-heading strong{
+    font-size:44px !important;
+    line-height:.95 !important;
+    font-weight:950 !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-change .io-change-pill{
+    min-height:30px !important;
+    padding:0 11px !important;
+    font-size:10.5px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-svg{
+    margin-top:0 !important;
+  }
+}
+
+/* 1536×791 / 1366×768: keep the same alignment without crowding. */
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-stack{
+    gap:8px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card{
+    padding:9px 11px 8px !important;
+    border-radius:15px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-main{
+    grid-template-columns:40px minmax(0,1fr) !important;
+    gap:9px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-icon{
+    width:40px !important;
+    height:40px !important;
+    border-radius:12px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-icon svg{
+    width:23px !important;
+    height:23px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-copy > span{
+    font-size:8.8px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-copy strong{
+    font-size:32px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card .io-change-pill{
+    min-height:25px !important;
+    padding:0 9px !important;
+    font-size:9px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-card{
+    padding:10px 12px 8px !important;
+    border-radius:15px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-head{
+    min-height:56px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-icon{
+    width:40px !important;
+    height:40px !important;
+    flex-basis:40px !important;
+    border-radius:12px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-heading{
+    gap:9px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-heading small{
+    font-size:8.8px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-heading strong{
+    font-size:36px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-card-change .io-change-pill{
+    min-height:25px !important;
+    padding:0 8px !important;
+    font-size:9px !important;
+  }
+}
+
+/* Mobile: keep both small KPIs aligned and legible. */
+@media (max-width:820px){
+  .io-dashboard-v3 .io-mini-stack{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    grid-template-rows:1fr !important;
+    gap:8px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-card{
+    min-height:132px !important;
+    height:132px !important;
+    padding:10px !important;
+    display:grid !important;
+    grid-template-rows:minmax(0,1fr) auto !important;
+    border-radius:15px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-main{
+    grid-template-columns:38px minmax(0,1fr) !important;
+    gap:8px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-icon{
+    width:38px !important;
+    height:38px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy > span{
+    font-size:8px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy strong{
+    font-size:28px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-change{
+    padding:0 !important;
+    justify-content:center !important;
+  }
+
+  .io-dashboard-v3 .io-mini-change > span:last-child{
+    display:none !important;
+  }
+
+  .io-dashboard-v3 .io-mini-card .io-change-pill{
+    min-height:26px !important;
+    padding:0 8px !important;
+    font-size:9px !important;
+  }
+}
