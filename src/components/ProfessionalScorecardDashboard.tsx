@@ -205,15 +205,14 @@ function useReportFilter(rows:Row[],year:number,month:number,segment:string,extr
 function monthlyHistory(rows:Row[],year:number,metric:(rows:Row[])=>number,segment:string,extra:string){
   const segmentMatch=(row:Row)=>segment==='TODOS'||groupLabel(row.site_group||'')===segment
   const extraMatch=(row:Row)=>extra==='TODOS'||norm(row.row_status||row.detail)===norm(extra)
-  return Array.from({length:7},(_,index)=>{
-    const d=new Date(year, index, 1)
+  return Array.from({length:12},(_,index)=>{
     const month=index+1
     return metric(rows.filter((row)=>row.year===year&&row.month===month&&segmentMatch(row)&&extraMatch(row)))
   })
 }
 
 function DifferenceLike({
-  code,rows,year,month,onYearChange,onMonthChange
+  reportCode:code,rows,year,month,onYearChange,onMonthChange
 }:Props){
   const [segment,setSegment]=useState('TODOS')
   const [extra,setExtra]=useState(code==='sobrantes-faltantes'?'FALTANTE':code==='diferencias-inventario'?'OPERACION':'TODOS')
