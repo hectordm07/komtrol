@@ -9140,3 +9140,148 @@
   text-align:center !important;
   align-self:center !important;
 }
+
+
+/* KOMTROL KPI CLEAN WHITE HEADER SYSTEM V22 */
+
+/* =========================================================
+   CLEAN KPI CARD HEADERS
+   Remove heavy blue fills from KPI cards across reports.
+   Keep navy only for section ribbons / major chart panels.
+   ========================================================= */
+
+/* Inbound / Outbound KPI cards */
+.io-card-head,
+.io-gauge-card-head{
+  background:#fff !important;
+  color:#102a67 !important;
+  border-bottom:1px solid #edf1f6 !important;
+  box-shadow:none !important;
+}
+
+.io-card-head .io-card-heading,
+.io-card-head .io-card-heading *,
+.io-gauge-card-head,
+.io-gauge-card-head *{
+  color:#52658f !important;
+}
+
+.io-card-head .io-card-icon,
+.io-gauge-card-head .io-section-icon{
+  background:#eef3fb !important;
+  color:#244b98 !important;
+}
+
+/* ERI KPI / status cards */
+.eri-card-title,
+.eri-card-title.gray,
+.eri-trend-title{
+  background:#fff !important;
+  color:#102a67 !important;
+  border-bottom:1px solid #edf1f6 !important;
+  box-shadow:none !important;
+}
+
+.eri-card-title *,
+.eri-trend-title *{
+  color:#102a67 !important;
+}
+
+.eri-card-title svg,
+.eri-trend-title svg{
+  color:#244b98 !important;
+}
+
+/* Generic scorecard KPI cards — reports 03 to 12 */
+.psc-metric-card .psc-card-ribbon,
+.sf3-kpi-head{
+  background:#fff !important;
+  color:#102a67 !important;
+  border-bottom:1px solid #edf1f6 !important;
+  box-shadow:none !important;
+}
+
+.psc-metric-card .psc-card-ribbon *,
+.sf3-kpi-head *{
+  color:#102a67 !important;
+}
+
+/* Keep section/chart headers in navy — only KPI headers become white. */
+.psc-panel-ribbon,
+.sf3-evolution-head,
+.eri-bars-head,
+.io-productivity-head{
+  background:linear-gradient(180deg,#0e438f,#0b357b) !important;
+  color:#fff !important;
+}
+
+/* Cleaner card surfaces */
+.io-mini-card,
+.io-trend-card,
+.io-gauge-card,
+.eri-ring-card,
+.eri-trend-card,
+.eri-status-card,
+.psc-metric-card,
+.sf3-kpi{
+  background:#fff !important;
+  border:1px solid #dce4f1 !important;
+  box-shadow:0 6px 18px rgba(28,45,94,.055) !important;
+}
+
+/* Improve title/value hierarchy after removing the blue fill. */
+.io-card-heading b,
+.io-gauge-card-head b,
+.eri-card-title b,
+.psc-metric-card .psc-card-ribbon,
+.sf3-kpi-head{
+  font-weight:850 !important;
+}
+
+.io-card-heading span,
+.eri-card-title span{
+  color:#66769a !important;
+}
+
+.io-card-heading strong,
+.io-mini-copy b,
+.io-gauge-reading strong,
+.psc-metric-card .psc-metric-main > strong{
+  color:#0f2b66 !important;
+}
+
+/* Preserve semantic metric colors */
+.io-trend-card.inbound .io-card-heading strong,
+.io-trend-card.inbound .io-mini-copy b{
+  color:#08a652 !important;
+}
+
+.io-trend-card.outbound .io-card-heading strong,
+.io-trend-card.outbound .io-mini-copy b{
+  color:#ef3d36 !important;
+}
+
+/* Mobile uses the same clean header system. */
+@media (max-width:760px){
+  .io-card-head,
+  .io-gauge-card-head,
+  .eri-card-title,
+  .eri-card-title.gray,
+  .eri-trend-title,
+  .psc-metric-card .psc-card-ribbon,
+  .sf3-kpi-head{
+    background:#fff !important;
+    color:#102a67 !important;
+    border-bottom:1px solid #edf1f6 !important;
+    min-height:34px !important;
+  }
+
+  .io-card-head *,
+  .io-gauge-card-head *,
+  .eri-card-title *,
+  .eri-trend-title *,
+  .psc-metric-card .psc-card-ribbon *,
+  .sf3-kpi-head *{
+    color:inherit !important;
+  }
+}
