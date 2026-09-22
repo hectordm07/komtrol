@@ -3979,3 +3979,166 @@
     grid-template-columns:1fr;
   }
 }
+
+
+/* KOMTROL SCORECARD CLIP FIX V6 · REPORTS 3-12 */
+
+/* Critical fix: previous generic monitor rule forced reports 3-12 into a 60px row.
+   Professional dashboards must own the full monitor area. */
+@media (min-width:1200px) {
+  .scorecard-monitor-fit:has(.psc-dashboard) {
+    display:block !important;
+    grid-template-rows:none !important;
+    grid-auto-rows:unset !important;
+    align-items:stretch !important;
+    width:100% !important;
+    min-width:0 !important;
+    height:clamp(520px, calc(100dvh - 238px), 680px) !important;
+    min-height:520px !important;
+    max-height:680px !important;
+    overflow:hidden !important;
+  }
+
+  .scorecard-monitor-fit:has(.psc-dashboard) > .psc-dashboard {
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:hidden !important;
+  }
+
+  /* Make the central report filters explicit and always show TODOS first. */
+  .psc-center-filter .psc-click-grid.single {
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:5px !important;
+  }
+
+  .psc-center-filter .psc-click-grid.single > button:first-child {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    min-height:26px !important;
+    padding:0 10px !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  .psc-center-filter .psc-click-grid.single > button:not(:first-child) {
+    min-height:26px !important;
+    padding:0 10px !important;
+    text-align:left !important;
+  }
+
+  /* Give the left rail enough vertical room so no filter is cut. */
+  .psc-filter-rail {
+    height:100% !important;
+    min-height:0 !important;
+    max-height:100% !important;
+    overflow:auto !important;
+    scrollbar-width:thin;
+  }
+
+  /* Reports 3–12: preserve the full dashboard composition. */
+  .psc-dashboard:not(.psc-perfect-dashboard):not(.psc-safe-dashboard) {
+    grid-template-columns:190px minmax(0,1fr) !important;
+    grid-template-rows:180px minmax(185px,1fr) 150px !important;
+  }
+
+  .psc-top-metrics,
+  .psc-main-panel,
+  .psc-highlight-card,
+  .psc-transit-grid,
+  .psc-savings-table,
+  .psc-compliance-card,
+  .psc-safe-risk {
+    min-height:0 !important;
+  }
+
+  .psc-main-panel,
+  .psc-transit-grid {
+    overflow:hidden !important;
+  }
+
+  .psc-bar-chart {
+    min-height:0 !important;
+    height:100% !important;
+  }
+}
+
+/* Corporate laptop view: fit everything between greeting/toolbar and viewport bottom. */
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px) {
+  .scorecard-monitor-fit:has(.psc-dashboard) {
+    height:calc(100dvh - 224px) !important;
+    min-height:500px !important;
+    max-height:610px !important;
+  }
+
+  .psc-dashboard:not(.psc-perfect-dashboard):not(.psc-safe-dashboard) {
+    grid-template-columns:174px minmax(0,1fr) !important;
+    grid-template-rows:160px minmax(170px,1fr) 132px !important;
+    gap:7px 8px !important;
+  }
+
+  .psc-filter-box {
+    padding:6px 7px !important;
+  }
+
+  .psc-filter-head {
+    min-height:19px !important;
+  }
+
+  .psc-center-filter .psc-click-grid.single > button,
+  .psc-month-grid button,
+  .psc-click-grid button {
+    min-height:22px !important;
+    font-size:7.3px !important;
+  }
+
+  .psc-metric-card {
+    grid-template-rows:27px minmax(0,1fr) 31px !important;
+  }
+
+  .psc-card-ribbon,
+  .psc-panel-ribbon {
+    min-height:27px !important;
+    font-size:8.3px !important;
+  }
+
+  .psc-metric-main {
+    padding:5px 8px 0 !important;
+  }
+
+  .psc-metric-icon {
+    width:34px !important;
+    height:34px !important;
+  }
+
+  .psc-metric-main strong {
+    font-size:clamp(21px,2vw,31px) !important;
+  }
+
+  .psc-spark {
+    height:29px !important;
+    margin-bottom:2px !important;
+  }
+
+  .psc-highlight-card > b {
+    font-size:16px !important;
+  }
+
+  .psc-highlight-card > strong {
+    font-size:27px !important;
+  }
+
+  .psc-bar-item {
+    grid-template-rows:17px minmax(0,1fr) 40px !important;
+  }
+}
+
+/* Prevent accidental hiding caused by legacy generic scorecard selectors. */
+.scorecard-monitor-fit:has(.psc-dashboard) .psc-dashboard {
+  display:grid !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
