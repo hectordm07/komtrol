@@ -117,21 +117,27 @@ function InteractiveMetricTrend({
     y:8+((max-value)/span)*29,
   }))
   const line=plotted.map((point)=>`${point.x},${point.y}`).join(' ')
+  const area=`${plotted[0]?.x??6},39 ${line} ${plotted[plotted.length-1]?.x??94},39`
   const active=hovered===null?null:plotted[hovered]
 
   return <div className={"psc-metric-trend6 "+tone}>
     <svg viewBox="0 0 100 48" preserveAspectRatio="none">
-      <line x1="4" y1="38" x2="96" y2="38" className="base"/>
+      <line x1="4" y1="39" x2="96" y2="39" className="base"/>
+      <polygon points={area} className="trend-area"/>
       <polyline points={line} className="trend-line"/>
-      {plotted.map((point,index)=><circle
+      {plotted.map((point,index)=><g
         key={index}
-        cx={point.x}
-        cy={point.y}
-        r={hovered===index?2.5:1.65}
-        className="trend-dot"
         onMouseEnter={()=>setHovered(index)}
         onMouseLeave={()=>setHovered(null)}
-      />)}
+      >
+        <circle
+          cx={point.x}
+          cy={point.y}
+          r={hovered===index?2.6:1.7}
+          className="trend-dot"
+        />
+        <rect x={point.x-7} y="2" width="14" height="40" className="trend-hover-zone"/>
+      </g>)}
     </svg>
     <div className="psc-metric-months">
       {labels.map((label,index)=><span key={label+'-'+index}>{label}</span>)}
@@ -506,6 +512,7 @@ function SobrantesFaltantesDashboard({
   const usdHistory=sixMonthSets.map((set)=>sum(set,'usd'))
   const skuHistory=sixMonthSets.map((set)=>sum(set,'skus'))
   const unitHistory=sixMonthSets.map((set)=>sum(set,'units'))
+  const sixMonthLabels=sixPeriods.map((period)=>period.label+' '+String(period.year).slice(-2))
 
   const bySite=Array.from(new Set(current.map((row)=>row.site_name))).map((name)=>{
     const set=current.filter((row)=>row.site_name===name)
@@ -521,32 +528,34 @@ function SobrantesFaltantesDashboard({
   const chartTone=extra==='SOBRANTE'?'green':'red'
 
   return <section className="psc-dashboard sf-dashboard-classic">
-    <Filters
-      rows={rows}
-      year={year}
-      month={month}
-      onYearChange={onYearChange}
-      onMonthChange={onMonthChange}
-      segment={segment}
-      setSegment={setSegment}
-      extraTitle="STATUS"
-      extraOptions={extraOptions}
-      extra={extra}
-      setExtra={setExtra}
-    />
+    <div className="sf-left-column">
+      <Filters
+        rows={rows}
+        year={year}
+        month={month}
+        onYearChange={onYearChange}
+        onMonthChange={onMonthChange}
+        segment={segment}
+        setSegment={setSegment}
+        extraTitle="STATUS"
+        extraOptions={extraOptions}
+        extra={extra}
+        setExtra={setExtra}
+      />
 
-    <div className="psc-top-metrics">
-      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} sixMonthVariation={sixMonthUsdVariation} history={usdHistory} tone={chartTone} icon={<Database size={29}/>}/>
-      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} sixMonthVariation={sixMonthSkuVariation} history={skuHistory} tone={chartTone} icon={<FileText size={29}/>}/>
-      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} sixMonthVariation={sixMonthUnitVariation} history={unitHistory} tone="navy" icon={<Database size={29}/>}/>
+      <TopDifference
+        title="PROYECTO CON MAYOR DIFERENCIA"
+        row={top?.name}
+        value={compactMoney(top?.value||0)}
+        secondary={top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':undefined}
+      />
     </div>
 
-    <TopDifference
-      title="PROYECTO CON MAYOR DIFERENCIA"
-      row={top?.name}
-      value={compactMoney(top?.value||0)}
-      secondary={top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':undefined}
-    />
+    <div className="psc-top-metrics">
+      <MetricCard title="TOTAL $" value={compactMoney(totalUsd)} variation={variation} sixMonthVariation={sixMonthUsdVariation} history={usdHistory} historyLabels={sixMonthLabels} historyFormatter={compactMoney} tone={chartTone} icon={<Database size={29}/>}/>
+      <MetricCard title="TOTAL SKUs" value={numberText(totalSkus)} variation={skuVariation} sixMonthVariation={sixMonthSkuVariation} history={skuHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone={chartTone} icon={<FileText size={29}/>}/>
+      <MetricCard title="TOTAL UNIDADES" value={numberText(totalUnits)} variation={unitVariation} sixMonthVariation={sixMonthUnitVariation} history={unitHistory} historyLabels={sixMonthLabels} historyFormatter={numberText} tone="navy" icon={<Database size={29}/>}/>
+    </div>
 
     <BarPanel
       title="EVOLUCIÓN $"
