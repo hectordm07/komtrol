@@ -2308,3 +2308,394 @@
     padding-left: 32px;
   }
 }
+
+
+/* KOMTROL SCORECARD MONITOR FIT V4 · 12 REPORTS SINGLE VIEW */
+
+/*
+  Desktop/monitor:
+  - Los 12 reportes mantienen el mismo panel administrativo.
+  - Los gráficos se comprimen de forma proporcional para entrar en una sola vista.
+  - No afecta tablet/móvil.
+*/
+@media (min-width: 1200px) {
+  .main-area:has(.scorecard-module) .content {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 8px 10px 12px !important;
+  }
+
+  .scorecard-module {
+    gap: 7px !important;
+    min-width: 0 !important;
+  }
+
+  .scorecard-module > .scorecard-toolbar {
+    min-height: 58px !important;
+    height: 58px !important;
+    padding: 6px 9px !important;
+    gap: 10px !important;
+  }
+
+  .scorecard-module > .scorecard-toolbar .scorecard-report-context > span:first-child {
+    width: 40px !important;
+    height: 40px !important;
+    flex-basis: 40px !important;
+  }
+
+  .scorecard-module > .scorecard-toolbar .scorecard-filters {
+    min-width: 0 !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .scorecard-module > .scorecard-toolbar .scorecard-quick-select,
+  .scorecard-module > .scorecard-toolbar .dashboard-hierarchy-trigger,
+  .scorecard-module > .scorecard-toolbar .secondary-button,
+  .scorecard-module > .scorecard-toolbar .icon-button {
+    min-height: 40px !important;
+    height: 40px !important;
+  }
+
+  .scorecard-module > .scorecard-toolbar .icon-button {
+    width: 40px !important;
+    min-width: 40px !important;
+  }
+
+  .scorecard-monitor-fit {
+    width: 100% !important;
+    height: clamp(470px, calc(100dvh - 278px), 650px) !important;
+    min-height: 0 !important;
+    max-height: 650px !important;
+    overflow: hidden !important;
+    gap: 7px !important;
+  }
+
+  /* ---------- ERI: todo el tablero visible en el monitor ---------- */
+  .scorecard-monitor-fit:has(.eri-dashboard) {
+    display: block !important;
+  }
+
+  .scorecard-monitor-fit .eri-dashboard {
+    height: 100% !important;
+    min-height: 0 !important;
+    grid-template-rows: 30px minmax(178px, .42fr) minmax(245px, .58fr) !important;
+    gap: 7px !important;
+  }
+
+  .scorecard-monitor-fit .eri-context {
+    min-height: 30px !important;
+    height: 30px !important;
+  }
+
+  .scorecard-monitor-fit .eri-top-grid {
+    min-height: 0 !important;
+    height: 100% !important;
+    gap: 7px !important;
+  }
+
+  .scorecard-monitor-fit .eri-ring-card,
+  .scorecard-monitor-fit .eri-status-card,
+  .scorecard-monitor-fit .eri-trend-card {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .scorecard-monitor-fit .eri-card-title {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 10px !important;
+  }
+
+  .scorecard-monitor-fit .eri-card-title b {
+    font-size: 10px !important;
+  }
+
+  .scorecard-monitor-fit .eri-ring-wrap {
+    min-height: 0 !important;
+    padding-top: 2px !important;
+  }
+
+  .scorecard-monitor-fit .eri-ring {
+    width: 112px !important;
+    height: 112px !important;
+  }
+
+  .scorecard-monitor-fit .eri-ring-wrap strong {
+    font-size: 21px !important;
+  }
+
+  .scorecard-monitor-fit .eri-meta-chip {
+    min-height: 25px !important;
+    margin: 0 9px 7px !important;
+    font-size: 8px !important;
+  }
+
+  .scorecard-monitor-fit .eri-status-body {
+    padding: 10px 11px !important;
+  }
+
+  .scorecard-monitor-fit .eri-empty-icon {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .scorecard-monitor-fit .eri-status-body p,
+  .scorecard-monitor-fit .eri-name-list b {
+    font-size: 9px !important;
+  }
+
+  .scorecard-monitor-fit .eri-name-list {
+    gap: 6px !important;
+  }
+
+  .scorecard-monitor-fit .eri-trend-chart {
+    padding: 8px 8px 18px 37px !important;
+  }
+
+  .scorecard-monitor-fit .eri-trend-chart svg {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .scorecard-monitor-fit .eri-bars-card {
+    min-height: 0 !important;
+    height: 100% !important;
+    grid-template-rows: 38px minmax(0,1fr) !important;
+  }
+
+  .scorecard-monitor-fit .eri-bars-head {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 12px !important;
+  }
+
+  .scorecard-monitor-fit .eri-bars-head b {
+    font-size: 10px !important;
+  }
+
+  .scorecard-monitor-fit .eri-bars-chart {
+    min-height: 0 !important;
+    padding: 8px 9px 4px 5px !important;
+    grid-template-columns: 40px minmax(0,1fr) !important;
+  }
+
+  .scorecard-monitor-fit .eri-y-axis {
+    min-height: 0 !important;
+    padding-bottom: 48px !important;
+    font-size: 7px !important;
+  }
+
+  .scorecard-monitor-fit .eri-bars-plot {
+    min-height: 0 !important;
+    height: 100% !important;
+    gap: 2px !important;
+  }
+
+  .scorecard-monitor-fit .eri-bar-group {
+    min-height: 0 !important;
+    grid-template-rows: minmax(0,1fr) 48px !important;
+  }
+
+  .scorecard-monitor-fit .eri-site-label {
+    padding-top: 4px !important;
+    font-size: 6.2px !important;
+    line-height: 1 !important;
+  }
+
+  .scorecard-monitor-fit .eri-bar-top {
+    font-size: 5.8px !important;
+  }
+
+  /* ---------- Inbound / Outbound: KPIs + ambos gráficos + productividad ---------- */
+  .scorecard-monitor-fit:has(.io-dashboard-v3) {
+    display: block !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 {
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: 30px minmax(174px,.43fr) minmax(225px,.57fr) 25px !important;
+    gap: 6px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-dashboard-context {
+    min-height: 30px !important;
+    height: 30px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-dashboard-top,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-dashboard-bottom,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-area,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-productivity-panel {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-card,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-gauge-card-top,
+  .scorecard-monitor-fit .io-dashboard-v3 .io-mini-card {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-trend-svg {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-dashboard-footnote {
+    min-height: 25px !important;
+    height: 25px !important;
+    margin: 0 !important;
+    padding: 3px 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+  }
+
+  /* ---------- Los otros 10 reportes: KPIs y todos los gráficos en una vista ---------- */
+  .scorecard-monitor-fit:not(:has(.eri-dashboard)):not(:has(.io-dashboard-v3)) {
+    display: grid !important;
+    grid-template-rows: 60px minmax(0,1fr) !important;
+    gap: 6px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-kpis {
+    min-height: 0 !important;
+    height: 60px !important;
+    gap: 5px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-kpis > article {
+    min-height: 0 !important;
+    height: 60px !important;
+    padding: 6px 8px !important;
+    gap: 2px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-kpis span {
+    font-size: 7px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-kpis b {
+    font-size: 14px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-kpis small {
+    font-size: 6.5px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-chart-grid {
+    min-height: 0 !important;
+    height: 100% !important;
+    grid-auto-rows: minmax(0,1fr) !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-chart-slot {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-chart-card,
+  .scorecard-monitor-fit .size-small .scorecard-chart-card,
+  .scorecard-monitor-fit .size-medium .scorecard-chart-card,
+  .scorecard-monitor-fit .size-large .scorecard-chart-card,
+  .scorecard-monitor-fit .size-full .scorecard-chart-card {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 8px !important;
+    gap: 5px !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-chart-head b {
+    font-size: 8.5px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-chart-head span,
+  .scorecard-monitor-fit .scorecard-legend span {
+    font-size: 6.5px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-multibar {
+    min-height: 0 !important;
+    overflow: auto !important;
+    gap: 3px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-multibar-row {
+    min-height: 19px !important;
+    gap: 5px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-multibar-row > span {
+    font-size: 7px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-donut {
+    width: min(118px,100%) !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-donut-legend {
+    gap: 4px !important;
+  }
+
+  .scorecard-monitor-fit .scorecard-trend-wrap {
+    min-height: 0 !important;
+  }
+}
+
+/* Laptop corporativo 1366–1700 × hasta 850: modo aún más compacto para eliminar scroll. */
+@media (min-width: 1200px) and (max-width: 1700px) and (max-height: 850px) {
+  .scorecard-monitor-fit {
+    height: calc(100dvh - 270px) !important;
+    min-height: 455px !important;
+    max-height: 535px !important;
+  }
+
+  .scorecard-monitor-fit .eri-dashboard {
+    grid-template-rows: 27px minmax(158px,.40fr) minmax(240px,.60fr) !important;
+  }
+
+  .scorecard-monitor-fit .eri-context {
+    min-height: 27px !important;
+    height: 27px !important;
+  }
+
+  .scorecard-monitor-fit .eri-ring {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .scorecard-monitor-fit .eri-ring-wrap strong {
+    font-size: 19px !important;
+  }
+
+  .scorecard-monitor-fit .eri-bars-card {
+    grid-template-rows: 34px minmax(0,1fr) !important;
+  }
+
+  .scorecard-monitor-fit .eri-bars-head {
+    min-height: 34px !important;
+    height: 34px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 {
+    grid-template-rows: 27px minmax(158px,.42fr) minmax(225px,.58fr) 22px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-dashboard-context {
+    min-height: 27px !important;
+    height: 27px !important;
+  }
+
+  .scorecard-monitor-fit .io-dashboard-v3 .io-dashboard-footnote {
+    min-height: 22px !important;
+    height: 22px !important;
+    font-size: 7px !important;
+  }
+}
