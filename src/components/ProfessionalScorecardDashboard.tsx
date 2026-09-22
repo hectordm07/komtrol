@@ -121,6 +121,10 @@ function InteractiveMetricTrend({
   const active=hovered===null?null:plotted[hovered]
 
   return <div className={"psc-metric-trend6 "+tone}>
+    <div className="psc-metric-trend6-head">
+      <b>VARIACIÓN 6 MESES</b>
+      <span>Pasa el mouse para ver cada mes</span>
+    </div>
     <svg viewBox="0 0 100 48" preserveAspectRatio="none">
       <line x1="4" y1="39" x2="96" y2="39" className="base"/>
       <polygon points={area} className="trend-area"/>
