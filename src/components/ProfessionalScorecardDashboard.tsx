@@ -307,7 +307,11 @@ function matchesExtra(row:Row,extra:string){
 function SixMonthEvolution({
   rows,year,month,segment,extra
 }:{rows:Row[];year:number;month:number;segment:string;extra:string}){
-  const periods=lastSixPeriods(year,month).map((period)=>{
+  const [hovered,setHovered]=useState<number|null>(null)
+  const periods=Array.from({length:7},(_,index)=>{
+    const offset=6-index
+    const date=new Date(year,month-1-offset,1)
+    const period={year:date.getFullYear(),month:date.getMonth()+1,label:MONTHS[date.getMonth()]}
     const set=rows.filter((row)=>
       row.year===period.year&&
       row.month===period.month&&
@@ -321,33 +325,78 @@ function SixMonthEvolution({
       units:sum(set,'units'),
     }
   })
-  const max=Math.max(...periods.map((item)=>item.usd),1)
+
+  const points=periods.slice(1).map((period,index)=>{
+    const previous=periods[index]
+    return {
+      ...period,
+      usdVariation:changeRate(period.usd,previous.usd),
+      skuVariation:changeRate(period.skus,previous.skus),
+      unitVariation:changeRate(period.units,previous.units),
+    }
+  })
+  const allValues=points.flatMap((item)=>[item.usdVariation,item.skuVariation,item.unitVariation,0])
+  const rawMin=Math.min(...allValues)
+  const rawMax=Math.max(...allValues)
+  const span=Math.max(rawMax-rawMin,.1)
+  const min=rawMin-span*.15
+  const max=rawMax+span*.15
+  const toX=(index:number)=>8+index*(84/Math.max(points.length-1,1))
+  const toY=(value:number)=>12+((max-value)/(max-min))*65
+  const line=(key:'usdVariation'|'skuVariation'|'unitVariation')=>
+    points.map((item,index)=>`${toX(index)},${toY(item[key])}`).join(' ')
+  const zeroY=toY(0)
   const tone=extra==='SOBRANTE'?'green':'red'
   const statusLabel=extra==='TODOS'?'Todos':extra.charAt(0)+extra.slice(1).toLowerCase()
+  const active=hovered===null?null:points[hovered]
 
-  return <article className={"sf-six-month-panel "+tone}>
+  return <article className={"sf-six-month-panel sf-variation-panel "+tone}>
     <div className="sf-panel-head">
       <div>
-        <b>EVOLUCIÓN · ÚLTIMOS 6 MESES</b>
-        <span>{statusLabel} · USD / SKU / unidades</span>
+        <b>VARIACIÓN % · ÚLTIMOS 6 MESES</b>
+        <span>{statusLabel} · comparación contra mes anterior</span>
       </div>
-      <div className="sf-legend"><i/> {statusLabel}</div>
+      <div className="sf-variation-legend">
+        <span className="usd"><i/>USD</span>
+        <span className="sku"><i/>SKU</span>
+        <span className="units"><i/>UND</span>
+      </div>
     </div>
-    <div className="sf-six-month-chart">
-      {periods.map((item,index)=>(
-        <div
-          className="sf-month-column"
+    <div className="sf-variation-chart">
+      <div className="sf-variation-scale">
+        <span>{(max*100).toFixed(0)}%</span>
+        <span>0%</span>
+        <span>{(min*100).toFixed(0)}%</span>
+      </div>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
+        <line x1="5" y1={zeroY} x2="97" y2={zeroY} className="zero"/>
+        <polyline points={line('usdVariation')} className="sf-var-line usd"/>
+        <polyline points={line('skuVariation')} className="sf-var-line sku"/>
+        <polyline points={line('unitVariation')} className="sf-var-line units"/>
+        {points.map((item,index)=><g
           key={item.year+'-'+item.month}
-          data-tooltip={`${item.label} ${String(item.year).slice(-2)} · ${compactMoney(item.usd)} · ${numberText(item.skus)} SKU · ${numberText(item.units)} UND`}
+          onMouseEnter={()=>setHovered(index)}
+          onMouseLeave={()=>setHovered(null)}
+          className="sf-var-hit"
         >
-          <span className="sf-month-value">{compactMoney(item.usd)}</span>
-          <div className="sf-month-bar-track">
-            <i style={{height:`${Math.max(item.usd>0?5:1,(item.usd/max)*100)}%`}}/>
-          </div>
-          <b>{item.label}</b>
-          <small>{String(item.year).slice(-2)}</small>
-        </div>
-      ))}
+          <circle cx={toX(index)} cy={toY(item.usdVariation)} r={hovered===index?2.6:1.9} className="sf-var-point usd"/>
+          <circle cx={toX(index)} cy={toY(item.skuVariation)} r={hovered===index?2.6:1.9} className="sf-var-point sku"/>
+          <circle cx={toX(index)} cy={toY(item.unitVariation)} r={hovered===index?2.6:1.9} className="sf-var-point units"/>
+          <rect x={toX(index)-7} y="7" width="14" height="75" className="sf-var-hover-zone"/>
+        </g>)}
+      </svg>
+      <div className="sf-variation-months">
+        {points.map((item)=><span key={item.year+'-'+item.month}>{item.label}<small>{String(item.year).slice(-2)}</small></span>)}
+      </div>
+      {active&&<div
+        className="sf-variation-tooltip"
+        style={{left:`${Math.max(12,Math.min(88,toX(hovered??0)))}%`}}
+      >
+        <b>{active.label} {active.year}</b>
+        <span>USD <strong>{active.usdVariation>=0?'+':''}{(active.usdVariation*100).toFixed(1)}%</strong></span>
+        <span>SKU <strong>{active.skuVariation>=0?'+':''}{(active.skuVariation*100).toFixed(1)}%</strong></span>
+        <span>UND <strong>{active.unitVariation>=0?'+':''}{(active.unitVariation*100).toFixed(1)}%</strong></span>
+      </div>}
     </div>
   </article>
 }
