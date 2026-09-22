@@ -24,6 +24,7 @@ import {
   type DashboardCenter,
 } from './DashboardHierarchyFilter'
 import { InboundOutboundDashboard } from './InboundOutboundDashboard'
+import { ERIDashboard } from './ERIDashboard'
 
 export type ScorecardMode =
   | 'scorecard-carga'
@@ -1082,6 +1083,14 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
       <div ref={dashboardRef} className="scorecard-dashboard-export">
         {report.code==='inbound-outbound' ? (
           <InboundOutboundDashboard
+            rows={scopedRows}
+            historical={visibleHistorical}
+            year={year}
+            month={month}
+            contextLabel={filterLabel}
+          />
+        ) : report.code==='eri' ? (
+          <ERIDashboard
             rows={scopedRows}
             historical={visibleHistorical}
             year={year}
