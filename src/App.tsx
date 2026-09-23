@@ -1427,7 +1427,7 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {isLocationSheetTab && (
-                <LocationSheetsModule />
+                <LocationSheetsModule userId={user.id} profile={effectiveProfile!} />
               )}
 
               {isMaterialTab && (

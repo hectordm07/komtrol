@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import * as XLSX from 'xlsx'
 import {
   CalendarDays,
   FileSpreadsheet,
@@ -7,6 +8,8 @@ import {
   RefreshCw,
   Search,
   Truck,
+  Camera,
+  Mail,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { jsPDF } from 'jspdf'
@@ -25,6 +28,9 @@ type ReceiptLine = {
   unit: string | null
   location: string | null
   sap_ingress: string | null
+  quantity_received: number | null
+  delivery_date: string | null
+  verification_incident_id: string | null
 }
 
 type Receipt = {
@@ -41,6 +47,8 @@ type Receipt = {
   sap_kmmp_no: string | null
   sap_fiori_no: string | null
   sap_status: 'PENDIENTE' | 'INGRESADO'
+  guide_id: string | null
+  guides?: { file_bucket: string | null; file_path: string | null; file_name: string | null }[] | { file_bucket: string | null; file_path: string | null; file_name: string | null } | null
   replenishment_receipt_lines?: ReceiptLine[]
 }
 
@@ -56,15 +64,21 @@ type Ingress = {
 }
 
 type FlatLine = {
+  id: string
+  receiptId: string
   rowNo: number
   partNo: string
   stockCode: string
   description: string
   quantity: number | null
-  unit: string
   location: string
   guideNo: string
-  receptionDate: string
+  deliveryDate: string | null
+  quantityReceived: number | null
+  verificationIncidentId: string | null
+  guideFile: { file_bucket: string | null; file_path: string | null; file_name: string | null } | null
+  warehouse: string | null
+  reference: string | null
   source: string
 }
 
@@ -107,15 +121,21 @@ function flattenIngress(
 
     for (const line of lines) {
       output.push({
+        id: line.id,
+        receiptId: receipt.id,
         rowNo: output.length + 1,
         partNo: line.part_no ?? '',
         stockCode: line.stock_code ?? '',
         description: line.description ?? '',
         quantity: line.quantity,
-        unit: line.unit ?? '',
         location: line.location ?? '',
         guideNo: receipt.guide_no ?? '',
-        receptionDate: receipt.receipt_date,
+        deliveryDate: line.delivery_date,
+        quantityReceived: line.quantity_received,
+        verificationIncidentId: line.verification_incident_id,
+        guideFile: Array.isArray(receipt.guides) ? receipt.guides[0] || null : receipt.guides || null,
+        warehouse: receipt.warehouse,
+        reference: receipt.reference,
         source: receipt.source,
       })
     }
@@ -148,6 +168,27 @@ function excelDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : date
 }
 
+function verificationWorkbook(rows: FlatLine[], received: number, target: FlatLine, reporter: string, project: string) {
+  const body = rows.map((row) => {
+    const actual = row.id === target.id ? received : row.quantityReceived
+    return [project, row.partNo, row.description, row.quantity ?? '', actual ?? '',
+      actual == null || row.quantity == null ? '' : Number(actual) - Number(row.quantity),
+      row.guideNo, row.deliveryDate || '', reporter]
+  })
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['VERIFICACIÓN DE INVENTARIO · REPOSICIÓN', project],
+    ['Centro / Proyecto', 'Código', 'Descripción', 'Cant. pedida', 'Cant. recibida', 'Diferencia', 'Guía de remisión', 'Entrega', 'Reportado por'],
+    ...body,
+  ])
+  sheet['!cols'] = [22, 23, 46, 17, 18, 16, 24, 18, 31].map((wch) => ({ wch }))
+  const book = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(book, sheet, 'Verificación')
+  const bytes = XLSX.write(book, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+  return new File([bytes], `Verificacion_Inventario_${target.guideNo || target.partNo}.xlsx`, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+}
+
 async function exportIngressExcel(
   ingress: Ingress,
   rows: FlatLine[],
@@ -164,17 +205,17 @@ async function exportIngressExcel(
   const aoa: any[][] = [
     ['HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS', '', '', '', '', '', '', 'N°', ingress.ingress_no],
     [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', '', ''],
-    ['N°', 'NÚMERO DE PARTE', 'STOCK CODE', 'DESCRIPCIÓN', 'CANT.', 'UM', 'UBICACIÓN', 'GUÍA DE REMISIÓN', 'FECHA DE RECEPCIÓN'],
+    ['N°', 'NÚMERO DE PARTE', 'STOCK CODE', 'DESCRIPCIÓN', 'CANT. PEDIDA', 'CANT. RECIBIDA', 'UBICACIÓN', 'GUÍA DE REMISIÓN', 'ENTREGA'],
     ...rows.map((row) => [
       row.rowNo,
       row.partNo,
       row.stockCode || 'SIN SC',
       row.description,
       row.quantity ?? '',
-      row.unit,
+      row.quantityReceived ?? '',
       row.location || '-',
       row.guideNo,
-      excelDate(row.receptionDate),
+      row.deliveryDate ? excelDate(row.deliveryDate) : '',
     ]),
   ]
 
@@ -189,10 +230,10 @@ async function exportIngressExcel(
     { wch: 17 },
     { wch: 50 },
     { wch: 12 },
-    { wch: 9 },
+    { wch: 16 },
     { wch: 18 },
     { wch: 21 },
-    { wch: 20 },
+    { wch: 15 },
   ]
   ws['!rows'] = [{ hpt: 27 }, { hpt: 18 }, { hpt: 32 }]
   ws['!autofilter'] = { ref: `A3:I${rows.length + 3}` }
@@ -206,12 +247,12 @@ async function exportIngressExcel(
 
   if (ws['A1']) {
     ws['A1'].s = {
-      font: { name: 'Arial', sz: 16, bold: true, color: { rgb: '0570C7' } },
+      font: { name: 'Arial', sz: 14, bold: true, color: { rgb: '263F91' } },
       alignment: { horizontal: 'center', vertical: 'center' },
       border: {
-        top: { style: 'medium', color: { rgb: '111111' } },
-        bottom: { style: 'medium', color: { rgb: '111111' } },
-        left: { style: 'medium', color: { rgb: '111111' } },
+        top: { style: 'thin', color: { rgb: 'D7E1FF' } },
+        bottom: { style: 'thin', color: { rgb: 'D7E1FF' } },
+        left: { style: 'thin', color: { rgb: 'D7E1FF' } },
       },
     }
   }
@@ -231,12 +272,12 @@ async function exportIngressExcel(
     const cell = ws[address]
     if (!cell) continue
     cell.s = {
-      fill: { fgColor: { rgb: 'FFF600' } },
+      fill: { fgColor: { rgb: 'EEF2FF' } },
       font: {
         name: 'Arial',
         sz: address === 'I1' ? 18 : 13,
         bold: true,
-        color: { rgb: '0066C2' },
+        color: { rgb: '263F91' },
       },
       alignment: { horizontal: 'center', vertical: 'center' },
       border: {
@@ -251,7 +292,7 @@ async function exportIngressExcel(
   for (const address of ['H2', 'I2']) {
     if (!ws[address]) ws[address] = { t: 's', v: '' }
     ws[address].s = {
-      fill: { fgColor: { rgb: 'FFF600' } },
+      fill: { fgColor: { rgb: 'EEF2FF' } },
       border: {
         bottom: { style: 'medium', color: { rgb: '111111' } },
         left: { style: 'medium', color: { rgb: '111111' } },
@@ -260,18 +301,13 @@ async function exportIngressExcel(
     }
   }
 
-  const headerColors = [
-    'FFFFFF', 'FF2C2C', 'FFFFFF', 'FF2C2C', 'FFF600',
-    'FFFFFF', 'FFF600', 'FFFFFF', 'FFFFFF',
-  ]
-
   for (let col = 0; col < 9; col++) {
     const address = XLSX.utils.encode_cell({ r: 2, c: col })
     const cell = ws[address]
     if (!cell) continue
     cell.s = {
-      fill: { fgColor: { rgb: '050505' } },
-      font: { name: 'Arial', sz: 9, bold: true, color: { rgb: headerColors[col] } },
+      fill: { fgColor: { rgb: '263F91' } },
+      font: { name: 'Arial', sz: 9, bold: true, color: { rgb: 'FFFFFF' } },
       alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
       border: {
         top: { style: 'medium', color: { rgb: '111111' } },
@@ -301,7 +337,7 @@ async function exportIngressExcel(
         },
         border: thinBorder,
       }
-      if (col === 4 && typeof cell.v === 'number') cell.z = '0.000'
+      if ([4, 5].includes(col) && typeof cell.v === 'number') cell.z = '0.000'
       if (col === 8 && cell.v instanceof Date) cell.z = 'dd/mm/yyyy'
     }
   }
@@ -333,12 +369,12 @@ function exportIngressPdf(
     'TODOS'
 
   const drawReportHeader = () => {
-    doc.setDrawColor(17, 17, 17)
+    doc.setDrawColor(215, 225, 255)
     doc.setLineWidth(0.5)
     doc.setFillColor(255, 255, 255)
     doc.rect(left, 7, reportWidth - numberBoxWidth, headerHeight, 'FD')
 
-    doc.setTextColor(5, 112, 199)
+    doc.setTextColor(38, 63, 145)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10.5)
     doc.text(
@@ -359,10 +395,10 @@ function exportIngressPdf(
     )
 
     const boxX = left + reportWidth - numberBoxWidth
-    doc.setFillColor(255, 246, 0)
-    doc.setDrawColor(17, 17, 17)
+    doc.setFillColor(238, 242, 255)
+    doc.setDrawColor(215, 225, 255)
     doc.rect(boxX, 7, numberBoxWidth, headerHeight, 'FD')
-    doc.setTextColor(0, 86, 179)
+    doc.setTextColor(38, 63, 145)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.text('N°', boxX + 11, 18, { align: 'center' })
@@ -380,11 +416,11 @@ function exportIngressPdf(
       'NÚMERO DE PARTE',
       'STOCK CODE',
       'DESCRIPCIÓN',
-      'CANT.',
-      'UM',
+      'CANT. PEDIDA',
+      'CANT. RECIBIDA',
       'UBICACIÓN',
       'GUÍA DE REMISIÓN',
-      'FECHA DE RECEPCIÓN',
+      'ENTREGA',
     ]],
     body: rows.map((row) => [
       row.rowNo,
@@ -392,10 +428,10 @@ function exportIngressPdf(
       row.stockCode || 'SIN SC',
       row.description,
       row.quantity == null ? '' : Number(row.quantity).toFixed(3),
-      row.unit,
+      row.quantityReceived == null ? '' : Number(row.quantityReceived).toFixed(3),
       row.location || '-',
       row.guideNo,
-      fmtDate(row.receptionDate),
+      row.deliveryDate ? fmtDate(row.deliveryDate) : '',
     ]),
     styles: {
       font: 'helvetica',
@@ -407,7 +443,7 @@ function exportIngressPdf(
       valign: 'middle',
     },
     headStyles: {
-      fillColor: [5, 5, 5],
+      fillColor: [38, 63, 145],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center',
@@ -420,15 +456,10 @@ function exportIngressPdf(
       2: { cellWidth: 18 },
       3: { cellWidth: 45 },
       4: { cellWidth: 13, halign: 'center' },
-      5: { cellWidth: 9, halign: 'center' },
+      5: { cellWidth: 16, halign: 'center' },
       6: { cellWidth: 20 },
       7: { cellWidth: 28 },
-      8: { cellWidth: 24, halign: 'center' },
-    },
-    didParseCell: (data: any) => {
-      if (data.section !== 'head') return
-      if ([1, 3].includes(data.column.index)) data.cell.styles.textColor = [255, 44, 44]
-      if ([4, 6].includes(data.column.index)) data.cell.styles.textColor = [255, 246, 0]
+      8: { cellWidth: 16, halign: 'center' },
     },
     didDrawPage: (data: any) => {
       if (data.pageNumber > 1) drawReportHeader()
@@ -450,7 +481,16 @@ function exportIngressPdf(
   )
 }
 
-export function LocationSheetsModule() {
+type ReporterProfile = {
+  full_name: string
+  role: 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
+  warehouse?: string | null
+  project?: string | null
+  group_name?: string | null
+  shift_name?: string | null
+}
+
+export function LocationSheetsModule({ userId, profile }: { userId: string; profile: ReporterProfile | null }) {
   const [ingresses, setIngresses] = useState<Ingress[]>([])
   const [selected, setSelected] = useState<Ingress | null>(null)
   const [loading, setLoading] = useState(true)
@@ -460,6 +500,92 @@ export function LocationSheetsModule() {
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
   const [sapFilter, setSapFilter] = useState<'PENDIENTE' | 'INGRESADO' | 'TODOS'>('PENDIENTE')
+  const [receivedDrafts, setReceivedDrafts] = useState<Record<string, string>>({})
+  const [deliveryDrafts, setDeliveryDrafts] = useState<Record<string, string>>({})
+  const [guideFiles, setGuideFiles] = useState<Record<string, File>>({})
+  const [photos, setPhotos] = useState<Record<string, File[]>>({})
+  const [savingLine, setSavingLine] = useState<string | null>(null)
+  const [incidentMailStatus, setIncidentMailStatus] = useState<Record<string, string>>({})
+
+  async function importVerificationExcel(file?: File) {
+    if (!file || profile?.role === 'SUPERVISOR') return
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+      const normalized = (value: unknown) => String(value ?? '').normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+      const lines = ingresses.flatMap((entry) => flattenIngress(entry, 'TODOS'))
+      const imported: Record<string, string> = {}
+      const groups = new Map<string, {
+        guide_no: string; receipt_date: string;
+        lines: { part_no: string; description: string; quantity: number; quantity_received: number }[]
+      }>()
+      let unmatched = 0
+      for (const name of workbook.SheetNames) {
+        const grid = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[name], { header: 1, defval: '', raw: false })
+        const headerIndex = grid.findIndex((cells) => {
+          const keys = cells.map(normalized)
+          return keys.some((key) => key === 'CODIGO' || key === 'NUMERODEPARTE' || key === 'MATERIAL')
+            && keys.some((key) => key.includes('CANTRECIBIDA') || key.includes('CANTIDADRECIBIDA'))
+        })
+        if (headerIndex < 0) continue
+        const keys = grid[headerIndex].map(normalized)
+        const codeAt = keys.findIndex((key) => ['CODIGO', 'NUMERODEPARTE', 'MATERIAL'].includes(key))
+        const amountAt = keys.findIndex((key) => key.includes('CANTRECIBIDA') || key.includes('CANTIDADRECIBIDA'))
+        const orderedAt = keys.findIndex((key) => key.includes('CANTPEDIDO') || key.includes('CANTPEDIDA'))
+        const descriptionAt = keys.findIndex((key) => key === 'DESCRIPCION')
+        const dateAt = keys.findIndex((key) => key.includes('FECHADERECEPCION'))
+        const guideAt = keys.findIndex((key) => key.includes('GUIADEREMISION') || key === 'GUIA')
+        for (const cells of grid.slice(headerIndex + 1)) {
+          const code = normalized(cells[codeAt])
+          const value = String(cells[amountAt] ?? '').trim()
+          if (!code || !value) continue
+          const number = Number(value.replace(',', '.'))
+          if (!Number.isFinite(number) || number < 0) { unmatched++; continue }
+          const guide = guideAt >= 0 ? normalized(cells[guideAt]) : ''
+          const matches = lines.filter((row) => !row.verificationIncidentId && normalized(row.partNo) === code
+            && (!guide || normalized(row.guideNo) === guide))
+          if (matches.length === 1) {
+            imported[matches[0].id] = String(number)
+            continue
+          }
+          if (matches.length > 1 || !guide || orderedAt < 0 || !code) { unmatched++; continue }
+          const expected = Number(String(cells[orderedAt] ?? '').replace(',', '.'))
+          if (!Number.isFinite(expected) || expected < 0) { unmatched++; continue }
+          const dateText = dateAt >= 0 ? String(cells[dateAt] ?? '') : ''
+          const localDate = dateText.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+          const receiptDate = localDate ? `${localDate[3]}-${localDate[2].padStart(2, '0')}-${localDate[1].padStart(2, '0')}`
+            : /^\d{4}-\d{2}-\d{2}$/.test(dateText) ? dateText : new Date().toISOString().slice(0, 10)
+          const key = `${guide}|${receiptDate}`
+          if (!groups.has(key)) groups.set(key, { guide_no: String(cells[guideAt]).trim().toUpperCase(), receipt_date: receiptDate, lines: [] })
+          groups.get(key)!.lines.push({
+            part_no: String(cells[codeAt]).trim().toUpperCase(),
+            description: descriptionAt >= 0 ? String(cells[descriptionAt] || '').trim() : '',
+            quantity: expected, quantity_received: number,
+          })
+        }
+      }
+      setReceivedDrafts((previous) => ({ ...previous, ...imported }))
+      let created = 0
+      let skipped = 0
+      if (groups.size) {
+        const warehouse = selected?.warehouse || profile?.warehouse
+        if (!warehouse) throw new Error('Selecciona un ingreso o usa un perfil con almacén para importar guías nuevas.')
+        const { data, error } = await supabase.rpc('import_replenishment_verification', {
+          p_groups: Array.from(groups.values()), p_warehouse: warehouse,
+          p_supplier: selected?.supplier || (supplier === 'TODOS' ? 'POR_VALIDAR' : supplier),
+        })
+        if (error) throw new Error(error.message)
+        created = Number(data?.created || 0)
+        skipped = Number(data?.skipped || 0)
+        await reload()
+      }
+      setMessage(created || Object.keys(imported).length
+        ? `${created} guía(s) nueva(s) cargadas y ${Object.keys(imported).length} cantidad(es) vinculadas. ${skipped ? `${skipped} guía(s) ya existentes. ` : ''}${unmatched ? `${unmatched} fila(s) sin coincidencia. ` : ''}Revisa cada diferencia, adjunta el PDF si falta y pulsa Verificar para registrar la incidencia y enviar el correo.`
+        : 'No se importaron líneas. Revisa las columnas Código, Cant Pedido, Cant Recibida y Guía de Remisión; las guías existentes no se duplican.')
+    } catch (error) {
+      setMessage(`No se pudo leer el Excel: ${error instanceof Error ? error.message : 'formato no válido'}`)
+    }
+  }
 
   async function reload() {
     setLoading(true)
@@ -480,6 +606,7 @@ export function LocationSheetsModule() {
           receipt_date,
           supplier,
           guide_no,
+          guide_id,
           reference,
           document_no,
           warehouse,
@@ -489,6 +616,7 @@ export function LocationSheetsModule() {
           sap_kmmp_no,
           sap_fiori_no,
           sap_status,
+          guides (file_bucket, file_path, file_name),
           replenishment_receipt_lines (
             id,
             line_no,
@@ -498,7 +626,10 @@ export function LocationSheetsModule() {
             quantity,
             unit,
             location,
-            sap_ingress
+            sap_ingress,
+            quantity_received,
+            delivery_date,
+            verification_incident_id
           )
         )
       `)
@@ -509,8 +640,16 @@ export function LocationSheetsModule() {
       setMessage(error.message)
       setIngresses([])
     } else {
-      const rows = (data ?? []) as Ingress[]
+      const rows = (data ?? []) as unknown as Ingress[]
       setIngresses(rows)
+      const incidentIds = rows.flatMap((entry) => (entry.replenishment_receipts ?? [])
+        .flatMap((receipt) => (receipt.replenishment_receipt_lines ?? [])
+          .map((line) => line.verification_incident_id).filter((id): id is string => Boolean(id))))
+      if (incidentIds.length) {
+        const { data: statuses } = await supabase.from('incidents')
+          .select('id,auto_email_status').in('id', incidentIds)
+        setIncidentMailStatus(Object.fromEntries((statuses ?? []).map((item) => [item.id, item.auto_email_status])))
+      } else setIncidentMailStatus({})
       if (selected) {
         const refreshed = rows.find((row) => row.id === selected.id) ?? null
         setSelected(refreshed)
@@ -557,6 +696,191 @@ export function LocationSheetsModule() {
       .reduce((sum, receipt) => sum + (receipt.replenishment_receipt_lines?.length ?? 0), 0)
   }
 
+  async function attachFile(incidentId: string, file: File, type: 'GUIA' | 'REPORTE' | 'FOTO') {
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const storagePath = `${userId}/${incidentId}/${crypto.randomUUID()}-${safe}`
+    const { error: uploadError } = await supabase.storage.from('incident-evidence')
+      .upload(storagePath, file, { upsert: false, contentType: file.type || 'application/octet-stream' })
+    if (uploadError) throw new Error(`${file.name}: ${uploadError.message}`)
+    const { error } = await supabase.from('incident_attachments').insert({
+      incident_id: incidentId, attachment_type: type, bucket: 'incident-evidence',
+      storage_path: storagePath, file_name: file.name, content_type: file.type,
+      size_bytes: file.size, uploaded_by: userId,
+    })
+    if (error) {
+      await supabase.storage.from('incident-evidence').remove([storagePath])
+      throw new Error(`${file.name}: ${error.message}`)
+    }
+  }
+
+  async function saveVerification(row: FlatLine) {
+    if (profile?.role === 'SUPERVISOR' || savingLine || row.verificationIncidentId) return
+    const raw = receivedDrafts[row.id] ?? (row.quantityReceived == null ? '' : String(row.quantityReceived))
+    const received = Number(raw)
+    if (!raw.trim() || !Number.isFinite(received) || received < 0) {
+      setMessage('Ingresa una cantidad recibida válida (cero si no llegó el material).')
+      return
+    }
+    const expected = Number(row.quantity)
+    if (row.quantity == null || !Number.isFinite(expected)) {
+      setMessage('La cantidad pedida debe estar registrada antes de verificar.')
+      return
+    }
+    const difference = received - expected
+    const originalPdf = row.guideFile?.file_path && /\.pdf$/i.test(row.guideFile.file_name || row.guideFile.file_path)
+      ? row.guideFile : null
+    const newPdf = guideFiles[row.receiptId]
+    if (difference !== 0 && !originalPdf && (!newPdf || (newPdf.type !== 'application/pdf' && !/\.pdf$/i.test(newPdf.name)))) {
+      setMessage(`Adjunta la guía ${row.guideNo || 'de esta reposición'} en PDF para comunicar la diferencia.`)
+      return
+    }
+    if (newPdf && newPdf.size > 2 * 1024 * 1024) {
+      setMessage('La guía PDF supera 2 MB. Adjunta un archivo más pequeño para el correo.')
+      return
+    }
+    const evidencePhotos = photos[row.id] || []
+    if (evidencePhotos.some((photo) => !photo.type.startsWith('image/') || photo.size > 1_500_000)) {
+      setMessage('Cada foto debe ser una imagen de hasta 1,5 MB.')
+      return
+    }
+
+    setSavingLine(row.id)
+    setMessage('')
+    const deliveryDate = deliveryDrafts[row.id] || row.deliveryDate || null
+    if (difference === 0) {
+      const { data, error } = await supabase.from('replenishment_receipt_lines')
+        .update({ quantity_received: received, delivery_date: deliveryDate, verified_at: new Date().toISOString(), verified_by: userId })
+        .eq('id', row.id).is('verification_incident_id', null).select('id')
+      if (error || !data?.length) setMessage(error?.message || 'No se pudo guardar la verificación. Revisa tus permisos.')
+      else { await reload(); setMessage('Cantidad verificada. No hay diferencia ni correo por enviar.') }
+      setSavingLine(null)
+      return
+    }
+
+    const warehouse = row.warehouse || selected?.warehouse || profile?.warehouse
+    if (!warehouse) {
+      setSavingLine(null)
+      setMessage('Esta guía no tiene almacén asignado. Complétalo antes de registrar la incidencia.')
+      return
+    }
+    const project = profile?.project || profile?.warehouse || warehouse
+    const dateLabel = new Intl.DateTimeFormat('es-PE', {
+      timeZone: 'America/Lima', day: '2-digit', month: '2-digit', year: '2-digit',
+    }).format(new Date()).replaceAll('/', '.')
+    const subject = `VERIFICACIÓN DE INVENTARIO / ${project.toUpperCase()} / ${dateLabel}`
+    const incidentNo = `INC-REP-${Date.now()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`
+
+    const { data: incident, error: incidentError } = await supabase.from('incidents').insert({
+      incident_no: incidentNo, incident_type: difference < 0 ? 'FALTANTE' : 'SOBRANTE',
+      detection_mode: 'VERIFICACION_INVENTARIO', status: 'ABIERTO',
+      guide_no: row.guideNo || null, document_no: row.reference || null,
+      purchase_order: row.reference?.startsWith('8') ? row.reference : null,
+      material_no: row.partNo, stock_code: row.stockCode || null,
+      description: row.description || null, location: row.location || null,
+      qty_expected: expected, qty_received: received,
+      notes: `Verificación de reposición · Ingreso ${selected?.ingress_no || '—'} · Entrega: ${deliveryDate || 'sin fecha'} · Reportado por ${profile?.full_name || 'usuario'} (${profile?.role || 'perfil'}).`,
+      warehouse, project: profile?.project || null, group_name: profile?.group_name || null,
+      shift_name: profile?.shift_name || null, operation_area: 'GENERAL',
+      verification_email_subject: subject, auto_email_status: 'PENDIENTE',
+      created_by: userId, detected_at: new Date().toISOString(),
+    }).select('id').single()
+    if (incidentError || !incident) {
+      setSavingLine(null)
+      setMessage(incidentError?.message || 'No se pudo crear la incidencia.')
+      return
+    }
+
+    const { data: linked, error: linkError } = await supabase.from('replenishment_receipt_lines')
+      .update({ quantity_received: received, delivery_date: deliveryDate, verified_at: new Date().toISOString(),
+        verified_by: userId, verification_incident_id: incident.id })
+      .eq('id', row.id).is('verification_incident_id', null).select('id')
+    if (linkError || !linked?.length) {
+      setSavingLine(null)
+      setMessage(`Incidencia ${incidentNo} creada, pero la línea no se vinculó: ${linkError?.message || 'ya fue verificada'}. Revisa Incidencias antes de reintentar.`)
+      return
+    }
+
+    try {
+      if (newPdf) await attachFile(incident.id, newPdf, 'GUIA')
+      else if (originalPdf) {
+        const { error } = await supabase.from('incident_attachments').insert({
+          incident_id: incident.id, attachment_type: 'GUIA', bucket: originalPdf.file_bucket || 'guide-documents',
+          storage_path: originalPdf.file_path, file_name: originalPdf.file_name || `${row.guideNo}.pdf`,
+          content_type: 'application/pdf', uploaded_by: userId,
+        })
+        if (error) throw new Error(`Guía PDF: ${error.message}`)
+      }
+      const sameGuide = selectedRows.filter((item) => item.receiptId === row.receiptId)
+      const report = verificationWorkbook(sameGuide, received, row, profile?.full_name || 'Usuario', project)
+      await attachFile(incident.id, report, 'REPORTE')
+      for (const photo of evidencePhotos) await attachFile(incident.id, photo, 'FOTO')
+      const { data: email, error: mailError } = await supabase.functions.invoke('send-outlook-notification', {
+        body: { incidentId: incident.id },
+      })
+      if (mailError || !email?.ok) throw new Error(email?.error || mailError?.message || 'Correo pendiente')
+      await reload()
+      setMessage(`Incidencia ${incidentNo} registrada y correo enviado con la guía y el Excel de verificación.`)
+    } catch (error) {
+      await reload()
+      setMessage(`Incidencia ${incidentNo} registrada. El correo quedó pendiente: ${error instanceof Error ? error.message : 'revisa los adjuntos'}.`)
+    } finally {
+      setSavingLine(null)
+    }
+  }
+
+  async function retryVerification(row: FlatLine) {
+    if (!row.verificationIncidentId || profile?.role === 'SUPERVISOR' || savingLine) return
+    setSavingLine(row.id)
+    setMessage('')
+    const incidentId = row.verificationIncidentId
+    try {
+      const { data: attachments, error } = await supabase.from('incident_attachments')
+        .select('attachment_type').eq('incident_id', incidentId)
+      if (error) throw new Error(error.message)
+      const types = new Set((attachments ?? []).map((item) => item.attachment_type))
+      if (!types.has('GUIA')) {
+        const pdf = guideFiles[row.receiptId]
+        const original = row.guideFile?.file_path && /\.pdf$/i.test(row.guideFile.file_name || row.guideFile.file_path)
+          ? row.guideFile : null
+        if (pdf?.size && pdf.size <= 2 * 1024 * 1024 && (pdf.type === 'application/pdf' || /\.pdf$/i.test(pdf.name))) {
+          await attachFile(incidentId, pdf, 'GUIA')
+        } else if (original) {
+          const { error: insertError } = await supabase.from('incident_attachments').insert({
+            incident_id: incidentId, attachment_type: 'GUIA', bucket: original.file_bucket || 'guide-documents',
+            storage_path: original.file_path, file_name: original.file_name || `${row.guideNo}.pdf`,
+            content_type: 'application/pdf', uploaded_by: userId,
+          })
+          if (insertError) throw new Error(insertError.message)
+        } else throw new Error('Adjunta una guía PDF de hasta 2 MB.')
+      }
+      if (!types.has('REPORTE')) {
+        const report = verificationWorkbook(
+          selectedRows.filter((item) => item.receiptId === row.receiptId), Number(row.quantityReceived), row,
+          profile?.full_name || 'Usuario', profile?.project || profile?.warehouse || row.warehouse || 'Almacén',
+        )
+        await attachFile(incidentId, report, 'REPORTE')
+      }
+      if (photos[row.id]?.length && !types.has('FOTO')) {
+        for (const photo of photos[row.id]) {
+          if (photo.size > 1_500_000 || !photo.type.startsWith('image/')) {
+            throw new Error('Cada foto debe ser una imagen de hasta 1,5 MB.')
+          }
+          await attachFile(incidentId, photo, 'FOTO')
+        }
+      }
+      const { data: email, error: emailError } = await supabase.functions.invoke('send-outlook-notification', {
+        body: { incidentId },
+      })
+      if (emailError || !email?.ok) throw new Error(email?.error || emailError?.message || 'No se pudo enviar el correo')
+      await reload()
+      setMessage('Correo enviado con la guía PDF y el Excel de verificación.')
+    } catch (error) {
+      setMessage(`Correo pendiente: ${error instanceof Error ? error.message : 'revisa los adjuntos'}`)
+    } finally {
+      setSavingLine(null)
+    }
+  }
+
   async function exportSelectedExcel() {
     if (!selected) return
     setExporting('excel')
@@ -595,9 +919,15 @@ export function LocationSheetsModule() {
             <h3>Hojas de Ubicación</h3>
             <p>Por defecto muestra solo guías PENDIENTES de ingreso SAP. Las guías con documento 18… o 50… pasan a INGRESADO y dejan de aparecer aquí.</p>
           </div>
-          <button className="icon-button" onClick={reload} title="Actualizar">
-            <RefreshCw size={18} />
-          </button>
+          <div className="button-row">
+            {profile?.role !== 'SUPERVISOR' && <label className="secondary-button verification-upload"><FileSpreadsheet size={15} /> Importar verificación
+              <input type="file" accept=".xlsx,.xls" onChange={(event) => {
+                void importVerificationExcel(event.target.files?.[0])
+                event.target.value = ''
+              }} />
+            </label>}
+            <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18} /></button>
+          </div>
         </div>
 
         <div className="replenishment-search-grid">
@@ -764,6 +1094,16 @@ export function LocationSheetsModule() {
             </div>
           </div>
 
+          {profile?.role !== 'SUPERVISOR' && <div className="verification-import">
+            <label className="secondary-button"><FileSpreadsheet size={15} /> Cargar cantidades desde Excel
+              <input type="file" accept=".xlsx,.xls" onChange={(event) => {
+                void importVerificationExcel(event.target.files?.[0])
+                event.target.value = ''
+              }} />
+            </label>
+            <small>Compara código y guía con esta hoja. Revisa las cantidades antes de enviar incidencias.</small>
+          </div>}
+
           <div className="table-wrap ingress-detail-table">
             <table>
               <thead>
@@ -772,11 +1112,12 @@ export function LocationSheetsModule() {
                   <th>NÚMERO DE PARTE</th>
                   <th>Stock code</th>
                   <th>Descripción</th>
-                  <th>Cant.</th>
-                  <th>UM</th>
+                  <th>Cant. pedida</th>
+                  <th>Cant. recibida</th>
                   <th>Ubicación</th>
                   <th>Guía de remisión</th>
-                  <th>Fecha de Recepción</th>
+                  <th>Entrega</th>
+                  <th>Verificación</th>
                 </tr>
               </thead>
               <tbody>
@@ -787,10 +1128,66 @@ export function LocationSheetsModule() {
                     <td>{row.stockCode || 'SIN SC'}</td>
                     <td>{row.description || '—'}</td>
                     <td>{row.quantity == null ? '—' : Number(row.quantity).toLocaleString('es-PE', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td>
-                    <td>{row.unit || '—'}</td>
+                    <td>
+                      <input className="verification-count" type="number" min="0" step="0.001"
+                        value={receivedDrafts[row.id] ?? (row.quantityReceived == null ? '' : String(row.quantityReceived))}
+                        onChange={(event) => setReceivedDrafts({ ...receivedDrafts, [row.id]: event.target.value })}
+                        disabled={profile?.role === 'SUPERVISOR' || Boolean(row.verificationIncidentId) || Boolean(savingLine)}
+                        aria-label={`Cantidad recibida de ${row.partNo}`} placeholder="0" />
+                      {(() => {
+                        const draft = receivedDrafts[row.id] ?? (row.quantityReceived == null ? '' : String(row.quantityReceived))
+                        if (draft === '' || row.quantity == null) return null
+                        const delta = Number(draft) - Number(row.quantity)
+                        return <small className={delta < 0 ? 'verification-short' : delta > 0 ? 'verification-over' : 'verification-ok'}>
+                          {delta < 0 ? `Faltan ${Math.abs(delta)}` : delta > 0 ? `Sobran ${delta}` : 'Coincide'}
+                        </small>
+                      })()}
+                    </td>
                     <td>{row.location || '-'}</td>
                     <td>{row.guideNo || '—'}</td>
-                    <td>{fmtDate(row.receptionDate)}</td>
+                    <td><input className="verification-delivery" type="date"
+                      value={deliveryDrafts[row.id] ?? row.deliveryDate ?? ''}
+                      onChange={(event) => setDeliveryDrafts({ ...deliveryDrafts, [row.id]: event.target.value })}
+                      disabled={profile?.role === 'SUPERVISOR' || Boolean(row.verificationIncidentId) || Boolean(savingLine)}
+                      aria-label={`Fecha de entrega de ${row.partNo}`} /></td>
+                    <td>
+                      {row.verificationIncidentId ? <div className="verification-actions">
+                        <span className={incidentMailStatus[row.verificationIncidentId] === 'ENVIADO' ? 'status-pill success' : 'status-pill warning'}>
+                          {incidentMailStatus[row.verificationIncidentId] === 'ENVIADO' ? 'Correo enviado' : 'Incidencia · correo pendiente'}
+                        </span>
+                        {profile?.role !== 'SUPERVISOR' && incidentMailStatus[row.verificationIncidentId] !== 'ENVIADO' && <>
+                          {!row.guideFile?.file_path && <label className="verification-file">Guía PDF
+                            <input type="file" accept="application/pdf,.pdf" onChange={(event) => {
+                              const file = event.target.files?.[0]
+                              if (file) setGuideFiles({ ...guideFiles, [row.receiptId]: file })
+                            }} />
+                          </label>}
+                          <button className="secondary-button" disabled={Boolean(savingLine)} onClick={() => retryVerification(row)}>
+                            <Mail size={13} /> Reintentar correo
+                          </button>
+                        </>}
+                      </div> : profile?.role === 'SUPERVISOR' ? 'Solo lectura' : <div className="verification-actions">
+                        {!row.guideFile?.file_path || !/\.pdf$/i.test(row.guideFile.file_name || row.guideFile.file_path) ?
+                          <label className="verification-file">Guía PDF
+                            <input type="file" accept="application/pdf,.pdf" onChange={(event) => {
+                              const file = event.target.files?.[0]
+                              if (file) setGuideFiles({ ...guideFiles, [row.receiptId]: file })
+                            }} />
+                            {guideFiles[row.receiptId]?.name && <small>{guideFiles[row.receiptId].name}</small>}
+                          </label> : <small>PDF vinculado</small>}
+                        <label className="verification-file"><Camera size={13} /> Fotos opcionales
+                          <input type="file" accept="image/*" multiple onChange={(event) => {
+                            const files = Array.from(event.target.files || [])
+                            if (files.length) setPhotos({ ...photos, [row.id]: files })
+                          }} />
+                          {photos[row.id]?.length ? <small>{photos[row.id].length} foto(s)</small> : null}
+                        </label>
+                        <button className="secondary-button" disabled={Boolean(savingLine)} onClick={() => saveVerification(row)}>
+                          {savingLine === row.id ? <RefreshCw className="spin" size={13} /> : <Mail size={13} />}
+                          {savingLine === row.id ? 'Guardando…' : 'Verificar'}
+                        </button>
+                      </div>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

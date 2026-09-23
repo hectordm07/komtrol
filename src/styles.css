@@ -1876,8 +1876,8 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
   justify-content: center;
   padding: 4px 9px;
   border-radius: 7px;
-  background: #fff7a8;
-  color: #21324a;
+  background: #eef2ff;
+  color: #263f91;
   font-size: 13px;
 }
 .ingress-detail-report {
@@ -1886,7 +1886,9 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
 .ingress-report-title {
   display: grid;
   grid-template-columns: 1fr 210px;
-  border: 2px solid #111;
+  border: 1px solid #d5dfff;
+  border-radius: 12px;
+  overflow: hidden;
   background: #fff;
   margin-bottom: 10px;
 }
@@ -1899,8 +1901,8 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
 }
 .ingress-report-title h2 {
   margin: 0;
-  font-size: 18px;
-  color: #0570c7;
+  font-size: 15px;
+  color: #263f91;
   letter-spacing: .01em;
 }
 .ingress-report-title p {
@@ -1912,8 +1914,8 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
   display: grid;
   grid-template-columns: 70px 1fr;
   align-items: center;
-  background: #fff600;
-  border-left: 2px solid #111;
+  background: #eef2ff;
+  border-left: 1px solid #d5dfff;
 }
 .ingress-report-number span,
 .ingress-report-number b {
@@ -1923,12 +1925,12 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
   font-weight: 900;
 }
 .ingress-report-number span {
-  color: #0056b3;
-  font-size: 18px;
+  color: #334b90;
+  font-size: 13px;
 }
 .ingress-report-number b {
-  font-size: 26px;
-  color: #0066c2;
+  font-size: 21px;
+  color: #263f91;
 }
 .ingress-detail-actions {
   display: flex;
@@ -1951,28 +1953,20 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
   gap: 4px;
 }
 .ingress-detail-table table {
-  min-width: 1180px;
+  min-width: 1280px;
 }
 .ingress-detail-table thead th {
-  background: #050505;
-  color: #fff;
-  border-right: 1px solid #d7dce3;
+  background: #eef2ff;
+  color: #263f91;
+  border-right: 1px solid #d5dfff;
   font-size: 9px;
-  font-weight: 900;
+  font-weight: 700;
   text-align: center;
-}
-.ingress-detail-table thead th:nth-child(2),
-.ingress-detail-table thead th:nth-child(4) {
-  color: #ff2c2c;
-}
-.ingress-detail-table thead th:nth-child(5),
-.ingress-detail-table thead th:nth-child(7) {
-  color: #fff600;
 }
 .ingress-detail-table tbody td {
   border-bottom: 1px solid #dfe4ea;
   border-right: 1px solid #edf0f4;
-  font-size: 10px;
+  font-size: 11px;
 }
 .ingress-detail-table tbody td:nth-child(1),
 .ingress-detail-table tbody td:nth-child(5),
@@ -1980,6 +1974,55 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
 .ingress-detail-table tbody td:nth-child(10) {
   text-align: center;
 }
+.ingress-detail-table .verification-count,
+.ingress-detail-table .verification-delivery {
+  width: 115px;
+  min-height: 33px;
+  padding: 5px 7px;
+  border: 1px solid #d5dfff;
+  border-radius: 7px;
+  color: #22356b;
+  background: #fff;
+  font: inherit;
+}
+.ingress-detail-table .verification-delivery { width: 135px; }
+.ingress-detail-table .verification-count:focus,
+.ingress-detail-table .verification-delivery:focus {
+  border-color: #3656bb;
+  outline: 2px solid #e9eeff;
+}
+.ingress-detail-table td small { display: block; margin-top: 4px; }
+.ingress-detail-table .verification-short { color: #b42332; }
+.ingress-detail-table .verification-over { color: #a35613; }
+.ingress-detail-table .verification-ok { color: #087c58; }
+.verification-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 225px; }
+.verification-actions .secondary-button { padding: 6px 9px; font-size: 11px; }
+.verification-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border: 1px solid #d5dfff;
+  border-radius: 7px;
+  color: #263f91;
+  cursor: pointer;
+  font-size: 10px;
+}
+.verification-file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.verification-file small { max-width: 115px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verification-import {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0 12px;
+  color: #51658f;
+  font-size: 11px;
+}
+.verification-import .secondary-button { position: relative; cursor: pointer; }
+.verification-import input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.verification-upload { position: relative; cursor: pointer; }
+.verification-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 @media (max-width: 900px) {
   .replenishment-search-grid {
     grid-template-columns: 1fr 1fr;
@@ -2001,7 +2044,7 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
   }
   .ingress-report-number {
     border-left: 0;
-    border-top: 2px solid #111;
+    border-top: 1px solid #d5dfff;
     min-height: 54px;
   }
 }

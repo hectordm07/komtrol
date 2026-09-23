@@ -1361,14 +1361,7 @@ export function TasksModule({
           <TaskList tasks={filtered} profiles={profiles} labels={labels} order={listOrder} activeCategory={categoryFilter} activePriority={priorityFilter} activeLabel={labelFilter} busyTaskId={busyTaskId} canDelete={(task) => task.created_by === userId || profile?.role === 'ADMINISTRADOR'} onQuickFilter={quickFilter} onUpdate={updateTask} onMoveToday={moveTaskToToday} onDelete={deleteTask} onOpen={setSelectedTask} />
         )}
 
-        {!loading && <section className="work-indicators" aria-label="Indicadores de la vista">
-          <div className="task-kpis">
-            <div><ClipboardList size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
-            <div><AlertTriangle size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
-            <div className={counts.overdue ? 'danger-kpi' : ''}><CalendarDays size={17} /><span><b>{counts.overdue}</b><small>Vencidas</small></span></div>
-            {workView !== 'LISTA' && <div><CheckCircle2 size={17} /><span><b>{counts.closed}</b><small>Cerradas</small></span></div>}
-            <div><Columns3 size={17} /><span><b>{counts.average}%</b><small>Avance</small></span></div>
-          </div>
+        {!loading && <section className="work-indicators" aria-label="Analítica de la vista">
           <TaskAnalytics tasks={scopedTasks} profiles={profiles} viewName={workArea === 'MI_TRABAJO' ? 'mis trabajos' : workArea === 'RELEVOS' ? 'relevos' : 'tareas grupales'} />
         </section>}
       </section>

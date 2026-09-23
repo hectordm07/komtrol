@@ -57,7 +57,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: profile } = await admin
     .from("user_profiles")
-    .select("role,active")
+    .select("role,active,full_name,project,warehouse,group_name")
     .eq("user_id", user.id)
     .maybeSingle()
 
@@ -127,7 +127,7 @@ Deno.serve(async (req: Request) => {
   const subjectTemplate =
     rule.subject_template ??
     "[KOMTROL][{{incident_type}}] {{warehouse}} | {{material_no}} | {{incident_no}}"
-  const subject = String(subjectTemplate)
+  const subject = String(incident.verification_email_subject || subjectTemplate)
     .replaceAll("{{incident_type}}", incident.incident_type ?? "")
     .replaceAll("{{guide_no}}", incident.guide_no ?? "")
     .replaceAll("{{purchase_order}}", incident.purchase_order ?? "")
@@ -140,6 +140,7 @@ Deno.serve(async (req: Request) => {
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#22384a;line-height:1.45">
       <h2 style="color:#355c7a">Incidencia KOMTROL - ${escapeHtml(incident.incident_type)}</h2>
       <p><b>Fecha de detección:</b> ${escapeHtml(incidentDate)}</p>
+      <p><b>Reportado por:</b> ${escapeHtml(profile.full_name)} · ${escapeHtml(profile.role)} · ${escapeHtml(profile.project || profile.warehouse)}${profile.group_name ? ` · ${escapeHtml(profile.group_name)}` : ""}</p>
       <table cellpadding="7" cellspacing="0" style="border-collapse:collapse;border:1px solid #dce8f1">
         <tr><td><b>Incidencia</b></td><td>${escapeHtml(incident.incident_no)}</td></tr>
         <tr><td><b>Almacén</b></td><td>${escapeHtml(incident.warehouse)}</td></tr>
@@ -169,12 +170,16 @@ Deno.serve(async (req: Request) => {
   const allowed = (attachmentRows ?? []).filter((a: any) => {
     if (a.attachment_type === "GUIA") return rule.attach_guide
     if (a.attachment_type === "FOTO") return rule.attach_photos
-    if (a.attachment_type === "REPORTE") return rule.attach_report
+    if (a.attachment_type === "REPORTE") return Boolean(incident.verification_email_subject) || rule.attach_report
     return true
+  }).sort((a: any, b: any) => {
+    const priority = (type: string) => type === "GUIA" ? 0 : type === "REPORTE" ? 1 : 2
+    return priority(a.attachment_type) - priority(b.attachment_type)
   })
 
   const attachments: any[] = []
   const skippedAttachments: string[] = []
+  const attachedTypes = new Set<string>()
   let totalRawBytes = 0
   const MAX_RAW_BYTES = 2_500_000
 
@@ -205,6 +210,12 @@ Deno.serve(async (req: Request) => {
       contentType: a.content_type || "application/octet-stream",
       contentBytes: bytesToBase64(bytes),
     })
+    attachedTypes.add(a.attachment_type)
+  }
+
+  if (incident.verification_email_subject && (!attachedTypes.has("GUIA") || !attachedTypes.has("REPORTE"))) {
+    await admin.from("incidents").update({ auto_email_status: "ERROR" }).eq("id", incidentId)
+    return json({ error: "La guía PDF y el Excel de verificación deben estar adjuntos antes de enviar el correo." }, 422)
   }
 
   const { data: notification, error: notificationError } = await admin
