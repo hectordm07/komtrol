@@ -37,6 +37,7 @@ import { AdministrationModule } from './components/AdministrationModule'
 import { ReplenishmentModule } from './components/ReplenishmentModule'
 import { LocationSheetsModule } from './components/LocationSheetsModule'
 import { AlertsModule } from './components/AlertsModule'
+import type { AlertItem } from './components/AlertsModule'
 import { OcCargoTrackingModule } from './components/OcCargoTrackingModule'
 import { InboundModule } from './components/InboundModule'
 import { ReceivingIncidentModule } from './components/ReceivingIncidentModule'
@@ -382,6 +383,9 @@ function Workspace({ session }: { session: Session }) {
   const [appNotifications, setAppNotifications] = useState<AppNotification[]>([])
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [taskToOpen, setTaskToOpen] = useState<string | null>(null)
+  const [alertIncidentToOpen, setAlertIncidentToOpen] = useState<string | null>(null)
+  const [alertGuideSearch, setAlertGuideSearch] = useState<string | null>(null)
+  const [alertOperationSearch, setAlertOperationSearch] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showIncidentForm, setShowIncidentForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -997,6 +1001,57 @@ function Workspace({ session }: { session: Session }) {
     )
   }, [currentNav?.section])
 
+  function openAlertTreatment(item: AlertItem) {
+    let targetTab: Tab | null = null
+
+    setAlertIncidentToOpen(null)
+    setAlertGuideSearch(null)
+    setAlertOperationSearch(null)
+
+    if (item.source === 'TAREA') {
+      targetTab = 'mi-trabajo'
+      setTaskToOpen(item.entityId)
+    } else if (item.source === 'INCIDENCIA') {
+      targetTab = item.operationArea === 'INBOUND' || item.warehouse?.toUpperCase() === 'CALLAO'
+        ? 'inbound-incidencias'
+        : 'incidencias'
+      setAlertIncidentToOpen(item.entityId)
+    } else if (item.source === 'GUÍA') {
+      targetTab = 'seguimiento-guias'
+      setAlertGuideSearch(item.reference || item.entityId)
+    } else if (item.source === 'TRÁNSITO') {
+      targetTab = 'transitos'
+      setAlertOperationSearch(item.reference || item.entityId)
+    } else if (item.source === 'PRÉSTAMO') {
+      targetTab = 'os-prestamos'
+      setAlertOperationSearch(item.reference || item.entityId)
+    } else if (item.source === 'DAÑADO') {
+      targetTab = 'danados'
+      setAlertOperationSearch(item.reference || item.entityId)
+    }
+
+    if (!targetTab) {
+      setToast('No se encontró un tratamiento asociado a esta alerta.')
+      return
+    }
+
+    const target = flatNav.find((navItem) => navItem.id === targetTab)
+    if (!target) {
+      setToast('El tratamiento de esta alerta no está disponible para el perfil actual.')
+      return
+    }
+
+    setTab(targetTab)
+    setOpenSections((current) =>
+      current.includes(target.section)
+        ? current
+        : [...current, target.section]
+    )
+    setNotificationOpen(false)
+    setMobileMenu(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   function toggleNavSection(section: string) {
     setOpenSections((current) =>
       current.includes(section)
@@ -1226,6 +1281,8 @@ function Workspace({ session }: { session: Session }) {
                   userId={user.id}
                   profile={effectiveProfile!}
                   scopeMode="REMOTE"
+                  initialIncidentId={alertIncidentToOpen}
+                  onInitialIncidentOpened={() => setAlertIncidentToOpen(null)}
                 />
               )}
 
@@ -1261,6 +1318,8 @@ function Workspace({ session }: { session: Session }) {
                   userId={user.id}
                   profile={effectiveProfile!}
                   scopeMode="CALLAO"
+                  initialIncidentId={alertIncidentToOpen}
+                  onInitialIncidentOpened={() => setAlertIncidentToOpen(null)}
                 />
               )}
 
@@ -1317,6 +1376,8 @@ function Workspace({ session }: { session: Session }) {
                   mode={guideMode}
                   userId={user.id}
                   profile={effectiveProfile!}
+                  initialSearch={alertGuideSearch}
+                  onInitialSearchApplied={() => setAlertGuideSearch(null)}
                 />
               )}
 
@@ -1352,6 +1413,8 @@ function Workspace({ session }: { session: Session }) {
                   mode={operationsControlMode}
                   userId={user.id}
                   warehouse={effectiveProfile?.warehouse}
+                  initialSearch={alertOperationSearch}
+                  onInitialSearchApplied={() => setAlertOperationSearch(null)}
                 />
               )}
 
@@ -1373,7 +1436,7 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {tab === 'alertas' && (
-                <AlertsModule />
+                <AlertsModule onOpenAlert={openAlertTreatment} />
               )}
 
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (
