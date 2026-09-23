@@ -24332,7 +24332,7 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   .work-panel { overflow: visible; }
   .work-controls-sticky {
     position: sticky;
-    top: 158px;
+    top: var(--work-sticky-offset, 184px);
     z-index: 6;
     padding-bottom: 10px;
     border-radius: 12px;

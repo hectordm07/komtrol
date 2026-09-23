@@ -1,4 +1,4 @@
-import { FormEvent, type CSSProperties, useEffect, useMemo, useState } from 'react'
+import { FormEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -243,6 +243,7 @@ export function TasksModule({
   const [newLabelColor, setNewLabelColor] = useState('#5570D8')
   const [labelScope, setLabelScope] = useState<'PROYECTO' | 'PERSONAL'>('PROYECTO')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const controlsRef = useRef<HTMLDivElement>(null)
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null)
   const [selectedIncident, setSelectedIncident] = useState<CalendarIncident | null>(null)
   const [dueReviewOpen, setDueReviewOpen] = useState(false)
@@ -284,6 +285,36 @@ export function TasksModule({
   useEffect(() => {
     reload()
   }, [userId])
+
+  useEffect(() => {
+    const controls = controlsRef.current
+    const main = controls?.closest('.main-area')
+    if (!controls || !main) return
+    const headers = [main.querySelector<HTMLElement>(':scope > .topbar'), main.querySelector<HTMLElement>(':scope > .user-greeting-sticky')].filter((item): item is HTMLElement => Boolean(item))
+    let frame = 0
+    const positionControls = () => {
+      frame = 0
+      const bottom = headers.reduce((value, header) => {
+        const bounds = header.getBoundingClientRect()
+        return bounds.bottom > 0 && bounds.top < window.innerHeight ? Math.max(value, bounds.bottom) : value
+      }, 0)
+      controls.style.setProperty('--work-sticky-offset', `${Math.ceil(bottom + 6)}px`)
+    }
+    const schedulePosition = () => {
+      if (!frame) frame = window.requestAnimationFrame(positionControls)
+    }
+    positionControls()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedulePosition)
+    headers.forEach((header) => observer?.observe(header))
+    window.addEventListener('scroll', schedulePosition, true)
+    window.addEventListener('resize', schedulePosition)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      observer?.disconnect()
+      window.removeEventListener('scroll', schedulePosition, true)
+      window.removeEventListener('resize', schedulePosition)
+    }
+  }, [])
 
   useEffect(() => {
     if (!initialTaskId || loading || previewMode) return
@@ -1231,7 +1262,7 @@ export function TasksModule({
   return (
     <div className="work-module">
       <section className="panel compact-panel work-panel">
-        <div className="work-controls-sticky">
+        <div className="work-controls-sticky" ref={controlsRef}>
         <div className="work-command-bar work-command-bar-actions-only">
           <div className="work-view-switch" aria-label="Vista de trabajo">
             <button type="button" className={workView === 'LISTA' ? 'active' : ''} onClick={() => setWorkView('LISTA')}>
