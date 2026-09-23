@@ -854,13 +854,13 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode, initialInc
   }
 
   async function deleteIncident(row: Incident) {
-    if (readOnly) return
+    if (profile?.role !== 'ADMINISTRADOR') return
     if (!window.confirm(`¿Eliminar ${row.incident_no}? Esta acción no se puede deshacer.`)) return
-    const { error } = await supabase.from('incidents').delete().eq('id', row.id)
-    if (error) setMessage(error.message)
+    const { data, error } = await supabase.from('incidents').delete().eq('id', row.id).select('id')
+    if (error || !data?.length) setMessage(error?.message || 'No se pudo eliminar la incidencia. Verifica tus permisos.')
     else {
-      setMessage('Incidencia eliminada.')
       await reload()
+      setMessage('Incidencia eliminada.')
     }
   }
 
@@ -1008,7 +1008,7 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode, initialInc
                       {(row.incident_attachments ?? []).some((item)=>item.attachment_type === 'FOTO') && <button className="icon-button" title="Ver foto de evidencia" onClick={()=>viewEvidence(row)}><ImagePlus size={14}/></button>}
                       {!readOnly && <button className="icon-button" title="Editar" onClick={()=>openEdit(row)}><Edit3 size={14}/></button>}
                       {!readOnly && <button className="icon-button" title="Enviar / reenviar correo" onClick={()=>resendEmail(row)}><Mail size={14}/></button>}
-                      {!readOnly && <button className="icon-button danger-icon" title="Eliminar" onClick={()=>deleteIncident(row)}><Trash2 size={14}/></button>}
+                      {profile?.role === 'ADMINISTRADOR' && <button className="icon-button danger-icon" title="Eliminar incidencia" aria-label={`Eliminar incidencia ${row.incident_no}`} onClick={()=>deleteIncident(row)}><Trash2 size={14}/></button>}
                       {readOnly && <span className="read-only-note">Solo lectura</span>}
                     </div></td>
                   </tr>

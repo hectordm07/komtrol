@@ -14,6 +14,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react'
@@ -752,6 +753,24 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
     })))
   }
 
+  async function deleteMovement(id: string, reference: string | null, source: string) {
+    if (!isAdmin || saving) return
+    const paired = source === 'TRANSFERENCIA_IN' || source === 'TRANSFERENCIA_OUT'
+    const detail = paired ? 'Se eliminarán ambas partes de la transferencia.' : 'El saldo del Kardex se recalculará.'
+    if (!window.confirm(`¿Eliminar el movimiento ${reference || id}? ${detail} Esta acción no se puede deshacer.`)) return
+    setSaving(true)
+    const { error } = await supabase.rpc('admin_delete_kardex_movement', { p_movement_id: id })
+    if (error) {
+      setMessage(error.message)
+      setSaving(false)
+      return
+    }
+    await reload()
+    if (historyTarget) await openMaterialHistory(historyTarget.materialNo, historyTarget.warehouse, historyTarget.description, historyTarget.stockCode)
+    setSaving(false)
+    setMessage(paired ? 'Transferencia eliminada y saldos actualizados.' : 'Movimiento eliminado y saldo actualizado.')
+  }
+
   const historyShipments = useMemo(
     () => Array.from(new Set(historyRows.map((row)=>row.shipment_no).filter(Boolean) as string[])).sort(),
     [historyRows]
@@ -1294,7 +1313,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
                 <thead>
                   <tr>
                     <th>Fecha / Hora</th><th>Documento / Ref.</th><th>Movimiento</th><th>Material</th><th>Stock Code</th>
-                    <th>Embarque</th><th>Caja</th><th>Ubicación / Bin</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Origen</th>
+                    <th>Embarque</th><th>Caja</th><th>Ubicación / Bin</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Origen</th>{isAdmin && <th>Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>{movementLedger.slice(0,1500).map((row)=>(
@@ -1311,6 +1330,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
                     <td className="kardex-exit-cell">{row.exit ? '−'+fmtQty(row.exit) : '—'}</td>
                     <td><b className="kardex-running-balance">{fmtQty(row.runningBalance)} {row.unit}</b></td>
                     <td>{row.source_type.replaceAll('_',' ')}</td>
+                    {isAdmin && <td><button className="icon-button danger-icon" disabled={saving} title="Eliminar movimiento" aria-label={`Eliminar movimiento ${row.reference_no || row.id}`} onClick={()=>deleteMovement(row.id,row.reference_no,row.source_type)}><Trash2 size={14}/></button></td>}
                   </tr>
                 ))}</tbody>
               </table>
@@ -1391,7 +1411,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
             ) : (
               <div className="table-wrap kardex-history-table">
                 <table>
-                  <thead><tr><th>Fecha / Hora</th><th>Código</th><th>Movimiento</th><th>Origen</th><th>Embarque</th><th>Caja</th><th>Ubicación</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Usuario</th><th>Observación</th></tr></thead>
+                  <thead><tr><th>Fecha / Hora</th><th>Código</th><th>Movimiento</th><th>Origen</th><th>Embarque</th><th>Caja</th><th>Ubicación</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Usuario</th><th>Observación</th>{isAdmin && <th>Acciones</th>}</tr></thead>
                   <tbody>{historyLedger.map((row)=>(
                     <tr key={row.movement_id}>
                       <td>{fmt(row.created_at)}</td>
@@ -1406,6 +1426,7 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
                       <td><b>{fmtQty(row.runningBalance)} {row.unit}</b></td>
                       <td><b>{row.created_by_name}</b></td>
                       <td>{row.notes || '—'}</td>
+                      {isAdmin && <td><button className="icon-button danger-icon" disabled={saving} title="Eliminar movimiento" aria-label={`Eliminar movimiento ${row.reference_no || row.movement_id}`} onClick={()=>deleteMovement(row.movement_id,row.reference_no,row.source_type)}><Trash2 size={14}/></button></td>}
                     </tr>
                   ))}</tbody>
                 </table>

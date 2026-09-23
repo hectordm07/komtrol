@@ -476,13 +476,14 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
   }
 
   async function deleteIncident(row: Incident) {
+    if (profile?.role !== 'ADMINISTRADOR') return
     if (!window.confirm(`¿Eliminar ${row.incident_no}? Esta acción no se puede deshacer.`)) return
-    const { error } = await supabase.from('incidents').delete().eq('id', row.id)
-    if (error) setMessage(error.message)
+    const { data, error } = await supabase.from('incidents').delete().eq('id', row.id).select('id')
+    if (error || !data?.length) setMessage(error?.message || 'No se pudo eliminar la incidencia. Verifica tus permisos.')
     else {
       setSelectedSurplus((ids) => ids.filter((id) => id !== row.id))
-      setMessage('Incidencia eliminada.')
       await reload()
+      setMessage('Incidencia eliminada.')
     }
   }
 
@@ -673,23 +674,26 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
   }
 
   async function deleteBox(box: InboundBox) {
-    if (box.status !== 'ABIERTA') {
-      setMessage('No se puede eliminar una caja cerrada. El Administrador puede reabrirla primero.')
-      return
-    }
-    if (!window.confirm(`¿Eliminar la caja ${box.box_no} y todo su detalle?`)) return
-    const { error } = await supabase.from('inbound_boxes').delete().eq('id', box.id)
+    if (profile?.role !== 'ADMINISTRADOR') return
+    if (!window.confirm(`¿Eliminar la caja ${box.box_no}, sus ítems y los movimientos de Kardex vinculados? Esta acción no se puede deshacer.`)) return
+    setSaving(true)
+    const { error } = await supabase.rpc('admin_delete_inbound_box', { p_box_id: box.id })
+    setSaving(false)
     if (error) setMessage(error.message)
     else {
-      setMessage('Caja eliminada.')
+      setSelectedBox(null)
+      setBoxDraft(null)
       await reload()
+      setMessage('Caja eliminada.')
     }
   }
 
   async function deleteBoxItem(itemId: string) {
-    const { error } = await supabase.from('inbound_box_items').delete().eq('id', itemId)
-    if (error) {
-      setMessage(error.message)
+    if (profile?.role !== 'ADMINISTRADOR') return
+    if (!window.confirm('¿Eliminar este ítem de la caja? Esta acción no se puede deshacer.')) return
+    const { data, error } = await supabase.from('inbound_box_items').delete().eq('id', itemId).select('id')
+    if (error || !data?.length) {
+      setMessage(error?.message || 'No se pudo eliminar el ítem. Verifica tus permisos.')
       return
     }
     setBoxDraft((prev) => prev ? {
@@ -865,7 +869,7 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
           </div>
           <div className="task-toolbar"><div className="search"><Search size={16}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Buscar incidencia, guía, OC o material…"/></div></div>
           {message && <div className="inline-message">{message}</div>}
-          <IncidentRows rows={visibleIncidents} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={readOnly}/>
+          <IncidentRows rows={visibleIncidents} profileName={profileName} sendingId={sendingId} onEdit={openEditIncident} onDelete={deleteIncident} onSend={sendEmail} onStatus={updateIncidentStatus} selectedSurplus={selectedSurplus} onToggle={toggleSurplus} readOnly={readOnly} isAdmin={profile?.role==='ADMINISTRADOR'}/>
           {!readOnly && selectedSurplus.length > 0 && <div className="floating-selection"><b>{selectedSurplus.length} sobrante(s)</b><button className="secondary-button" disabled={saving} onClick={createBoxFromSurplus}><Boxes size={16}/> Ver caja automática</button></div>}
         </section>
         {showIncidentForm && <IncidentModal form={incidentForm} setForm={setIncidentForm} profiles={profiles} editing={editingIncident} saving={saving} onClose={() => setShowIncidentForm(false)} onSubmit={saveIncident}/>}
@@ -917,6 +921,7 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
             <div className="box-card-actions">
               <button className="secondary-button" onClick={()=>openBox(box)}><Edit3 size={14}/> Detalle</button>
               <button className="secondary-button" onClick={()=>exportBoxPdf(box)}><FileText size={14}/> PDF</button>
+              {profile?.role==='ADMINISTRADOR' && <button className="secondary-button" disabled={saving} onClick={()=>deleteBox(box)}><Trash2 size={14}/> Eliminar</button>}
               {canOperateBoxes && box.status==='ABIERTA' && <button className="primary-button" disabled={saving} onClick={()=>closeBox(box)}><Lock size={14}/> Cerrar caja</button>}
               {profile?.role==='ADMINISTRADOR' && box.status==='CERRADA' && <button className="secondary-button" disabled={saving} onClick={()=>reopenBox(box)}><Unlock size={14}/> Reabrir</button>}
             </div>
@@ -954,7 +959,7 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
                 <td><input disabled={readOnly || boxDraft.status!=='ABIERTA'} value={item.unit} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,unit:e.target.value}:x)})}/></td>
                 <td><input disabled={readOnly || boxDraft.status!=='ABIERTA'} value={item.stock_code || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,stock_code:e.target.value}:x)})}/></td>
                 <td><input disabled={readOnly || boxDraft.status!=='ABIERTA'} value={item.location || ''} onChange={(e)=>setBoxDraft({...boxDraft,inbound_box_items:(boxDraft.inbound_box_items??[]).map((x,i)=>i===index?{...x,location:e.target.value}:x)})}/></td>
-                <td>{!readOnly && boxDraft.status==='ABIERTA' && <button className="icon-button danger-icon" onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button>}</td>
+                <td>{profile?.role==='ADMINISTRADOR' && boxDraft.status==='ABIERTA' && <button className="icon-button danger-icon" title="Eliminar ítem" aria-label={`Eliminar ítem ${item.material_no || ''}`} onClick={()=>deleteBoxItem(item.id)}><Trash2 size={14}/></button>}</td>
               </tr>)}
             </tbody></table></div>
             <div className="modal-actions"><button className="secondary-button" onClick={()=>exportBoxPdf(boxDraft)}><FileText size={15}/> PDF</button><button className="secondary-button" onClick={()=>exportBoxExcel(boxDraft)}><FileSpreadsheet size={15}/> Excel</button>{!readOnly && boxDraft.status==='ABIERTA' && <button className="secondary-button" disabled={saving} onClick={saveBox}>{saving?<RefreshCw className="spin" size={15}/>:<Save size={15}/>} Guardar cambios</button>}{canOperateBoxes && boxDraft.status==='ABIERTA' && <button className="primary-button" disabled={saving} onClick={()=>closeBox(boxDraft)}><Lock size={15}/> Cerrar e ingresar al Kardex</button>}{profile?.role==='ADMINISTRADOR' && boxDraft.status==='CERRADA' && <button className="secondary-button" disabled={saving} onClick={()=>reopenBox(boxDraft)}><Unlock size={15}/> Reabrir caja</button>}</div>
@@ -965,7 +970,7 @@ export function InboundModule({ mode, userId, profile, onNavigate }: Props) {
   )
 }
 
-function IncidentRows({ rows, profileName, sendingId, onEdit, onDelete, onSend, onStatus, selectedSurplus, onToggle, readOnly }: {
+function IncidentRows({ rows, profileName, sendingId, onEdit, onDelete, onSend, onStatus, selectedSurplus, onToggle, readOnly, isAdmin }: {
   rows: Incident[]
   profileName:(id?:string|null)=>string
   sendingId:string|null
@@ -976,6 +981,7 @@ function IncidentRows({ rows, profileName, sendingId, onEdit, onDelete, onSend, 
   selectedSurplus:string[]
   onToggle:(id:string)=>void
   readOnly:boolean
+  isAdmin:boolean
 }) {
   if (!rows.length) return <div className="empty-work"><AlertTriangle size={27}/><b>Sin incidencias</b></div>
   return <div className="table-wrap"><table><thead><tr><th></th><th>Incidencia</th><th>Tipo</th><th>Guía / OC</th><th>Material</th><th>Diferencia</th><th>Responsable</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
@@ -990,7 +996,7 @@ function IncidentRows({ rows, profileName, sendingId, onEdit, onDelete, onSend, 
         <td>{diff === 0 ? '—' : diff.toLocaleString('es-PE',{maximumFractionDigits:3})}</td>
         <td>{profileName(row.assigned_to)}</td>
         <td>{readOnly ? <span className="status-pill">{row.status.replaceAll('_',' ')}</span> : <select className="inline-select" value={row.status} onChange={(e)=>onStatus(row,e.target.value as Incident['status'])}><option>ABIERTO</option><option>EN_REVISION</option><option>NOTIFICADO</option><option>CERRADO</option></select>}</td>
-        <td>{readOnly ? <span className="read-only-note">Solo lectura</span> : <div className="row-actions"><button className="icon-button" title="Editar" onClick={()=>onEdit(row)}><Edit3 size={14}/></button><button className="icon-button" title="Enviar correo" disabled={sendingId===row.id} onClick={()=>onSend(row)}>{sendingId===row.id?<RefreshCw className="spin" size={14}/>:<Mail size={14}/>}</button><button className="icon-button danger-icon" title="Eliminar" onClick={()=>onDelete(row)}><Trash2 size={14}/></button></div>}</td>
+        <td>{readOnly ? <span className="read-only-note">Solo lectura</span> : <div className="row-actions"><button className="icon-button" title="Editar" onClick={()=>onEdit(row)}><Edit3 size={14}/></button><button className="icon-button" title="Enviar correo" disabled={sendingId===row.id} onClick={()=>onSend(row)}>{sendingId===row.id?<RefreshCw className="spin" size={14}/>:<Mail size={14}/>}</button>{isAdmin && <button className="icon-button danger-icon" title="Eliminar incidencia" aria-label={`Eliminar incidencia ${row.incident_no}`} onClick={()=>onDelete(row)}><Trash2 size={14}/></button>}</div>}</td>
       </tr>
     })}
   </tbody></table></div>
