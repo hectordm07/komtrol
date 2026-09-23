@@ -88,6 +88,14 @@ function fmtDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-PE').format(date)
 }
 
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat('es-PE', { maximumFractionDigits: 3 }).format(value)
+}
+
+function receivedQuantity(row: FlatLine) {
+  return row.quantityReceived ?? row.quantity
+}
+
 function savePdfBlob(doc: jsPDF, filename: string) {
   const blob = doc.output('blob')
   const url = URL.createObjectURL(blob)
@@ -170,7 +178,7 @@ function excelDate(value: string) {
 
 function verificationWorkbook(rows: FlatLine[], received: number, target: FlatLine, reporter: string, project: string) {
   const body = rows.map((row) => {
-    const actual = row.id === target.id ? received : row.quantityReceived
+    const actual = row.id === target.id ? received : receivedQuantity(row)
     return [project, row.partNo, row.description, row.quantity ?? '', actual ?? '',
       actual == null || row.quantity == null ? '' : Number(actual) - Number(row.quantity),
       row.guideNo, row.deliveryDate || '', reporter]
@@ -212,7 +220,7 @@ async function exportIngressExcel(
       row.stockCode || 'SIN SC',
       row.description,
       row.quantity ?? '',
-      row.quantityReceived ?? '',
+      receivedQuantity(row) ?? '',
       row.location || '-',
       row.guideNo,
       row.deliveryDate ? excelDate(row.deliveryDate) : '',
@@ -337,7 +345,10 @@ async function exportIngressExcel(
         },
         border: thinBorder,
       }
-      if ([4, 5].includes(col) && typeof cell.v === 'number') cell.z = '0.000'
+      if ([4, 5].includes(col) && typeof cell.v === 'number') {
+        const decimals = String(cell.v).split('.')[1]?.length ?? 0
+        cell.z = decimals ? `#,##0.${'0'.repeat(Math.min(decimals, 3))}` : '#,##0'
+      }
       if (col === 8 && cell.v instanceof Date) cell.z = 'dd/mm/yyyy'
     }
   }
@@ -427,8 +438,8 @@ function exportIngressPdf(
       row.partNo,
       row.stockCode || 'SIN SC',
       row.description,
-      row.quantity == null ? '' : Number(row.quantity).toFixed(3),
-      row.quantityReceived == null ? '' : Number(row.quantityReceived).toFixed(3),
+      row.quantity == null ? '' : formatQuantity(Number(row.quantity)),
+      receivedQuantity(row) == null ? '' : formatQuantity(Number(receivedQuantity(row))),
       row.location || '-',
       row.guideNo,
       row.deliveryDate ? fmtDate(row.deliveryDate) : '',
@@ -497,6 +508,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
   const [message, setMessage] = useState('')
   const [numberSearch, setNumberSearch] = useState('')
+  const [receivedSearch, setReceivedSearch] = useState('')
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
   const [sapFilter, setSapFilter] = useState<'PENDIENTE' | 'INGRESADO' | 'TODOS'>('PENDIENTE')
@@ -682,6 +694,13 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     [selected, sapFilter]
   )
 
+  const matchingSelectedRows = useMemo(() => {
+    const query = receivedSearch.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE')
+    if (!query) return selectedRows
+    return selectedRows.filter((row) => [row.partNo, row.stockCode, row.description, row.guideNo]
+      .some((field) => field.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE').includes(query)))
+  }, [selectedRows, receivedSearch])
+
   function matchingReceipts(row: Ingress) {
     return (row.replenishment_receipts ?? [])
       .filter((receipt) => sapFilter === 'TODOS' || receipt.sap_status === sapFilter)
@@ -715,7 +734,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
 
   async function saveVerification(row: FlatLine) {
     if (profile?.role === 'SUPERVISOR' || savingLine || row.verificationIncidentId) return
-    const raw = receivedDrafts[row.id] ?? (row.quantityReceived == null ? '' : String(row.quantityReceived))
+    const raw = receivedDrafts[row.id] ?? (receivedQuantity(row) == null ? '' : String(receivedQuantity(row)))
     const received = Number(raw)
     if (!raw.trim() || !Number.isFinite(received) || received < 0) {
       setMessage('Ingresa una cantidad recibida válida (cero si no llegó el material).')
@@ -1034,7 +1053,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                     <td><b>{guideCount(row)}</b></td>
                     <td><b>{lineCount(row)}</b></td>
                     <td>
-                      <button className="secondary-button small-report" onClick={() => setSelected(row)}>
+                      <button className="secondary-button small-report" onClick={() => { setSelected(row); setReceivedSearch('') }}>
                         <FileText size={14} /> Ver ingreso
                       </button>
                     </td>
@@ -1080,7 +1099,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
               </span>
             </div>
             <div className="button-row">
-              <button className="secondary-button" onClick={() => setSelected(null)}>
+              <button className="secondary-button" onClick={() => { setSelected(null); setReceivedSearch('') }}>
                 Cerrar detalle
               </button>
               <button className="secondary-button" disabled={Boolean(exporting) || !selectedRows.length} onClick={exportSelectedPdf}>
@@ -1104,6 +1123,17 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
             <small>Compara código y guía con esta hoja. Revisa las cantidades antes de enviar incidencias.</small>
           </div>}
 
+          <div className="verification-search">
+            <label htmlFor="verification-material-search">Buscar material para corregir cantidad recibida</label>
+            <div className="search">
+              <Search size={16} />
+              <input id="verification-material-search" type="search" value={receivedSearch}
+                onChange={(event) => setReceivedSearch(event.target.value)}
+                placeholder="Número de parte, stock code, descripción o guía…" />
+            </div>
+            <small>{receivedSearch ? `${matchingSelectedRows.length} de ${selectedRows.length} líneas` : 'Cantidades precargadas con lo pedido. Busca y modifica solo las diferencias antes de verificar.'}</small>
+          </div>
+
           <div className="table-wrap ingress-detail-table">
             <table>
               <thead>
@@ -1121,25 +1151,25 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                 </tr>
               </thead>
               <tbody>
-                {selectedRows.map((row) => (
+                {matchingSelectedRows.map((row) => (
                   <tr key={`${row.rowNo}-${row.guideNo}-${row.partNo}`}>
                     <td>{row.rowNo}</td>
                     <td><b>{row.partNo || '—'}</b></td>
                     <td>{row.stockCode || 'SIN SC'}</td>
                     <td>{row.description || '—'}</td>
-                    <td>{row.quantity == null ? '—' : Number(row.quantity).toLocaleString('es-PE', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td>
+                    <td>{row.quantity == null ? '—' : formatQuantity(Number(row.quantity))}</td>
                     <td>
                       <input className="verification-count" type="number" min="0" step="0.001"
-                        value={receivedDrafts[row.id] ?? (row.quantityReceived == null ? '' : String(row.quantityReceived))}
-                        onChange={(event) => setReceivedDrafts({ ...receivedDrafts, [row.id]: event.target.value })}
+                        value={receivedDrafts[row.id] ?? (receivedQuantity(row) == null ? '' : String(receivedQuantity(row)))}
+                        onChange={(event) => setReceivedDrafts((previous) => ({ ...previous, [row.id]: event.target.value }))}
                         disabled={profile?.role === 'SUPERVISOR' || Boolean(row.verificationIncidentId) || Boolean(savingLine)}
                         aria-label={`Cantidad recibida de ${row.partNo}`} placeholder="0" />
                       {(() => {
-                        const draft = receivedDrafts[row.id] ?? (row.quantityReceived == null ? '' : String(row.quantityReceived))
+                        const draft = receivedDrafts[row.id] ?? (receivedQuantity(row) == null ? '' : String(receivedQuantity(row)))
                         if (draft === '' || row.quantity == null) return null
                         const delta = Number(draft) - Number(row.quantity)
                         return <small className={delta < 0 ? 'verification-short' : delta > 0 ? 'verification-over' : 'verification-ok'}>
-                          {delta < 0 ? `Faltan ${Math.abs(delta)}` : delta > 0 ? `Sobran ${delta}` : 'Coincide'}
+                          {delta < 0 ? `Faltan ${formatQuantity(Math.abs(delta))}` : delta > 0 ? `Sobran ${formatQuantity(delta)}` : 'Coincide'}
                         </small>
                       })()}
                     </td>
@@ -1197,6 +1227,13 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
               <div className="empty-work">
                 <FileText size={28} />
                 <b>Este ingreso aún no tiene líneas</b>
+              </div>
+            )}
+            {Boolean(selectedRows.length) && !matchingSelectedRows.length && (
+              <div className="empty-work">
+                <Search size={28} />
+                <b>No se encontró ese material</b>
+                <p>Prueba con el número de parte, stock code, descripción o guía.</p>
               </div>
             )}
           </div>

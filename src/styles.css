@@ -2023,6 +2023,19 @@ td small { display: block; color: #919aa7; margin-top: 3px; max-width: 260px; wh
 .verification-import input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .verification-upload { position: relative; cursor: pointer; }
 .verification-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.verification-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 10px 0;
+  color: #263f91;
+  font-size: 11px;
+}
+.verification-search label { font-weight: 700; }
+.verification-search .search { width: min(410px, 100%); min-height: 36px; }
+.verification-search .search input { width: 100%; min-width: 0; padding: 7px 2px; font: inherit; }
+.verification-search small { color: #51658f; }
 @media (max-width: 900px) {
   .replenishment-search-grid {
     grid-template-columns: 1fr 1fr;
