@@ -29,6 +29,8 @@ type Props = {
   mode: Mode
   userId: string
   warehouse?: string | null
+  initialSearch?: string | null
+  onInitialSearchApplied?: () => void
 }
 
 type FieldConfig = {
@@ -330,7 +332,7 @@ function downloadCsv(filename: string, columns: ColumnConfig[], rows: Record<str
   URL.revokeObjectURL(url)
 }
 
-export function OperationsControlModule({ mode, userId, warehouse }: Props) {
+export function OperationsControlModule({ mode, userId, warehouse, initialSearch, onInitialSearchApplied }: Props) {
   const config = CONFIG[mode]
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
@@ -359,6 +361,12 @@ export function OperationsControlModule({ mode, userId, warehouse }: Props) {
     setForm({ ...config.defaults, warehouse: config.defaults.warehouse || warehouse || '' })
     reload()
   }, [mode, warehouse])
+
+  useEffect(() => {
+    if (!initialSearch) return
+    setSearch(initialSearch)
+    onInitialSearchApplied?.()
+  }, [initialSearch])
 
   const visible = useMemo(() => {
     const q = search.toLowerCase().trim()
