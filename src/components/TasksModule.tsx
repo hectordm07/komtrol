@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, type CSSProperties, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CalendarDays,
@@ -220,6 +220,7 @@ export function TasksModule({
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'TODOS' | Task['status']>('TODOS')
   const [priorityFilter, setPriorityFilter] = useState<'TODAS' | Task['priority']>('TODAS')
+  const [labelFilter, setLabelFilter] = useState('')
   const [listOrder, setListOrder] = useState<'PRIORIDAD' | 'FECHA'>('PRIORIDAD')
   const [categoryFilter, setCategoryFilter] = useState('TODAS')
   const [responsibleFilter, setResponsibleFilter] = useState('TODOS')
@@ -381,6 +382,7 @@ export function TasksModule({
     if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
     if (priorityFilter !== 'TODAS') data = data.filter((t) => t.priority === priorityFilter)
     if (categoryFilter !== 'TODAS') data = data.filter((t) => t.category === categoryFilter)
+    if (labelFilter) data = data.filter((t) => (t.tags || []).includes(labelFilter))
     if (responsibleFilter !== 'TODOS') data = data.filter((t) =>
       t.assigned_user_id === responsibleFilter ||
       (t.assignment_type === 'PERSONAL' && t.responsible_id === responsibleFilter)
@@ -411,7 +413,7 @@ export function TasksModule({
   }, [
     tasks, mode, search, userId, previewMode, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
     scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea, workView,
-    statusFilter, priorityFilter, categoryFilter, responsibleFilter,
+    statusFilter, priorityFilter, categoryFilter, labelFilter, responsibleFilter,
   ])
 
   const dueReviewCandidates = useMemo(() => {
@@ -663,6 +665,24 @@ export function TasksModule({
     return profileName(task.responsible_id)
   }
 
+  function clearTaskFilters() {
+    setSearch('')
+    setStatusFilter('TODOS')
+    setPriorityFilter('TODAS')
+    setCategoryFilter('TODAS')
+    setLabelFilter('')
+    setResponsibleFilter('TODOS')
+  }
+
+  function quickFilter(kind: 'category' | 'priority' | 'label', value: string) {
+    const alreadySelected = kind === 'category' ? categoryFilter === value : kind === 'priority' ? priorityFilter === value : labelFilter === value
+    clearTaskFilters()
+    if (alreadySelected) return
+    if (kind === 'category') setCategoryFilter(value)
+    if (kind === 'priority') setPriorityFilter(value as Task['priority'])
+    if (kind === 'label') setLabelFilter(value)
+  }
+
 
   const activeFilterSummary = useMemo(() => {
     const parts = [
@@ -670,6 +690,7 @@ export function TasksModule({
       statusFilter !== 'TODOS' ? `Estado: ${statusFilter.replaceAll('_',' ')}` : '',
       priorityFilter !== 'TODAS' ? `Prioridad: ${priorityFilter}` : '',
       categoryFilter !== 'TODAS' ? `Categoría: ${categoryFilter}` : '',
+      labelFilter ? `Etiqueta: ${labelFilter}` : '',
       responsibleFilter !== 'TODOS' ? `Responsable: ${profileName(responsibleFilter)}` : '',
       search.trim() ? `Búsqueda: ${search.trim()}` : '',
       scopeWarehouse ? `Almacén: ${scopeWarehouse}` : '',
@@ -678,7 +699,7 @@ export function TasksModule({
     ].filter(Boolean)
     return parts.join(' · ')
   }, [
-    mode,statusFilter,priorityFilter,categoryFilter,responsibleFilter,search,
+    mode,statusFilter,priorityFilter,categoryFilter,labelFilter,responsibleFilter,search,
     scopeWarehouse,scopeProject,scopeGroup,profiles,
   ])
 
@@ -1196,56 +1217,34 @@ export function TasksModule({
         </div>
 
         <div className="task-toolbar task-filter-toolbar">
-          <div className="search task-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo, categoría…" /></div>
-
-          <SearchableSelect
-            ariaLabel="Filtrar por estado"
-            value={statusFilter}
-            onChange={(value)=>setStatusFilter((value||'TODOS') as 'TODOS' | Task['status'])}
-            options={workView === 'LISTA' ? statusFilterOptions.filter((option) => option.value !== 'CERRADO') : statusFilterOptions}
-            placeholder="Buscar estado…"
-            clearable={false}
-          />
-
-          <SearchableSelect
-            ariaLabel="Filtrar por prioridad"
-            value={priorityFilter}
-            onChange={(value)=>setPriorityFilter((value||'TODAS') as 'TODAS' | Task['priority'])}
-            options={priorityFilterOptions}
-            placeholder="Buscar prioridad…"
-            clearable={false}
-          />
-
-          <label className="task-list-order">Ordenar
-            <select aria-label="Orden de las tareas" value={listOrder} onChange={(event) => setListOrder(event.target.value as 'PRIORIDAD' | 'FECHA')}>
-              <option value="PRIORIDAD">Prioridad primero</option>
-              <option value="FECHA">Fecha primero</option>
-            </select>
-          </label>
-
-          <SearchableSelect
-            ariaLabel="Filtrar por categoría"
-            value={categoryFilter}
-            onChange={(value)=>setCategoryFilter(value||'TODAS')}
-            options={categoryFilterOptions}
-            placeholder="Buscar categoría…"
-            clearable={false}
-          />
-
-          <SearchableSelect
-            ariaLabel="Filtrar por responsable"
-            value={responsibleFilter}
-            onChange={(value)=>setResponsibleFilter(value||'TODOS')}
-            options={responsibleFilterOptions}
-            placeholder="Escribe nombre, DNI, almacén o guardia…"
-            noResultsText="Usuario no encontrado"
-            clearable={false}
-          />
-
-          <div className="task-export-actions">
-            <button type="button" className="secondary-button" onClick={exportTasksPdf} title="Exportar filtro actual a PDF"><FileText size={16}/> PDF</button>
-            <button type="button" className="secondary-button" onClick={exportTasksExcel} title="Exportar filtro actual a Excel"><FileSpreadsheet size={16}/> Excel</button>
+          <div className="task-filter-primary">
+            <div className="search task-search"><Search size={17} /><input aria-label="Buscar tareas" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo o etiqueta…" /></div>
+            <label className="task-list-order"><span>Ordenar por</span>
+              <select aria-label="Orden de las tareas" value={listOrder} onChange={(event) => setListOrder(event.target.value as 'PRIORIDAD' | 'FECHA')}>
+                <option value="PRIORIDAD">Prioridad primero</option>
+                <option value="FECHA">Fecha primero</option>
+              </select>
+            </label>
+            <div className="task-export-actions">
+              <button type="button" className="secondary-button" onClick={exportTasksPdf} title="Exportar filtro actual a PDF"><FileText size={16}/> PDF</button>
+              <button type="button" className="secondary-button" onClick={exportTasksExcel} title="Exportar filtro actual a Excel"><FileSpreadsheet size={16}/> Excel</button>
+            </div>
           </div>
+          <div className="task-filter-options">
+            <div className="task-filter-item"><span>Estado</span><SearchableSelect ariaLabel="Filtrar por estado" value={statusFilter} onChange={(value)=>setStatusFilter((value||'TODOS') as 'TODOS' | Task['status'])} options={workView === 'LISTA' ? statusFilterOptions.filter((option) => option.value !== 'CERRADO') : statusFilterOptions} clearable={false} /></div>
+            <div className="task-filter-item"><span>Prioridad</span><SearchableSelect ariaLabel="Filtrar por prioridad" value={priorityFilter} onChange={(value)=>setPriorityFilter((value||'TODAS') as 'TODAS' | Task['priority'])} options={priorityFilterOptions} clearable={false} /></div>
+            <div className="task-filter-item"><span>Categoría</span><SearchableSelect ariaLabel="Filtrar por categoría" value={categoryFilter} onChange={(value)=>setCategoryFilter(value||'TODAS')} options={categoryFilterOptions} clearable={false} /></div>
+            <div className="task-filter-item"><span>Responsable</span><SearchableSelect ariaLabel="Filtrar por responsable" value={responsibleFilter} onChange={(value)=>setResponsibleFilter(value||'TODOS')} options={responsibleFilterOptions} noResultsText="Usuario no encontrado" clearable={false} /></div>
+          </div>
+          {(labelFilter || categoryFilter !== 'TODAS' || priorityFilter !== 'TODAS' || statusFilter !== 'TODOS' || responsibleFilter !== 'TODOS' || search) && (
+            <div className="task-active-filters">
+              <span>{filtered.length} tarea{filtered.length === 1 ? '' : 's'} encontrada{filtered.length === 1 ? '' : 's'}</span>
+              {labelFilter && <span className="task-active-filter-chip">Etiqueta: {labelFilter}</span>}
+              {categoryFilter !== 'TODAS' && <span className="task-active-filter-chip">Categoría: {categoryFilter}</span>}
+              {priorityFilter !== 'TODAS' && <span className="task-active-filter-chip">Prioridad: {priorityFilter}</span>}
+              <button type="button" onClick={clearTaskFilters}>Limpiar filtros</button>
+            </div>
+          )}
         </div>
 
         {message && <div className="inline-message">{message}</div>}
@@ -1267,7 +1266,7 @@ export function TasksModule({
             onOpenIncident={setSelectedIncident}
           />
         ) : (
-          <TaskList tasks={filtered} profiles={profiles} labels={labels} order={listOrder} onUpdate={updateTask} onOpen={setSelectedTask} />
+          <TaskList tasks={filtered} profiles={profiles} labels={labels} order={listOrder} activeCategory={categoryFilter} activePriority={priorityFilter} activeLabel={labelFilter} onQuickFilter={quickFilter} onUpdate={updateTask} onOpen={setSelectedTask} />
         )}
       </section>
 
@@ -1588,7 +1587,7 @@ export function TasksModule({
   )
 }
 
-function TaskList({ tasks, profiles, labels, order, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; order: 'PRIORIDAD' | 'FECHA'; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
+function TaskList({ tasks, profiles, labels, order, activeCategory, activePriority, activeLabel, onQuickFilter, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; order: 'PRIORIDAD' | 'FECHA'; activeCategory: string; activePriority: string; activeLabel: string; onQuickFilter: (kind: 'category' | 'priority' | 'label', value: string) => void; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
   const colorFor = (tag: string) => labels.find((label)=>label.name===tag)?.color || '#5570D8'
   const today = new Date()
@@ -1622,10 +1621,10 @@ function TaskList({ tasks, profiles, labels, order, onUpdate, onOpen }: { tasks:
       {section.items.length ? <div className="task-agenda-table-wrap"><table className="task-agenda-table">
         <thead><tr><th>Nombre de tarea</th><th>Responsable</th><th>Categoría</th><th>Prioridad</th><th>Fecha de término</th><th>Acciones</th></tr></thead>
         <tbody>{section.items.map((task) => <tr key={task.id} onClick={() => onOpen(task)}>
-          <td className="task-agenda-name"><b>{task.title}</b><span>{task.task_no}{task.tags?.length ? ' · ' : ''}{task.tags?.slice(0, 2).map((tag) => <em key={tag} style={{color: colorFor(tag)}}>{tag}</em>)}</span></td>
+          <td className="task-agenda-name"><b>{task.title}</b><span className="task-agenda-meta"><span>{task.task_no}</span>{task.tags?.map((tag) => <button type="button" key={tag} className={activeLabel === tag ? 'task-agenda-tag is-active' : 'task-agenda-tag'} style={{'--tag-color': colorFor(tag)} as CSSProperties} aria-pressed={activeLabel === tag} title={`Filtrar por etiqueta ${tag}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('label', tag) }}>{tag}</button>)}</span></td>
           <td>{task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</td>
-          <td><span className="task-agenda-category">{task.category || 'Sin categoría'}</span></td>
-          <td><span className={`priority-chip p-${task.priority.toLowerCase()}`}>{task.priority}</span></td>
+          <td>{task.category ? <button type="button" className={activeCategory === task.category ? 'task-agenda-category is-active' : 'task-agenda-category'} aria-pressed={activeCategory === task.category} title={`Filtrar por categoría ${task.category}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('category', task.category!) }}>{task.category}</button> : 'Sin categoría'}</td>
+          <td><button type="button" className={`priority-chip task-agenda-priority p-${task.priority.toLowerCase()}${activePriority === task.priority ? ' is-active' : ''}`} aria-pressed={activePriority === task.priority} title={`Filtrar por prioridad ${task.priority}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('priority', task.priority) }}>{task.priority}</button></td>
           <td className={isOverdue(task) ? 'task-agenda-overdue' : ''}>{task.due_at ? shortDate(task.due_at) : 'Sin fecha'}{isOverdue(task) && <small>Vencida</small>}</td>
           <td><div className="task-agenda-actions" onClick={(event) => event.stopPropagation()}>
             <button type="button" title="Completar tarea" aria-label={`Completar ${task.title}`} onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}><CheckCircle2 size={18}/></button>
