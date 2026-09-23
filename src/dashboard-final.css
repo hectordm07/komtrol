@@ -10847,3 +10847,65 @@
     font-size:17px !important;
   }
 }
+
+
+/* KOMTROL ALERT TREATMENT NAVIGATION V28 */
+
+.alert-list .alert-row-action{
+  width:100% !important;
+  grid-template-columns:auto minmax(0,1fr) auto auto !important;
+  font:inherit !important;
+  color:inherit !important;
+  text-align:left !important;
+  appearance:none !important;
+  cursor:pointer !important;
+  transition:border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease !important;
+}
+
+.alert-list .alert-row-action:hover{
+  border-color:#b9c9ee !important;
+  background:#fbfcff !important;
+  box-shadow:0 7px 18px rgba(31,55,116,.08) !important;
+  transform:translateY(-1px) !important;
+}
+
+.alert-list .alert-row-action:focus-visible{
+  outline:3px solid rgba(67,97,210,.18) !important;
+  outline-offset:2px !important;
+}
+
+.alert-row-open{
+  min-width:68px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:3px !important;
+  color:#3154b5 !important;
+  font-size:9px !important;
+  font-weight:850 !important;
+  white-space:nowrap !important;
+}
+
+.alert-row-action:hover .alert-row-open{
+  color:#163c9b !important;
+}
+
+@media (max-width:700px){
+  .alert-list .alert-row-action{
+    grid-template-columns:auto minmax(0,1fr) auto !important;
+  }
+
+  .alert-list .alert-row-action time{
+    grid-column:2 !important;
+  }
+
+  .alert-row-open{
+    grid-column:3 !important;
+    grid-row:1 / span 2 !important;
+    min-width:28px !important;
+  }
+
+  .alert-row-open span{
+    display:none !important;
+  }
+}
