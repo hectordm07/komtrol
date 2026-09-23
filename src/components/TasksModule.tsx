@@ -1,6 +1,7 @@
 import { FormEvent, type CSSProperties, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  BarChart3,
   CalendarDays,
   Trash2,
   CheckCircle2,
@@ -337,7 +338,7 @@ export function TasksModule({
     }))
   }, [mode, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name, scopeWarehouse, scopeProject, scopeGroup, scopeShift, userId])
 
-  const filtered = useMemo(() => {
+  const scopedTasks = useMemo(() => {
     let data = [...tasks]
 
     if (scopeWarehouse) data = data.filter((t) => t.warehouse === scopeWarehouse)
@@ -396,6 +397,14 @@ export function TasksModule({
       }
     }
 
+    return data
+  }, [
+    tasks, mode, userId, previewMode, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
+    scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea,
+  ])
+
+  const filtered = useMemo(() => {
+    let data = [...scopedTasks]
     if (workView === 'LISTA') data = data.filter((t) => t.status !== 'CERRADO' && t.progress < 100)
     if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
     if (priorityFilter !== 'TODAS') data = data.filter((t) => t.priority === priorityFilter)
@@ -429,8 +438,7 @@ export function TasksModule({
     }
     return data
   }, [
-    tasks, mode, search, userId, previewMode, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
-    scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea, workView,
+    scopedTasks, search, workView,
     statusFilter, priorityFilter, categoryFilter, labelFilter, responsibleFilter,
   ])
 
@@ -1223,6 +1231,7 @@ export function TasksModule({
   return (
     <div className="work-module">
       <section className="panel compact-panel work-panel">
+        <div className="work-controls-sticky">
         <div className="work-command-bar work-command-bar-actions-only">
           <div className="work-view-switch" aria-label="Vista de trabajo">
             <button type="button" className={workView === 'LISTA' ? 'active' : ''} onClick={() => setWorkView('LISTA')}>
@@ -1269,14 +1278,6 @@ export function TasksModule({
           </div>
         )}
 
-        <div className="task-kpis">
-          <div><ClipboardList size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
-          <div><AlertTriangle size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
-          <div className={counts.overdue ? 'danger-kpi' : ''}><CalendarDays size={17} /><span><b>{counts.overdue}</b><small>Vencidas</small></span></div>
-          {workView !== 'LISTA' && <div><CheckCircle2 size={17} /><span><b>{counts.closed}</b><small>Cerradas</small></span></div>}
-          <div><Columns3 size={17} /><span><b>{counts.average}%</b><small>Avance</small></span></div>
-        </div>
-
         <div className="task-toolbar task-filter-toolbar">
           <div className="task-filter-primary">
             <div className="search task-search"><Search size={17} /><input aria-label="Buscar tareas" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarea, proyecto, grupo o etiqueta…" /></div>
@@ -1307,6 +1308,7 @@ export function TasksModule({
             </div>
           )}
         </div>
+        </div>
 
         {message && <div className="inline-message">{message}</div>}
 
@@ -1329,6 +1331,17 @@ export function TasksModule({
         ) : (
           <TaskList tasks={filtered} profiles={profiles} labels={labels} order={listOrder} activeCategory={categoryFilter} activePriority={priorityFilter} activeLabel={labelFilter} busyTaskId={busyTaskId} canDelete={(task) => task.created_by === userId || profile?.role === 'ADMINISTRADOR'} onQuickFilter={quickFilter} onUpdate={updateTask} onMoveToday={moveTaskToToday} onDelete={deleteTask} onOpen={setSelectedTask} />
         )}
+
+        {!loading && <section className="work-indicators" aria-label="Indicadores de la vista">
+          <div className="task-kpis">
+            <div><ClipboardList size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
+            <div><AlertTriangle size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
+            <div className={counts.overdue ? 'danger-kpi' : ''}><CalendarDays size={17} /><span><b>{counts.overdue}</b><small>Vencidas</small></span></div>
+            {workView !== 'LISTA' && <div><CheckCircle2 size={17} /><span><b>{counts.closed}</b><small>Cerradas</small></span></div>}
+            <div><Columns3 size={17} /><span><b>{counts.average}%</b><small>Avance</small></span></div>
+          </div>
+          <TaskAnalytics tasks={scopedTasks} profiles={profiles} viewName={workArea === 'MI_TRABAJO' ? 'mis trabajos' : workArea === 'RELEVOS' ? 'relevos' : 'tareas grupales'} />
+        </section>}
       </section>
 
       {dueReviewOpen && dueReviewTask && (
@@ -1648,6 +1661,63 @@ export function TasksModule({
       )}
     </div>
   )
+}
+
+function TaskAnalytics({ tasks, profiles, viewName }: { tasks: Task[]; profiles: Profile[]; viewName: string }) {
+  const now = Date.now()
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(todayStart)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const open = tasks.filter((task) => task.status !== 'CERRADO' && task.progress < 100)
+  const closed = tasks.length - open.length
+  const progress = tasks.length ? Math.round(closed / tasks.length * 100) : 0
+  const datedClosed = tasks.filter((task) => (task.status === 'CERRADO' || task.progress >= 100) && task.closed_at && task.due_at)
+  const withinDeadline = datedClosed.filter((task) => new Date(task.closed_at!).getTime() <= new Date(task.due_at!).getTime()).length
+  const withinPercent = datedClosed.length ? Math.round(withinDeadline / datedClosed.length * 100) : 0
+  const dueToday = open.filter((task) => task.due_at && new Date(task.due_at).getTime() >= now && new Date(task.due_at).getTime() < tomorrow.getTime()).length
+  const overdue = open.filter((task) => task.due_at && new Date(task.due_at).getTime() < now).length
+  const workload = new Map<string, number>()
+  for (const task of open) {
+    const name = task.assignment_type === 'GRUPO'
+      ? task.assigned_group || task.group_name || 'Grupo sin asignar'
+      : task.assignment_type === 'GUARDIA'
+        ? task.assigned_shift || task.shift_name || 'Guardia sin asignar'
+        : profiles.find((person) => person.user_id === (task.assigned_user_id || task.responsible_id))?.full_name || 'Sin responsable'
+    workload.set(name, (workload.get(name) || 0) + 1)
+  }
+  const ranking = [...workload].sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const alerts: string[] = []
+  if (overdue) alerts.push(`${overdue} tarea${overdue === 1 ? '' : 's'} vencida${overdue === 1 ? '' : 's'} requiere${overdue === 1 ? '' : 'n'} atención.`)
+  if (datedClosed.length >= 2 && withinPercent < 70) alerts.push(`El cumplimiento dentro del plazo está en ${withinPercent}%. Conviene revisar las causas.`)
+  if (open.length >= 2 && ranking.length && ranking[0][1] / open.length >= .75) alerts.push(`El ${Math.round(ranking[0][1] / open.length * 100)}% de la carga activa se concentra en una persona o equipo.`)
+
+  return <div className="task-analytics">
+    <div className="task-analytics-heading">
+      <div><h3><BarChart3 size={22}/> Analítica operativa</h3><p>Indicadores calculados con las tareas de {viewName}.</p></div>
+      <span>Actualización automática</span>
+    </div>
+    <div className="task-analytics-cards">
+      <div className="task-analytics-card analytics-progress">
+        <strong>AVANCE GENERAL</strong><b>{progress}% completado</b><span>{closed} de {tasks.length} tareas listas</span>
+        <div className="analytics-ring" style={{ '--analytics-progress': `${progress}%` } as CSSProperties}><span><b>{progress}%</b><small>AVANCE</small></span></div>
+      </div>
+      <div className="task-analytics-card analytics-on-time"><strong>DENTRO DEL PLAZO</strong><b>{withinPercent}%</b><span>{datedClosed.length ? `${withinDeadline} de ${datedClosed.length} tareas cerradas con fecha` : 'Sin cierres con fecha para calcular'}</span></div>
+      <div className="task-analytics-card analytics-pending"><strong>PENDIENTES</strong><b>{open.length}</b><span>tareas por completar</span></div>
+      <div className="task-analytics-card analytics-today"><strong>PARA HOY</strong><b>{dueToday}</b><span>vencen durante el día</span></div>
+      <div className="task-analytics-card analytics-overdue"><strong>ATRASADAS</strong><b>{overdue}</b><span>requieren atención</span></div>
+    </div>
+    <div className="task-analytics-details">
+      <div className="task-analytics-workload"><h4>Carga activa por responsable</h4><p>Principales responsables o equipos</p>
+        {ranking.length ? ranking.map(([name, count]) => <div className="task-analytics-person" key={name}>
+          <div><span>{name}</span><b>{count}</b></div><progress value={count} max={open.length} aria-label={`Carga de ${name}`} />
+        </div>) : <span className="task-analytics-none">No hay tareas pendientes en esta vista.</span>}
+      </div>
+      <div className="task-analytics-alerts"><h4><AlertTriangle size={19}/> Señales de atención</h4>
+        {alerts.length ? <ul>{alerts.map((alert) => <li key={alert}>{alert}</li>)}</ul> : <p>No hay señales de atención en esta vista.</p>}
+      </div>
+    </div>
+  </div>
 }
 
 function TaskList({ tasks, profiles, labels, order, activeCategory, activePriority, activeLabel, busyTaskId, canDelete, onQuickFilter, onUpdate, onMoveToday, onDelete, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; order: 'PRIORIDAD' | 'FECHA'; activeCategory: string; activePriority: string; activeLabel: string; busyTaskId: string | null; canDelete: (task: Task) => boolean; onQuickFilter: (kind: 'category' | 'priority' | 'label', value: string) => void; onUpdate: (task: Task, changes: Partial<Task>) => void; onMoveToday: (task: Task) => void; onDelete: (task: Task) => void; onOpen: (task: Task) => void }) {
