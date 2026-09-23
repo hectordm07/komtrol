@@ -75,6 +75,7 @@ type Task = {
   assigned_group: string | null
   assigned_shift: string | null
   created_by: string
+  legacy_created_by_name?: string | null
   category: string | null
   tags: string[]
   priority: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'
@@ -672,7 +673,7 @@ export function TasksModule({
       Grupo: task.group_name || '',
       'Relevo origen': task.relevo_from_shift || '',
       'Relevo destino': task.relevo_to_shift || '',
-      'Creado por': profileName(task.created_by),
+      'Creado por': task.legacy_created_by_name || profileName(task.created_by),
       'Responsable gestión': profileName(task.responsible_id),
       'Tipo asignación': task.assignment_type,
       'Asignado a': assignmentLabel(task),
