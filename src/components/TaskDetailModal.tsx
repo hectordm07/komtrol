@@ -59,6 +59,7 @@ export type TaskDetailTask = {
   assigned_group: string | null
   assigned_shift: string | null
   created_by: string
+  legacy_created_by_name?: string | null
   category: string | null
   tags: string[]
   priority: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'
@@ -81,6 +82,7 @@ type TaskComment = {
   comment: string
   created_by: string
   created_at: string
+  legacy_author_name?: string | null
 }
 
 type TaskHistory = {
@@ -93,6 +95,7 @@ type TaskHistory = {
   note: string | null
   changed_by: string
   created_at: string
+  legacy_actor_name?: string | null
 }
 
 type TaskAttachment = {
@@ -122,6 +125,7 @@ type TaskSubtask = {
   completed_by: string | null
   completed_at: string | null
   created_at: string
+  legacy_assignee_name?: string | null
 }
 
 type Props = {
@@ -275,7 +279,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
   }
 
   const subtaskAssignmentLabel = (row: TaskSubtask) => {
-    if (row.assignment_type === 'PERSONA') return profileName(row.assigned_user_id)
+    if (row.assignment_type === 'PERSONA') return row.legacy_assignee_name || profileName(row.assigned_user_id)
     if (row.assignment_type === 'GRUPO') return row.assigned_group || 'Grupo'
     return row.assigned_shift || 'Guardia'
   }
@@ -855,7 +859,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
             <div><span>Creación</span><b>{fmtDate(task.created_at)}</b></div>
             <div><span>Inicio</span><b>{fmtDate(task.start_at)}</b></div>
             <div><span>Cierre</span><b>{fmtDate(task.closed_at)}</b></div>
-            <div><span>Creado por</span><b>{profileName(task.created_by)}</b></div>
+            <div><span>Creado por</span><b>{task.legacy_created_by_name || profileName(task.created_by)}</b></div>
             <div><span>Responsable de gestión</span><b>{profileName(task.responsible_id || task.created_by)}</b></div>
             <div><span>Asignado a</span><b>{taskAssignmentLabel()}</b><small>{task.assignment_type}</small></div>
             <div><span>Fecha de término</span><b>{fmtDateOnly(task.due_at)}</b></div>
@@ -1065,7 +1069,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
                   <i />
                   <div>
                     <b>{row.action.replaceAll('_', ' ')}</b>
-                    <span>{fmtDate(row.created_at)} · {profileName(row.changed_by)}</span>
+                    <span>{fmtDate(row.created_at)} · {row.legacy_actor_name || profileName(row.changed_by)}</span>
                     {row.note && <p>{row.note}</p>}
                     {row.field_name && row.field_name !== 'comment' && (
                       <small>{row.old_value || '—'} → {row.new_value || '—'}</small>
@@ -1086,7 +1090,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
 
           <div className="task-comment-list">
             {comments.map((row) => {
-              const author = profileName(row.created_by)
+              const author = row.legacy_author_name || profileName(row.created_by)
               const linkedFiles = commentAttachments(row.id)
               return (
                 <article className="task-comment-card" key={row.id}>
