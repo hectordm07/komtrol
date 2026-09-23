@@ -88,6 +88,8 @@ type Props = {
   userId: string
   profile: Profile | null
   scopeMode: ScopeMode
+  initialIncidentId?: string | null
+  onInitialIncidentOpened?: () => void
 }
 
 type FormState = {
@@ -217,7 +219,7 @@ function labelEmailStatus(value: Incident['auto_email_status']) {
   return 'Correo pendiente'
 }
 
-export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
+export function ReceivingIncidentModule({ userId, profile, scopeMode, initialIncidentId, onInitialIncidentOpened }: Props) {
   const readOnly = profile?.role === 'SUPERVISOR'
   const [warehouses, setWarehouses] = useState<string[]>([])
   const [warehouse, setWarehouse] = useState(
@@ -436,6 +438,48 @@ export function ReceivingIncidentModule({ userId, profile, scopeMode }: Props) {
     setShowForm(true)
     setMessage('')
   }
+
+  useEffect(() => {
+    if (!initialIncidentId) return
+    let cancelled = false
+
+    async function openInitialIncident() {
+      const { data, error } = await supabase
+        .from('incidents')
+        .select('*, incident_attachments(id,attachment_type,bucket,storage_path,file_name,content_type,size_bytes,created_at)')
+        .eq('id', initialIncidentId)
+        .maybeSingle()
+
+      if (cancelled) return
+      if (error) {
+        setMessage(error.message)
+        return
+      }
+      if (!data) {
+        setMessage('No se encontró la incidencia seleccionada desde Alertas.')
+        return
+      }
+
+      const incident = data as Incident
+      if (scopeMode === 'CALLAO' && incident.operation_area !== 'INBOUND') {
+        setMessage('Esta incidencia pertenece a otra operación.')
+        return
+      }
+      if (scopeMode === 'REMOTE' && incident.operation_area === 'INBOUND') {
+        setMessage('Esta incidencia pertenece a Inbound Callao.')
+        return
+      }
+
+      if (incident.warehouse && incident.warehouse !== warehouse) {
+        setWarehouse(incident.warehouse)
+      }
+      openEdit(incident)
+      onInitialIncidentOpened?.()
+    }
+
+    openInitialIncident()
+    return () => { cancelled = true }
+  }, [initialIncidentId, scopeMode])
 
   async function lookupMaterial(rawCode?: string) {
     const code = String(rawCode ?? form.material_no ?? '').trim()
