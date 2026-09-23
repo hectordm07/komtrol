@@ -60,6 +60,8 @@ type Props = {
   mode: Mode
   userId: string
   profile: Profile | null
+  initialSearch?: string | null
+  onInitialSearchApplied?: () => void
 }
 
 const emptyLine = (): GuideLine => ({ line_no: 1, part_no: '', description: '', quantity: '', unit: 'UND' })
@@ -379,7 +381,7 @@ function fmtDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 }
 
-export function GuidesModule({ mode, userId, profile }: Props) {
+export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSearchApplied }: Props) {
   const [guides, setGuides] = useState<Guide[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
@@ -434,6 +436,12 @@ export function GuidesModule({ mode, userId, profile }: Props) {
   useEffect(() => {
     reload()
   }, [userId])
+
+  useEffect(() => {
+    if (!initialSearch) return
+    setSearch(initialSearch)
+    onInitialSearchApplied?.()
+  }, [initialSearch])
 
   useEffect(() => {
     return () => {
