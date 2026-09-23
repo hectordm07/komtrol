@@ -132,6 +132,7 @@ type Props = {
   task: TaskDetailTask
   userId: string
   profiles: TaskDetailProfile[]
+  focusCommentId?: string | null
   labelColors?: Record<string,string>
   onClose: () => void
   onTaskUpdated: (task: TaskDetailTask) => void
@@ -198,7 +199,7 @@ function safeFileName(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
-export function TaskDetailModal({ task: initialTask, userId, profiles, labelColors = {}, onClose, onTaskUpdated }: Props) {
+export function TaskDetailModal({ task: initialTask, userId, profiles, focusCommentId, labelColors = {}, onClose, onTaskUpdated }: Props) {
   const [task, setTask] = useState<TaskDetailTask>(initialTask)
   const [comments, setComments] = useState<TaskComment[]>([])
   const [history, setHistory] = useState<TaskHistory[]>([])
@@ -210,6 +211,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
   const [files, setFiles] = useState<File[]>([])
   const [mentionIds, setMentionIds] = useState<string[]>([])
   const [publishing, setPublishing] = useState(false)
+  const [entryAlertOpen, setEntryAlertOpen] = useState(true)
   const [showHistory, setShowHistory] = useState(true)
   const [showSubtasks, setShowSubtasks] = useState(false)
   const [subtaskTitle, setSubtaskTitle] = useState('')
@@ -330,6 +332,11 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
     loadDetail()
   }, [initialTask.id])
 
+  useEffect(() => {
+    if (!focusCommentId || loading || entryAlertOpen || !comments.some((item) => item.id === focusCommentId)) return
+    document.getElementById(`task-comment-${focusCommentId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [focusCommentId, loading, comments, entryAlertOpen])
+
   const mentionMatch = useMemo(() => comment.match(/@([^@\n]{0,50})$/), [comment])
   const mentionQuery = mentionMatch?.[1]?.trim().toLowerCase() ?? ''
   const mentionCandidates = useMemo(() => {
@@ -351,6 +358,14 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
     : task.closed_at
       ? (new Date(task.closed_at) <= new Date(originalDue) ? 'Cumplido' : 'Fuera de fecha')
       : (new Date() <= new Date(originalDue) ? 'En seguimiento' : 'Vencida')
+  const entryDue = task.due_at ? new Date(task.due_at).getTime() : null
+  const entryAlertText = entryDue === null
+    ? 'Esta tarea no tiene fecha de término. Revisa el plazo antes de continuar.'
+    : task.status === 'CERRADO'
+      ? 'Esta tarea está completada. Puedes revisar sus comentarios y su historial.'
+    : entryDue < Date.now()
+      ? `Esta tarea está vencida desde el ${fmtDateOnly(task.due_at)}. Revisa el pendiente y actualiza su seguimiento.`
+      : `Esta tarea vence el ${fmtDateOnly(task.due_at)}. Revisa el avance y las próximas acciones.`
 
   const commentAttachments = (commentId: string) => attachments.filter((item) => item.comment_id === commentId)
 
@@ -427,11 +442,19 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
     const notifyIds = Array.from(new Set([
       task.responsible_id,
       task.created_by,
+      task.assigned_user_id,
+      ...comments.map((item) => item.created_by),
+      ...profiles.filter((person) =>
+        person.warehouse === task.warehouse && (!task.project || person.project === task.project) &&
+        ((task.assignment_type === 'GRUPO' && person.group_name === task.assigned_group) ||
+         (task.assignment_type === 'GUARDIA' && person.shift_name === task.assigned_shift))
+      ).map((person) => person.user_id),
       ...mentionIds,
     ].filter(Boolean) as string[])).filter((id) => id !== userId)
 
+    let notificationErrorMessage = ''
     if (notifyIds.length) {
-      await supabase.from('app_notifications').insert(
+      const { error: notifyError } = await supabase.from('app_notifications').insert(
         notifyIds.map((id) => {
           const explicitlyMentioned = mentionIds.includes(id)
           return {
@@ -447,6 +470,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
           }
         })
       )
+      if (notifyError) notificationErrorMessage = `Comentario publicado, pero no se pudo avisar a los participantes: ${notifyError.message}`
     }
 
     await supabase.from('task_history').insert({
@@ -464,6 +488,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
     setMentionIds([])
     setPublishing(false)
     await loadDetail()
+    if (notificationErrorMessage) setMessage(notificationErrorMessage)
   }
 
   async function deleteComment(row: TaskComment) {
@@ -1093,7 +1118,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
               const author = row.legacy_author_name || profileName(row.created_by)
               const linkedFiles = commentAttachments(row.id)
               return (
-                <article className="task-comment-card" key={row.id}>
+                <article className="task-comment-card" id={`task-comment-${row.id}`} key={row.id}>
                   <div className="task-comment-head">
                     <div className="task-comment-avatar">{initials(author)}</div>
                     <div><b>{author}</b><span>{fmtDate(row.created_at)}</span></div>
@@ -1185,6 +1210,15 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, labelColo
           </form>
         </section>
       </section>
+      {entryAlertOpen && (
+        <div className="task-entry-pop-shade">
+          <section className="task-entry-pop" role="alertdialog" aria-modal="true" aria-label="Alerta de tarea">
+            <span className="task-entry-pop-icon"><CircleAlert size={22}/></span>
+            <div><b>Atención a esta tarea</b><p>{entryAlertText}</p><small>{task.task_no} · {task.title}</small></div>
+            <button type="button" className="primary-button" onClick={() => setEntryAlertOpen(false)}>Ver tarea</button>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

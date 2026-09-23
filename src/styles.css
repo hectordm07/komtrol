@@ -24281,3 +24281,47 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   .task-agenda-table td:nth-child(5) { grid-column: 1 / 2; }
   .task-agenda-table td:last-child { grid-column: 2 / 4; }
 }
+
+/* Lista de tareas y avisos con la misma escala tipográfica del nuevo KOMTROL. */
+.task-agenda-table, .task-agenda-table button, .task-filter-toolbar, .notification-panel { font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+.task-agenda-table th { font-size: 13px; font-weight: 800; letter-spacing: .01em; }
+.task-agenda-table td { font-size: 14px; font-weight: 500; line-height: 1.4; }
+.task-agenda-name b { font-size: 14px; font-weight: 750; line-height: 1.4; }
+.task-agenda-meta, .task-agenda-meta > span { font-size: 12px; font-weight: 500; }
+.task-agenda-table th:first-child { width: 27%; }
+.task-agenda-table th:nth-child(2) { width: 18%; }
+.task-agenda-table th:nth-child(3) { width: 14%; }
+.task-agenda-table th:nth-child(4) { width: 12%; }
+.task-agenda-table th:nth-child(5) { width: 13%; }
+.task-agenda-table th:last-child { width: 16%; }
+.task-agenda-table td:last-child { white-space: nowrap; }
+.task-agenda-category, .task-agenda-priority, .task-agenda-tag { font-family: inherit; font-size: 12px; font-weight: 700; }
+.task-agenda-actions { gap: 4px; }
+.task-agenda-actions button { min-width: 30px; min-height: 32px; display: grid; place-items: center; }
+.task-agenda-actions button:disabled { opacity: .45; cursor: wait; }
+.task-agenda-actions .delete-action { color: var(--kt-danger); }
+.task-agenda-actions .delete-action:hover { color: var(--kt-danger-strong); background: var(--kt-danger-soft); }
+.notification-panel-head b { font-size: 15px; }
+.notification-panel-head span, .notification-panel-head button { font-size: 12px; }
+.notification-item b { font-size: 14px; }
+.notification-item p { font-size: 13px; }
+.notification-item span { font-size: 12px; }
+.notification-empty { font-size: 13px; }
+.task-notification-pop { position: fixed; z-index: 240; right: 22px; top: 80px; width: min(420px, calc(100vw - 32px)); display: flex; align-items: flex-start; gap: 10px; padding: 16px; border: 1px solid var(--kt-blue-200); border-radius: 16px; background: #fff; box-shadow: var(--kt-shadow-lg); color: var(--kt-blue-800); font-family: inherit; }
+.task-notification-pop > div { min-width: 0; flex: 1; }
+.task-notification-pop b { color: var(--kt-ink); font-size: 14px; }
+.task-notification-pop p { color: var(--kt-ink-2); margin: 4px 0 10px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.task-notification-pop button { align-self: flex-end; border: 0; border-radius: 8px; padding: 8px; color: #fff; background: var(--kt-blue-800); font-size: 12px; font-weight: 700; cursor: pointer; }
+.task-notification-pop .pop-close { align-self: flex-start; padding: 2px; background: transparent; color: var(--kt-muted); }
+.task-entry-pop-shade { position: fixed; inset: 0; z-index: 210; display: grid; place-items: center; padding: 16px; background: rgba(21,30,78,.5); }
+.task-entry-pop { width: min(450px,100%); display: grid; grid-template-columns: auto minmax(0,1fr); gap: 12px; padding: 20px; border: 1px solid var(--kt-border); border-radius: 18px; background: #fff; box-shadow: var(--kt-shadow-lg); color: var(--kt-ink); font-family: inherit; }
+.task-entry-pop-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--kt-danger); background: var(--kt-danger-soft); }
+.task-entry-pop b { font-size: 17px; }
+.task-entry-pop p { margin: 6px 0; font-size: 14px; line-height: 1.5; }
+.task-entry-pop small { color: var(--kt-muted); font-size: 12px; overflow-wrap: anywhere; }
+.task-entry-pop button { grid-column: 1 / -1; justify-self: end; }
+@media (max-width: 650px) {
+  .task-agenda-table td:last-child { white-space: normal; }
+  .task-agenda-actions { flex-wrap: wrap; }
+  .task-notification-pop { top: 68px; right: 12px; }
+}

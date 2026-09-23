@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -383,6 +383,10 @@ function Workspace({ session }: { session: Session }) {
   const [appNotifications, setAppNotifications] = useState<AppNotification[]>([])
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [taskToOpen, setTaskToOpen] = useState<string | null>(null)
+  const [commentToOpen, setCommentToOpen] = useState<string | null>(null)
+  const [popNotification, setPopNotification] = useState<AppNotification | null>(null)
+  const knownNotificationIds = useRef(new Set<string>())
+  const notificationsLoaded = useRef(false)
   const [alertIncidentToOpen, setAlertIncidentToOpen] = useState<string | null>(null)
   const [alertGuideSearch, setAlertGuideSearch] = useState<string | null>(null)
   const [alertOperationSearch, setAlertOperationSearch] = useState<string | null>(null)
@@ -534,7 +538,10 @@ function Workspace({ session }: { session: Session }) {
     setWarehouseCatalog((warehouseRes.data ?? []) as WarehouseMeta[])
     setIncidents((incidentsRes.data ?? []) as Incident[])
     setNotifications((notificationsRes.data ?? []) as Notification[])
-    setAppNotifications((appNotificationRes.data ?? []) as AppNotification[])
+    const currentNotifications = (appNotificationRes.data ?? []) as AppNotification[]
+    setAppNotifications(currentNotifications)
+    currentNotifications.forEach((item) => knownNotificationIds.current.add(item.id))
+    notificationsLoaded.current = true
     setLoading(false)
   }
 
@@ -591,7 +598,16 @@ function Workspace({ session }: { session: Session }) {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100)
-      if (data) setAppNotifications(data as AppNotification[])
+      if (data) {
+        const current = data as AppNotification[]
+        if (notificationsLoaded.current) {
+          const newest = current.find((item) => !knownNotificationIds.current.has(item.id) && !item.read_at)
+          if (newest) setPopNotification(newest)
+        }
+        current.forEach((item) => knownNotificationIds.current.add(item.id))
+        notificationsLoaded.current = true
+        setAppNotifications(current)
+      }
     }, 30_000)
     return () => window.clearInterval(timer)
   }, [user.id])
@@ -609,8 +625,9 @@ function Workspace({ session }: { session: Session }) {
         },
         (payload) => {
           const item = payload.new as AppNotification
+          if (!knownNotificationIds.current.has(item.id)) setPopNotification(item)
+          knownNotificationIds.current.add(item.id)
           setAppNotifications((current) => [item, ...current.filter((row) => row.id !== item.id)].slice(0, 100))
-          setToast(item.message ? `${item.title}: ${item.message}` : item.title)
 
           if ('Notification' in window && window.Notification.permission === 'granted') {
             const browserNotification = new window.Notification(item.title, {
@@ -658,10 +675,17 @@ function Workspace({ session }: { session: Session }) {
     }
 
     setNotificationOpen(false)
+    setPopNotification(null)
 
     if (item.task_id) {
+      const { data: task, error } = await supabase.from('tasks').select('id,work_type').eq('id', item.task_id).maybeSingle()
+      if (error || !task) {
+        setToast('La tarea de esta notificación ya no está disponible.')
+        return
+      }
       setTaskToOpen(item.task_id)
-      setTab('mi-trabajo')
+      setCommentToOpen(typeof item.metadata?.comment_id === 'string' ? item.metadata.comment_id : null)
+      setTab(task.work_type === 'RELEVO' ? 'relevos' : task.work_type === 'PERSONAL' ? 'mi-trabajo' : 'tareas')
       setOpenSections((current) => current.includes('ÁREA DE TRABAJO') ? current : [...current, 'ÁREA DE TRABAJO'])
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -1365,7 +1389,9 @@ function Workspace({ session }: { session: Session }) {
                   scopeWarehouse={isAccessPreview ? previewAccess?.warehouse : undefined}
                   scopeProject={isAccessPreview ? previewAccess?.project : undefined}
                   initialTaskId={taskToOpen}
+                  initialCommentId={commentToOpen}
                   onInitialTaskOpened={() => setTaskToOpen(null)}
+                  onTaskClosed={() => setCommentToOpen(null)}
                 />
               )}
 
@@ -1584,6 +1610,14 @@ function Workspace({ session }: { session: Session }) {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+      {popNotification && !isAccessPreview && (
+        <div className="task-notification-pop" role="alert">
+          <Bell size={19}/>
+          <div><b>{popNotification.title}</b><p>{popNotification.message}</p></div>
+          <button type="button" onClick={() => { void openAppNotification(popNotification) }}>{popNotification.task_id ? 'Abrir tarea' : 'Ver aviso'}</button>
+          <button type="button" className="pop-close" onClick={() => setPopNotification(null)} aria-label="Cerrar aviso"><X size={16}/></button>
+        </div>
+      )}
     </div>
   )
 }

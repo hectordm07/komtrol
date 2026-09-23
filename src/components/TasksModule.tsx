@@ -2,6 +2,7 @@ import { FormEvent, type CSSProperties, useEffect, useMemo, useState } from 'rea
 import {
   AlertTriangle,
   CalendarDays,
+  Trash2,
   CheckCircle2,
   FileSpreadsheet,
   FileText,
@@ -124,7 +125,9 @@ type Props = {
   scopeShift?: string
   previewMode?: boolean
   initialTaskId?: string | null
+  initialCommentId?: string | null
   onInitialTaskOpened?: () => void
+  onTaskClosed?: () => void
 }
 
 const emptyForm = {
@@ -205,7 +208,9 @@ export function TasksModule({
   scopeShift,
   previewMode = false,
   initialTaskId,
+  initialCommentId,
   onInitialTaskOpened,
+  onTaskClosed,
 }: Props) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [incidents, setIncidents] = useState<CalendarIncident[]>([])
@@ -237,6 +242,7 @@ export function TasksModule({
   const [newLabelColor, setNewLabelColor] = useState('#5570D8')
   const [labelScope, setLabelScope] = useState<'PROYECTO' | 'PERSONAL'>('PROYECTO')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [busyTaskId, setBusyTaskId] = useState<string | null>(null)
   const [selectedIncident, setSelectedIncident] = useState<CalendarIncident | null>(null)
   const [dueReviewOpen, setDueReviewOpen] = useState(false)
   const [dueReviewTaskId, setDueReviewTaskId] = useState('')
@@ -279,13 +285,25 @@ export function TasksModule({
   }, [userId])
 
   useEffect(() => {
-    if (!initialTaskId || !tasks.length) return
-    const target = tasks.find((task) => task.id === initialTaskId)
-    if (!target) return
-    if (previewMode || (scopeWarehouse && target.warehouse !== scopeWarehouse) || (scopeProject && target.project !== scopeProject)) return
-    setSelectedTask(target)
-    onInitialTaskOpened?.()
-  }, [initialTaskId, tasks, previewMode, scopeWarehouse, scopeProject])
+    if (!initialTaskId || loading || previewMode) return
+    let cancelled = false
+    async function openRequestedTask() {
+      let target = tasks.find((task) => task.id === initialTaskId)
+      if (!target) {
+        const { data, error } = await supabase.from('tasks').select('*').eq('id', initialTaskId).maybeSingle()
+        if (error || !data) {
+          if (!cancelled) { setMessage('La tarea de la notificación no está disponible.'); onInitialTaskOpened?.() }
+          return
+        }
+        target = data as Task
+      }
+      if (cancelled || (scopeWarehouse && target.warehouse !== scopeWarehouse) || (scopeProject && target.project !== scopeProject)) return
+      setSelectedTask(target)
+      onInitialTaskOpened?.()
+    }
+    void openRequestedTask()
+    return () => { cancelled = true }
+  }, [initialTaskId, loading, tasks, previewMode, scopeWarehouse, scopeProject])
 
   useEffect(() => {
     if (mode === 'relevos') setWorkArea('RELEVOS')
@@ -1098,6 +1116,7 @@ export function TasksModule({
   }
 
   async function updateTask(task: Task, changes: Partial<Task>) {
+    setBusyTaskId(task.id)
     const next: Record<string, unknown> = { ...changes, updated_at: new Date().toISOString() }
 
     if (changes.status === 'CERRADO') {
@@ -1107,15 +1126,23 @@ export function TasksModule({
       next.closed_at = null
     }
 
+    if (changes.due_at !== undefined && changes.due_at !== task.due_at) {
+      if (task.due_at && !task.original_due_at) next.original_due_at = task.due_at
+      if (task.due_at && new Date(changes.due_at || 0).getTime() > new Date(task.due_at).getTime()) {
+        next.extensions_count = Number(task.extensions_count || 0) + 1
+      }
+    }
+
     const { error } = await supabase.from('tasks').update(next).eq('id', task.id)
     if (error) {
       setMessage(error.message)
+      setBusyTaskId(null)
       return
     }
 
-    const field = changes.status !== undefined ? 'status' : changes.progress !== undefined ? 'progress' : 'update'
-    const oldValue = field === 'status' ? task.status : field === 'progress' ? String(task.progress) : ''
-    const newValue = field === 'status' ? String(changes.status) : field === 'progress' ? String(changes.progress) : ''
+    const field = changes.status !== undefined ? 'status' : changes.due_at !== undefined ? 'due_at' : changes.progress !== undefined ? 'progress' : 'update'
+    const oldValue = field === 'status' ? task.status : field === 'due_at' ? task.due_at : field === 'progress' ? String(task.progress) : ''
+    const newValue = field === 'status' ? String(changes.status) : field === 'due_at' ? changes.due_at : field === 'progress' ? String(changes.progress) : ''
 
     await supabase.from('task_history').insert({
       task_id: task.id,
@@ -1123,10 +1150,44 @@ export function TasksModule({
       field_name: field,
       old_value: oldValue,
       new_value: newValue,
+      note: field === 'due_at' ? 'Movida a Para hacer hoy desde la lista de tareas.' : null,
       changed_by: userId,
     })
 
     setTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, ...next } as Task : item))
+    setBusyTaskId(null)
+  }
+
+  async function moveTaskToToday(task: Task) {
+    const today = new Date()
+    today.setHours(23, 59, 0, 0)
+    await updateTask(task, { due_at: today.toISOString() })
+  }
+
+  async function deleteTask(task: Task) {
+    if (task.created_by !== userId && profile?.role !== 'ADMINISTRADOR') return
+    if (!window.confirm(`¿Eliminar definitivamente «${task.title}»? Se eliminarán también sus comentarios, subtareas, adjuntos e historial. Esta acción no se puede deshacer.`)) return
+    setBusyTaskId(task.id)
+    const { data: attachments, error: attachmentError } = await supabase.from('task_attachments').select('storage_path').eq('task_id', task.id)
+    if (attachmentError) {
+      setMessage(attachmentError.message)
+      setBusyTaskId(null)
+      return
+    }
+    const { data, error } = await supabase.from('tasks').delete().eq('id', task.id).select('id').maybeSingle()
+    if (error || !data) {
+      setMessage(error?.message || 'No tienes permiso para eliminar esta tarea.')
+      setBusyTaskId(null)
+      return
+    }
+    setTasks((current) => current.filter((item) => item.id !== task.id))
+    if (selectedTask?.id === task.id) setSelectedTask(null)
+    const paths = (attachments || []).map((item) => item.storage_path).filter(Boolean)
+    if (paths.length) {
+      const { error: storageError } = await supabase.storage.from('task-attachments').remove(paths)
+      if (storageError) setMessage(`Tarea eliminada. No se pudieron retirar algunos archivos: ${storageError.message}`)
+    }
+    setBusyTaskId(null)
   }
 
   function openForm() {
@@ -1266,7 +1327,7 @@ export function TasksModule({
             onOpenIncident={setSelectedIncident}
           />
         ) : (
-          <TaskList tasks={filtered} profiles={profiles} labels={labels} order={listOrder} activeCategory={categoryFilter} activePriority={priorityFilter} activeLabel={labelFilter} onQuickFilter={quickFilter} onUpdate={updateTask} onOpen={setSelectedTask} />
+          <TaskList tasks={filtered} profiles={profiles} labels={labels} order={listOrder} activeCategory={categoryFilter} activePriority={priorityFilter} activeLabel={labelFilter} busyTaskId={busyTaskId} canDelete={(task) => task.created_by === userId || profile?.role === 'ADMINISTRADOR'} onQuickFilter={quickFilter} onUpdate={updateTask} onMoveToday={moveTaskToToday} onDelete={deleteTask} onOpen={setSelectedTask} />
         )}
       </section>
 
@@ -1349,11 +1410,13 @@ export function TasksModule({
 
       {selectedTask && (
         <TaskDetailModal
+          key={selectedTask.id}
           task={selectedTask}
           userId={userId}
           profiles={profiles}
+          focusCommentId={initialCommentId}
           labelColors={Object.fromEntries(labels.map((label)=>[label.name,label.color]))}
-          onClose={() => setSelectedTask(null)}
+          onClose={() => { setSelectedTask(null); onTaskClosed?.() }}
           onTaskUpdated={(updated) => {
             const next = updated as Task
             setSelectedTask(next)
@@ -1587,7 +1650,7 @@ export function TasksModule({
   )
 }
 
-function TaskList({ tasks, profiles, labels, order, activeCategory, activePriority, activeLabel, onQuickFilter, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; order: 'PRIORIDAD' | 'FECHA'; activeCategory: string; activePriority: string; activeLabel: string; onQuickFilter: (kind: 'category' | 'priority' | 'label', value: string) => void; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
+function TaskList({ tasks, profiles, labels, order, activeCategory, activePriority, activeLabel, busyTaskId, canDelete, onQuickFilter, onUpdate, onMoveToday, onDelete, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; order: 'PRIORIDAD' | 'FECHA'; activeCategory: string; activePriority: string; activeLabel: string; busyTaskId: string | null; canDelete: (task: Task) => boolean; onQuickFilter: (kind: 'category' | 'priority' | 'label', value: string) => void; onUpdate: (task: Task, changes: Partial<Task>) => void; onMoveToday: (task: Task) => void; onDelete: (task: Task) => void; onOpen: (task: Task) => void }) {
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
   const colorFor = (tag: string) => labels.find((label)=>label.name===tag)?.color || '#5570D8'
   const today = new Date()
@@ -1627,8 +1690,10 @@ function TaskList({ tasks, profiles, labels, order, activeCategory, activePriori
           <td><button type="button" className={`priority-chip task-agenda-priority p-${task.priority.toLowerCase()}${activePriority === task.priority ? ' is-active' : ''}`} aria-pressed={activePriority === task.priority} title={`Filtrar por prioridad ${task.priority}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('priority', task.priority) }}>{task.priority}</button></td>
           <td className={isOverdue(task) ? 'task-agenda-overdue' : ''}>{task.due_at ? shortDate(task.due_at) : 'Sin fecha'}{isOverdue(task) && <small>Vencida</small>}</td>
           <td><div className="task-agenda-actions" onClick={(event) => event.stopPropagation()}>
-            <button type="button" title="Completar tarea" aria-label={`Completar ${task.title}`} onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}><CheckCircle2 size={18}/></button>
-            <button type="button" title="Ver tarea" aria-label={`Ver ${task.title}`} onClick={() => onOpen(task)}><ChevronRight size={18}/></button>
+            <button type="button" disabled={busyTaskId === task.id} title="Completar tarea" aria-label={`Completar ${task.title}`} onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}><CheckCircle2 size={17}/></button>
+            {section.title !== 'Para hacer hoy' && <button type="button" disabled={busyTaskId === task.id} title="Pasar tarea para hoy" aria-label={`Pasar ${task.title} para hoy`} onClick={() => onMoveToday(task)}><CalendarDays size={17}/></button>}
+            {canDelete(task) && <button type="button" className="delete-action" disabled={busyTaskId === task.id} title="Eliminar tarea" aria-label={`Eliminar ${task.title}`} onClick={() => onDelete(task)}><Trash2 size={17}/></button>}
+            <button type="button" title="Abrir tarea" aria-label={`Abrir ${task.title}`} onClick={() => onOpen(task)}><ChevronRight size={17}/></button>
           </div></td>
         </tr>)}</tbody>
       </table></div> : <div className="task-agenda-empty">Sin tareas en esta sección</div>}
