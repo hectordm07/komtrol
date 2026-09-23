@@ -24166,3 +24166,53 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   align-items: flex-start !important;
   justify-content: center !important;
 }
+/* Agenda operativa: una fila por tarea, agrupada por fecha límite. */
+.task-list-order { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 14px; color: #365478; }
+.task-list-order select { min-height: 40px; border: 1px solid #cfdbef; border-radius: 9px; padding: 0 9px; background: #fff; color: #17375d; font: inherit; }
+.task-filter-toolbar:has(.task-list-order) { grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(135px, .7fr)) auto auto; }
+.task-agenda { display: grid; gap: 15px; margin-top: 14px; }
+.task-agenda-section { border: 1px solid #d6e1f4; border-radius: 20px; overflow: hidden; background: #fff; }
+.task-agenda-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; background: #fbfdff; }
+.task-agenda-heading h3 { margin: 0 0 3px; font-size: 17px; color: #102950; }
+.task-agenda-heading p { margin: 0; font-size: 14px; color: #536b8e; }
+.task-agenda-heading > span { display: grid; place-items: center; min-width: 35px; height: 35px; padding: 0 9px; border: 1px solid #e3e9f3; border-radius: 999px; background: #fff; font-size: 14px; font-weight: 700; color: #31527f; }
+.task-agenda-table-wrap { overflow-x: auto; }
+.task-agenda-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.task-agenda-table th { padding: 11px 14px; text-align: left; text-transform: uppercase; font-size: 12px; letter-spacing: .025em; color: #46618e; background: #f2f6ff; }
+.task-agenda-table th:first-child { width: 32%; }
+.task-agenda-table th:nth-child(2) { width: 20%; }
+.task-agenda-table th:nth-child(3) { width: 14%; }
+.task-agenda-table th:nth-child(4) { width: 12%; }
+.task-agenda-table th:nth-child(5) { width: 13%; }
+.task-agenda-table th:last-child { width: 9%; text-align: right; }
+.task-agenda-table td { padding: 11px 14px; border-top: 1px solid #e5ecf8; font-size: 14px; line-height: 1.35; color: #233b61; overflow-wrap: anywhere; }
+.task-agenda-table tbody tr { cursor: pointer; }
+.task-agenda-table tbody tr:hover { background: #f8fbff; }
+.task-agenda-name b { display: block; font-size: 15px; color: #11294e; }
+.task-agenda-name > span { display: block; margin-top: 3px; color: #687da0; font-size: 12px; }
+.task-agenda-name em { font-style: normal; margin-right: 7px; }
+.task-agenda-category { display: inline-block; max-width: 100%; padding: 4px 8px; border-radius: 999px; background: #eef4ff; color: #214f86; font-size: 13px; }
+.task-agenda-overdue { color: #c31935 !important; font-weight: 700; }
+.task-agenda-overdue small { display: block; font-size: 12px; }
+.task-agenda-actions { display: flex; justify-content: flex-end; gap: 5px; }
+.task-agenda-actions button { border: 0; background: transparent; color: #245bb5; padding: 6px; border-radius: 8px; cursor: pointer; }
+.task-agenda-actions button:hover, .task-agenda-actions button:focus-visible { background: #eaf2ff; }
+.task-agenda-empty { margin: 12px 15px 15px; padding: 26px; text-align: center; border: 1px dashed #d6e1f4; border-radius: 15px; color: #597096; font-size: 14px; }
+@media (max-width: 1100px) {
+  .task-filter-toolbar:has(.task-list-order) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .task-filter-toolbar:has(.task-list-order) .task-search { grid-column: 1 / -1; }
+  .task-agenda-table { min-width: 800px; }
+}
+@media (max-width: 650px) {
+  .task-filter-toolbar:has(.task-list-order) { grid-template-columns: minmax(0, 1fr); }
+  .task-filter-toolbar:has(.task-list-order) .task-search { grid-column: auto; }
+  .task-list-order { justify-content: space-between; }
+  .task-agenda-heading { padding: 14px; }
+  .task-agenda-table { min-width: 0; table-layout: auto; }
+  .task-agenda-table thead, .task-agenda-table th:nth-child(n+2), .task-agenda-table td:nth-child(n+2):nth-child(-n+4) { display: none; }
+  .task-agenda-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; }
+  .task-agenda-table td { border: 0; padding: 12px 8px; }
+  .task-agenda-table td:first-child { padding-left: 14px; }
+  .task-agenda-table td:last-child { padding-right: 10px; }
+  .task-agenda-overdue small { display: none; }
+}

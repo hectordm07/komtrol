@@ -1189,7 +1189,7 @@ function Workspace({ session }: { session: Session }) {
               {screenProfileLabel(viewport.profile)} · {viewport.width}×{viewport.height}
             </span>
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={19} /></button>
-            <div className="notification-center">
+            {!isAccessPreview && <div className="notification-center">
               <button
                 className={unreadAppNotifications ? 'icon-button notification-bell has-unread' : 'icon-button notification-bell'}
                 title="Notificaciones"
@@ -1226,7 +1226,7 @@ function Workspace({ session }: { session: Session }) {
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
           </div>
         </header>
 
@@ -1256,8 +1256,10 @@ function Workspace({ session }: { session: Session }) {
             <>
               {tab === 'inicio' && (
                 <UniversalDashboardModule
+                  key={accessView}
                   userId={user.id}
                   profile={effectiveProfile!}
+                  previewMode={isAccessPreview}
                   onNavigate={(targetTab) => {
                     const target = flatNav.find((item) => item.id === targetTab)
                     if (!target) {
@@ -1355,9 +1357,13 @@ function Workspace({ session }: { session: Session }) {
 
               {isTaskTab && (
                 <TasksModule
+                  key={`${accessView}-${tab}`}
                   mode={tab as typeof taskTabs[number]}
                   userId={user.id}
                   profile={effectiveProfile!}
+                  previewMode={isAccessPreview}
+                  scopeWarehouse={isAccessPreview ? previewAccess?.warehouse : undefined}
+                  scopeProject={isAccessPreview ? previewAccess?.project : undefined}
                   initialTaskId={taskToOpen}
                   onInitialTaskOpened={() => setTaskToOpen(null)}
                 />
@@ -1365,9 +1371,11 @@ function Workspace({ session }: { session: Session }) {
 
               {isExpirationTab && (
                 <ExpirationsModule
+                  key={`${accessView}-${expirationType}`}
                   type={expirationType}
                   userId={user.id}
                   profile={effectiveProfile!}
+                  previewMode={isAccessPreview}
                 />
               )}
 
@@ -1436,7 +1444,7 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {tab === 'alertas' && (
-                <AlertsModule onOpenAlert={openAlertTreatment} />
+                <AlertsModule key={accessView} onOpenAlert={openAlertTreatment} previewWarehouse={isAccessPreview ? previewAccess?.warehouse : undefined} previewProject={isAccessPreview ? previewAccess?.project : undefined} />
               )}
 
               {tab === 'usuarios' && role === 'ADMINISTRADOR' && (

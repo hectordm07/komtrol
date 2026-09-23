@@ -100,6 +100,7 @@ type Props = {
   type: ExpirationType
   userId: string
   profile: Profile | null
+  previewMode?: boolean
 }
 
 const labels: Record<ExpirationType,{title:string;subtitle:string;icon:typeof CalendarClock}> = {
@@ -152,13 +153,13 @@ function profileOption(profile:Profile):SearchableOption {
   }
 }
 
-export function ExpirationsModule({type,userId,profile}:Props) {
+export function ExpirationsModule({type,userId,profile,previewMode=false}:Props) {
   const [rows,setRows]=useState<Expiration[]>([])
   const [profiles,setProfiles]=useState<Profile[]>([])
   const [loading,setLoading]=useState(true)
   const [search,setSearch]=useState('')
   const [scopeMode,setScopeMode]=useState<'PERSONAL'|'TEAM'|'NATIONAL'>(
-    profile?.role==='ADMINISTRADOR'
+    previewMode ? 'TEAM' : profile?.role==='ADMINISTRADOR'
       ? 'NATIONAL'
       : profile?.role==='COORDINADOR'||profile?.role==='SUPERVISOR'
         ? 'TEAM'
@@ -199,7 +200,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
   const Icon=config.icon
   const isAdmin=profile?.role==='ADMINISTRADOR'
   const isCoordinator=profile?.role==='COORDINADOR'||profile?.role==='SUPERVISOR'
-  const canUseWorkerView=!isAdmin||Boolean(profile?.worker_access)
+  const canUseWorkerView=!previewMode&&(!isAdmin||Boolean(profile?.worker_access))
   const canRegisterOthers=isAdmin&&scopeMode==='NATIONAL'
 
   async function reload() {
@@ -236,6 +237,10 @@ export function ExpirationsModule({type,userId,profile}:Props) {
   useEffect(()=>{reload()},[type,userId])
 
   useEffect(()=>{
+    if(previewMode){
+      if(scopeMode!=='TEAM') setScopeMode('TEAM')
+      return
+    }
     if(profile?.role==='ADMINISTRADOR'){
       if(scopeMode!=='PERSONAL'&&scopeMode!=='NATIONAL') setScopeMode('NATIONAL')
       return
@@ -245,9 +250,10 @@ export function ExpirationsModule({type,userId,profile}:Props) {
       return
     }
     if(scopeMode!=='PERSONAL') setScopeMode('PERSONAL')
-  },[profile?.role])
+  },[profile?.role,previewMode,scopeMode])
 
   const scopedProfiles=useMemo(()=>{
+    if(previewMode) return profiles.filter((p)=>p.user_id!==userId && p.project===profile?.project && p.warehouse===profile?.warehouse)
     if(isAdmin) return profiles
     if(isCoordinator){
       return profiles.filter((p)=>
@@ -255,7 +261,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
       )
     }
     return profiles.filter((p)=>p.user_id===userId)
-  },[profiles,isAdmin,isCoordinator,profile?.project,userId])
+  },[profiles,isAdmin,isCoordinator,previewMode,profile?.project,profile?.warehouse,userId])
 
   const projectOptions=useMemo(()=>Array.from(new Set(
     profiles.map((p)=>p.project).filter((value): value is string=>Boolean(value))
@@ -284,11 +290,16 @@ export function ExpirationsModule({type,userId,profile}:Props) {
   const visible=useMemo(()=>{
     let data=[...rows]
 
+    if(previewMode) data=data.filter((row)=>
+      row.user_id!==userId && row.project===profile?.project && row.warehouse===profile?.warehouse
+    )
+
     if(scopeMode==='PERSONAL'){
       data=data.filter((row)=>row.user_id===userId)
     }else if(scopeMode==='TEAM'){
       data=data.filter((row)=>
-        String(row.project||'').trim().toUpperCase()===String(profile?.project||'').trim().toUpperCase()
+        String(row.project||'').trim().toUpperCase()===String(profile?.project||'').trim().toUpperCase() &&
+        (!previewMode || row.warehouse===profile?.warehouse)
       )
     }
 
@@ -314,7 +325,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
     }
 
     return data
-  },[rows,profiles,search,scopeMode,userId,profile?.project,projectFilter,shiftFilter,personFilter])
+  },[rows,profiles,search,scopeMode,userId,previewMode,profile?.project,profile?.warehouse,projectFilter,shiftFilter,personFilter])
 
   const groupedVisible=useMemo(()=>{
     if(scopeMode==='PERSONAL') return [] as {project:string;warehouse:string;shifts:{shift:string;rows:Expiration[]}[]}[]
@@ -611,7 +622,7 @@ export function ExpirationsModule({type,userId,profile}:Props) {
             <button className="secondary-button" disabled={!visible.length} onClick={exportExpirationPdf}><FileText size={16}/> PDF</button>
             <button className="secondary-button" disabled={!visible.length} onClick={exportExpirationExcel}><FileSpreadsheet size={16}/> Excel</button>
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={17}/></button>
-            <button className="primary-button" onClick={openNew}><Plus size={16}/> Registrar</button>
+            {!previewMode && <button className="primary-button" onClick={openNew}><Plus size={16}/> Registrar</button>}
           </div>
         </div>
 
@@ -703,9 +714,9 @@ export function ExpirationsModule({type,userId,profile}:Props) {
                 Mi información
               </button>
             )}
-            {isCoordinator&&(
+            {(isCoordinator||previewMode)&&(
               <button type="button" className={scopeMode==='TEAM'?'active':''} onClick={()=>setScopeMode('TEAM')}>
-                Equipo del proyecto
+                {previewMode?'Registros de esta vista':'Equipo del proyecto'}
               </button>
             )}
             {isAdmin&&(

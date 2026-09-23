@@ -67,6 +67,8 @@ type Expiration={
   title:string
   due_date:string
   status:'ACTIVO'|'RENOVADO'|'VENCIDO'|'ANULADO'
+  warehouse:string|null
+  project:string|null
 }
 
 type Notification={
@@ -107,6 +109,7 @@ type KardexMovement={
 type Props={
   userId:string
   profile:Profile
+  previewMode?:boolean
   onNavigate:(tab:string)=>void
 }
 
@@ -151,7 +154,7 @@ function expiryLabel(type:Expiration['expiration_type']){
   return type==='CURSO'?'Curso':type==='LICENCIA_INTERNA'?'Licencia interna':'EMOA'
 }
 
-export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
+export function UniversalDashboardModule({userId,profile,previewMode=false,onNavigate}:Props){
   const [tasks,setTasks]=useState<Task[]>([])
   const [expirations,setExpirations]=useState<Expiration[]>([])
   const [notifications,setNotifications]=useState<Notification[]>([])
@@ -169,10 +172,11 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
         .select('id,task_no,work_type,title,warehouse,project,group_name,shift_name,relevo_from_shift,relevo_to_shift,responsible_id,assignment_type,assigned_user_id,assigned_group,assigned_shift,created_by,status,progress,priority,due_at,closed_at,created_at')
         .order('created_at',{ascending:false})
         .limit(3000),
-      supabase
-        .from('compliance_expirations')
-        .select('id,user_id,expiration_type,title,due_date,status')
-        .eq('user_id',userId)
+      (previewMode
+        ? supabase.from('compliance_expirations').select('id,user_id,expiration_type,title,due_date,status,warehouse,project')
+          .eq('warehouse',profile.warehouse || '').eq('project',profile.project || '').neq('user_id',userId)
+        : supabase.from('compliance_expirations').select('id,user_id,expiration_type,title,due_date,status,warehouse,project')
+          .eq('user_id',userId))
         .order('due_date',{ascending:true})
         .limit(500),
       supabase
@@ -197,29 +201,30 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
     if(error) setMessage(error.message)
     setTasks((taskRes.data??[]) as Task[])
     setExpirations((expiryRes.data??[]) as Expiration[])
-    setNotifications((notificationRes.data??[]) as Notification[])
+    setNotifications(previewMode ? [] : (notificationRes.data??[]) as Notification[])
     setIncidents((incidentRes.data??[]) as Incident[])
     setKardexMovements((kardexRes.data??[]) as KardexMovement[])
     setLoading(false)
   }
 
-  useEffect(()=>{reload()},[userId])
+  useEffect(()=>{reload()},[userId,previewMode,profile.warehouse,profile.project])
 
   const personalTasks=useMemo(()=>tasks.filter((task)=>
+    !previewMode &&
     task.work_type==='PERSONAL' &&
     (
       task.assigned_user_id===userId ||
       task.responsible_id===userId ||
       task.created_by===userId
     )
-  ),[tasks,userId])
+  ),[tasks,userId,previewMode])
 
   const groupTasks=useMemo(()=>tasks.filter((task)=>{
     if(task.work_type==='PERSONAL') return false
 
     // Una tarea asignada directamente a una persona debe aparecer aunque
     // provenga de otro almacén/proyecto: la asignación explícita tiene prioridad.
-    if(task.assignment_type==='PERSONA' && task.assigned_user_id===userId) return true
+    if(!previewMode && task.assignment_type==='PERSONA' && task.assigned_user_id===userId) return true
 
     const normalizedWarehouse=String(profile.warehouse||'').trim().toUpperCase()
     const normalizedProject=String(profile.project||'').trim().toUpperCase()
@@ -254,7 +259,7 @@ export function UniversalDashboardModule({userId,profile,onNavigate}:Props){
     }
 
     return true
-  }),[tasks,userId,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
+  }),[tasks,userId,previewMode,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
 
   const openPersonal=personalTasks.filter(isOpen)
   const overduePersonal=personalTasks.filter(isOverdue)

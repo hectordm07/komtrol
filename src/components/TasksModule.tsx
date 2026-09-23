@@ -122,6 +122,7 @@ type Props = {
   scopeProject?: string
   scopeGroup?: string
   scopeShift?: string
+  previewMode?: boolean
   initialTaskId?: string | null
   onInitialTaskOpened?: () => void
 }
@@ -202,6 +203,7 @@ export function TasksModule({
   scopeProject,
   scopeGroup,
   scopeShift,
+  previewMode = false,
   initialTaskId,
   onInitialTaskOpened,
 }: Props) {
@@ -218,6 +220,7 @@ export function TasksModule({
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'TODOS' | Task['status']>('TODOS')
   const [priorityFilter, setPriorityFilter] = useState<'TODAS' | Task['priority']>('TODAS')
+  const [listOrder, setListOrder] = useState<'PRIORIDAD' | 'FECHA'>('PRIORIDAD')
   const [categoryFilter, setCategoryFilter] = useState('TODAS')
   const [responsibleFilter, setResponsibleFilter] = useState('TODOS')
   const [workArea, setWorkArea] = useState<'MI_TRABAJO' | 'TAREAS' | 'RELEVOS'>(
@@ -278,9 +281,10 @@ export function TasksModule({
     if (!initialTaskId || !tasks.length) return
     const target = tasks.find((task) => task.id === initialTaskId)
     if (!target) return
+    if (previewMode || (scopeWarehouse && target.warehouse !== scopeWarehouse) || (scopeProject && target.project !== scopeProject)) return
     setSelectedTask(target)
     onInitialTaskOpened?.()
-  }, [initialTaskId, tasks])
+  }, [initialTaskId, tasks, previewMode, scopeWarehouse, scopeProject])
 
   useEffect(() => {
     if (mode === 'relevos') setWorkArea('RELEVOS')
@@ -291,6 +295,10 @@ export function TasksModule({
     else if (mode === 'calendario') setWorkView('CALENDARIO')
     else if (mode !== 'area-personal') setWorkView('LISTA')
   }, [mode])
+
+  useEffect(() => {
+    if (workView === 'LISTA' && statusFilter === 'CERRADO') setStatusFilter('TODOS')
+  }, [workView, statusFilter])
 
   useEffect(() => {
     setForm((prev) => ({
@@ -318,6 +326,9 @@ export function TasksModule({
     if (scopeGroup) data = data.filter((t) => t.group_name === scopeGroup)
     if (scopeShift) data = data.filter((t) => t.shift_name === scopeShift)
 
+    // A system-view preview represents an operational area, never the administrator's personal records.
+    if (previewMode) data = data.filter((t) => t.work_type !== 'PERSONAL')
+
     if (mode === 'area-personal' || workArea === 'MI_TRABAJO') {
       // Mi trabajo = exclusivamente tareas personales del usuario.
       data = data.filter((t) =>
@@ -331,7 +342,7 @@ export function TasksModule({
       if (profile?.role === 'TRABAJADOR') {
         data = data.filter((t) => {
           // Una asignación directa prevalece sobre almacén/proyecto/grupo.
-          if (t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
+          if (!previewMode && t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
           if (profile.warehouse && t.warehouse !== profile.warehouse) return false
           if (profile.project && t.project !== profile.project) return false
           if (profile.group_name && t.group_name !== profile.group_name) return false
@@ -339,7 +350,7 @@ export function TasksModule({
         })
       } else if (profile?.role === 'COORDINADOR') {
         data = data.filter((t) => {
-          if (t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
+          if (!previewMode && t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
           if (profile.warehouse && t.warehouse !== profile.warehouse) return false
           if (profile.project && t.project !== profile.project) return false
           return true
@@ -366,6 +377,7 @@ export function TasksModule({
       }
     }
 
+    if (workView === 'LISTA') data = data.filter((t) => t.status !== 'CERRADO' && t.progress < 100)
     if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
     if (priorityFilter !== 'TODAS') data = data.filter((t) => t.priority === priorityFilter)
     if (categoryFilter !== 'TODAS') data = data.filter((t) => t.category === categoryFilter)
@@ -397,8 +409,8 @@ export function TasksModule({
     }
     return data
   }, [
-    tasks, mode, search, userId, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
-    scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea,
+    tasks, mode, search, userId, previewMode, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
+    scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea, workView,
     statusFilter, priorityFilter, categoryFilter, responsibleFilter,
   ])
 
@@ -413,6 +425,11 @@ export function TasksModule({
     }
 
     const belongsToUser = (task: Task) => {
+      if (previewMode) {
+        return task.work_type !== 'PERSONAL' &&
+          (!scopeWarehouse || task.warehouse === scopeWarehouse) &&
+          (!scopeProject || task.project === scopeProject)
+      }
       if (task.created_by === userId || task.responsible_id === userId || task.assigned_user_id === userId) return true
 
       if (task.work_type === 'PERSONAL') {
@@ -453,6 +470,9 @@ export function TasksModule({
   }, [
     tasks,
     userId,
+    previewMode,
+    scopeWarehouse,
+    scopeProject,
     profile?.warehouse,
     profile?.project,
     profile?.group_name,
@@ -1171,7 +1191,7 @@ export function TasksModule({
           <div><ClipboardList size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
           <div><AlertTriangle size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
           <div className={counts.overdue ? 'danger-kpi' : ''}><CalendarDays size={17} /><span><b>{counts.overdue}</b><small>Vencidas</small></span></div>
-          <div><CheckCircle2 size={17} /><span><b>{counts.closed}</b><small>Cerradas</small></span></div>
+          {workView !== 'LISTA' && <div><CheckCircle2 size={17} /><span><b>{counts.closed}</b><small>Cerradas</small></span></div>}
           <div><Columns3 size={17} /><span><b>{counts.average}%</b><small>Avance</small></span></div>
         </div>
 
@@ -1182,7 +1202,7 @@ export function TasksModule({
             ariaLabel="Filtrar por estado"
             value={statusFilter}
             onChange={(value)=>setStatusFilter((value||'TODOS') as 'TODOS' | Task['status'])}
-            options={statusFilterOptions}
+            options={workView === 'LISTA' ? statusFilterOptions.filter((option) => option.value !== 'CERRADO') : statusFilterOptions}
             placeholder="Buscar estado…"
             clearable={false}
           />
@@ -1195,6 +1215,13 @@ export function TasksModule({
             placeholder="Buscar prioridad…"
             clearable={false}
           />
+
+          <label className="task-list-order">Ordenar
+            <select aria-label="Orden de las tareas" value={listOrder} onChange={(event) => setListOrder(event.target.value as 'PRIORIDAD' | 'FECHA')}>
+              <option value="PRIORIDAD">Prioridad primero</option>
+              <option value="FECHA">Fecha primero</option>
+            </select>
+          </label>
 
           <SearchableSelect
             ariaLabel="Filtrar por categoría"
@@ -1234,12 +1261,13 @@ export function TasksModule({
             showIncidents={mode !== 'area-personal' && workArea !== 'MI_TRABAJO'}
             profiles={profiles}
             profile={profile}
+            scopeProject={previewMode ? scopeProject : undefined}
             onUpdate={updateTask}
             onOpen={setSelectedTask}
             onOpenIncident={setSelectedIncident}
           />
         ) : (
-          <TaskList tasks={filtered} profiles={profiles} labels={labels} onUpdate={updateTask} onOpen={setSelectedTask} />
+          <TaskList tasks={filtered} profiles={profiles} labels={labels} order={listOrder} onUpdate={updateTask} onOpen={setSelectedTask} />
         )}
       </section>
 
@@ -1560,92 +1588,53 @@ export function TasksModule({
   )
 }
 
-function TaskList({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
+function TaskList({ tasks, profiles, labels, order, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; order: 'PRIORIDAD' | 'FECHA'; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
   const name = (id: string | null) => profiles.find((p) => p.user_id === id)?.full_name ?? (id ? 'Usuario' : 'Sin asignar')
   const colorFor = (tag: string) => labels.find((label)=>label.name===tag)?.color || '#5570D8'
-  if (!tasks.length) return <EmptyWork />
-
-  return (
-    <div className="table-wrap tasks-table professional-task-list">
-      <table>
-        <thead>
-          <tr>
-            <th>Tipo / Prioridad</th>
-            <th>Tarea</th>
-            <th>Contexto</th>
-            <th>Clasificación</th>
-            <th>Asignado a</th>
-            <th>Vence</th>
-            <th>Estado / Avance</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((task) => (
-            <tr key={task.id} className={isOverdue(task) ? 'overdue-row task-open-row' : 'task-open-row'} onClick={() => onOpen(task)}>
-              <td>
-                <div className="task-type-priority">
-                  <span className="task-type-chip">{task.work_type}</span>
-                  <span className={`priority-chip p-${task.priority.toLowerCase()}`}>{task.priority}</span>
-                </div>
-              </td>
-              <td className="task-list-title">
-                <b>{task.title}</b>
-                <small>{task.task_no}</small>
-              </td>
-              <td>
-                <b>{task.project || '—'}</b>
-                <small>{task.group_name || task.warehouse || '—'}</small>
-                {task.work_type === 'RELEVO' && (
-                  <span className="relevo-route-chip">{task.relevo_from_shift || task.shift_name || 'Guardia'} <i>→</i> {task.relevo_to_shift || 'Guardia destino'}</span>
-                )}
-              </td>
-              <td>
-                <div className="task-classification">
-                  {task.category && <span className="category-chip">{task.category}</span>}
-                  {(task.tags || []).slice(0,3).map((tag)=>{
-                    const color=colorFor(tag)
-                    return <span className="tag-chip" style={{color,borderColor:`${color}55`,background:`${color}14`}} key={tag}><Tag size={10}/>{tag}</span>
-                  })}
-                  {(task.tags || []).length > 3 && <small>+{task.tags.length - 3}</small>}
-                </div>
-              </td>
-              <td><span className="user-inline"><UserRound size={14} /> {task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</span></td>
-              <td>{shortDate(task.due_at)}{isOverdue(task) && <small className="error-line">Vencida</small>}</td>
-              <td>
-                <div className="task-status-progress" onClick={(e)=>e.stopPropagation()}>
-                  <select className="inline-select" value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
-                    <option value="PENDIENTE">Pendiente</option>
-                    <option value="EN_PROCESO">En proceso</option>
-                    <option value="BLOQUEADO">Bloqueado</option>
-                    <option value="CERRADO">Cerrado</option>
-                  </select>
-                  <div className="task-inline-progress"><i style={{width:`${task.progress}%`}}/><span>{task.progress}%</span></div>
-                </div>
-              </td>
-              <td>
-                <div className="task-list-actions" onClick={(e)=>e.stopPropagation()}>
-                  {task.status !== 'CERRADO' ? (
-                    <button
-                      type="button"
-                      className="task-complete-button"
-                      onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}
-                      title="Completar tarea"
-                    >
-                      <CheckCircle2 size={15}/> Completar
-                    </button>
-                  ) : (
-                    <span className="task-completed-label"><CheckCircle2 size={14}/> Completada</span>
-                  )}
-                  <button className="icon-button task-open-action" onClick={() => onOpen(task)} title="Abrir detalle"><ChevronRight size={16}/></button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  const nextWeek = new Date(today)
+  nextWeek.setDate(today.getDate() + 8)
+  const priorityRank: Record<Task['priority'], number> = { URGENTE: 0, ALTA: 1, MEDIA: 2, BAJA: 3 }
+  const dueTime = (task: Task) => task.due_at ? new Date(task.due_at).getTime() : Number.POSITIVE_INFINITY
+  const sections = [
+    { title: 'Para hacer hoy', detail: 'Incluye tareas atrasadas', items: [] as Task[] },
+    { title: 'Para los próximos 7 días', detail: 'Desde mañana hasta el séptimo día', items: [] as Task[] },
+    { title: 'Para hacer más adelante', detail: 'Fechas posteriores o tareas sin fecha', items: [] as Task[] },
+  ]
+  for (const task of tasks) {
+    if (task.status === 'CERRADO' || task.progress >= 100) continue
+    const due = dueTime(task)
+    const section = due < tomorrow.getTime() ? sections[0] : due < nextWeek.getTime() ? sections[1] : sections[2]
+    section.items.push(task)
+  }
+  for (const section of sections) section.items.sort((a, b) =>
+    order === 'PRIORIDAD'
+      ? priorityRank[a.priority] - priorityRank[b.priority] || dueTime(a) - dueTime(b) || a.title.localeCompare(b.title)
+      : dueTime(a) - dueTime(b) || priorityRank[a.priority] - priorityRank[b.priority] || a.title.localeCompare(b.title)
   )
+
+  return <div className="task-agenda">
+    {sections.map((section) => <section className="task-agenda-section" key={section.title}>
+      <div className="task-agenda-heading"><div><h3>{section.title}</h3><p>{section.detail}</p></div><span>{section.items.length}</span></div>
+      {section.items.length ? <div className="task-agenda-table-wrap"><table className="task-agenda-table">
+        <thead><tr><th>Nombre de tarea</th><th>Responsable</th><th>Categoría</th><th>Prioridad</th><th>Fecha de término</th><th>Acciones</th></tr></thead>
+        <tbody>{section.items.map((task) => <tr key={task.id} onClick={() => onOpen(task)}>
+          <td className="task-agenda-name"><b>{task.title}</b><span>{task.task_no}{task.tags?.length ? ' · ' : ''}{task.tags?.slice(0, 2).map((tag) => <em key={tag} style={{color: colorFor(tag)}}>{tag}</em>)}</span></td>
+          <td>{task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</td>
+          <td><span className="task-agenda-category">{task.category || 'Sin categoría'}</span></td>
+          <td><span className={`priority-chip p-${task.priority.toLowerCase()}`}>{task.priority}</span></td>
+          <td className={isOverdue(task) ? 'task-agenda-overdue' : ''}>{task.due_at ? shortDate(task.due_at) : 'Sin fecha'}{isOverdue(task) && <small>Vencida</small>}</td>
+          <td><div className="task-agenda-actions" onClick={(event) => event.stopPropagation()}>
+            <button type="button" title="Completar tarea" aria-label={`Completar ${task.title}`} onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}><CheckCircle2 size={18}/></button>
+            <button type="button" title="Ver tarea" aria-label={`Ver ${task.title}`} onClick={() => onOpen(task)}><ChevronRight size={18}/></button>
+          </div></td>
+        </tr>)}</tbody>
+      </table></div> : <div className="task-agenda-empty">Sin tareas en esta sección</div>}
+    </section>)}
+  </div>
 }
 
 function TaskBoard({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[]; profiles: Profile[]; labels: TaskLabel[]; onUpdate: (task: Task, changes: Partial<Task>) => void; onOpen: (task: Task) => void }) {
@@ -1783,6 +1772,7 @@ function TaskCalendar({
   showIncidents,
   profiles,
   profile,
+  scopeProject,
   onUpdate,
   onOpen,
   onOpenIncident,
@@ -1792,6 +1782,7 @@ function TaskCalendar({
   showIncidents: boolean
   profiles: Profile[]
   profile: Profile | null
+  scopeProject?: string
   onUpdate: (task: Task, changes: Partial<Task>) => void
   onOpen: (task: Task) => void
   onOpenIncident: (incident: CalendarIncident) => void
@@ -1803,9 +1794,11 @@ function TaskCalendar({
 
   const visibleIncidents = useMemo(() => {
     if (!showIncidents) return []
-    if (!profile?.warehouse || profile.role === 'ADMINISTRADOR') return incidents
-    return incidents.filter((incident) => incident.warehouse === profile.warehouse)
-  }, [incidents, profile?.warehouse, profile?.role, showIncidents])
+    return incidents.filter((incident) =>
+      (!profile?.warehouse || profile.role === 'ADMINISTRADOR' || incident.warehouse === profile.warehouse) &&
+      (!scopeProject || incident.project === scopeProject)
+    )
+  }, [incidents, profile?.warehouse, profile?.role, scopeProject, showIncidents])
 
   const taskByDay = useMemo(() => {
     return tasks

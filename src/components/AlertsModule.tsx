@@ -24,11 +24,14 @@ export type AlertItem = {
   date?: string | null
   reference?: string | null
   warehouse?: string | null
+  project?: string | null
   operationArea?: string | null
 }
 
 type Props = {
   onOpenAlert?: (item: AlertItem) => void
+  previewWarehouse?: string | null
+  previewProject?: string | null
 }
 
 function daysSince(value?: string | null) {
@@ -43,7 +46,7 @@ function fmtDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-PE', { dateStyle: 'short' }).format(d)
 }
 
-export function AlertsModule({ onOpenAlert }: Props) {
+export function AlertsModule({ onOpenAlert, previewWarehouse, previewProject }: Props) {
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -53,10 +56,10 @@ export function AlertsModule({ onOpenAlert }: Props) {
     setLoading(true)
     setMessage('')
     const [tasks, transits, loans, incidents, guides, damaged] = await Promise.all([
-      supabase.from('tasks').select('id,task_no,title,status,due_at,priority').neq('status', 'CERRADO').limit(1000),
+      supabase.from('tasks').select('id,task_no,title,status,due_at,priority,warehouse,project').neq('status', 'CERRADO').limit(1000),
       supabase.from('transits').select('id,guide_no,reference,status,transit_date,origin,destination').eq('status', 'EN_TRANSITO').limit(1000),
       supabase.from('loans').select('id,os_no,material_no,status,return_date,person_area').neq('status', 'DEVUELTO').limit(1000),
-      supabase.from('incidents').select('id,incident_no,incident_type,status,guide_no,material_no,warehouse,operation_area,created_at').not('status', 'in', '(CERRADO)').limit(1000),
+      supabase.from('incidents').select('id,incident_no,incident_type,status,guide_no,material_no,warehouse,project,operation_area,created_at').not('status', 'in', '(CERRADO)').limit(1000),
       supabase.from('guides').select('id,guide_no,reference,status,created_at').eq('status', 'OBSERVADO').limit(1000),
       supabase.from('damaged_materials').select('id,material_no,description,status,event_date').in('status', ['PENDIENTE','EN_REVISION']).limit(1000),
     ])
@@ -79,6 +82,8 @@ export function AlertsModule({ onOpenAlert }: Props) {
           title: `Tarea vencida: ${task.title}`,
           detail: `${task.task_no} · venció hace ${Math.ceil(Math.abs(hours) / 24)} día(s)`,
           date: task.due_at,
+          warehouse: task.warehouse,
+          project: task.project,
         })
       } else if (hours <= 48) {
         rows.push({
@@ -89,6 +94,8 @@ export function AlertsModule({ onOpenAlert }: Props) {
           title: `Próximo vencimiento: ${task.title}`,
           detail: `${task.task_no} · vence en menos de 48 horas`,
           date: task.due_at,
+          warehouse: task.warehouse,
+          project: task.project,
         })
       }
     }
@@ -136,6 +143,7 @@ export function AlertsModule({ onOpenAlert }: Props) {
         date: incident.created_at,
         reference: incident.incident_no,
         warehouse: incident.warehouse,
+        project: incident.project,
         operationArea: incident.operation_area,
       })
     }
@@ -168,11 +176,13 @@ export function AlertsModule({ onOpenAlert }: Props) {
 
     const weight = { URGENTE: 4, ALTA: 3, MEDIA: 2, INFO: 1 }
     rows.sort((a, b) => weight[b.severity] - weight[a.severity] || String(b.date || '').localeCompare(String(a.date || '')))
-    setAlerts(rows)
+    setAlerts(previewWarehouse ? rows.filter((item) =>
+      item.warehouse === previewWarehouse && (!previewProject || item.project === previewProject)
+    ) : rows)
     setLoading(false)
   }
 
-  useEffect(() => { reload() }, [])
+  useEffect(() => { reload() }, [previewWarehouse, previewProject])
 
   const visible = useMemo(() => filter === 'TODAS' ? alerts : alerts.filter((item) => item.severity === filter), [alerts, filter])
   const counts = useMemo(() => ({
