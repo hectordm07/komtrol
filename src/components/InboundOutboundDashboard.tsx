@@ -336,10 +336,10 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
       </div>
 
       <div className="io-productivity-chart">
-        <div className="io-target-line" style={{bottom:`${targetPct}%`}}>
-          <span>Meta {fmtInt(target)}</span>
-        </div>
         <div className="io-bars" style={barStyle}>
+          <div className="io-target-line" style={{bottom:`${targetPct}%`}}>
+            <span>Meta {fmtInt(target)}</span>
+          </div>
           {items.map((item,index)=>{
             const height=Math.max(item.value?4:0,(item.value/max)*100)
             const alert=item.value>item.target
