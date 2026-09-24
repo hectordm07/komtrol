@@ -1076,3 +1076,46 @@
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
+
+
+/* REPORT 01 · MOBILE TARGET LINE ANCHOR · 2026-09-24
+   La línea de Meta pertenece al área de barras y nunca puede
+   quedar debajo/fuera de la tarjeta de Productividad. */
+@media (max-width: 760px) {
+  .scorecard-module .io-dashboard-v3 .io-productivity-panel {
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-module .io-dashboard-v3 .io-productivity-chart {
+    position: relative !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+  }
+
+  .scorecard-module .io-dashboard-v3 .io-bars {
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-module .io-dashboard-v3 .io-bars > .io-target-line {
+    position: absolute !important;
+    z-index: 6 !important;
+    left: 2px !important;
+    right: 2px !important;
+    width: auto !important;
+    max-width: calc(100% - 4px) !important;
+    margin: 0 !important;
+    border-top: 2px dashed #25a45d !important;
+    pointer-events: none !important;
+  }
+
+  .scorecard-module .io-dashboard-v3 .io-bars > .io-target-line > span {
+    position: absolute !important;
+    top: -19px !important;
+    left: 2px !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    z-index: 7 !important;
+  }
+}
