@@ -440,3 +440,376 @@
     font-size: 11px !important;
   }
 }
+
+
+/* =========================================================
+   SCORECARD MOBILE · FIT TO VIEWPORT · 2026-09-24
+   Regla: ningún reporte genera desplazamiento horizontal.
+   Todo se adapta al ancho real del teléfono.
+   ========================================================= */
+@media (max-width: 760px) {
+  html,
+  body,
+  #root,
+  .app-shell,
+  .main-area,
+  .main-area:has(.scorecard-module),
+  .main-area:has(.scorecard-module) > .content {
+    max-width: 100vw !important;
+    overflow-x: clip !important;
+  }
+
+  .main-area:has(.scorecard-module) > .content {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    box-sizing: border-box !important;
+  }
+
+  .scorecard-module,
+  .scorecard-module > *,
+  .scorecard-module .panel,
+  .scorecard-toolbar,
+  .scorecard-report-context,
+  .scorecard-actions-only,
+  .scorecard-dashboard-export,
+  .scorecard-monitor-fit,
+  .scorecard-layout-io,
+  .scorecard-layout-eri,
+  .scorecard-layout-professional,
+  .io-click-layout,
+  .io-sidebar-stack,
+  .scorecard-click-filters,
+  .scorecard-click-filters > section,
+  .io-dashboard,
+  .io-dashboard-v3,
+  .io-dashboard-top,
+  .io-dashboard-bottom,
+  .io-dashboard-bottom-bars-only,
+  .io-productivity-area,
+  .io-productivity-panel,
+  .io-productivity-chart,
+  .io-bars,
+  .io-trend-card,
+  .io-mini-stack,
+  .io-mini-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .scorecard-module,
+  .scorecard-toolbar,
+  .scorecard-dashboard-export,
+  .scorecard-monitor-fit,
+  .scorecard-layout-io,
+  .scorecard-layout-eri,
+  .scorecard-layout-professional,
+  .io-click-layout,
+  .io-sidebar-stack,
+  .scorecard-click-filters,
+  .io-dashboard-v3,
+  .io-dashboard-top,
+  .io-dashboard-bottom,
+  .io-productivity-area,
+  .io-productivity-panel {
+    overflow-x: hidden !important;
+  }
+
+  /* Cabecera del reporte: siempre dentro del ancho disponible. */
+  .scorecard-module > .scorecard-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 7px !important;
+    padding: 7px !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-toolbar .scorecard-report-context {
+    display: grid !important;
+    grid-template-columns: 54px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  .scorecard-toolbar .scorecard-report-context > span:first-child {
+    width: 54px !important;
+    min-width: 54px !important;
+    height: 54px !important;
+  }
+
+  .scorecard-toolbar .scorecard-report-context > div {
+    min-width: 0 !important;
+  }
+
+  .scorecard-toolbar .scorecard-report-context b,
+  .scorecard-toolbar .scorecard-report-context small {
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .scorecard-toolbar .scorecard-report-context > em {
+    display: none !important;
+  }
+
+  .scorecard-actions-only {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin: 0 !important;
+  }
+
+  .scorecard-actions-only > .secondary-button,
+  .scorecard-actions-only > .icon-button,
+  .scorecard-module:has(.report-inbound-outbound) .scorecard-data-toggle {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Reporte 01: filtros encajados, sin carrusel ni ancho de escritorio. */
+  .io-click-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    gap: 8px !important;
+    height: auto !important;
+  }
+
+  .io-sidebar-stack {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .scorecard-click-filters {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-click-filters > section {
+    padding: 9px !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-click-years {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .scorecard-click-centers {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .scorecard-click-months {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .scorecard-click-years,
+  .scorecard-click-centers,
+  .scorecard-click-months {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    gap: 5px !important;
+  }
+
+  .scorecard-click-filters button {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 4px !important;
+    font-size: 9px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .io-sidebar-productivity {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .io-dashboard-v3 {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    gap: 8px !important;
+    height: auto !important;
+  }
+
+  .io-dashboard-top {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .io-mini-stack {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+
+  .io-mini-card,
+  .io-trend-card {
+    min-width: 0 !important;
+  }
+
+  .io-trend-svg {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .io-productivity-chart,
+  .io-bars {
+    overflow: hidden !important;
+  }
+
+  .io-bars {
+    grid-template-columns: repeat(var(--io-bar-count), minmax(0, 1fr)) !important;
+    gap: 2px !important;
+  }
+
+  .io-bar-item,
+  .io-bar-plot,
+  .io-bar-label {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .io-bar-label {
+    font-size: 6px !important;
+    line-height: 1.05 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    text-align: center !important;
+  }
+
+  /* Reporte 03: eliminar el carrusel horizontal y ajustar tarjetas/gráfico. */
+  .sf3-dashboard,
+  .sf3-left,
+  .sf3-kpis,
+  .sf3-kpi,
+  .sf3-evolution,
+  .sf3-evolution-body,
+  .sf3-evolution-grid,
+  .sf3-bars {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .sf3-kpis {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+  }
+
+  .sf3-kpi {
+    min-height: 205px !important;
+    height: auto !important;
+    flex: none !important;
+  }
+
+  .sf3-evolution-body {
+    overflow-x: hidden !important;
+  }
+
+  .sf3-evolution-grid {
+    min-width: 0 !important;
+  }
+
+  .sf3-bars {
+    min-width: 0 !important;
+    grid-template-columns: repeat(var(--sf3-count), minmax(0, 1fr)) !important;
+    gap: 2px !important;
+  }
+
+  .sf3-bar-item > b {
+    font-size: 5.8px !important;
+    line-height: 1.05 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  /* ERI: todos los centros se comprimen dentro del ancho disponible. */
+  .scorecard-layout-eri > .eri-dashboard-reference,
+  .scorecard-layout-eri .eri-filter-rail,
+  .scorecard-layout-eri .eri-top-grid,
+  .scorecard-layout-eri .eri-bars-card,
+  .scorecard-layout-eri .eri-bars-chart,
+  .scorecard-layout-eri .eri-bars-plot {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-chart {
+    grid-template-columns: 36px minmax(0, 1fr) !important;
+    overflow-x: hidden !important;
+  }
+
+  .scorecard-layout-eri .eri-bars-plot {
+    min-width: 0 !important;
+    grid-template-columns: repeat(var(--eri-count), minmax(0, 1fr)) !important;
+    gap: 2px !important;
+    overflow: hidden !important;
+  }
+
+  .scorecard-layout-eri .eri-site-label {
+    min-width: 0 !important;
+    font-size: 5.8px !important;
+    line-height: 1.02 !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  /* Reportes profesionales 04–12: nunca heredan un ancho de escritorio. */
+  .scorecard-layout-professional > .psc-dashboard,
+  .scorecard-layout-professional .psc-filter-rail,
+  .scorecard-layout-professional .psc-top-metrics,
+  .scorecard-layout-professional .psc-main-panel,
+  .scorecard-layout-professional .psc-bar-chart,
+  .scorecard-layout-professional .psc-bars {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .scorecard-layout-professional > .psc-dashboard {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    height: auto !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .scorecard-click-years {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .scorecard-click-centers {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .scorecard-click-months {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .io-mini-stack {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
