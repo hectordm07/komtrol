@@ -41,6 +41,7 @@ type Guide = {
   reference: string
   line_count: number
   guide_type: GuideType
+  supplier: 'KOMATSU' | 'CUMMINS' | null
   warehouse: string | null
   group_name: string | null
   created_by: string
@@ -1665,7 +1666,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     const q = search.trim().toLowerCase()
     if (q) {
       rows = rows.filter((g) =>
-        [g.guide_no, g.reference, g.document_no, g.warehouse, g.group_name, g.guide_type, g.load_status]
+        [g.guide_no, g.reference, g.document_no, g.warehouse, g.group_name, g.supplier, g.guide_type, g.load_status, g.ocr_confidence]
           .some((value) => String(value ?? '').toLowerCase().includes(q))
       )
     }
@@ -1717,7 +1718,9 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     reference:guide.reference,
     line_count:guide.line_count,
     guide_type:guide.guide_type.replaceAll('_',' '),
+    supplier:guide.supplier||'',
     warehouse:guide.warehouse||'',
+    group_name:guide.group_name||'',
     responsible:responsibleName(guide.responsible_user_id),
     load_status:guide.load_status,
     ocr_confidence:guide.ocr_confidence == null ? '' : `${guide.ocr_confidence}%`,
@@ -1733,10 +1736,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     {header:'REFERENCIA',key:'reference',width:20},
     {header:'LÍNEAS',key:'line_count',width:10},
     {header:'TIPO',key:'guide_type',width:18},
+    {header:'PROVEEDOR',key:'supplier',width:14},
     {header:'ALMACÉN',key:'warehouse',width:18},
+    {header:'GRUPO',key:'group_name',width:18},
     {header:'RESPONSABLE',key:'responsible',width:26},
     {header:'ESTADO DE CARGA',key:'load_status',width:18},
-    {header:'OCR',key:'ocr_confidence',width:10},
+    {header:'OCR %',key:'ocr_confidence',width:10},
     {header:'OBSERVACIONES',key:'notes',width:36},
   ]
 
@@ -1748,7 +1753,10 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     {header:'REFERENCIA',key:'reference'},
     {header:'LÍN.',key:'line_count'},
     {header:'TIPO',key:'guide_type'},
+    {header:'PROV.',key:'supplier'},
     {header:'ALMACÉN',key:'warehouse'},
+    {header:'GRUPO',key:'group_name'},
+    {header:'OCR',key:'ocr_confidence'},
     {header:'CARGA',key:'load_status'},
   ]
 
@@ -1777,7 +1785,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     return (
       <section className="panel guide-list-panel">
         <div className="panel-title">
-          <div><h3>{title}</h3><p>Repositorio único de guías registradas. El estado mostrado corresponde únicamente a la carga inicial.</p></div>
+          <div><h3>{title}</h3><p>Repositorio único de guías registradas. Grupo, almacén, proveedor y OCR permiten identificar el origen de cada carga.</p></div>
           <div className="button-row">
             <button className="secondary-button" disabled={!visible.length} onClick={exportGuidesPdf}><FileText size={16}/> PDF</button>
             <button className="secondary-button" disabled={!visible.length} onClick={exportGuidesExcel}><FileSpreadsheet size={16}/> Excel</button>
@@ -1785,7 +1793,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           </div>
         </div>
         <div className="task-toolbar">
-          <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar guía, referencia, documento, almacén…" /></div>
+          <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar guía, referencia, documento, almacén, grupo o proveedor…" /></div>
         </div>
         {message && <div className="inline-message">{message}</div>}
         <GuideTable
@@ -2169,18 +2177,31 @@ function GuideTable({
   return (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>Tipo</th><th>Guía</th><th>Referencia</th><th>Documento</th><th>Emisión</th><th>Líneas</th><th>Almacén</th><th>Responsable</th><th>Estado de carga</th>{canDelete && <th>Acción</th>}</tr></thead>
+        <thead><tr><th>Tipo</th><th>Proveedor</th><th>Guía</th><th>Referencia</th><th>Documento</th><th>Emisión</th><th>Líneas</th><th>Almacén</th><th>Grupo</th><th>Responsable</th><th>OCR</th><th>Estado de carga</th>{canDelete && <th>Acción</th>}</tr></thead>
         <tbody>
           {guides.map((guide) => (
             <tr key={guide.id}>
               <td><span className={`guide-type type-${guide.guide_type.toLowerCase().replace('_', '-')}`}>{guide.guide_type.replace('_', ' ')}</span></td>
+              <td>
+                {guide.supplier
+                  ? <span className={guide.supplier === 'CUMMINS' ? 'supplier-chip cummins' : 'supplier-chip komatsu'}>{guide.supplier}</span>
+                  : '—'}
+              </td>
               <td><b>{guide.guide_no}</b><small>{fmtDate(guide.created_at)}</small></td>
               <td>{guide.reference}</td>
               <td>{guide.document_no || '—'}</td>
               <td>{guide.emission_date || '—'}</td>
               <td>{guide.line_count}</td>
               <td>{guide.warehouse || '—'}</td>
+              <td><span className="guide-group-chip">{guide.group_name || 'SIN GRUPO'}</span></td>
               <td>{responsibleName(guide.responsible_user_id)}</td>
+              <td>
+                {guide.ocr_confidence == null
+                  ? <span className="ocr-chip empty">—</span>
+                  : <span className={Number(guide.ocr_confidence) >= 90 ? 'ocr-chip high' : Number(guide.ocr_confidence) >= 70 ? 'ocr-chip medium' : 'ocr-chip low'}>
+                      {Number(guide.ocr_confidence).toFixed(1)}%
+                    </span>}
+              </td>
               <td><span className={guide.load_status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill'}>{guide.load_status}</span></td>
               {canDelete && (
                 <td>
