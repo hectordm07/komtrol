@@ -30,7 +30,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { UsersAdmin } from './components/UsersAdmin'
 import { ModulePlaceholder } from './components/ModulePlaceholder'
-import { TasksModule } from './components/TasksModule'
+import { TasksModule, type TasksMode } from './components/TasksModule'
 import { GuidesModule } from './components/GuidesModule'
 import { MaterialsModule } from './components/MaterialsModule'
 import { OperationsControlModule } from './components/OperationsControlModule'
@@ -1568,7 +1568,7 @@ function Workspace({ session }: { session: Session }) {
               {isTaskTab && (
                 <TasksModule
                   key={`${accessView}-${tab}-${tab === 'tareas-globales' ? (dashboardTaskStatus || 'TODOS') : 'default'}`}
-                  mode={(tab === 'tareas-globales' ? 'global-admin' : tab) as typeof taskTabs[number] | 'global-admin'}
+                  mode={(tab === 'tareas-globales' ? 'global-admin' : tab) as TasksMode}
                   userId={user.id}
                   profile={effectiveProfile!}
                   previewMode={isAccessPreview}
