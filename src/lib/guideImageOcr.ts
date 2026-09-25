@@ -124,27 +124,38 @@ function percentile(values: Uint8ClampedArray, target: number) {
   return target < 0.5 ? 0 : 255
 }
 
-function regionFor(mode: 'header' | 'detail') {
-  // Las fotos de celular suelen incluir mesa/margen arriba. Estas franjas
-  // priorizan cabecera y tabla sin procesar toda la foto.
-  return mode === 'header'
-    ? { top: 0.03, bottom: 0.52, maxWidth: 2100 }
-    : { top: 0.27, bottom: 0.76, maxWidth: 2200 }
+type CropRegion = {
+  left: number
+  top: number
+  right: number
+  bottom: number
+  maxWidth: number
+  minWidth?: number
 }
 
-function prepareCanvas(image: HTMLImageElement, mode: 'header' | 'detail') {
+function regionFor(mode: 'header' | 'detail') {
+  // Las fotos de celular suelen incluir mesa/margen. Estas franjas priorizan
+  // cabecera y tabla del formato Komatsu sin perder compatibilidad con otros PDFs/fotos.
+  return mode === 'header'
+    ? { left: 0.00, top: 0.02, right: 1.00, bottom: 0.50, maxWidth: 2200, minWidth: 1100 }
+    : { left: 0.00, top: 0.23, right: 1.00, bottom: 0.70, maxWidth: 2400, minWidth: 1200 }
+}
+
+function prepareRegionCanvas(image: HTMLImageElement, region: CropRegion) {
   const sourceWidth = image.naturalWidth || image.width
   const sourceHeight = image.naturalHeight || image.height
   if (!sourceWidth || !sourceHeight) throw new Error('La imagen no tiene dimensiones válidas.')
 
-  const region = regionFor(mode)
+  const cropX = Math.max(0, Math.round(sourceWidth * region.left))
   const cropY = Math.max(0, Math.round(sourceHeight * region.top))
+  const cropRight = Math.min(sourceWidth, Math.round(sourceWidth * region.right))
   const cropBottom = Math.min(sourceHeight, Math.round(sourceHeight * region.bottom))
+  const cropWidth = Math.max(1, cropRight - cropX)
   const cropHeight = Math.max(1, cropBottom - cropY)
 
-  const scale = Math.min(1.9, region.maxWidth / sourceWidth)
-  const targetWidth = Math.max(1000, Math.round(sourceWidth * scale))
-  const targetHeight = Math.max(1, Math.round(cropHeight * scale))
+  const scale = Math.min(2.6, region.maxWidth / cropWidth)
+  const targetWidth = Math.max(region.minWidth ?? 700, Math.round(cropWidth * scale))
+  const targetHeight = Math.max(1, Math.round(cropHeight * (targetWidth / cropWidth)))
 
   const canvas = document.createElement('canvas')
   canvas.width = targetWidth
@@ -156,9 +167,9 @@ function prepareCanvas(image: HTMLImageElement, mode: 'header' | 'detail') {
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(
     image,
-    0,
+    cropX,
     cropY,
-    sourceWidth,
+    cropWidth,
     cropHeight,
     0,
     0,
@@ -168,19 +179,18 @@ function prepareCanvas(image: HTMLImageElement, mode: 'header' | 'detail') {
 
   const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight)
   const data = imageData.data
-  const low = percentile(data, 0.035)
-  const high = percentile(data, 0.975)
-  const span = Math.max(34, high - low)
+  const low = percentile(data, 0.03)
+  const high = percentile(data, 0.98)
+  const span = Math.max(30, high - low)
 
   for (let i = 0; i < data.length; i += 4) {
     const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
     let normalized = ((gray - low) / span) * 255
     normalized = Math.max(0, Math.min(255, normalized))
-    normalized = Math.max(0, Math.min(255, (normalized - 128) * 1.22 + 128))
+    normalized = Math.max(0, Math.min(255, (normalized - 128) * 1.28 + 128))
 
-    // Levanta el fondo y oscurece trazos finos sin aplicar binarización dura.
-    if (normalized > 232) normalized = 255
-    else if (normalized < 92) normalized *= 0.82
+    if (normalized > 236) normalized = 255
+    else if (normalized < 105) normalized *= 0.76
 
     const value = Math.round(normalized)
     data[i] = value
@@ -190,6 +200,10 @@ function prepareCanvas(image: HTMLImageElement, mode: 'header' | 'detail') {
 
   ctx.putImageData(imageData, 0, 0)
   return canvas
+}
+
+function prepareCanvas(image: HTMLImageElement, mode: 'header' | 'detail') {
+  return prepareRegionCanvas(image, regionFor(mode))
 }
 
 function normalizedOcr(text: string) {
@@ -253,7 +267,7 @@ async function recognizeCanvas(
   worker: any,
   slotIndex: number,
   canvas: HTMLCanvasElement,
-  psm: '3' | '6',
+  psm: '3' | '6' | '7' | '11',
   progress?: OcrProgress,
 ) {
   const slot = workerSlots[slotIndex]
@@ -304,7 +318,35 @@ export async function recognizeGuideImage(
       ? '\n--- CÓDIGOS DETECTADOS ---\n' + barcodes.join('\n') + '\n'
       : ''
 
-    const headerText = barcodeText + header.text
+    let headerText = barcodeText + header.text
+    let focusedConfidence = 0
+
+    // Si la lectura general no encontró la guía/referencia, hacemos micro-OCR
+    // sobre las zonas donde el formato Komatsu las imprime normalmente.
+    if (!likelyHasHeader(headerText)) {
+      onProgress?.(54, 'Afinando N° de guía y referencia…')
+
+      const guideZone = prepareRegionCanvas(image, {
+        left: 0.55, top: 0.045, right: 0.985, bottom: 0.22, maxWidth: 1500, minWidth: 900,
+      })
+      const referenceZone = prepareRegionCanvas(image, {
+        left: 0.48, top: 0.18, right: 0.985, bottom: 0.40, maxWidth: 1700, minWidth: 950,
+      })
+
+      const guideFocused = await recognizeCanvas(worker, slotIndex, guideZone, '7')
+      const referenceFocused = await recognizeCanvas(worker, slotIndex, referenceZone, '11')
+
+      guideZone.width = 1
+      guideZone.height = 1
+      referenceZone.width = 1
+      referenceZone.height = 1
+
+      focusedConfidence = Math.max(guideFocused.confidence, referenceFocused.confidence)
+      headerText +=
+        '\n--- ZONA NUMERO GUIA ---\n' + guideFocused.text +
+        '\n--- ZONA REFERENCIA ---\n' + referenceFocused.text
+    }
+
     const headerComplete = likelyHasHeader(headerText)
     const hasMaterial = likelyHasMaterialRow(headerText)
     const needsDetail =
@@ -319,20 +361,20 @@ export async function recognizeGuideImage(
 
       return {
         text: headerText,
-        confidence: header.confidence,
+        confidence: Math.max(header.confidence, focusedConfidence),
         method: 'HEADER_FAST',
         barcodes,
       }
     }
 
-    onProgress?.(58, 'Leyendo tabla de materiales…')
+    onProgress?.(62, 'Leyendo detalle de materiales…')
     const detailCanvas = prepareCanvas(image, 'detail')
     const detail = await recognizeCanvas(
       worker,
       slotIndex,
       detailCanvas,
       '6',
-      (progress) => onProgress?.(58 + Math.round(progress * 0.41), 'Reconociendo detalle…'),
+      (progress) => onProgress?.(62 + Math.round(progress * 0.37), 'Reconociendo detalle…'),
     )
 
     headerCanvas.width = 1
@@ -341,12 +383,13 @@ export async function recognizeGuideImage(
     detailCanvas.height = 1
     onProgress?.(100, 'Lectura completada')
 
-    const confidence = header.confidence > 0 && detail.confidence > 0
-      ? (header.confidence * 0.62) + (detail.confidence * 0.38)
-      : Math.max(header.confidence, detail.confidence)
+    const headerConfidence = Math.max(header.confidence, focusedConfidence)
+    const confidence = headerConfidence > 0 && detail.confidence > 0
+      ? (headerConfidence * 0.58) + (detail.confidence * 0.42)
+      : Math.max(headerConfidence, detail.confidence)
 
     return {
-      text: barcodeText + header.text + '\n--- DETALLE TABLA ---\n' + detail.text,
+      text: headerText + '\n--- DETALLE TABLA ---\n' + detail.text,
       confidence,
       method: 'HEADER_PLUS_DETAIL',
       barcodes,
