@@ -123,6 +123,9 @@ type DashboardGuide={
   guide_type:'ORDEN_COMPRA'|'CARGO_DIRECTO'|'REPOSICION'|'OTRO'
   load_status:'VALIDADO'|'OBSERVADO'
   warehouse:string|null
+  group_name:string|null
+  created_by:string
+  responsible_user_id:string|null
   created_at:string
   oc_cargo_followups?:GuideFollowup[]|GuideFollowup|null
   guide_refrendos?:GuideRefrendo[]|null
@@ -133,6 +136,7 @@ type ReplenishmentReceipt={
   guide_id:string|null
   guide_no:string|null
   warehouse:string|null
+  group_name:string|null
   sap_kmmp_no:string|null
   sap_fiori_no:string|null
   sap_status:string|null
@@ -181,6 +185,16 @@ function isOverdue(task:Task){
   if(!isOpen(task) || !task.due_at) return false
   const days=daysUntil(task.due_at)
   return days!==null && days<0
+}
+
+function groupMatches(userGroup?:string|null,rowGroup?:string|null){
+  const normalize=(value?:string|null)=>String(value||'').trim().toUpperCase().replace(/\s+/g,'')
+  const left=normalize(userGroup)
+  const right=normalize(rowGroup)
+  if(!left||!right) return false
+  if(left===right) return true
+  const split=(value:string)=>value.split(/[/,;|]+/).filter(Boolean)
+  return split(right).includes(left)||split(left).includes(right)
 }
 
 function formatDate(value?:string|null){
@@ -270,13 +284,13 @@ export function UniversalDashboardModule({
         .limit(15000),
       supabase
         .from('guides')
-        .select('id,guide_no,guide_type,load_status,warehouse,created_at,oc_cargo_followups(final_status,client_delivery_date),guide_refrendos(id)')
+        .select('id,guide_no,guide_type,load_status,warehouse,group_name,created_by,responsible_user_id,created_at,oc_cargo_followups(final_status,client_delivery_date),guide_refrendos(id)')
         .in('guide_type',['ORDEN_COMPRA','CARGO_DIRECTO','REPOSICION'])
         .order('created_at',{ascending:false})
         .limit(5000),
       supabase
         .from('replenishment_receipts')
-        .select('id,guide_id,guide_no,warehouse,sap_kmmp_no,sap_fiori_no,sap_status,ingress_id')
+        .select('id,guide_id,guide_no,warehouse,group_name,sap_kmmp_no,sap_fiori_no,sap_status,ingress_id')
         .order('created_at',{ascending:false})
         .limit(5000),
       supabase
@@ -332,7 +346,7 @@ export function UniversalDashboardModule({
     if(isAdminDashboard) return true
 
     // Una asignación directa siempre debe ser visible para su destinatario real.
-    if(!previewMode && task.assignment_type==='PERSONA' && task.assigned_user_id===userId) return true
+    if(task.assignment_type==='PERSONA' && task.assigned_user_id===profile.user_id) return true
 
     const normalizedWarehouse=String(profile.warehouse||'').trim().toUpperCase()
     const normalizedProject=String(profile.project||'').trim().toUpperCase()
@@ -456,6 +470,32 @@ export function UniversalDashboardModule({
     return rows.filter((row)=>String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse)
   }
 
+  const operationalGuides=guides.filter((guide)=>{
+    if(isAdminDashboard) return true
+    if(String(guide.warehouse||'').trim().toUpperCase()!==operationalWarehouse) return false
+    if(isAreaManager) return true
+    if(guide.created_by===profile.user_id || guide.responsible_user_id===profile.user_id) return true
+    return groupMatches(profile.group_name,guide.group_name)
+  })
+  const operationalGuideIds=new Set(operationalGuides.map((guide)=>guide.id))
+  const operationalReplenishmentReceipts=isAdminDashboard || isAreaManager
+    ? scopeWarehouse(replenishmentReceipts)
+    : replenishmentReceipts.filter((row)=>
+        String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse &&
+        (
+          (row.guide_id ? operationalGuideIds.has(row.guide_id) : false) ||
+          groupMatches(profile.group_name,row.group_name)
+        )
+      )
+  const operationalIngressIds=new Set(
+    operationalReplenishmentReceipts
+      .map((row)=>row.ingress_id)
+      .filter((value):value is string=>Boolean(value))
+  )
+  const operationalReplenishmentIngresses=isAdminDashboard || isAreaManager
+    ? scopeWarehouse(replenishmentIngresses)
+    : replenishmentIngresses.filter((row)=>operationalIngressIds.has(row.id))
+
   const operationalIncidents=incidents.filter((row)=>{
     if(isAdminDashboard) return true
     const sameWarehouse=String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse
@@ -465,9 +505,6 @@ export function UniversalDashboardModule({
     return !rowProject || rowProject===operationalProject
   })
   const operationalKardex=scopeWarehouse(kardexMovements)
-  const operationalGuides=scopeWarehouse(guides)
-  const operationalReplenishmentReceipts=scopeWarehouse(replenishmentReceipts)
-  const operationalReplenishmentIngresses=scopeWarehouse(replenishmentIngresses)
   const openIncidents=operationalIncidents.filter((row)=>row.status!=='CERRADO')
   const incidentEmailsSent=operationalIncidents.filter((row)=>row.auto_email_status==='ENVIADO').length
   const incidentEmailsPending=operationalIncidents.filter((row)=>
@@ -688,6 +725,7 @@ export function UniversalDashboardModule({
     {key:'KMMP',label:'KMMP completado',value:kmmpCompleted,detail:`${pendingSapKmmp.length} pendiente(s) de ingreso SAP KMMP de ${operationalReplenishmentReceipts.length} recepción(es).`},
     {key:'INGRESOS',label:'Ingresos reposición',value:operationalReplenishmentIngresses.length,detail:'Agrupaciones de ingreso generadas desde Hojas de Ubicación.'},
     {key:'FIORI',label:'FIORI completado',value:fioriCompleted,detail:`${pendingFioriIngresses.length} ingreso(s) pendiente(s) de NI SAP FIORI.`},
+    {key:'OC',label:'Órdenes de compra',value:purchaseOrders.length,detail:`${pendingPurchaseOrders.length} OC pendiente(s) · ${purchaseOrdersWithoutRefrendo.length} sin refrendo.`},
     {key:'CARGO',label:'Cargos entregados',value:Math.max(0,directCharges.length-pendingDirectDelivery.length),detail:`${pendingDirectDelivery.length} cargo(s) directo(s) pendiente(s) de entrega al cliente.`},
   ]
   const urgentExpirations=activeExpirations.filter((row)=>{
@@ -706,7 +744,7 @@ export function UniversalDashboardModule({
 
   const hasTaskAccess=canAccess(isAdminDashboard?'tareas-globales':'mi-trabajo')
   const hasExpirationAccess=['vencimientos-emoa','vencimientos-cursos','vencimientos-licencias'].some(canAccess)
-  const hasDocumentFlowAccess=['ingresos-reposicion','hoja-ubicacion','cargos-directos','seguimiento-guias'].some(canAccess)
+  const hasDocumentFlowAccess=['ingresos-reposicion','hoja-ubicacion','ordenes-compra','cargos-directos','seguimiento-guias'].some(canAccess)
   const hasOperationalReportAccess=[incidentRoute,surplusRoute,kardexRoute].some(canAccess)
   const inboundReportOnly=
     canAccess('inbound-incidencias') &&
@@ -715,6 +753,7 @@ export function UniversalDashboardModule({
 
   const visibleDocumentFlowData=documentFlowData.filter((row)=>{
     if(row.key==='FIORI'||row.key==='INGRESOS') return canAccess('hoja-ubicacion')
+    if(row.key==='OC') return canAccess('ordenes-compra')
     if(row.key==='CARGO') return canAccess('cargos-directos')
     if(row.key==='GUIAS'||row.key==='KMMP') return canAccess('ingresos-reposicion')
     return false
@@ -884,9 +923,14 @@ export function UniversalDashboardModule({
               <ChevronRight size={16}/>
             </button>
           </>}
+          {canAccess('ordenes-compra')&&<button type="button" className={pendingPurchaseOrders.length?'attention':''} onClick={()=>onNavigate('ordenes-compra')}>
+            <span className="operational-report-icon"><ShoppingCart size={19}/></span>
+            <span><small>ÓRDENES DE COMPRA</small><b>{purchaseOrders.length}</b><em>{pendingPurchaseOrders.length} pendientes · {purchaseOrdersWithoutRefrendo.length} sin refrendo</em></span>
+            <ChevronRight size={16}/>
+          </button>}
           {canAccess('cargos-directos')&&<button type="button" className={pendingDirectDelivery.length?'attention':''} onClick={()=>onNavigate('cargos-directos')}>
             <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-            <span><small>CARGOS DIRECTOS</small><b>{pendingDirectDelivery.length}</b><em>Pendientes de entrega</em></span>
+            <span><small>CARGOS DIRECTOS</small><b>{directCharges.length}</b><em>{pendingDirectDelivery.length} pendientes de entrega</em></span>
             <ChevronRight size={16}/>
           </button>}
         </div>
@@ -899,6 +943,7 @@ export function UniversalDashboardModule({
               data={visibleDocumentFlowData}
               onSelect={(key)=>{
                 if(key==='FIORI') onNavigate('hoja-ubicacion')
+                else if(key==='OC') onNavigate('ordenes-compra')
                 else if(key==='CARGO') onNavigate('cargos-directos')
                 else onNavigate('ingresos-reposicion')
               }}
