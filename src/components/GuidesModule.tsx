@@ -98,6 +98,22 @@ function cleanText(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
 
+function normalizeMaterialOcrText(value: string) {
+  return value
+    .replace(/[£€]/g, 'E')
+    .replace(/[–—−]/g, '-')
+    .replace(/(?<=\d)[OQ](?=\d)/g, '0')
+    .replace(/(?<=\d)[IL](?=\d)/g, '1')
+}
+
+function taggedOcrSection(text: string, marker: string) {
+  const start = text.indexOf(marker)
+  if (start < 0) return ''
+  const rest = text.slice(start + marker.length)
+  const next = rest.search(/\n--- [A-ZÁÉÍÓÚÑ0-9 ]+ ---\n/i)
+  return (next >= 0 ? rest.slice(0, next) : rest).trim()
+}
+
 function groupMatches(userGroup?: string | null, rowGroup?: string | null) {
   const normalize = (value?: string | null) => String(value || '').trim().toUpperCase().replace(/\s+/g, '')
   const left = normalize(userGroup)
@@ -159,7 +175,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
   const tableEnd = tableEndMatch?.index ?? normalized.length
   const section = tableStart >= 0 ? normalized.slice(tableStart, tableEnd) : normalized
 
-  const rows = section
+  const rows = normalizeMaterialOcrText(section)
     .split('\n')
     .map((row) => row.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
@@ -435,8 +451,6 @@ function normalizeOcrIdentifierText(text: string) {
 }
 
 function extractGuideNumber(text: string, fileName?: string) {
-  const normalized = normalizeOcrIdentifierText(text)
-
   const normalizeMatch = (seriesRaw: string, numberRaw: string) => {
     const series = seriesRaw.replace(/[OQ]/g, '0').replace(/[IL]/g, '1')
     let number = numberRaw.replace(/[OQ]/g, '0').replace(/[IL]/g, '1')
@@ -445,67 +459,98 @@ function extractGuideNumber(text: string, fileName?: string) {
     return `T${series}-${number}`
   }
 
-  // Con etiqueta: tolera T leído como 7/1/I y también que el OCR pierda la T.
-  const labelled = normalized.match(
-    /(?:GU[IÍ]A(?:\s+DE\s+REMISI[ÓO]N)?|N[°ºO]?)[^\n]{0,35}?([TI17])?\s*([0-9OQIL]{3})\s*[- ]?\s*([0-9OQIL]{7,8})/i
-  )
-  if (labelled) {
-    const value = normalizeMatch(String(labelled[2] ?? ''), String(labelled[3] ?? ''))
-    if (value) return value
+  const findGuide = (raw: string) => {
+    const normalized = normalizeOcrIdentifierText(raw)
+
+    const labelled = normalized.match(
+      /(?:GU[IÍ]A(?:\s+DE\s+REMISI[ÓO]N)?|N[°ºO?*]?)[^\n]{0,45}?([TI17])?\s*([0-9OQIL]{3})\s*[- ]?\s*([0-9OQIL]{7,8})/i
+    )
+    if (labelled) {
+      const value = normalizeMatch(String(labelled[2] ?? ''), String(labelled[3] ?? ''))
+      if (value) return value
+    }
+
+    const global = normalized.match(/\b[TI17]\s*([0-9OQIL]{3})\s*[- ]?\s*([0-9OQIL]{7,8})\b/i)
+    if (global) {
+      const value = normalizeMatch(String(global[1] ?? ''), String(global[2] ?? ''))
+      if (value) return value
+    }
+
+    return ''
   }
 
-  const global = normalized.match(/\b[TI17]\s*([0-9OQIL]{3})\s*[- ]?\s*([0-9OQIL]{7,8})\b/i)
-  if (global) {
-    const value = normalizeMatch(String(global[1] ?? ''), String(global[2] ?? ''))
-    if (value) return value
-  }
-
-  return guideFromFileName(fileName)
+  // La microlectura del recuadro tiene prioridad sobre el OCR general.
+  // Evita aceptar un número con formato válido pero leído desde otra zona.
+  const focused = taggedOcrSection(text, '--- ZONA NUMERO GUIA ---')
+  return findGuide(focused) || findGuide(text) || guideFromFileName(fileName)
 }
 
 function extractReferenceValue(text: string) {
+  const findReference = (raw: string) => {
+    const normalized = normalizeOcrIdentifierText(raw)
+
+    const labelled = normalized.match(
+      /REFEREN(?:CIA)?\s*[:#-]?\s*([8B][0-9OQ]{7,17})/i
+    )
+    if (labelled?.[1]) {
+      const value = labelled[1].replace(/^B/, '8').replace(/[OQ]/g, '0')
+      if (/^8\d{7,17}$/.test(value)) return value
+    }
+
+    const spaced = normalized.match(
+      /REFEREN(?:CIA)?\s*[:#-]?\s*([8B](?:[0-9OQ][\s-]?){7,17})/i
+    )
+    if (spaced?.[1]) {
+      const value = spaced[1]
+        .replace(/^B/, '8')
+        .replace(/[OQ]/g, '0')
+        .replace(/[\s-]/g, '')
+      if (/^8\d{7,17}$/.test(value)) return value
+    }
+
+    const globalCandidates = [...normalized.matchAll(/\b[8B][0-9OQ]{7,17}\b/g)]
+      .map((match) => match[0].replace(/^B/, '8').replace(/[OQ]/g, '0'))
+      .filter((value) => /^8\d{7,17}$/.test(value))
+
+    return globalCandidates.find((value) => value.startsWith('89')) ||
+      globalCandidates.find((value) => value.startsWith('80')) ||
+      globalCandidates[0] ||
+      ''
+  }
+
+  const focused = taggedOcrSection(text, '--- ZONA REFERENCIA ---')
+  return findReference(focused) || findReference(text)
+}
+
+function extractDocumentNumber(text: string, reference: string) {
+  // Las reposiciones no requieren N° Documento. Si el campo impreso está vacío,
+  // no tomar RUC, factura u otro número cercano como falso documento.
+  if (reference.startsWith('89')) return ''
+
   const normalized = normalizeOcrIdentifierText(text)
+  const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean)
 
-  // Si el documento imprime "8910544830 / 2080397443", KOMTROL usa solo
-  // el primer valor operativo que empieza por 89/80.
-  const labelled = normalized.match(
-    /REFEREN(?:CIA)?\s*[:#-]?\s*([8B][0-9OQ]{7,17})/i
-  )
-  if (labelled?.[1]) {
-    const value = labelled[1].replace(/^B/, '8').replace(/[OQ]/g, '0')
-    if (/^8\d{7,17}$/.test(value)) return value
+  for (const line of lines) {
+    const match = line.match(/(?:N[°ºO]?\s*(?:DE\s*)?DOCUMENTO|DOCUMENTO)\s*[:#-]?\s*([A-Z0-9-]{4,16})/i)
+    const candidate = String(match?.[1] || '').replace(/[OQ]/g, '0')
+    if (!candidate || /^[-0]+$/.test(candidate)) continue
+
+    if (reference.startsWith('80')) {
+      if (/^45\d{7,12}$/.test(candidate)) return candidate
+      continue
+    }
+
+    return candidate
   }
 
-  const spaced = normalized.match(
-    /REFEREN(?:CIA)?\s*[:#-]?\s*([8B](?:[0-9OQ][\s-]?){7,17})/i
-  )
-  if (spaced?.[1]) {
-    const value = spaced[1]
-      .replace(/^B/, '8')
-      .replace(/[OQ]/g, '0')
-      .replace(/[\s-]/g, '')
-    if (/^8\d{7,17}$/.test(value)) return value
-  }
-
-  const globalCandidates = [...normalized.matchAll(/\b[8B][0-9OQ]{7,17}\b/g)]
-    .map((match) => match[0].replace(/^B/, '8').replace(/[OQ]/g, '0'))
-    .filter((value) => /^8\d{7,17}$/.test(value))
-
-  return globalCandidates.find((value) => value.startsWith('89')) ||
-    globalCandidates.find((value) => value.startsWith('80')) ||
-    globalCandidates[0] ||
-    ''
+  return ''
 }
 
 function parseGuideOcr(text: string, fileName?: string, visualOcr = false) {
   const normalized = normalizeOcrIdentifierText(text)
   const guide = extractGuideNumber(text, fileName)
   const reference = extractReferenceValue(text)
-
-  const docMatch =
-    normalized.match(/(?:N[°ºO]?\s*(?:DE\s*)?DOCUMENTO|DOCUMENTO)\s*[:#-]?\s*([A-Z0-9-]{4,})/i) ||
-    normalized.match(/(?:DOCUMENTO\s*(?:RELACIONADO|REFERENCIA))\s*[:#-]?\s*([A-Z0-9-]{4,})/i)
-  const documentNo = docMatch?.[1] || ''
+  const documentNo = extractDocumentNumber(text, reference)
 
   const emission = findDateNear(normalized, ['FECHA\\s*(?:DE\\s*)?EMISI[ÓO]N', 'EMISI[ÓO]N'])
   const transferStart = findDateNear(normalized, ['FECHA\\s*(?:DE\\s*)?INICIO\\s*(?:DE\\s*)?TRASLADO', 'INICIO\\s*(?:DE\\s*)?TRASLADO'])
@@ -883,8 +928,8 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             confidence: ocr.confidence,
             parsed,
             sourceLabel: ocr.method === 'HEADER_FAST'
-              ? 'Imagen · lectura rápida'
-              : 'Imagen · cabecera + tabla',
+              ? 'Imagen · escáner optimizado'
+              : 'Imagen · escáner optimizado + lectura por zonas',
           }
 
           const completedItem: BatchScanItem = {
@@ -1107,7 +1152,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   async function runImageOcr(imageFile: File) {
     setScanning(true)
     setScanProgress(2)
-    setMessage('Preparando lectura rápida de la guía…')
+    setMessage('Mejorando la imagen y preparando lectura tipo escáner…')
     try {
       const result = await recognizeGuideImage(imageFile, (progress, status) => {
         setScanProgress(progress)
@@ -1117,7 +1162,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
         result.text,
         result.confidence,
         imageFile,
-        result.method === 'HEADER_FAST' ? 'Imagen · lectura rápida' : 'Imagen · cabecera + tabla',
+        result.method === 'HEADER_FAST' ? 'Imagen · escáner optimizado' : 'Imagen · escáner optimizado + lectura por zonas',
         true,
       )
     } catch (error) {
