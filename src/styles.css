@@ -24492,11 +24492,11 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   text-transform: uppercase;
 }
 
-.task-agenda-section:last-child .task-agenda-heading {
+.task-agenda-section.closed-section .task-agenda-heading {
   border-color: rgba(31, 130, 83, .14);
   background: linear-gradient(180deg, #fbfffc, #f5fbf7);
 }
 
-.task-agenda-section:last-child .task-agenda-heading h3 {
+.task-agenda-section.closed-section .task-agenda-heading h3 {
   color: #276d4b;
 }
