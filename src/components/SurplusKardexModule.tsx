@@ -384,9 +384,12 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
   const canLoadInitial = profile?.role === 'COORDINADOR' || profile?.role === 'ADMINISTRADOR'
   const scopedWarehouse = fixedWarehouse || (!isAdmin ? profile?.warehouse || '' : '')
 
-  async function reload() {
-    setLoading(true)
-    setMessage('')
+  async function loadMovements(silent = false) {
+    if (!silent) {
+      setLoading(true)
+      setMessage('')
+    }
+
     let query = supabase
       .from('surplus_kardex_movements')
       .select('*')
@@ -395,12 +398,56 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
 
     if (scopedWarehouse) query = query.eq('warehouse', scopedWarehouse)
     const { data, error } = await query
-    if (error) setMessage(error.message)
-    setMovements((data ?? []) as Movement[])
-    setLoading(false)
+
+    if (error) {
+      if (!silent) setMessage(error.message)
+    } else {
+      setMovements((data ?? []) as Movement[])
+    }
+
+    if (!silent) setLoading(false)
   }
 
-  useEffect(() => { reload() }, [userId, scopedWarehouse])
+  async function reload() {
+    await loadMovements(false)
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [userId, scopedWarehouse])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`surplus-kardex-live-${userId}-${scopedWarehouse || 'all'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'surplus_kardex_movements',
+        },
+        () => {
+          void loadMovements(true)
+        }
+      )
+      .subscribe()
+
+    const sync = () => { void loadMovements(true) }
+    const timer = window.setInterval(sync, 30_000)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') sync()
+    }
+
+    window.addEventListener('focus', sync)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', sync)
+      document.removeEventListener('visibilitychange', onVisibility)
+      void supabase.removeChannel(channel)
+    }
+  }, [userId, scopedWarehouse])
 
   const warehouses = useMemo(
     () => Array.from(new Set(movements.map((row) => row.warehouse))).sort(),
@@ -1135,13 +1182,13 @@ export function SurplusKardexModule({ userId, profile, fixedWarehouse }: Props) 
         <div className="panel-title">
           <div>
             <h3>Kardex de Sobrantes</h3>
-            <p>Modelo WM: Centro → Almacén → Tipo → Sección → Ubicación/Bin → Caja → Embarque → Material.</p>
+            <p>Modelo WM: Centro → Almacén → Tipo → Sección → Ubicación/Bin → Caja → Embarque → Material. Actualización automática activa.</p>
           </div>
           <div className="button-row">
             {canMove && <button className="primary-button" onClick={openManualEntry}><Plus size={15}/> Agregar sobrante</button>}
             <button className="secondary-button" onClick={exportKardexPdf}><FileText size={15}/> PDF Kardex</button>
             <button className="secondary-button" onClick={exportKardexExcel}><FileSpreadsheet size={15}/> Excel</button>
-            <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
+            <button className="icon-button" onClick={() => void reload()} title="Sincronizar ahora"><RefreshCw size={17}/></button>
           </div>
         </div>
 
