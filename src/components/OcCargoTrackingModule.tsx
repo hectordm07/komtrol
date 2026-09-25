@@ -16,7 +16,6 @@ import {
   Search,
   Send,
   Upload,
-  Trash2,
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -255,7 +254,6 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
   const [bulkPrepared,setBulkPrepared]=useState<BulkPreparedRefrendo[]>([])
   const [bulkIssues,setBulkIssues]=useState<BulkIssue[]>([])
   const [bulkFiles,setBulkFiles]=useState<File[]>([])
-  const [deletingGuideId, setDeletingGuideId] = useState<string | null>(null)
 
   const specialAccess=profile?.oc_cargo_access_level || null
   const canUploadRefrendos=specialAccess!=='COMERCIAL'
@@ -727,61 +725,6 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     await reload()
   }
 
-  async function deleteGuide(guide: Guide) {
-    if (profile?.role !== 'ADMINISTRADOR' || deletingGuideId) return
-
-    const accepted = window.confirm(
-      `¿Eliminar la guía ${guide.guide_no} / ${guide.reference}?\n\nSe eliminará la carga y su seguimiento asociado. Esta acción no se puede deshacer.`
-    )
-    if (!accepted) return
-
-    setDeletingGuideId(guide.id)
-    setMessage('')
-
-    const { error } = await supabase
-      .from('guides')
-      .delete()
-      .eq('id', guide.id)
-
-    if (error) {
-      setDeletingGuideId(null)
-      setMessage(`No se pudo eliminar la guía: ${error.message}`)
-      return
-    }
-
-    const storageTargets = [
-      guide.file_bucket && guide.file_path
-        ? { bucket: guide.file_bucket, path: guide.file_path }
-        : null,
-      ...(guide.refrendos || []).map((item) => ({
-        bucket: item.file_bucket,
-        path: item.file_path,
-      })),
-    ].filter((item): item is { bucket: string; path: string } => Boolean(item?.bucket && item?.path))
-
-    const byBucket = new Map<string, string[]>()
-    for (const item of storageTargets) {
-      const list = byBucket.get(item.bucket) || []
-      list.push(item.path)
-      byBucket.set(item.bucket, list)
-    }
-
-    let storageWarning = ''
-    for (const [bucket, paths] of byBucket.entries()) {
-      const cleanup = await supabase.storage.from(bucket).remove([...new Set(paths)])
-      if (cleanup.error) storageWarning = cleanup.error.message
-    }
-
-    setDeletingGuideId(null)
-    if (selected?.id === guide.id) closeFollowup()
-    setMessage(
-      storageWarning
-        ? `Guía ${guide.guide_no} eliminada. Quedó una advertencia al limpiar archivos: ${storageWarning}`
-        : `Guía ${guide.guide_no} eliminada correctamente junto con su seguimiento.`
-    )
-    await reload()
-  }
-
   function openFollowup(guide: Guide) {
     setSelected(guide)
     setForm(followupToForm(guide.followup))
@@ -1070,21 +1013,9 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                     <td>{fmtDate(guide.followup?.billing_sent_at)}</td>
                     <td>{guide.followup?.billing_sent_by_name || '—'}</td>
                     <td>
-                      <div className="oc-guide-actions">
-                        <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
-                          <Eye size={14} /> Ver / Editar
-                        </button>
-                        {profile?.role === 'ADMINISTRADOR' && (
-                          <button
-                            className="icon-button oc-guide-delete"
-                            disabled={deletingGuideId === guide.id}
-                            onClick={() => void deleteGuide(guide)}
-                            title="Eliminar carga de guía"
-                          >
-                            {deletingGuideId === guide.id ? <RefreshCw className="spin" size={14}/> : <Trash2 size={14}/>}
-                          </button>
-                        )}
-                      </div>
+                      <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
+                        <Eye size={14} /> Ver / Editar
+                      </button>
                     </td>
                   </tr>
                 ))}
