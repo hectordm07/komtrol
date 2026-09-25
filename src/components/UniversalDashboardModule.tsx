@@ -13,6 +13,8 @@ import {
   MailCheck,
   PackageSearch,
   RefreshCw,
+  ShoppingCart,
+  FileCheck2,
   ShieldCheck,
   Users,
 } from 'lucide-react'
@@ -33,6 +35,7 @@ type Profile={
   project?:string|null
   group_name?:string|null
   shift_name?:string|null
+  oc_cargo_access_level?:'COMERCIAL'|'DOCUMENTARIO'|null
 }
 
 type Task={
@@ -105,6 +108,25 @@ type KardexMovement={
   created_at:string
 }
 
+type GuideFollowup={
+  final_status:string|null
+}
+
+type GuideRefrendo={
+  id:string
+}
+
+type DashboardGuide={
+  id:string
+  guide_no:string
+  guide_type:'ORDEN_COMPRA'|'CARGO_DIRECTO'|'REPOSICION'|'OTRO'
+  load_status:'VALIDADO'|'OBSERVADO'
+  warehouse:string|null
+  created_at:string
+  oc_cargo_followups?:GuideFollowup[]|GuideFollowup|null
+  guide_refrendos?:GuideRefrendo[]|null
+}
+
 
 type Props={
   userId:string
@@ -160,25 +182,38 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   const [notifications,setNotifications]=useState<Notification[]>([])
   const [incidents,setIncidents]=useState<Incident[]>([])
   const [kardexMovements,setKardexMovements]=useState<KardexMovement[]>([])
+  const [guides,setGuides]=useState<DashboardGuide[]>([])
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
 
   async function reload(){
     setLoading(true)
     setMessage('')
-    const [taskRes,expiryRes,notificationRes,incidentRes,kardexRes]=await Promise.all([
+
+    const isAdmin = profile.role==='ADMINISTRADOR' && !previewMode
+    const isAreaRole = previewMode || profile.role==='SUPERVISOR' || profile.role==='COORDINADOR'
+
+    let expiryQuery = supabase
+      .from('compliance_expirations')
+      .select('id,user_id,expiration_type,title,due_date,status,warehouse,project')
+
+    if(isAdmin){
+      // Administrador: dashboard global, sin recorte por almacén o usuario.
+    }else if(isAreaRole){
+      if(profile.warehouse) expiryQuery = expiryQuery.eq('warehouse',profile.warehouse)
+      if(profile.project) expiryQuery = expiryQuery.eq('project',profile.project)
+      if(previewMode) expiryQuery = expiryQuery.neq('user_id',userId)
+    }else{
+      expiryQuery = expiryQuery.eq('user_id',userId)
+    }
+
+    const [taskRes,expiryRes,notificationRes,incidentRes,kardexRes,guideRes]=await Promise.all([
       supabase
         .from('tasks')
         .select('id,task_no,work_type,title,warehouse,project,group_name,shift_name,relevo_from_shift,relevo_to_shift,responsible_id,assignment_type,assigned_user_id,assigned_group,assigned_shift,created_by,status,progress,priority,due_at,closed_at,created_at')
         .order('created_at',{ascending:false})
-        .limit(3000),
-      (previewMode
-        ? supabase.from('compliance_expirations').select('id,user_id,expiration_type,title,due_date,status,warehouse,project')
-          .eq('warehouse',profile.warehouse || '').eq('project',profile.project || '').neq('user_id',userId)
-        : supabase.from('compliance_expirations').select('id,user_id,expiration_type,title,due_date,status,warehouse,project')
-          .eq('user_id',userId))
-        .order('due_date',{ascending:true})
-        .limit(500),
+        .limit(5000),
+      expiryQuery.order('due_date',{ascending:true}).limit(3000),
       supabase
         .from('app_notifications')
         .select('id,title,message,task_id,read_at,created_at')
@@ -189,25 +224,33 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         .from('incidents')
         .select('id,incident_no,incident_type,status,auto_email_status,warehouse,project,qty_expected,qty_received,qty_damaged,created_at')
         .order('created_at',{ascending:false})
-        .limit(3000),
+        .limit(5000),
       supabase
         .from('surplus_kardex_movements')
         .select('id,warehouse,movement_type,source_type,material_no,quantity,stock_type,created_at')
         .order('created_at',{ascending:false})
-        .limit(10000),
+        .limit(15000),
+      supabase
+        .from('guides')
+        .select('id,guide_no,guide_type,load_status,warehouse,created_at,oc_cargo_followups(final_status),guide_refrendos(id)')
+        .in('guide_type',['ORDEN_COMPRA','CARGO_DIRECTO','REPOSICION'])
+        .order('created_at',{ascending:false})
+        .limit(5000),
     ])
 
-    const error=taskRes.error||expiryRes.error||notificationRes.error||incidentRes.error||kardexRes.error
+    const error=taskRes.error||expiryRes.error||notificationRes.error||incidentRes.error||kardexRes.error||guideRes.error
     if(error) setMessage(error.message)
     setTasks((taskRes.data??[]) as Task[])
     setExpirations((expiryRes.data??[]) as Expiration[])
     setNotifications(previewMode ? [] : (notificationRes.data??[]) as Notification[])
     setIncidents((incidentRes.data??[]) as Incident[])
     setKardexMovements((kardexRes.data??[]) as KardexMovement[])
+    setGuides((guideRes.data??[]) as DashboardGuide[])
     setLoading(false)
   }
+  useEffect(()=>{reload()},[userId,previewMode,profile.role,profile.warehouse,profile.project])
 
-  useEffect(()=>{reload()},[userId,previewMode,profile.warehouse,profile.project])
+  const isAdminDashboard=profile.role==='ADMINISTRADOR'&&!previewMode
 
   const personalTasks=useMemo(()=>tasks.filter((task)=>
     !previewMode &&
@@ -221,6 +264,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
 
   const groupTasks=useMemo(()=>tasks.filter((task)=>{
     if(task.work_type==='PERSONAL') return false
+    if(isAdminDashboard) return true
 
     // Una tarea asignada directamente a una persona debe aparecer aunque
     // provenga de otro almacén/proyecto: la asignación explícita tiene prioridad.
@@ -259,11 +303,12 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     }
 
     return true
-  }),[tasks,userId,previewMode,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
+  }),[tasks,userId,previewMode,isAdminDashboard,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
 
-  const openPersonal=personalTasks.filter(isOpen)
-  const overduePersonal=personalTasks.filter(isOverdue)
-  const due7=personalTasks.filter((task)=>{
+  const dashboardTaskBase=isAdminDashboard?tasks:personalTasks
+  const openPersonal=dashboardTaskBase.filter(isOpen)
+  const overduePersonal=dashboardTaskBase.filter(isOverdue)
+  const due7=dashboardTaskBase.filter((task)=>{
     if(!isOpen(task)) return false
     const days=daysUntil(task.due_at)
     return days!==null && days>=0 && days<=7
@@ -276,13 +321,13 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   const operationalProject=(profile.project||'').trim().toUpperCase()
 
   function scopeWarehouse<T extends {warehouse?:string|null}>(rows:T[]){
-    if(profile.role==='ADMINISTRADOR' && !operationalWarehouse) return rows
+    if(isAdminDashboard) return rows
     if(!operationalWarehouse) return []
     return rows.filter((row)=>String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse)
   }
 
   const operationalIncidents=incidents.filter((row)=>{
-    if(profile.role==='ADMINISTRADOR' && !operationalWarehouse) return true
+    if(isAdminDashboard) return true
     const sameWarehouse=String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse
     if(!sameWarehouse) return false
     if(!operationalProject) return true
@@ -325,9 +370,9 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       .filter((row)=>row.material_no)
       .map((row)=>row.material_no)
   ).size
-  const incidentRoute=operationalWarehouse==='CALLAO'?'inbound-incidencias':'incidencias'
-  const surplusRoute=operationalWarehouse==='CALLAO'?'inbound-cajas':'kardex-sobrantes'
-  const kardexRoute=operationalWarehouse==='CALLAO'?'inbound-kardex':'kardex-sobrantes'
+  const incidentRoute=isAdminDashboard?'incidencias':operationalWarehouse==='CALLAO'?'inbound-incidencias':'incidencias'
+  const surplusRoute=isAdminDashboard?'kardex-sobrantes':operationalWarehouse==='CALLAO'?'inbound-cajas':'kardex-sobrantes'
+  const kardexRoute=isAdminDashboard?'kardex-sobrantes':operationalWarehouse==='CALLAO'?'inbound-kardex':'kardex-sobrantes'
 
   const incidentSegments=[
     {label:'Sobrantes',value:operationalIncidents.filter((row)=>row.incident_type==='SOBRANTE').length},
@@ -350,10 +395,10 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   }).length
 
   const taskStatusSegments=[
-    {label:'Pendiente',value:personalTasks.filter((t)=>t.status==='PENDIENTE').length},
-    {label:'En proceso',value:personalTasks.filter((t)=>t.status==='EN_PROCESO').length},
-    {label:'Bloqueado',value:personalTasks.filter((t)=>t.status==='BLOQUEADO').length},
-    {label:'Cerrado',value:personalTasks.filter((t)=>t.status==='CERRADO').length},
+    {label:'Pendiente',value:dashboardTaskBase.filter((t)=>t.status==='PENDIENTE').length},
+    {label:'En proceso',value:dashboardTaskBase.filter((t)=>t.status==='EN_PROCESO').length},
+    {label:'Bloqueado',value:dashboardTaskBase.filter((t)=>t.status==='BLOQUEADO').length},
+    {label:'Cerrado',value:dashboardTaskBase.filter((t)=>t.status==='CERRADO').length},
     {label:'Vencido',value:overduePersonal.length},
   ]
 
@@ -416,17 +461,17 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       const d=new Date(now.getFullYear(),now.getMonth()-offset,1)
       const year=d.getFullYear()
       const month=d.getMonth()
-      const value=personalTasks.filter((task)=>{
+      const value=dashboardTaskBase.filter((task)=>{
         const created=new Date(task.created_at)
         return created.getFullYear()===year&&created.getMonth()===month
       }).length
       points.push({label:monthNames[month],value})
     }
     return points
-  },[personalTasks])
+  },[dashboardTaskBase])
 
   const upcoming=useMemo(()=>{
-    const taskItems=personalTasks
+    const taskItems=dashboardTaskBase
       .filter((task)=>isOpen(task)&&task.due_at)
       .map((task)=>({
         id:`task-${task.id}`,
@@ -455,7 +500,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         return ad-bd
       })
       .slice(0,10)
-  },[personalTasks,activeExpirations])
+  },[dashboardTaskBase,activeExpirations])
 
   const nearest=(type:Expiration['expiration_type'])=>{
     const list=expiryByType(type)
@@ -468,6 +513,24 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   const emoaNearest=nearest('EMOA')
   const courseNearest=nearest('CURSO')
   const licenseNearest=nearest('LICENCIA_INTERNA')
+
+  function guideFollowupStatus(guide:DashboardGuide){
+    const value=guide.oc_cargo_followups
+    const row=Array.isArray(value)?value[0]:value
+    return row?.final_status||'PENDIENTE'
+  }
+
+  const purchaseOrders=guides.filter((guide)=>guide.guide_type==='ORDEN_COMPRA')
+  const directCharges=guides.filter((guide)=>guide.guide_type==='CARGO_DIRECTO')
+  const pendingPurchaseOrders=purchaseOrders.filter((guide)=>!['REFRENDADO','CERRADO'].includes(guideFollowupStatus(guide)))
+  const pendingDirectCharges=directCharges.filter((guide)=>!['REFRENDADO','CERRADO'].includes(guideFollowupStatus(guide)))
+  const purchaseOrdersWithoutRefrendo=purchaseOrders.filter((guide)=>(guide.guide_refrendos?.length||0)===0)
+  const observedLoads=guides.filter((guide)=>guide.load_status==='OBSERVADO')
+  const urgentExpirations=activeExpirations.filter((row)=>{
+    const days=daysUntil(row.due_date)
+    return days!==null&&days<=30
+  }).length
+  const globalPendingTotal=openPersonal.length+openIncidents.length+urgentExpirations+pendingPurchaseOrders.length+pendingDirectCharges.length
 
   if(loading){
     return <div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando dashboard…</p></div>
