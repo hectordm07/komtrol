@@ -1685,7 +1685,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     ? 'error'
     : /revisa|no se identificaron|se guardará sin archivo|advertencia/i.test(message)
       ? 'warning'
-      : /registrada correctamente|se detectó|procesado/i.test(message)
+      : /registrada correctamente|guardada correctamente|se detectó|procesado/i.test(message)
         ? 'success'
         : 'info'
 
