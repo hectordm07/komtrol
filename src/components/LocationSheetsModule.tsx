@@ -14,6 +14,10 @@ import {
   AlertTriangle,
   Edit3,
   CheckCircle2,
+  Trash2,
+  Save,
+  Database,
+  UserRound,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { jsPDF } from 'jspdf'
@@ -63,6 +67,9 @@ type Ingress = {
   supplier: Supplier
   warehouse: string | null
   notes: string | null
+  responsible_user_id: string | null
+  responsible_name: string | null
+  sap_fiori_ni: string | null
   created_at: string
   replenishment_receipts?: Receipt[]
 }
@@ -94,6 +101,14 @@ function fmtDate(value?: string | null) {
 
 function formatQuantity(value: number) {
   return new Intl.NumberFormat('es-PE', { maximumFractionDigits: 3 }).format(value)
+}
+
+function compactResponsibleName(value?: string | null) {
+  const parts = String(value ?? '').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'POR DEFINIR'
+  if (parts.length === 1) return parts[0].toUpperCase()
+  const surnameIndex = parts.length <= 3 ? 1 : Math.ceil(parts.length / 2)
+  return `${parts[0]} ${parts[Math.min(surnameIndex, parts.length - 1)]}`.toUpperCase()
 }
 
 function receivedQuantity(row: FlatLine) {
@@ -205,6 +220,7 @@ async function exportIngressExcel(
   ingress: Ingress,
   rows: FlatLine[],
   sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS',
+  responsible: string,
 ) {
   const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
   const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
@@ -217,8 +233,9 @@ async function exportIngressExcel(
   // Formato de revisión manual: no incluye Stock Code ni Cant. recibida.
   // Stock Mina queda en blanco hasta contar con una fuente de stock confiable.
   const aoa: any[][] = [
-    ['HOJA DE UBICACIÓN - REVISIÓN MANUAL', '', '', '', '', '', '', 'N°', ingress.ingress_no],
-    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', '', ''],
+    ['HOJA DE UBICACIÓN - REVISIÓN MANUAL', '', '', '', '', '', '', 'N° INGRESO', ingress.ingress_no],
+    [`FECHA: ${fmtDate(ingress.ingress_date)} · PROVEEDOR: ${ingress.supplier} · ALMACÉN: ${ingress.warehouse || '—'} · ${statusLabel}`, '', '', '', '', '', '', '', ''],
+    [`RESPONSABLE DE CARGA: ${responsible}`, '', '', '', '', '', '', '', ''],
     ['NÚMERO DE PARTE', 'DESCRIPCIÓN', 'STOCK MINA', 'GUÍA DE REMISIÓN', 'CANT.', 'UBICACIÓN', 'RESPONSABLE', 'DIFERENCIA', 'OBSERVACIÓN'],
     ...rows.map((row) => [
       row.partNo,
@@ -236,7 +253,8 @@ async function exportIngressExcel(
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
   ]
   ws['!cols'] = [
     { wch: 19 },
@@ -249,8 +267,8 @@ async function exportIngressExcel(
     { wch: 14 },
     { wch: 26 },
   ]
-  ws['!rows'] = [{ hpt: 27 }, { hpt: 18 }, { hpt: 32 }]
-  ws['!autofilter'] = { ref: `A3:I${rows.length + 3}` }
+  ws['!rows'] = [{ hpt: 27 }, { hpt: 18 }, { hpt: 20 }, { hpt: 32 }]
+  ws['!autofilter'] = { ref: `A4:I${rows.length + 4}` }
 
   const thinBorder = {
     top: { style: 'thin', color: { rgb: 'B8C0CC' } },
@@ -267,9 +285,11 @@ async function exportIngressExcel(
     }
   }
 
-  if (ws['A2']) {
-    ws['A2'].s = {
-      font: { name: 'Arial', sz: 9, color: { rgb: '536174' } },
+  for (const address of ['A2','A3']) {
+    if (!ws[address]) continue
+    ws[address].s = {
+      fill: { fgColor: { rgb: address === 'A3' ? 'EEF2FF' : 'FFFFFF' } },
+      font: { name: 'Arial', sz: address === 'A3' ? 9.5 : 9, bold: address === 'A3', color: { rgb: address === 'A3' ? '263F91' : '536174' } },
       alignment: { horizontal: 'center', vertical: 'center' },
       border: thinBorder,
     }
@@ -287,7 +307,7 @@ async function exportIngressExcel(
   }
 
   for (let col = 0; col < 9; col++) {
-    const address = XLSX.utils.encode_cell({ r: 2, c: col })
+    const address = XLSX.utils.encode_cell({ r: 3, c: col })
     const cell = ws[address]
     if (!cell) continue
     cell.s = {
@@ -298,7 +318,7 @@ async function exportIngressExcel(
     }
   }
 
-  for (let row = 3; row < rows.length + 3; row++) {
+  for (let row = 4; row < rows.length + 4; row++) {
     ws['!rows'][row] = { hpt: 31 }
     for (let col = 0; col < 9; col++) {
       const address = XLSX.utils.encode_cell({ r: row, c: col })
@@ -334,6 +354,7 @@ function exportIngressPdf(
   ingress: Ingress,
   rows: FlatLine[],
   sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS',
+  responsible: string,
 ) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -341,7 +362,7 @@ function exportIngressPdf(
   const left = 6
   const right = 6
   const numberBoxWidth = 34
-  const headerHeight = 18
+  const headerHeight = 25
   const reportWidth = pageWidth - left - right
   const statusLabel =
     sapFilter === 'PENDIENTE' ? 'PENDIENTES SAP' :
@@ -358,19 +379,36 @@ function exportIngressPdf(
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.text(
-      'HOJA DE UBICACIÓN - REVISIÓN MANUAL',
+      'HOJA DE UBICACIÓN',
       left + (reportWidth - numberBoxWidth) / 2,
-      13.5,
+      12.5,
+      { align: 'center' }
+    )
+    doc.setFontSize(7.2)
+    doc.setTextColor(73, 94, 168)
+    doc.text(
+      'REVISIÓN MANUAL',
+      left + (reportWidth - numberBoxWidth) / 2,
+      16.5,
       { align: 'center' }
     )
 
     doc.setTextColor(83, 97, 116)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
+    doc.setFontSize(6.3)
     doc.text(
-      `${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`,
+      `${fmtDate(ingress.ingress_date)} · ${ingress.supplier} · ${ingress.warehouse || '—'} · ${statusLabel}`,
       left + (reportWidth - numberBoxWidth) / 2,
-      20,
+      21,
+      { align: 'center' }
+    )
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(38, 63, 145)
+    doc.setFontSize(6.5)
+    doc.text(
+      `RESPONSABLE DE CARGA: ${responsible}`,
+      left + (reportWidth - numberBoxWidth) / 2,
+      26.2,
       { align: 'center' }
     )
 
@@ -380,16 +418,16 @@ function exportIngressPdf(
     doc.setTextColor(38, 63, 145)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
-    doc.text('N°', boxX + 8, 17.5, { align: 'center' })
-    doc.setFontSize(14)
-    doc.text(String(ingress.ingress_no), boxX + 23, 18, { align: 'center' })
+    doc.text('N° INGRESO', boxX + numberBoxWidth / 2, 14, { align: 'center' })
+    doc.setFontSize(16)
+    doc.text(String(ingress.ingress_no), boxX + numberBoxWidth / 2, 21.5, { align: 'center' })
   }
 
   drawReportHeader()
 
   autoTable(doc, {
-    startY: 29,
-    margin: { left, right, top: 29, bottom: 11 },
+    startY: 36,
+    margin: { left, right, top: 36, bottom: 11 },
     head: [[
       'NÚMERO DE PARTE',
       'DESCRIPCIÓN',
@@ -481,7 +519,10 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
   const [sapFilter, setSapFilter] = useState<'PENDIENTE' | 'INGRESADO' | 'TODOS'>('PENDIENTE')
-  const [detailMode, setDetailMode] = useState<'PRINT' | 'VERIFY'>('PRINT')
+  const [detailMode, setDetailMode] = useState<'PRINT' | 'VERIFY' | 'FIORI'>('PRINT')
+  const [ingressFiori, setIngressFiori] = useState('')
+  const [savingFiori, setSavingFiori] = useState(false)
+  const [deletingIngressId, setDeletingIngressId] = useState<string | null>(null)
   const [editingVerificationLineId, setEditingVerificationLineId] = useState<string | null>(null)
   const [receivedDrafts, setReceivedDrafts] = useState<Record<string, string>>({})
   const [deliveryDrafts, setDeliveryDrafts] = useState<Record<string, string>>({})
@@ -583,6 +624,9 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
         supplier,
         warehouse,
         notes,
+        responsible_user_id,
+        responsible_name,
+        sap_fiori_ni,
         created_at,
         replenishment_receipts (
           id,
@@ -640,6 +684,86 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     }
 
     setLoading(false)
+  }
+
+  function openIngress(row: Ingress, mode: 'PRINT' | 'VERIFY' | 'FIORI' = 'PRINT') {
+    setSelected(row)
+    setReceivedSearch('')
+    setEditingVerificationLineId(null)
+    setDetailMode(mode)
+    const receiptFiori = (row.replenishment_receipts ?? []).find((receipt) => /^50\d+$/.test(receipt.sap_fiori_no || ''))?.sap_fiori_no || ''
+    setIngressFiori(row.sap_fiori_ni || receiptFiori)
+    setMessage('')
+  }
+
+  async function saveIngressFiori() {
+    if (!selected || savingFiori) return
+    const value = ingressFiori.trim()
+
+    if (value && !/^50\d+$/.test(value)) {
+      setMessage('NI SAP FIORI inválido: debe contener solo números y empezar con 50.')
+      return
+    }
+
+    setSavingFiori(true)
+    setMessage('')
+
+    const { error: ingressError } = await supabase
+      .from('replenishment_ingresses')
+      .update({ sap_fiori_ni: value || null, updated_at: new Date().toISOString() })
+      .eq('id', selected.id)
+
+    if (ingressError) {
+      setSavingFiori(false)
+      setMessage(`No se pudo guardar el NI FIORI: ${ingressError.message}`)
+      return
+    }
+
+    const { error: receiptError } = await supabase
+      .from('replenishment_receipts')
+      .update({ sap_fiori_no: value || null, updated_at: new Date().toISOString() })
+      .eq('ingress_id', selected.id)
+
+    setSavingFiori(false)
+
+    if (receiptError) {
+      setMessage(`El NI quedó guardado en el ingreso, pero no se pudo actualizar todas las guías: ${receiptError.message}`)
+      return
+    }
+
+    setMessage(value
+      ? `NI SAP FIORI ${value} guardado. Las guías de este ingreso pasan a estado INGRESADO.`
+      : 'NI SAP FIORI retirado del ingreso.'
+    )
+    await reload()
+  }
+
+  async function deleteIngress(row: Ingress) {
+    if (profile?.role !== 'ADMINISTRADOR' || deletingIngressId) return
+
+    const accepted = window.confirm(
+      `¿Eliminar el Ingreso N° ${row.ingress_no} de Hojas de Ubicación?\n\nLas guías originales se conservarán; solo se eliminará esta agrupación de ingreso.`
+    )
+    if (!accepted) return
+
+    setDeletingIngressId(row.id)
+    setMessage('')
+
+    const { error } = await supabase
+      .from('replenishment_ingresses')
+      .delete()
+      .eq('id', row.id)
+
+    setDeletingIngressId(null)
+
+    if (error) {
+      setMessage(`No se pudo eliminar el ingreso: ${error.message}`)
+      return
+    }
+
+    if (selected?.id === row.id) setSelected(null)
+    setMessage(`Ingreso N° ${row.ingress_no} eliminado de Hojas de Ubicación. Las guías originales se conservaron.`)
+    await reload()
   }
 
   useEffect(() => {
@@ -877,7 +1001,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     setExporting('excel')
     setMessage('')
     try {
-      await exportIngressExcel(selected, selectedRows, sapFilter)
+      await exportIngressExcel(selected, selectedRows, sapFilter, compactResponsibleName(selected.responsible_name))
     } catch (error) {
       setMessage(
         `No se pudo generar el Excel: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -892,7 +1016,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     setExporting('pdf')
     setMessage('')
     try {
-      await exportIngressPdf(selected, selectedRows, sapFilter)
+      await exportIngressPdf(selected, selectedRows, sapFilter, compactResponsibleName(selected.responsible_name))
     } catch (error) {
       setMessage(
         `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -1014,7 +1138,15 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
               <tbody>
                 {visible.map((row) => (
                   <tr key={row.id}>
-                    <td><b className="ingress-number">{row.ingress_no}</b></td>
+                    <td>
+                      <button
+                        className="ingress-number ingress-number-button"
+                        onClick={() => openIngress(row, 'FIORI')}
+                        title="Abrir NI / SAP FIORI"
+                      >
+                        {row.ingress_no}
+                      </button>
+                    </td>
                     <td>{fmtDate(row.ingress_date)}</td>
                     <td>
                       <span className={row.supplier === 'CUMMINS' ? 'supplier-chip cummins' : row.supplier === 'KOMATSU' ? 'supplier-chip' : 'supplier-chip pending'}>
@@ -1025,9 +1157,24 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                     <td><b>{guideCount(row)}</b></td>
                     <td><b>{lineCount(row)}</b></td>
                     <td>
-                      <button className="secondary-button small-report" onClick={() => { setSelected(row); setReceivedSearch(''); setDetailMode('PRINT'); setEditingVerificationLineId(null) }}>
-                        <FileText size={14} /> Ver ingreso
-                      </button>
+                      <div className="ingress-row-actions">
+                        <button className="secondary-button small-report" onClick={() => openIngress(row, 'PRINT')}>
+                          <FileText size={14} /> Ver ingreso
+                        </button>
+                        <button className="secondary-button small-report" onClick={() => openIngress(row, 'FIORI')}>
+                          <Database size={14} /> NI / FIORI
+                        </button>
+                        {profile?.role === 'ADMINISTRADOR' && (
+                          <button
+                            className="icon-button ingress-delete-button"
+                            disabled={deletingIngressId === row.id}
+                            onClick={() => void deleteIngress(row)}
+                            title="Eliminar ingreso"
+                          >
+                            {deletingIngressId === row.id ? <RefreshCw className="spin" size={15}/> : <Trash2 size={15}/>}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1046,18 +1193,22 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
       </section>
 
       {selected && (
-        <section className={`panel ingress-detail-report ${detailMode === 'PRINT' ? 'location-print-mode' : 'location-verify-mode'}`}>
-          <div className="ingress-report-title">
-            <div>
-              <h2>HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS</h2>
-              <p>
-                {selected.supplier} · {fmtDate(selected.ingress_date)}
-                {selected.warehouse ? ` · ${selected.warehouse}` : ''}
-              </p>
+        <section className={`panel ingress-detail-report ${detailMode === 'PRINT' ? 'location-print-mode' : detailMode === 'FIORI' ? 'location-fiori-mode' : 'location-verify-mode'}`}>
+          <div className="ingress-report-title location-sheet-header">
+            <div className="location-sheet-header-main">
+              <span className="location-sheet-kicker">HOJA DE UBICACIÓN</span>
+              <h2>{detailMode === 'FIORI' ? 'NI / INGRESO SAP FIORI' : detailMode === 'VERIFY' ? 'VERIFICACIÓN DE INVENTARIO' : 'REVISIÓN MANUAL'}</h2>
+              <div className="location-sheet-meta-grid">
+                <span><small>FECHA</small><b>{fmtDate(selected.ingress_date)}</b></span>
+                <span><small>PROVEEDOR</small><b>{selected.supplier}</b></span>
+                <span><small>ALMACÉN</small><b>{selected.warehouse || '—'}</b></span>
+                <span className="responsible-meta"><small>RESPONSABLE DE CARGA</small><b><UserRound size={14}/>{compactResponsibleName(selected.responsible_name)}</b></span>
+              </div>
             </div>
             <div className="ingress-report-number">
-              <span>N°</span>
+              <span>N° INGRESO</span>
               <b>{selected.ingress_no}</b>
+              {selected.sap_fiori_ni && <small>NI {selected.sap_fiori_ni}</small>}
             </div>
           </div>
 
@@ -1071,7 +1222,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
               </span>
             </div>
             <div className="button-row ingress-mode-actions">
-              <button className="secondary-button" onClick={() => { setSelected(null); setReceivedSearch(''); setDetailMode('PRINT'); setEditingVerificationLineId(null) }}>
+              <button className="secondary-button" onClick={() => { setSelected(null); setReceivedSearch(''); setDetailMode('PRINT'); setEditingVerificationLineId(null); setIngressFiori('') }}>
                 Cerrar detalle
               </button>
               <button
@@ -1088,6 +1239,17 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                   <AlertTriangle size={16} /> Verificación inventario
                 </button>
               )}
+              <button
+                className={detailMode === 'FIORI' ? 'primary-button' : 'secondary-button'}
+                onClick={() => {
+                  setDetailMode('FIORI')
+                  setEditingVerificationLineId(null)
+                  const receiptFiori = (selected.replenishment_receipts ?? []).find((receipt) => /^50\d+$/.test(receipt.sap_fiori_no || ''))?.sap_fiori_no || ''
+                  setIngressFiori(selected.sap_fiori_ni || receiptFiori)
+                }}
+              >
+                <Database size={16} /> NI / SAP FIORI
+              </button>
               {detailMode === 'PRINT' && <>
                 <button className="secondary-button" disabled={!selectedRows.length} onClick={() => window.print()}>
                   <Printer size={16} /> Imprimir
@@ -1150,6 +1312,43 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                     <FileText size={28} />
                     <b>Este ingreso aún no tiene líneas</b>
                   </div>
+                )}
+              </div>
+            </div>
+          ) : detailMode === 'FIORI' ? (
+            <div className="ingress-fiori-panel">
+              <div className="fiori-panel-icon"><Database size={28}/></div>
+              <div className="fiori-panel-copy">
+                <span>NI DE INGRESO SAP FIORI</span>
+                <h3>Registrar NI para todo el Ingreso N° {selected.ingress_no}</h3>
+                <p>
+                  El NI FIORI se aplica a todas las guías agrupadas en este ingreso.
+                  Al guardar un número válido que empiece con 50, las guías pasarán a estado INGRESADO.
+                </p>
+
+                <label className="fiori-ni-field">
+                  NI SAP FIORI
+                  <input
+                    inputMode="numeric"
+                    value={ingressFiori}
+                    onChange={(event) => setIngressFiori(event.target.value.replace(/\D/g, ''))}
+                    placeholder="Ej. 5000288368"
+                    disabled={savingFiori || profile?.role === 'SUPERVISOR'}
+                  />
+                  <small>Debe iniciar con 50 · Aplica a {guideCount(selected)} guía(s)</small>
+                </label>
+
+                <div className="fiori-status-summary">
+                  <span><Truck size={15}/> {guideCount(selected)} guías</span>
+                  <span><PackageCheck size={15}/> {lineCount(selected)} líneas</span>
+                  <span><UserRound size={15}/> {compactResponsibleName(selected.responsible_name)}</span>
+                </div>
+
+                {profile?.role !== 'SUPERVISOR' && (
+                  <button className="primary-button fiori-save-button" disabled={savingFiori} onClick={() => void saveIngressFiori()}>
+                    {savingFiori ? <RefreshCw className="spin" size={16}/> : <Save size={16}/>}
+                    {savingFiori ? 'Guardando NI…' : 'Guardar NI SAP FIORI'}
+                  </button>
                 )}
               </div>
             </div>
