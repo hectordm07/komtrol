@@ -152,7 +152,12 @@ type Props={
   userId:string
   profile:Profile
   previewMode?:boolean
-  onNavigate:(tab:string,options?:{taskStatus?:'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'})=>void
+  availableTabs?:string[]
+  adminValidationMode?:boolean
+  onNavigate:(tab:string,options?:{
+    taskStatus?:'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'
+    restoreAdmin?:boolean
+  })=>void
 }
 
 const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -196,7 +201,14 @@ function expiryLabel(type:Expiration['expiration_type']){
   return type==='CURSO'?'Curso':type==='LICENCIA_INTERNA'?'Licencia interna':'EMOA'
 }
 
-export function UniversalDashboardModule({userId,profile,previewMode=false,onNavigate}:Props){
+export function UniversalDashboardModule({
+  userId,
+  profile,
+  previewMode=false,
+  availableTabs=[],
+  adminValidationMode=false,
+  onNavigate,
+}:Props){
   const [tasks,setTasks]=useState<Task[]>([])
   const [expirations,setExpirations]=useState<Expiration[]>([])
   const [notifications,setNotifications]=useState<Notification[]>([])
@@ -301,6 +313,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   },[userId,previewMode,profile.role,profile.warehouse,profile.project])
 
   const isAdminDashboard=profile.role==='ADMINISTRADOR'&&!previewMode
+  const canAccess=(tab:string)=>!availableTabs.length||availableTabs.includes(tab)
 
   const personalTasks=useMemo(()=>tasks.filter((task)=>
     !previewMode &&
@@ -354,6 +367,25 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
 
     return true
   }),[tasks,userId,previewMode,isAdminDashboard,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
+
+  const adminValidationPersonal=tasks.filter((task)=>
+    adminValidationMode &&
+    task.work_type==='PERSONAL' &&
+    isOpen(task) &&
+    (task.assigned_user_id===userId||task.responsible_id===userId||task.created_by===userId)
+  )
+  const adminValidationTasks=tasks.filter((task)=>
+    adminValidationMode &&
+    task.work_type==='TAREA' &&
+    isOpen(task) &&
+    (task.assigned_user_id===userId||task.responsible_id===userId||task.created_by===userId)
+  )
+  const adminValidationRelevos=tasks.filter((task)=>
+    adminValidationMode &&
+    task.work_type==='RELEVO' &&
+    isOpen(task) &&
+    (task.assigned_user_id===userId||task.responsible_id===userId||task.created_by===userId)
+  )
 
   const dashboardTaskBase=isAdminDashboard
     ? tasks.filter((task)=>task.work_type!=='PERSONAL')
@@ -542,7 +574,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         detail:task.task_no,
         due:task.due_at as string,
         days:daysUntil(task.due_at),
-        tab:'mi-trabajo',
+        tab:isAdminDashboard?'tareas-globales':'mi-trabajo',
       }))
 
     const expiryItems=activeExpirations.map((row)=>({
@@ -556,6 +588,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     }))
 
     return [...taskItems,...expiryItems]
+      .filter((row)=>canAccess(row.tab))
       .sort((a,b)=>{
         const ad=a.days??999999
         const bd=b.days??999999
@@ -625,6 +658,18 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     commercialPendingTotal+
     operationsPendingTotal
 
+  const hasTaskAccess=canAccess(isAdminDashboard?'tareas-globales':'mi-trabajo')
+  const hasExpirationAccess=['vencimientos-emoa','vencimientos-cursos','vencimientos-licencias'].some(canAccess)
+  const hasDocumentFlowAccess=['ingresos-reposicion','hoja-ubicacion','cargos-directos','seguimiento-guias'].some(canAccess)
+  const hasOperationalReportAccess=[incidentRoute,surplusRoute,kardexRoute].some(canAccess)
+
+  const visibleDocumentFlowData=documentFlowData.filter((row)=>{
+    if(row.key==='FIORI'||row.key==='INGRESOS') return canAccess('hoja-ubicacion')
+    if(row.key==='CARGO') return canAccess('cargos-directos')
+    if(row.key==='GUIAS'||row.key==='KMMP') return canAccess('ingresos-reposicion')
+    return false
+  })
+
   if(loading){
     return <div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando dashboard…</p></div>
   }
@@ -637,75 +682,104 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       </div>
       {message&&<div className="inline-message">{message}</div>}
 
+      {adminValidationMode&&(
+        <section className="panel admin-preview-validation">
+          <div className="admin-preview-validation-head">
+            <div>
+              <b>Validación del Administrador</b>
+              <span>Tus pendientes reales permanecen visibles mientras pruebas otra vista del sistema.</span>
+            </div>
+            <span className="status-pill">Vista de prueba</span>
+          </div>
+          <div className="admin-preview-validation-grid">
+            <button type="button" onClick={()=>onNavigate('mi-trabajo',{restoreAdmin:true})}>
+              <ClipboardList size={18}/>
+              <span><small>MIS TRABAJOS</small><b>{adminValidationPersonal.length}</b><em>Pendientes personales</em></span>
+              <ChevronRight size={15}/>
+            </button>
+            <button type="button" onClick={()=>onNavigate('tareas',{restoreAdmin:true})}>
+              <Users size={18}/>
+              <span><small>TAREAS ASIGNADAS / CREADAS</small><b>{adminValidationTasks.length}</b><em>Pendientes operativos propios</em></span>
+              <ChevronRight size={15}/>
+            </button>
+            <button type="button" onClick={()=>onNavigate('relevos',{restoreAdmin:true})}>
+              <RefreshCw size={18}/>
+              <span><small>RELEVOS</small><b>{adminValidationRelevos.length}</b><em>Pendientes vinculados contigo</em></span>
+              <ChevronRight size={15}/>
+            </button>
+          </div>
+        </section>
+      )}
+
       <div className="universal-dashboard-kpis">
-        <DashboardKpi
+        {hasTaskAccess&&<DashboardKpi
           icon={<ClipboardList/>}
           label={isAdminDashboard?'Pendientes globales':'Mis trabajos'}
           value={isAdminDashboard?globalPendingTotal:openPersonal.length}
           detail={isAdminDashboard?`${openPersonal.length} tareas · ${openIncidents.length} incidencias`:`${personalTasks.filter((t)=>t.status==='EN_PROCESO').length} en proceso`}
           tone="personal"
           onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}
-        />
-        <DashboardKpi
+        />}
+        {canAccess('tareas')&&<DashboardKpi
           icon={<Users/>}
           label="Tareas grupales"
           value={groupTaskPending.length}
           detail={profile.group_name||profile.warehouse||'Trabajo compartido'}
           tone="group"
           onClick={()=>onNavigate('tareas')}
-        />
-        <DashboardKpi
+        />}
+        {canAccess('relevos')&&<DashboardKpi
           icon={<RefreshCw/>}
           label="Relevos"
           value={groupRelevoPending.length}
           detail={profile.shift_name||'Continuidad de guardias'}
           tone="relevo"
           onClick={()=>onNavigate('relevos')}
-        />
-        <DashboardKpi
+        />}
+        {hasTaskAccess&&<DashboardKpi
           icon={<AlertTriangle/>}
           label={isAdminDashboard?'Vencidas globales':'Mis vencidas'}
           value={overduePersonal.length}
           detail={overduePersonal.length?'Requieren atención':'Sin retrasos'}
           critical={overduePersonal.length>0}
           onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'VENCIDA'})}
-        />
-        <DashboardKpi
+        />}
+        {hasTaskAccess&&<DashboardKpi
           icon={<CalendarClock/>}
           label="Próximos 7 días"
           value={due7.length}
           detail={isAdminDashboard?'Pendientes globales por vencer':'Mis trabajos por vencer'}
           onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}
-        />
-        <DashboardKpi
+        />}
+        {canAccess('vencimientos-emoa')&&<DashboardKpi
           icon={<ShieldCheck/>}
           label="EMOA"
           value={expiryByType('EMOA').length}
           detail={emoaNearest?nearestText(emoaNearest.days):'Sin registro activo'}
           onClick={()=>onNavigate('vencimientos-emoa')}
-        />
-        <DashboardKpi
+        />}
+        {canAccess('vencimientos-cursos')&&<DashboardKpi
           icon={<GraduationCap/>}
           label="Cursos"
           value={expiryByType('CURSO').length}
           detail={courseNearest?nearestText(courseNearest.days):'Sin registro activo'}
           onClick={()=>onNavigate('vencimientos-cursos')}
-        />
-        <DashboardKpi
+        />}
+        {canAccess('vencimientos-licencias')&&<DashboardKpi
           icon={<BadgeCheck/>}
           label="Licencias internas"
           value={expiryByType('LICENCIA_INTERNA').length}
           detail={licenseNearest?nearestText(licenseNearest.days):'Sin registro activo'}
           onClick={()=>onNavigate('vencimientos-licencias')}
-        />
-        <DashboardKpi
+        />}
+        {canAccess('alertas')&&<DashboardKpi
           icon={<Bell/>}
           label="Alertas"
           value={unread}
           detail={unread?'Sin leer':'Todo revisado'}
           onClick={()=>onNavigate('alertas')}
-        />
-        <DashboardKpi
+        />}
+        {canAccess(incidentRoute)&&<DashboardKpi
           icon={<MailCheck/>}
           label="Correo de incidencias"
           value={`${incidentEmailsSent} / ${operationalIncidents.length}`}
@@ -718,10 +792,10 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           }
           critical={incidentEmailsError>0}
           onClick={()=>onNavigate(incidentRoute)}
-        />
+        />}
       </div>
 
-      <section className="universal-operational-reports document-flow-section">
+      {hasDocumentFlowAccess&&<section className="universal-operational-reports document-flow-section">
         <div className="universal-report-heading">
           <div>
             <b>Flujo documental y recepción</b>
@@ -758,11 +832,11 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         </div>
 
         <div className="universal-operational-charts document-flow-charts">
-          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('ingresos-reposicion')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('ingresos-reposicion')}}>
+          {visibleDocumentFlowData.length>0&&<div className="dashboard-chart-link">
             <ProfessionalBarChart
               title="Avance del proceso de ingreso"
               subtitle="Diferencia guías registradas vs. ingresos SAP"
-              data={documentFlowData}
+              data={visibleDocumentFlowData}
               onSelect={(key)=>{
                 if(key==='FIORI') onNavigate('hoja-ubicacion')
                 else if(key==='CARGO') onNavigate('cargos-directos')
@@ -770,19 +844,19 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
               }}
             />
             <span className="dashboard-chart-access">Abrir tratamiento <ChevronRight size={14}/></span>
-          </div>
-          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('seguimiento-guias')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('seguimiento-guias')}}>
+          </div>}
+          {canAccess('seguimiento-guias')&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('seguimiento-guias')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('seguimiento-guias')}}>
             <ProfessionalDonutChart
               title="Guías registradas por tipo"
               subtitle="Distribución visible según tu perfil"
               segments={guideTypeSegments}
             />
             <span className="dashboard-chart-access">Ver Seguimiento de Guías <ChevronRight size={14}/></span>
-          </div>
+          </div>}
         </div>
-      </section>
+      </section>}
 
-      <section className="universal-operational-reports">
+      {hasOperationalReportAccess&&<section className="universal-operational-reports">
         <div className="universal-report-heading">
           <div>
             <b>Reportes operativos</b>
@@ -791,47 +865,47 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         </div>
 
         <div className="universal-operational-kpis">
-          <button type="button" onClick={()=>onNavigate(incidentRoute)}>
+          {canAccess(incidentRoute)&&<button type="button" onClick={()=>onNavigate(incidentRoute)}>
             <span className="operational-report-icon"><PackageSearch size={19}/></span>
             <span><small>INCIDENCIAS</small><b>{operationalIncidents.length}</b><em>{openIncidents.length} abiertas</em></span>
             <ChevronRight size={16}/>
-          </button>
-          <button type="button" onClick={()=>onNavigate(surplusRoute)}>
+          </button>}
+          {canAccess(surplusRoute)&&<button type="button" onClick={()=>onNavigate(surplusRoute)}>
             <span className="operational-report-icon"><Boxes size={19}/></span>
             <span><small>SOBRANTES</small><b>{surplusIncidents.length}</b><em>{surplusQty.toLocaleString('es-PE',{maximumFractionDigits:2})} UND detectadas</em></span>
             <ChevronRight size={16}/>
-          </button>
-          <button type="button" onClick={()=>onNavigate(kardexRoute)}>
+          </button>}
+          {canAccess(kardexRoute)&&<button type="button" onClick={()=>onNavigate(kardexRoute)}>
             <span className="operational-report-icon"><ClipboardList size={19}/></span>
             <span><small>KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:2})}</b><em>{kardexMaterials} materiales con saldo</em></span>
             <ChevronRight size={16}/>
-          </button>
-          <button type="button" className="operational-report-missing" onClick={()=>onNavigate(incidentRoute)}>
+          </button>}
+          {canAccess(incidentRoute)&&<button type="button" className="operational-report-missing" onClick={()=>onNavigate(incidentRoute)}>
             <span className="operational-report-icon"><AlertTriangle size={19}/></span>
             <span><small>FALTANTES</small><b>{shortageIncidents.length}</b><em>{shortageQty.toLocaleString('es-PE',{maximumFractionDigits:2})} UND detectadas</em></span>
             <ChevronRight size={16}/>
-          </button>
+          </button>}
         </div>
 
         <div className="universal-operational-charts">
-          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(incidentRoute)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(incidentRoute)}}>
+          {canAccess(incidentRoute)&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(incidentRoute)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(incidentRoute)}}>
             <ProfessionalDonutChart
               title="Incidencias por tipo"
               subtitle={isAdminDashboard?'Todos los almacenes':profile.warehouse ? `Almacén ${profile.warehouse}` : 'Almacenes autorizados'}
               segments={incidentSegments}
             />
             <span className="dashboard-chart-access">Ver incidencias <ChevronRight size={14}/></span>
-          </div>
-          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(kardexRoute)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(kardexRoute)}}>
+          </div>}
+          {canAccess(kardexRoute)&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(kardexRoute)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(kardexRoute)}}>
             <ProfessionalBarChart
               title="Kardex de sobrantes"
               subtitle="Entradas, salidas y saldo actual"
               data={kardexChartData}
             />
             <span className="dashboard-chart-access">Ver Kardex <ChevronRight size={14}/></span>
-          </div>
+          </div>}
         </div>
-      </section>
+      </section>}
 
       {isAdminDashboard&&(
         <section className="universal-operational-reports admin-global-control">
@@ -879,7 +953,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       )}
 
       <div className="universal-dashboard-charts">
-        <div className="dashboard-chart-link task-status-chart-link">
+        {hasTaskAccess&&<div className="dashboard-chart-link task-status-chart-link">
           <ProfessionalDonutChart
             title={isAdminDashboard?'Tareas globales por estado':'Mis trabajos por estado'}
             subtitle={isAdminDashboard?'Solo tareas operativas compartidas; se excluyen tareas personales/privadas':'Distribución de trabajo personal'}
@@ -892,37 +966,37 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           <button type="button" className="dashboard-chart-access dashboard-chart-access-button" onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}>
             Ver Área de trabajo <ChevronRight size={14}/>
           </button>
-        </div>
+        </div>}
 
-        <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('vencimientos-cursos')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('vencimientos-cursos')}}>
+        {hasExpirationAccess&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('vencimientos-cursos')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('vencimientos-cursos')}}>
           <ProfessionalBarChart
             title="Vencimientos por categoría"
             subtitle="EMOA, cursos y licencias internas"
             data={expiryTypeData}
           />
           <span className="dashboard-chart-access">Ver Vencimientos <ChevronRight size={14}/></span>
-        </div>
+        </div>}
 
-        <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('vencimientos-emoa')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('vencimientos-emoa')}}>
+        {hasExpirationAccess&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('vencimientos-emoa')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('vencimientos-emoa')}}>
           <ProfessionalDonutChart
             title="Estado de vigencias"
             subtitle={isAdminDashboard?'Urgencia global de vigencias':'Nivel de urgencia de tus vencimientos'}
             segments={expiryUrgency}
           />
           <span className="dashboard-chart-access">Revisar vigencias <ChevronRight size={14}/></span>
-        </div>
+        </div>}
 
-        <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('mi-trabajo')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('mi-trabajo')}}>
+        {hasTaskAccess&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'}) onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}}>
           <ProfessionalTrendChart
             title="Actividad de tareas"
             subtitle="Tareas creadas en los últimos 6 meses"
             points={activityTrend}
           />
           <span className="dashboard-chart-access">Ver tareas <ChevronRight size={14}/></span>
-        </div>
+        </div>}
       </div>
 
-      <section className="panel universal-upcoming">
+      {(hasTaskAccess||hasExpirationAccess)&&<section className="panel universal-upcoming">
         <div className="panel-title">
           <div>
             <h3>{isAdminDashboard?'Próximos pendientes globales':'Próximos compromisos'}</h3>
@@ -953,7 +1027,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
             </div>
           )}
         </div>
-      </section>
+      </section>}
     </div>
   )
 }
