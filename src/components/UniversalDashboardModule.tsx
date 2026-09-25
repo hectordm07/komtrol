@@ -721,6 +721,10 @@ export function UniversalDashboardModule({
     {label:'Órdenes de compra',value:purchaseOrders.length},
     {label:'Cargos directos',value:directCharges.length},
   ]
+  const directCargoSegments=[
+    {key:'PENDIENTE_ENTREGA',label:'Pend. entrega',value:pendingDirectDelivery.length},
+    {key:'ENTREGADOS',label:'Entregados',value:Math.max(0,directCharges.length-pendingDirectDelivery.length)},
+  ]
   const kmmpCompleted=Math.max(0,operationalReplenishmentReceipts.length-pendingSapKmmp.length)
   const fioriCompleted=Math.max(0,operationalReplenishmentIngresses.length-pendingFioriIngresses.length)
   const documentFlowData=[
@@ -960,6 +964,14 @@ export function UniversalDashboardModule({
               segments={guideTypeSegments}
             />
             <span className="dashboard-chart-access">Ver Seguimiento de Guías <ChevronRight size={14}/></span>
+          </div>}
+          {canAccess('cargos-directos')&&directCharges.length>0&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('cargos-directos')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('cargos-directos')}}>
+            <ProfessionalDonutChart
+              title="Estado de Cargos Directos"
+              subtitle="Entregas pendientes y completadas para este perfil"
+              segments={directCargoSegments}
+            />
+            <span className="dashboard-chart-access">Abrir Cargos Directos <ChevronRight size={14}/></span>
           </div>}
         </div>
       </section>}
