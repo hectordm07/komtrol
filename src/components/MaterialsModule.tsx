@@ -52,7 +52,7 @@ type MaterialHistory = {
 type SearchMatch = {
   material: Material
   score: number
-  kind: 'EXACTA' | 'SIN_PREFIJO' | 'PREFIJO' | 'APROXIMADA' | 'TEXTO'
+  kind: 'EXACTA' | 'SIN_PREFIJO' | 'PREFIJO' | 'APROXIMADA' | 'REEMPLAZO' | 'TEXTO'
 }
 
 type Mode = 'consulta' | 'master' | 'ubicacion'
@@ -153,11 +153,21 @@ function matchMaterial(material: Material, rawQuery: string): SearchMatch | null
   const materialCode = normalizeCode(material.material_no)
   const materialBase = baseCode(material.material_no)
   const queryBase = baseCode(query)
+  const descriptionCode = normalizeCode(material.description)
 
   if (materialCode === query) return { material, score: 100, kind: 'EXACTA' }
   if (materialBase && materialBase === query) return { material, score: 99, kind: 'SIN_PREFIJO' }
   if (queryBase && materialBase === queryBase) return { material, score: 97, kind: 'PREFIJO' }
   if (materialCode.endsWith(query) && query.length >= 5) return { material, score: 96, kind: 'SIN_PREFIJO' }
+
+  // Algunos materiales consignan en la descripción el N° de parte anterior,
+  // alternativo o reemplazado, por ejemplo: "ELEMENT, PRIMARY (R120123D1)".
+  // Normalizamos espacios, guiones y signos para que una búsqueda por ese
+  // código encuentre también el material vigente.
+  const looksLikePartNumber = query.length >= 5 && /\d/.test(query)
+  if (looksLikePartNumber && descriptionCode.includes(query)) {
+    return { material, score: 94, kind: 'REEMPLAZO' }
+  }
 
   const fuzzyScore = Math.max(
     similarity(query, materialCode),
@@ -595,6 +605,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
           <span>Exacta</span>
           <span>Sin prefijo</span>
           <span>Prefijo probable</span>
+          <span>Descripción / reemplazo</span>
           <span>Aproximada</span>
         </div>
       </div>
@@ -603,7 +614,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         <div className="material-match-summary">
           <div>
             <b>{matches.length ? `${matches.length} coincidencia(s)` : 'Sin coincidencias confiables'}</b>
-            <span>KOMTROL compara código completo, código base sin prefijo y similitud aproximada.</span>
+            <span>KOMTROL compara código completo, código base sin prefijo, códigos de reemplazo dentro de la descripción y similitud aproximada.</span>
           </div>
           {topSuggestions[0]?.score >= 95 && <span className="status-pill"><CheckCircle2 size={14} /> Mejor coincidencia {topSuggestions[0].score}%</span>}
         </div>
