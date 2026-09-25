@@ -937,7 +937,7 @@ function Workspace({ session }: { session: Session }) {
     {
       section: 'INICIO',
       items: [
-        { id: 'inicio' as Tab, label: 'Dashboard', icon: BarChart3 },
+        { id: 'inicio' as Tab, label: (profile?.oc_cargo_access_level === 'COMERCIAL' || accessView === 'COMERCIAL') ? 'Inicio' : 'Dashboard', icon: BarChart3 },
         { id: 'alertas' as Tab, label: 'Alertas', icon: Bell },
       ],
     },
