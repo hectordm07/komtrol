@@ -75,6 +75,7 @@ type PreviewAccessConfig = {
   warehouse_scope: 'REMOTO' | 'CENTRAL'
   remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
   group_name?: string | null
+  shift_name?: string | null
   oc_cargo_access_level?: 'COMERCIAL' | 'DOCUMENTARIO' | null
 }
 
@@ -585,6 +586,7 @@ function Workspace({ session }: { session: Session }) {
             warehouse_scope: profileWarehouseMeta?.warehouse_scope || (profile?.warehouse?.toUpperCase()==='CALLAO' ? 'CENTRAL' : 'REMOTO'),
             remote_group: profileWarehouseMeta?.remote_group || (profile?.warehouse?.toUpperCase()==='CALLAO' ? null : 'PROYECTO_MINERO'),
             group_name: profile?.group_name || null,
+            shift_name: profile?.shift_name || null,
             oc_cargo_access_level: null,
           }
         : accessView === 'USUARIO' && selectedAccessUser
@@ -598,6 +600,7 @@ function Workspace({ session }: { session: Session }) {
               warehouse_scope: selectedWarehouseMeta?.warehouse_scope || (selectedAccessUser.warehouse?.toUpperCase()==='CALLAO' ? 'CENTRAL' : 'REMOTO'),
               remote_group: selectedWarehouseMeta?.remote_group || (selectedAccessUser.warehouse?.toUpperCase()==='CALLAO' ? null : 'PROYECTO_MINERO'),
               group_name: selectedAccessUser.group_name || null,
+              shift_name: selectedAccessUser.shift_name || null,
               oc_cargo_access_level: selectedAccessUser.oc_cargo_access_level || null,
             }
           : ({
@@ -681,6 +684,7 @@ function Workspace({ session }: { session: Session }) {
           warehouse_scope: 'REMOTO',
           remote_group: null,
           group_name: 'COMERCIAL',
+          shift_name: null,
           oc_cargo_access_level: 'COMERCIAL',
         },
       } as Record<Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>, PreviewAccessConfig>)[accessView as Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>]
@@ -695,6 +699,7 @@ function Workspace({ session }: { session: Session }) {
         project: previewAccess?.project ?? profile.project,
         position: previewAccess?.position ?? profile.position,
         group_name: previewAccess?.group_name ?? profile.group_name,
+        shift_name: previewAccess?.shift_name ?? profile.shift_name,
         oc_cargo_access_level: previewAccess?.oc_cargo_access_level ?? profile.oc_cargo_access_level,
       }
     : null
@@ -1444,7 +1449,7 @@ function Workspace({ session }: { session: Session }) {
                         : accessView === 'MI_PERFIL_OPERATIVO'
                           ? `${previewAccess.warehouse} · ${profile?.group_name || 'OPERACIÓN'} · ${profile?.shift_name || 'SIN GUARDIA'}`
                           : accessView === 'USUARIO'
-                            ? `Vista de usuario · ${previewAccess.role} · ${previewAccess.warehouse}`
+                            ? `Vista de usuario · ${previewAccess.role} · ${previewAccess.warehouse}${previewAccess.shift_name ? ' · ' + previewAccess.shift_name : ''}`
                             : previewAccess.warehouse + ' · ' + previewAccess.role)
                     : 'Acceso completo del sistema'}</small>
                 </div>
