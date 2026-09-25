@@ -439,6 +439,13 @@ export function UniversalDashboardModule({
   const groupPending=groupTasks.filter(isOpen)
   const groupTaskPending=groupPending.filter((task)=>task.work_type==='TAREA')
   const groupRelevoPending=groupPending.filter((task)=>task.work_type==='RELEVO')
+  const isAreaManager=profile.role==='COORDINADOR'||profile.role==='SUPERVISOR'
+  const groupScopeDetail=isAreaManager
+    ? `${profile.warehouse||'Almacén'} · todos los grupos`
+    : (profile.group_name||profile.warehouse||'Trabajo compartido')
+  const relayScopeDetail=isAreaManager
+    ? `${profile.warehouse||'Almacén'} · todas las guardias`
+    : (profile.shift_name||'Continuidad de guardias')
   const unread=notifications.filter((row)=>!row.read_at).length
   const operationalWarehouse=(profile.warehouse||'').trim().toUpperCase()
   const operationalProject=(profile.project||'').trim().toUpperCase()
@@ -767,7 +774,7 @@ export function UniversalDashboardModule({
           icon={<Users/>}
           label="Tareas grupales"
           value={groupTaskPending.length}
-          detail={profile.group_name||profile.warehouse||'Trabajo compartido'}
+          detail={groupScopeDetail}
           tone="group"
           onClick={()=>onNavigate('tareas')}
         />}
@@ -775,7 +782,7 @@ export function UniversalDashboardModule({
           icon={<RefreshCw/>}
           label="Relevos"
           value={groupRelevoPending.length}
-          detail={profile.shift_name||'Continuidad de guardias'}
+          detail={relayScopeDetail}
           tone="relevo"
           onClick={()=>onNavigate('relevos')}
         />}
@@ -842,7 +849,13 @@ export function UniversalDashboardModule({
         <div className="universal-report-heading">
           <div>
             <b>Flujo documental y recepción</b>
-            <span>{isAdminDashboard?'Vista global de guías, SAP y entregas':profile.warehouse?'Almacén ' + profile.warehouse:'Información autorizada para tu perfil'}</span>
+            <span>{isAdminDashboard
+              ? 'Vista global de guías, SAP y entregas'
+              : isAreaManager
+                ? `Almacén ${profile.warehouse||''} · visión completa del ámbito`
+                : profile.warehouse
+                  ? 'Almacén ' + profile.warehouse
+                  : 'Información autorizada para tu perfil'}</span>
           </div>
         </div>
 
