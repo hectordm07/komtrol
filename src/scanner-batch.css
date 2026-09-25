@@ -266,3 +266,222 @@
     font-size: 7.5px;
   }
 }
+
+
+/* =========================================================
+   Cámara guiada para documentos
+   ========================================================= */
+.guide-camera-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(8, 13, 28, .82);
+  backdrop-filter: blur(8px);
+}
+
+.guide-camera-modal {
+  width: min(760px, 100%);
+  max-height: calc(100dvh - 28px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(0,0,0,.34);
+  overflow: hidden;
+}
+
+.guide-camera-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guide-camera-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.guide-camera-head b {
+  color: #20366e;
+  font-size: 15px;
+}
+
+.guide-camera-head span {
+  color: #6d7890;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.guide-camera-stage {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+  max-height: 72dvh;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: 15px;
+  background: #0d1220;
+}
+
+.guide-camera-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.guide-camera-frame {
+  position: absolute;
+  inset: 5% 4%;
+  border: 1px solid rgba(255,255,255,.42);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 9999px rgba(0,0,0,.16),
+    inset 0 0 0 1px rgba(45, 104, 255, .14);
+  pointer-events: none;
+}
+
+.guide-camera-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to right, transparent 49.7%, rgba(255,255,255,.16) 50%, transparent 50.3%),
+    linear-gradient(to bottom, transparent 49.7%, rgba(255,255,255,.12) 50%, transparent 50.3%);
+}
+
+.guide-camera-frame > span {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 20px);
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(6, 12, 30, .70);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.guide-camera-frame .corner {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+}
+
+.guide-camera-frame .corner::before,
+.guide-camera-frame .corner::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(30, 89, 255, .4);
+}
+
+.guide-camera-frame .corner::before {
+  width: 34px;
+  height: 4px;
+}
+
+.guide-camera-frame .corner::after {
+  width: 4px;
+  height: 34px;
+}
+
+.guide-camera-frame .tl { top: -2px; left: -2px; }
+.guide-camera-frame .tr { top: -2px; right: -2px; transform: scaleX(-1); }
+.guide-camera-frame .bl { bottom: -2px; left: -2px; transform: scaleY(-1); }
+.guide-camera-frame .br { bottom: -2px; right: -2px; transform: scale(-1); }
+
+.guide-camera-loading,
+.guide-camera-error {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(11, 20, 46, .82);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.guide-camera-error {
+  background: rgba(139, 31, 31, .88);
+}
+
+.guide-camera-actions {
+  display: grid;
+  grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr);
+  gap: 8px;
+}
+
+.guide-camera-actions button {
+  min-width: 0;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.guide-camera-counter {
+  display: block;
+  color: #65718a;
+  font-size: 10px;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .guide-camera-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .guide-camera-modal {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding: max(10px, env(safe-area-inset-top)) 9px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .guide-camera-stage {
+    min-height: 0;
+    max-height: none;
+    height: 100%;
+    aspect-ratio: auto;
+    border-radius: 12px;
+  }
+
+  .guide-camera-frame {
+    inset: 4.5% 3.5%;
+  }
+
+  .guide-camera-frame > span {
+    bottom: 8px;
+    font-size: 9px;
+  }
+
+  .guide-camera-actions {
+    grid-template-columns: .72fr 1.28fr;
+  }
+
+  .guide-camera-actions button {
+    min-height: 48px;
+    font-size: 11px;
+  }
+}
