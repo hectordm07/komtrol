@@ -266,8 +266,8 @@
 /* Impresión: mostrar exclusivamente el formato de revisión manual. */
 @media print {
   @page {
-    size: A4 landscape;
-    margin: 8mm;
+    size: A4 portrait;
+    margin: 7mm;
   }
 
   body:has(.location-print-mode) * {
@@ -329,11 +329,13 @@
   body:has(.location-print-mode) .manual-review-table th,
   body:has(.location-print-mode) .manual-review-table td {
     display: table-cell !important;
-    padding: 2.2mm 1.5mm !important;
+    padding: 1.6mm 1mm !important;
     border: .25mm solid #aeb6c4 !important;
-    font-size: 7pt !important;
+    font-size: 6pt !important;
+    line-height: 1.15 !important;
     color: #111827 !important;
     vertical-align: middle !important;
+    overflow-wrap: anywhere !important;
   }
 
   body:has(.location-print-mode) .manual-review-table th {
@@ -343,20 +345,30 @@
     print-color-adjust: exact;
   }
 
+  body:has(.location-print-mode) .manual-review-table th:nth-child(1) { width: 11.5% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(2) { width: 20% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(3) { width: 8% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(4) { width: 12.5% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(5) { width: 6% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(6) { width: 9% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(7) { width: 11% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(8) { width: 8% !important; }
+  body:has(.location-print-mode) .manual-review-table th:nth-child(9) { width: 14% !important; }
+
   body:has(.location-print-mode) .manual-review-table td::before {
     display: none !important;
     content: none !important;
   }
 
   body:has(.location-print-mode) .manual-review-table td {
-    min-height: 10mm !important;
+    min-height: 8mm !important;
   }
 
   body:has(.location-print-mode) .manual-review-table .manual-empty-cell,
   body:has(.location-print-mode) .manual-review-table .manual-responsible-cell,
   body:has(.location-print-mode) .manual-review-table .manual-difference-cell,
   body:has(.location-print-mode) .manual-review-table .manual-observation-cell {
-    height: 11mm !important;
+    height: 9mm !important;
     background: #fff !important;
   }
 }
