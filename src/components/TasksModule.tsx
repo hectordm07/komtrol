@@ -114,11 +114,11 @@ type CalendarIncident = {
   created_at: string
 }
 
-type Mode = 'mi-trabajo' | 'tareas' | 'relevos' | 'area-personal' | 'lista' | 'tablero' | 'calendario' | 'global-admin'
+export type TasksMode = 'mi-trabajo' | 'tareas' | 'relevos' | 'area-personal' | 'lista' | 'tablero' | 'calendario' | 'global-admin'
 type TaskStatusFilter = 'TODOS' | Task['status']
 
 type Props = {
-  mode: Mode
+  mode: TasksMode
   userId: string
   profile: Profile | null
   scopeWarehouse?: string
@@ -188,7 +188,7 @@ function effectiveStatus(task: Task) {
   return isOverdue(task) && task.status !== 'BLOQUEADO' ? 'VENCIDA' : task.status
 }
 
-function defaultWorkType(mode: Mode): Task['work_type'] {
+function defaultWorkType(mode: TasksMode): Task['work_type'] {
   if (mode === 'relevos') return 'RELEVO'
   if (mode === 'mi-trabajo' || mode === 'area-personal') return 'PERSONAL'
   return 'TAREA'
