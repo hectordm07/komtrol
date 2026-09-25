@@ -24859,3 +24859,50 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
     line-height: 1.1;
   }
 }
+
+
+/* KOMTROL · MENU MOBILE / SALIR VISIBLE 2026-09-25 */
+@media (max-width: 980px) {
+  .app-shell:has(.sidebar.open) .mobile-bottom-nav {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(120%) !important;
+  }
+
+  .sidebar {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom)) !important;
+    scrollbar-width: thin;
+  }
+
+  .sidebar-nav {
+    flex: 0 0 auto;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .sidebar-footer {
+    margin-top: 18px !important;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .account-action-button,
+  .logout-button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    border-radius: 10px;
+  }
+
+  .logout-button {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.06);
+    color: #fff;
+    font-weight: 800;
+  }
+}
