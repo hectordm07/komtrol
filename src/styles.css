@@ -24762,3 +24762,50 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   min-height: 36px;
   margin-top: 4px;
 }
+
+
+/* KOMTROL · LOGOTIPO OFICIAL 2026-09-25 */
+.brand-mark-image {
+  width: clamp(86px, 6.5vw, 108px);
+  height: clamp(86px, 6.5vw, 108px);
+  display: block;
+  object-fit: cover;
+  border-radius: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 16px 34px rgba(25, 55, 126, .18);
+}
+
+.mini-logo-image {
+  display: none;
+}
+
+.sidebar-brand-logo {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: block;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 7px 16px rgba(30, 62, 132, .16);
+}
+
+@media (max-width: 980px) {
+  .mini-logo-image {
+    width: 64px;
+    height: 64px;
+    display: block;
+    object-fit: cover;
+    border-radius: 18px;
+    margin-bottom: 20px;
+    box-shadow: 0 12px 24px rgba(25, 55, 126, .16);
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar-brand-logo {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+    border-radius: 11px;
+  }
+}
