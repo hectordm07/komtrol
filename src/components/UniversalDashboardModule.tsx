@@ -567,6 +567,12 @@ export function UniversalDashboardModule({
     return days!==null && days>=0 && days<=daysMax
   }).length
 
+  const profileWorkData=[
+    {key:'MI_TRABAJO',label:'Mis trabajos',value:openPersonal.length,detail:'Pendientes personales visibles para este perfil.'},
+    {key:'TAREAS',label:'Tareas grupales',value:groupTaskPending.length,detail:groupScopeDetail},
+    {key:'RELEVOS',label:'Relevos',value:groupRelevoPending.length,detail:relayScopeDetail},
+  ]
+
   const taskStatusSegments=[
     {key:'PENDIENTE',label:'Pendiente',value:dashboardTaskBase.filter((t)=>t.status==='PENDIENTE'&&!isOverdue(t)).length},
     {key:'EN_PROCESO',label:'En proceso',value:dashboardTaskBase.filter((t)=>t.status==='EN_PROCESO'&&!isOverdue(t)).length},
@@ -1134,6 +1140,23 @@ export function UniversalDashboardModule({
       )}
 
       <div className="universal-dashboard-charts">
+        {!isAdminDashboard&&(canAccess('mi-trabajo')||canAccess('tareas')||canAccess('relevos'))&&<div className="dashboard-chart-link">
+          <ProfessionalBarChart
+            title="Trabajo visible del perfil"
+            subtitle={isCommercialProfile?'Área Comercial · tareas y relevos del ámbito':'Mis trabajos, tareas grupales y relevos autorizados'}
+            data={profileWorkData.filter((row)=>
+              row.key==='MI_TRABAJO' ? canAccess('mi-trabajo') :
+              row.key==='TAREAS' ? canAccess('tareas') :
+              canAccess('relevos')
+            )}
+            onSelect={(key)=>{
+              if(key==='MI_TRABAJO') onNavigate('mi-trabajo',{taskStatus:'TODOS'})
+              else if(key==='TAREAS') onNavigate('tareas')
+              else onNavigate('relevos')
+            }}
+          />
+          <span className="dashboard-chart-access">Abrir Área de trabajo <ChevronRight size={14}/></span>
+        </div>}
         {hasTaskAccess&&<div className="dashboard-chart-link task-status-chart-link">
           <ProfessionalDonutChart
             title={isAdminDashboard?'Tareas globales por estado':'Mis trabajos por estado'}
