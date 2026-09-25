@@ -1595,7 +1595,11 @@ function Workspace({ session }: { session: Session }) {
                       setAccessView('ACTUAL')
                       setToast('Vista Administrador restaurada para atender tu pendiente.')
                     }
-                    setDashboardTaskStatus(targetTab === 'tareas-globales' ? (options?.taskStatus || 'TODOS') : null)
+                    setDashboardTaskStatus(
+                      ['tareas-globales', 'mi-trabajo', 'tareas', 'relevos'].includes(targetTab)
+                        ? (options?.taskStatus || 'TODOS')
+                        : null
+                    )
                     if (targetTab === 'comercial-ordenes-compra' || targetTab === 'ordenes-compra') {
                       setCommercialOrderFilter((options?.commercialFilter || 'TODOS') as CommercialOrderFilter)
                     }
@@ -1690,14 +1694,14 @@ function Workspace({ session }: { session: Session }) {
 
               {isTaskTab && (
                 <TasksModule
-                  key={`${accessView}-${tab}-${tab === 'tareas-globales' ? (dashboardTaskStatus || 'TODOS') : 'default'}`}
+                  key={`${accessView}-${tab}-${dashboardTaskStatus || 'default'}`}
                   mode={(tab === 'tareas-globales' ? 'global-admin' : tab) as TasksMode}
                   userId={user.id}
                   profile={effectiveProfile!}
                   previewMode={isAccessPreview}
                   scopeWarehouse={isAccessPreview ? previewAccess?.warehouse : undefined}
                   scopeProject={isAccessPreview ? previewAccess?.project : undefined}
-                  initialStatusFilter={tab === 'tareas-globales' ? (dashboardTaskStatus || 'TODOS') : 'TODOS'}
+                  initialStatusFilter={dashboardTaskStatus || 'TODOS'}
                   initialTaskId={taskToOpen}
                   initialCommentId={commentToOpen}
                   onInitialTaskOpened={() => setTaskToOpen(null)}

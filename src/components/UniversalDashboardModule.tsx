@@ -189,6 +189,10 @@ function isOverdue(task:Task){
   return days!==null && days<0
 }
 
+function effectiveTaskStatus(task:Task){
+  return isOverdue(task) && task.status!=='BLOQUEADO' ? 'VENCIDA' : task.status
+}
+
 function groupMatches(userGroup?:string|null,rowGroup?:string|null){
   const normalize=(value?:string|null)=>String(value||'').trim().toUpperCase().replace(/\s+/g,'')
   const left=normalize(userGroup)
@@ -573,13 +577,31 @@ export function UniversalDashboardModule({
     {key:'RELEVOS',label:'Relevos',value:groupRelevoPending.length,detail:relayScopeDetail},
   ]
 
-  const taskStatusSegments=[
-    {key:'PENDIENTE',label:'Pendiente',value:dashboardTaskBase.filter((t)=>t.status==='PENDIENTE'&&!isOverdue(t)).length},
-    {key:'EN_PROCESO',label:'En proceso',value:dashboardTaskBase.filter((t)=>t.status==='EN_PROCESO'&&!isOverdue(t)).length},
-    {key:'BLOQUEADO',label:'Bloqueado',value:dashboardTaskBase.filter((t)=>t.status==='BLOQUEADO').length},
-    {key:'CERRADO',label:'Completado',value:dashboardTaskBase.filter((t)=>t.status==='CERRADO').length},
-    {key:'VENCIDA',label:'Vencido',value:overduePersonal.length},
+  // Cada estado cuenta una sola vez y coincide con el filtro de la lista de tareas.
+  const statusSegmentsFor=(rows:Task[])=>[
+    {key:'PENDIENTE',label:'Pendiente',value:rows.filter((t)=>effectiveTaskStatus(t)==='PENDIENTE').length},
+    {key:'EN_PROCESO',label:'En proceso',value:rows.filter((t)=>effectiveTaskStatus(t)==='EN_PROCESO').length},
+    {key:'BLOQUEADO',label:'Bloqueado',value:rows.filter((t)=>effectiveTaskStatus(t)==='BLOQUEADO').length},
+    {key:'CERRADO',label:'Completado',value:rows.filter((t)=>effectiveTaskStatus(t)==='CERRADO').length},
+    {key:'VENCIDA',label:'Vencido',value:rows.filter((t)=>effectiveTaskStatus(t)==='VENCIDA').length},
   ]
+  const taskStatusSegments=statusSegmentsFor(
+    isAdminDashboard ? dashboardTaskBase.filter((task)=>task.work_type==='TAREA') : dashboardTaskBase
+  )
+  // La selección usa el mismo ámbito que la vista Relevos, incluidas las guardias.
+  const relayTasks=tasks.filter((task)=>{
+    if(task.work_type!=='RELEVO') return false
+    if(isAdminDashboard) return true
+    if(profile.warehouse && task.warehouse!==profile.warehouse) return false
+    if(profile.project && task.project && task.project!==profile.project) return false
+    if(profile.role!=='TRABAJADOR') return true
+    if(profile.group_name && !groupMatches(profile.group_name,task.group_name) && !groupMatches(profile.group_name,task.assigned_group)) return false
+    if(!profile.shift_name) return true
+    return task.relevo_from_shift===profile.shift_name ||
+      task.relevo_to_shift===profile.shift_name ||
+      (!task.relevo_from_shift && !task.relevo_to_shift && task.shift_name===profile.shift_name)
+  })
+  const relayStatusSegments=statusSegmentsFor(relayTasks)
 
   const expiryTypeData=[
     {
@@ -1169,6 +1191,19 @@ export function UniversalDashboardModule({
           />
           <button type="button" className="dashboard-chart-access dashboard-chart-access-button" onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}>
             Ver Área de trabajo <ChevronRight size={14}/>
+          </button>
+        </div>}
+        {canAccess('relevos')&&<div className="dashboard-chart-link task-status-chart-link">
+          <ProfessionalDonutChart
+            title="Relevos por estado"
+            subtitle={isAdminDashboard?'Continuidad de guardias de todos los almacenes':'Relevos visibles para tu almacén y guardia'}
+            segments={relayStatusSegments}
+            onSelect={(status)=>onNavigate('relevos',{
+              taskStatus:status as 'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'
+            })}
+          />
+          <button type="button" className="dashboard-chart-access dashboard-chart-access-button" onClick={()=>onNavigate('relevos',{taskStatus:'TODOS'})}>
+            Ver Relevos <ChevronRight size={14}/>
           </button>
         </div>}
 
