@@ -233,6 +233,29 @@ function parseReplenishmentLines(text: string): GuideLine[] {
     })
   }
 
+  // En fotos, Tesseract a veces pierde el correlativo "1" pero conserva
+  // N° parte + descripción + cantidad + UM. Recuperamos esa fila igualmente.
+  for (const row of rows) {
+    const match = row.match(
+      /(?:^|\s)([A-Z0-9][A-Z0-9._/-]{7,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(UND|EA|PC|PZ|PIE|FT|M|MT)\b/i
+    )
+    if (!match) continue
+
+    const partNo = match[1].trim().toUpperCase().replace(/\s+/g, '')
+    if (/^(DESCRIPCION|DESCRIPCIÓN|CANTIDAD|REFERENCIA|DOCUMENTO|TRANSPORTE)/i.test(partNo)) continue
+
+    const comparable = partNo.replace(/[^A-Z0-9]/gi, '')
+    if ([...byLine.values()].some((line) => line.part_no.replace(/[^A-Z0-9]/gi, '') === comparable)) continue
+
+    byLine.set(byLine.size + 1, {
+      line_no: byLine.size + 1,
+      part_no: partNo,
+      description: cleanText(match[2]),
+      quantity: normalizeIntegerQuantity(match[3]),
+      unit: match[4].toUpperCase(),
+    })
+  }
+
   return [...byLine.values()]
     .sort((a, b) => a.line_no - b.line_no)
     .slice(0, 999)
@@ -417,19 +440,25 @@ function extractGuideNumber(text: string, fileName?: string) {
 function extractReferenceValue(text: string) {
   const normalized = normalizeOcrIdentifierText(text)
 
-  // Prioriza el campo rotulado "Referencia" para no confundir RUC, peso o códigos internos.
+  // Si el documento imprime "8910544830 / 2080397443", KOMTROL usa solo
+  // el primer valor operativo que empieza por 89/80.
   const labelled = normalized.match(
-    /REFEREN(?:CIA)?\s*[:#-]?\s*([8B][0-9OQ\s./-]{7,32})/i
+    /REFEREN(?:CIA)?\s*[:#-]?\s*([8B][0-9OQ]{7,17})/i
   )
   if (labelled?.[1]) {
-    const cleaned = labelled[1]
-      .replace(/[OQ]/g, '0')
+    const value = labelled[1].replace(/^B/, '8').replace(/[OQ]/g, '0')
+    if (/^8\d{7,17}$/.test(value)) return value
+  }
+
+  const spaced = normalized.match(
+    /REFEREN(?:CIA)?\s*[:#-]?\s*([8B](?:[0-9OQ][\s-]?){7,17})/i
+  )
+  if (spaced?.[1]) {
+    const value = spaced[1]
       .replace(/^B/, '8')
-      .replace(/\s+/g, '')
-      .replace(/[^0-9./-]/g, '')
-      .replace(/[.-]+$/g, '')
-    const digits = cleaned.replace(/\D/g, '')
-    if (digits.startsWith('8') && digits.length >= 8) return cleaned
+      .replace(/[OQ]/g, '0')
+      .replace(/[\s-]/g, '')
+    if (/^8\d{7,17}$/.test(value)) return value
   }
 
   const globalCandidates = [...normalized.matchAll(/\b[8B][0-9OQ]{7,17}\b/g)]
@@ -507,9 +536,13 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   const [previewUrl, setPreviewUrl] = useState('')
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
-  const cameraRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const pdfRef = useRef<HTMLInputElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const cameraStreamRef = useRef<MediaStream | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraStarting, setCameraStarting] = useState(false)
+  const [cameraError, setCameraError] = useState('')
   const [batchItems, setBatchItems] = useState<BatchScanItem[]>([])
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
   const batchItemsRef = useRef<BatchScanItem[]>([])
@@ -579,6 +612,123 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
+
+  function stopCameraStream() {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    cameraStreamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+  }
+
+  async function openSmartCamera() {
+    setCameraError('')
+    setCameraStarting(true)
+    setCameraOpen(true)
+    stopCameraStream()
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('La cámara guiada no está disponible en este navegador.')
+      }
+
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 2560 },
+            height: { ideal: 1440 },
+          },
+          audio: false,
+        })
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false,
+        })
+      }
+
+      cameraStreamRef.current = stream
+      const video = videoRef.current
+      if (video) {
+        video.srcObject = stream
+        video.playsInline = true
+        await video.play()
+      }
+
+      const track = stream.getVideoTracks()[0]
+      try {
+        await (track as any)?.applyConstraints?.({
+          advanced: [
+            { focusMode: 'continuous' },
+            { exposureMode: 'continuous' },
+            { whiteBalanceMode: 'continuous' },
+          ],
+        })
+      } catch {
+        // Algunos celulares no exponen estos controles; la captura sigue disponible.
+      }
+    } catch (error) {
+      setCameraError(error instanceof Error ? error.message : 'No se pudo abrir la cámara.')
+    } finally {
+      setCameraStarting(false)
+    }
+  }
+
+  function closeSmartCamera() {
+    stopCameraStream()
+    setCameraOpen(false)
+    setCameraStarting(false)
+    setCameraError('')
+  }
+
+  async function captureSmartCamera() {
+    const video = videoRef.current
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setCameraError('Espera un momento a que la cámara termine de enfocar.')
+      return
+    }
+
+    const sourceW = video.videoWidth
+    const sourceH = video.videoHeight
+    const cropX = Math.round(sourceW * 0.04)
+    const cropY = Math.round(sourceH * 0.06)
+    const cropW = Math.round(sourceW * 0.92)
+    const cropH = Math.round(sourceH * 0.88)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = cropW
+    canvas.height = cropH
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      setCameraError('No se pudo preparar la captura.')
+      return
+    }
+
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.94)
+    )
+    canvas.width = 1
+    canvas.height = 1
+
+    if (!blob) {
+      setCameraError('No se pudo generar la fotografía.')
+      return
+    }
+
+    const nextFile = new File(
+      [blob],
+      `guia-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`,
+      { type: 'image/jpeg' }
+    )
+
+    enqueueGuidePhotos([nextFile])
+    setCameraError('')
+  }
+
+  useEffect(() => {
+    return () => stopCameraStream()
+  }, [])
 
   function updateBatchItems(updater: (items: BatchScanItem[]) => BatchScanItem[]) {
     setBatchItems((current) => {
@@ -684,7 +834,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           })
 
           const parsed = parseGuideOcr(ocr.text, item.file.name, true)
-          const ready = Boolean(parsed.guide_no && parsed.reference)
+          const ready = Boolean(
+            parsed.guide_no &&
+            parsed.reference &&
+            parsed.emission_date &&
+            (parsed.guide_type !== 'REPOSICION' || parsed.lines.length > 0)
+          )
           const result: BatchScanResult = {
             text: ocr.text,
             confidence: ocr.confidence,
@@ -747,7 +902,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     const room = Math.max(0, 60 - batchItemsRef.current.length)
     const accepted = images.slice(0, room)
     if (!accepted.length) {
-      setMessage('El lote actual ya tiene 60 guías. Termina o limpia el lote para continuar.')
+      setMessage('La carga masiva llegó al máximo operativo de 60 fotos. Termina o limpia la carga para continuar.')
       return
     }
 
@@ -774,7 +929,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     }
 
     if (images.length > accepted.length) {
-      setMessage(`Se agregaron ${accepted.length} fotos. El máximo por lote es 60 guías.`)
+      setMessage(`Se agregaron ${accepted.length} fotos. Por rendimiento móvil, cada carga masiva admite hasta 60 imágenes.`)
     }
 
     void processBatchQueue()
@@ -1424,30 +1579,18 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       <section className="panel scanner-panel scanner-enterprise">
         <div className="scanner-command-bar">
           <div className="scanner-actions scanner-actions-batch">
-            <button className="scan-action primary-scan" disabled={scanning} onClick={() => cameraRef.current?.click()}>
+            <button className="scan-action primary-scan" disabled={scanning} onClick={() => void openSmartCamera()}>
               <span className="scan-action-icon"><Camera size={21} /></span>
-              <span><b>Tomar foto</b><small>Captura y sigue con la siguiente</small></span>
+              <span><b>Cámara guiada</b><small>Encuadra la hoja y captura</small></span>
             </button>
             <button className="scan-action" disabled={scanning} onClick={() => fileRef.current?.click()}>
               <span className="scan-action-icon"><Upload size={21} /></span>
-              <span><b>Cargar 60 fotos</b><small>Selección múltiple · OCR en cola</small></span>
+              <span><b>Carga masiva</b><small>Selecciona varias fotos · OCR en cola</small></span>
             </button>
             <button className="scan-action" disabled={scanning || batchItems.length > 0} onClick={() => pdfRef.current?.click()}>
               <span className="scan-action-icon"><FileText size={21} /></span>
               <span><b>Subir PDF</b><small>PDF digital o escaneado</small></span>
             </button>
-            <input
-              ref={cameraRef}
-              hidden
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                enqueueGuidePhotos(files)
-                e.currentTarget.value = ''
-              }}
-            />
             <input
               ref={fileRef}
               hidden
@@ -1478,11 +1621,52 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           </button>
         </div>
 
+        {cameraOpen && (
+          <div className="guide-camera-backdrop" role="dialog" aria-modal="true" aria-label="Cámara de guías">
+            <section className="guide-camera-modal">
+              <div className="guide-camera-head">
+                <div>
+                  <b>Cámara guiada</b>
+                  <span>Alinea las 4 esquinas de la guía dentro del marco.</span>
+                </div>
+                <button className="icon-button" type="button" onClick={closeSmartCamera} title="Cerrar cámara">
+                  <X size={19} />
+                </button>
+              </div>
+
+              <div className="guide-camera-stage">
+                <video ref={videoRef} autoPlay playsInline muted />
+                <div className="guide-camera-frame" aria-hidden="true">
+                  <i className="corner tl" />
+                  <i className="corner tr" />
+                  <i className="corner bl" />
+                  <i className="corner br" />
+                  <span>Hoja plana · sin reflejos · llena el marco</span>
+                </div>
+                {cameraStarting && <div className="guide-camera-loading"><RefreshCw className="spin" size={22}/> Abriendo cámara…</div>}
+                {cameraError && <div className="guide-camera-error"><AlertTriangle size={18}/>{cameraError}</div>}
+              </div>
+
+              <div className="guide-camera-actions">
+                <button className="secondary-button" type="button" onClick={closeSmartCamera}>
+                  <X size={16}/> Terminar
+                </button>
+                <button className="primary-button" type="button" disabled={cameraStarting || Boolean(cameraError)} onClick={() => void captureSmartCamera()}>
+                  <Camera size={17}/> Capturar y siguiente
+                </button>
+              </div>
+              <small className="guide-camera-counter">
+                {batchItems.length} foto{batchItems.length === 1 ? '' : 's'} en la carga masiva.
+              </small>
+            </section>
+          </div>
+        )}
+
         {batchItems.length > 0 && (
           <section className="scanner-batch-panel">
             <div className="scanner-batch-head">
               <div>
-                <b>Lote de guías</b>
+                <b>Carga masiva de guías</b>
                 <span>
                   {batchItems.filter((item) => item.status === 'GUARDADO').length} guardadas ·
                   {' '}{batchItems.filter((item) => item.status === 'LISTO' || item.status === 'REVISAR').length} listas ·
@@ -1490,7 +1674,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
                   {' '}{batchItems.filter((item) => item.status === 'PENDIENTE').length} en cola
                 </span>
               </div>
-              <strong>{batchItems.length}/60</strong>
+              <strong>{batchItems.length} foto{batchItems.length === 1 ? '' : 's'}</strong>
             </div>
 
             <div className="scanner-batch-list">
