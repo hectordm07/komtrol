@@ -1,8 +1,10 @@
-const CACHE_NAME = 'komtrol-shell-v2'
+const CACHE_NAME = 'komtrol-shell-v3'
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
   '/icons/komtrol-192.png?v=brand2',
+  '/icons/komtrol-mark.svg?v=brand3',
+  '/icons/komtrol-app.svg?v=brand3',
   '/icons/komtrol-512.png?v=brand2',
 ]
 

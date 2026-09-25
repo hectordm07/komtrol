@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">KOMTROL</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#082e78"/>
+      <stop offset="1" stop-color="#031840"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#13c7f2"/>
+      <stop offset="1" stop-color="#0879e3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  <g transform="translate(48 38) scale(.82)">
+    <path d="M92 92h56v138L310 76h92L228 242l178 176h-97L170 281l-22 20v117H92z" fill="url(#cyan)"/>
+    <rect x="99" y="79" width="45" height="110" rx="10" fill="#fff" opacity=".96"/>
+    <path d="M218 274 292 212l74 62v137H218z" fill="#0a5fbb" stroke="#e7f7ff" stroke-width="8" stroke-linejoin="round"/>
+    <rect x="257" y="306" width="36" height="31" rx="3" fill="#fff"/>
+    <rect x="302" y="306" width="36" height="31" rx="3" fill="#fff"/>
+    <rect x="257" y="346" width="36" height="31" rx="3" fill="#fff"/>
+    <rect x="302" y="346" width="36" height="31" rx="3" fill="#fff"/>
+  </g>
+  <text x="256" y="458" fill="#fff" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="900" letter-spacing="1">KOMTROL</text>
+</svg>

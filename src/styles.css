@@ -24809,3 +24809,53 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
     border-radius: 11px;
   }
 }
+
+
+/* KOMTROL · LOGOTIPO PROFESIONAL MOBILE 2026-09-25 */
+.sidebar-brand {
+  min-height: 68px;
+  overflow: visible;
+  align-items: center;
+}
+.sidebar-brand-logo {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 13px;
+  background: transparent;
+  box-shadow: 0 8px 20px rgba(11, 30, 88, .22);
+}
+.brand-mark-image {
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
+}
+.mini-logo-image {
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
+}
+@media (max-width: 980px) {
+  .sidebar {
+    padding-top: calc(14px + env(safe-area-inset-top));
+  }
+  .sidebar-brand {
+    min-height: 72px;
+    padding: 4px 8px 16px;
+    gap: 12px;
+  }
+  .sidebar-brand-logo {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+    border-radius: 14px;
+  }
+  .sidebar-brand > div {
+    min-width: 0;
+  }
+  .sidebar-brand b {
+    line-height: 1.1;
+  }
+}

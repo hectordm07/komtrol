@@ -384,7 +384,7 @@ function Login() {
   return (
     <main className="login-page">
       <section className="login-brand">
-        <img className="brand-mark-image" src="/icons/komtrol-192.png?v=brand2" alt="KOMTROL" />
+        <img className="brand-mark-image" src="/icons/komtrol-mark.svg?v=brand3" alt="KOMTROL" />
         <div>
           <p className="eyebrow">CONTROL OPERATIVO</p>
           <h1>KOMTROL</h1>
@@ -402,7 +402,7 @@ function Login() {
 
       <section className="login-card-wrap">
         <form className="login-card" onSubmit={firstAccess ? createFirstAccess : submit}>
-          <img className="mini-logo-image" src="/icons/komtrol-192.png?v=brand2" alt="KOMTROL" />
+          <img className="mini-logo-image" src="/icons/komtrol-mark.svg?v=brand3" alt="KOMTROL" />
           <h2>{firstAccess ? 'Crea tu clave' : 'Bienvenido a KOMTROL'}</h2>
           <p>
             {firstAccess
@@ -1369,7 +1369,7 @@ function Workspace({ session }: { session: Session }) {
     <div className="app-shell">
       <aside className={`sidebar ${mobileMenu ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <img className="sidebar-brand-logo" src="/icons/komtrol-192.png?v=brand2" alt="KOMTROL" />
+          <img className="sidebar-brand-logo" src="/icons/komtrol-mark.svg?v=brand3" alt="KOMTROL" />
           <div><b>KOMTROL</b><span>Control Operativo</span></div>
           <button className="icon-button mobile-only" onClick={() => setMobileMenu(false)}><X size={20} /></button>
         </div>
