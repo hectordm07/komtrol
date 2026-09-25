@@ -382,94 +382,126 @@ function Login() {
   }
 
   return (
-    <main className="login-page">
-      <section className="login-brand">
-        <img className="brand-mark-image" src="/icons/komtrol-mark.svg?v=brand3" alt="KOMTROL" />
-        <div>
-          <p className="eyebrow">CONTROL OPERATIVO</p>
-          <h1>KOMTROL</h1>
-          <p className="brand-copy">
-            Centraliza pendientes, incidencias, recepción y trazabilidad del almacén en una sola plataforma.
+    <main className="login-page login-page-premium">
+      <section className="login-brand login-brand-premium">
+        <div className="login-brand-lockup">
+          <img className="login-brand-logo" src="/icons/komtrol-mark.svg?v=brand3" alt="KOMTROL" />
+          <div>
+            <span className="login-brand-kicker">PLATAFORMA OPERATIVA</span>
+            <strong>KOMTROL</strong>
+          </div>
+        </div>
+
+        <div className="login-brand-message">
+          <span className="login-brand-pill"><ShieldCheck size={15} /> CONTROL CENTRALIZADO</span>
+          <h1>Todo tu almacén<br />en un solo lugar</h1>
+          <p>
+            Control operativo, trazabilidad y resultados con información organizada para dar continuidad a cada proceso.
           </p>
         </div>
-        <div className="login-feature-grid">
-          <div><PackageCheck size={22} /><span>Recepción y guías</span></div>
-          <div><AlertTriangle size={22} /><span>Faltantes y dañados</span></div>
-          <div><Mail size={22} /><span>Alertas automáticas</span></div>
-          <div><BarChart3 size={22} /><span>Control y seguimiento</span></div>
+
+        <div className="login-feature-grid login-feature-grid-premium">
+          <div>
+            <span className="login-feature-icon"><PackageCheck size={21} /></span>
+            <span><b>Control centralizado</b><small>Operaciones y seguimiento</small></span>
+          </div>
+          <div>
+            <span className="login-feature-icon"><Search size={21} /></span>
+            <span><b>Trazabilidad operativa</b><small>Información de principio a fin</small></span>
+          </div>
+          <div>
+            <span className="login-feature-icon"><BarChart3 size={21} /></span>
+            <span><b>Información en tiempo real</b><small>Indicadores para actuar mejor</small></span>
+          </div>
         </div>
+
+        <div className="login-brand-footer">CONTROL · TRAZABILIDAD · RESULTADOS</div>
       </section>
 
-      <section className="login-card-wrap">
-        <form className="login-card" onSubmit={firstAccess ? createFirstAccess : submit}>
-          <img className="mini-logo-image" src="/icons/komtrol-mark.svg?v=brand3" alt="KOMTROL" />
-          <h2>{firstAccess ? 'Crea tu clave' : 'Bienvenido a KOMTROL'}</h2>
-          <p>
-            {firstAccess
-              ? 'Si es tu primera vez, ingresa tu DNI y crea una clave personal.'
-              : 'Ingresa con tu DNI, usuario corporativo o correo.'}
-          </p>
+      <section className="login-card-wrap login-card-wrap-premium">
+        <form className="login-card login-card-premium" onSubmit={firstAccess ? createFirstAccess : submit}>
+          <div className="login-card-brand">
+            <img className="login-card-logo" src="/icons/komtrol-mark.svg?v=brand3" alt="KOMTROL" />
+            <span>KOMTROL</span>
+          </div>
 
-          <label>
-            {firstAccess ? 'DNI' : 'DNI, usuario o correo'}
-            <input
-              type="text"
-              inputMode={firstAccess ? 'numeric' : undefined}
-              autoComplete="username"
-              maxLength={firstAccess ? 8 : undefined}
-              placeholder={firstAccess ? '12345678' : '12345678 o richar.solar'}
-              value={identifier}
-              onChange={(e) => setIdentifier(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
-            />
-          </label>
+          <div className="login-card-heading">
+            <span className="login-card-kicker">{firstAccess ? 'PRIMER ACCESO' : 'ACCESO SEGURO'}</span>
+            <h2>{firstAccess ? 'Crea tu clave personal' : 'Bienvenido a KOMTROL'}</h2>
+            <p>
+              {firstAccess
+                ? 'Ingresa tu DNI y crea una clave de 6 a 8 dígitos para activar tu acceso.'
+                : 'Control operativo, trazabilidad y resultados en un solo lugar.'}
+            </p>
+          </div>
 
-          <label>
-            {firstAccess ? 'Nueva clave (6 a 8 dígitos)' : 'PIN o contraseña'}
-            <input
-              type="password"
-              inputMode={firstAccess ? 'numeric' : undefined}
-              autoComplete={firstAccess ? 'new-password' : 'current-password'}
-              maxLength={firstAccess ? 8 : undefined}
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
-            />
-          </label>
-
-          {firstAccess && (
+          <div className="login-form-fields">
             <label>
-              Confirmar clave
+              {firstAccess ? 'DNI' : 'DNI, usuario o correo'}
               <input
-                type="password"
-                inputMode="numeric"
-                autoComplete="new-password"
-                maxLength={8}
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                type="text"
+                inputMode={firstAccess ? 'numeric' : undefined}
+                autoComplete="username"
+                maxLength={firstAccess ? 8 : undefined}
+                placeholder={firstAccess ? 'Ej.: 12345678' : 'Ej.: 12345678 o usuario.corporativo'}
+                value={identifier}
+                onChange={(e) => setIdentifier(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
               />
             </label>
-          )}
 
-          {message && <div className="form-alert">{message}</div>}
+            <label>
+              {firstAccess ? 'Nueva clave (6 a 8 dígitos)' : 'PIN o contraseña'}
+              <input
+                type="password"
+                inputMode={firstAccess ? 'numeric' : undefined}
+                autoComplete={firstAccess ? 'new-password' : 'current-password'}
+                maxLength={firstAccess ? 8 : undefined}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
+              />
+            </label>
 
-          <button className="primary-button full" disabled={loading}>
-            {loading ? <RefreshCw className="spin" size={18} /> : <ShieldCheck size={18} />}
-            {loading
-              ? (firstAccess ? 'Creando clave…' : 'Validando…')
-              : (firstAccess ? 'Crear clave e ingresar' : 'Ingresar')}
-          </button>
+            {firstAccess && (
+              <label>
+                Confirmar clave
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={8}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                />
+              </label>
+            )}
+          </div>
 
-          <button
-            type="button"
-            className="secondary-button full"
-            disabled={loading}
-            onClick={() => switchMode(!firstAccess)}
-          >
-            {firstAccess ? 'Volver a Ingresar' : 'Primera vez: crear mi clave'}
-          </button>
+          {message && <div className="form-alert login-form-alert">{message}</div>}
 
-          <small>Acceso exclusivo para personal autorizado.</small>
+          <div className="login-actions">
+            <button className="primary-button full login-primary-button" disabled={loading}>
+              {loading ? <RefreshCw className="spin" size={18} /> : <ShieldCheck size={18} />}
+              {loading
+                ? (firstAccess ? 'Creando clave…' : 'Validando…')
+                : (firstAccess ? 'Crear clave e ingresar' : 'Ingresar')}
+            </button>
+
+            <button
+              type="button"
+              className="secondary-button full login-secondary-button"
+              disabled={loading}
+              onClick={() => switchMode(!firstAccess)}
+            >
+              {firstAccess ? 'Volver a ingresar' : 'Primera vez: crear mi clave'}
+            </button>
+          </div>
+
+          <div className="login-security-note">
+            <ShieldCheck size={15} />
+            <span>Acceso exclusivo para personal autorizado</span>
+          </div>
         </form>
       </section>
     </main>
