@@ -988,6 +988,9 @@ function Workspace({ session }: { session: Session }) {
           section: 'COMERCIAL',
           collapsible: true,
           items: [
+            ...(role === 'ADMINISTRADOR'
+              ? [{ id: 'comercial-resumen' as Tab, label: 'Resumen Comercial', icon: BarChart3 }]
+              : []),
             { id: 'comercial-ordenes-compra' as Tab, label: 'Órdenes de Compra', icon: Briefcase },
           ],
         }]
@@ -1144,6 +1147,7 @@ function Workspace({ session }: { session: Session }) {
   const isOcCargoTab = operationalOcTabs.includes(tab as typeof operationalOcTabs[number])
   const operationalOcType =
     tab === 'cargos-directos' ? 'CARGO_DIRECTO' as const : 'ORDEN_COMPRA' as const
+  const isCommercialSummaryTab = tab === 'comercial-resumen'
   const isCommercialOrdersTab = tab === 'comercial-ordenes-compra'
   const isReplenishmentTab = tab === 'ingresos-reposicion'
   const isLocationSheetTab = tab === 'hoja-ubicacion'
@@ -1600,6 +1604,17 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
+              {isCommercialSummaryTab && role === 'ADMINISTRADOR' && (
+                <CommercialDashboardModule
+                  onOpenOrders={() => {
+                    setTab('comercial-ordenes-compra')
+                    setOpenSections((current) => current.includes('COMERCIAL') ? current : [...current, 'COMERCIAL'])
+                    setMobileMenu(false)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                />
+              )}
+
               {isCommercialOrdersTab && (isCommercialArea || role === 'ADMINISTRADOR') && (
                 <OcCargoTrackingModule
                   userId={user.id}
@@ -1664,7 +1679,7 @@ function Workspace({ session }: { session: Session }) {
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isExpirationTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isCommercialOrdersTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !isKardexTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isExpirationTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isCommercialSummaryTab && !isCommercialOrdersTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !isKardexTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
