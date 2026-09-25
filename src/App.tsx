@@ -693,6 +693,8 @@ function Workspace({ session }: { session: Session }) {
   const effectiveProfile: Profile | null = profile
     ? {
         ...profile,
+        user_id: accessView === 'USUARIO' && selectedAccessUser ? selectedAccessUser.user_id : profile.user_id,
+        full_name: accessView === 'USUARIO' && selectedAccessUser ? selectedAccessUser.full_name : profile.full_name,
         role,
         warehouse: previewAccess?.warehouse ?? profile.warehouse,
         project: previewAccess?.project ?? profile.project,
@@ -1759,7 +1761,10 @@ function Workspace({ session }: { session: Session }) {
               )}
 
               {isReplenishmentTab && (
-                <ReplenishmentModule />
+                <ReplenishmentModule
+                  userId={user.id}
+                  profile={effectiveProfile!}
+                />
               )}
 
               {isLocationSheetTab && (
