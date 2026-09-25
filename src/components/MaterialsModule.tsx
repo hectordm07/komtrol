@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   Boxes,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Download,
   Edit3,
@@ -62,6 +64,9 @@ type Props = {
   userId: string
   isAdmin: boolean
 }
+
+const MATERIAL_PAGE_SIZE = 250
+const MATERIAL_FETCH_PAGE_SIZE = 1000
 
 const emptyForm = {
   material_no: '',
@@ -199,6 +204,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [message, setMessage] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Material | null>(null)
@@ -215,9 +221,34 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
 
   async function reload() {
     setLoading(true)
-    const { data, error } = await supabase.from('materials').select('*').order('description').limit(5000)
-    if (error) setMessage(error.message)
-    setMaterials((data ?? []) as Material[])
+    setMessage('')
+
+    const rows: Material[] = []
+    let from = 0
+    let loadError: string | null = null
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('materials')
+        .select('*')
+        .order('description')
+        .range(from, from + MATERIAL_FETCH_PAGE_SIZE - 1)
+
+      if (error) {
+        loadError = error.message
+        break
+      }
+
+      const page = (data ?? []) as Material[]
+      rows.push(...page)
+
+      if (page.length < MATERIAL_FETCH_PAGE_SIZE) break
+      from += MATERIAL_FETCH_PAGE_SIZE
+    }
+
+    if (loadError) setMessage(loadError)
+    setMaterials(rows)
+    setCurrentPage(1)
     setLoading(false)
   }
 
@@ -243,6 +274,21 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
     () => search.trim() ? matches.map((row) => row.material) : materials,
     [materials, matches, search]
   )
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / MATERIAL_PAGE_SIZE))
+  const pageStart = (currentPage - 1) * MATERIAL_PAGE_SIZE
+  const pagedMaterials = useMemo(
+    () => filtered.slice(pageStart, pageStart + MATERIAL_PAGE_SIZE),
+    [filtered, pageStart]
+  )
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   const topSuggestions = useMemo(
     () => matches.filter((row) => row.kind !== 'TEXTO').slice(0, 5),
@@ -644,7 +690,33 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       )}
 
       <div className="task-toolbar material-toolbar">
-        <span className="view-hint"><Boxes size={16} /> {filtered.length} materiales</span>
+        <span className="view-hint">
+          <Boxes size={16} /> {filtered.length} materiales
+          {filtered.length > 0 && (
+            <small> · mostrando {pageStart + 1}-{Math.min(pageStart + MATERIAL_PAGE_SIZE, filtered.length)}</small>
+          )}
+        </span>
+        {filtered.length > MATERIAL_PAGE_SIZE && (
+          <div className="material-pagination" aria-label="Paginación de materiales">
+            <button
+              type="button"
+              className="secondary-button material-page-button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              <ChevronLeft size={15} /> Anterior
+            </button>
+            <span>Página <b>{currentPage}</b> de <b>{totalPages}</b></span>
+            <button
+              type="button"
+              className="secondary-button material-page-button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              Siguiente <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
       </div>
 
       {message && <div className="inline-message">{message}</div>}
@@ -657,7 +729,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
             <table>
               <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio</th><th>Estado</th><th>Acciones</th>{mode === 'master' && isAdmin && <th>Editar</th>}</tr></thead>
               <tbody>
-                {filtered.slice(0, 250).map((material) => (
+                {pagedMaterials.map((material) => (
                   <tr key={material.id}>
                     <td><b>{material.material_no}</b></td>
                     <td>{material.stock_code || '—'}</td>
@@ -676,11 +748,15 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
               </tbody>
             </table>
             {!filtered.length && <div className="empty-work"><Boxes size={30} /><b>Sin materiales</b><p>No hay registros que coincidan con la búsqueda.</p></div>}
-            {filtered.length > 250 && <div className="table-note">Mostrando 250 de {filtered.length}. Refina la búsqueda para reducir resultados.</div>}
+            {filtered.length > MATERIAL_PAGE_SIZE && (
+              <div className="table-note">
+                Mostrando {pageStart + 1}-{Math.min(pageStart + MATERIAL_PAGE_SIZE, filtered.length)} de {filtered.length}. La búsqueda se ejecuta sobre todo el Maestro cargado, no solo sobre esta página.
+              </div>
+            )}
           </div>
 
           <div className="materials-mobile-list">
-            {filtered.slice(0, 250).map((material) => (
+            {pagedMaterials.map((material) => (
               <article className="material-mobile-card" key={material.id}>
                 <div className="material-mobile-card-head">
                   <div>
