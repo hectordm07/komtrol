@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ScanLine,
   Search,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react'
@@ -45,6 +46,9 @@ type Guide = {
   load_status: 'VALIDADO' | 'OBSERVADO'
   notes: string | null
   ocr_confidence: number | null
+  file_bucket?: string | null
+  file_path?: string | null
+  file_name?: string | null
   created_at: string
 }
 
@@ -545,6 +549,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   const [previewUrl, setPreviewUrl] = useState('')
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
+  const [deletingGuideId, setDeletingGuideId] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const pdfRef = useRef<HTMLInputElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -1453,6 +1458,81 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     await reload()
   }
 
+  async function deleteGuideCascade(guide: Guide) {
+    if (profile?.role !== 'ADMINISTRADOR' || deletingGuideId) return
+
+    const accepted = window.confirm(
+      `¿Eliminar la guía ${guide.guide_no} / ${guide.reference}?\n\nLa eliminación irá en cadena: Seguimiento de Guías, OC/Cargos Directos o Reposición, líneas, historial, correos, refrendos y cualquier Hoja de Ubicación que quede vacía. Esta acción no se puede deshacer.`
+    )
+    if (!accepted) return
+
+    setDeletingGuideId(guide.id)
+    setMessage('')
+
+    const { data: refrendos, error: refrendoError } = await supabase
+      .from('guide_refrendos')
+      .select('file_bucket,file_path')
+      .eq('guide_id', guide.id)
+
+    if (refrendoError) {
+      setDeletingGuideId(null)
+      setMessage(`No se pudo preparar la eliminación: ${refrendoError.message}`)
+      return
+    }
+
+    const storageTargets: Array<{ bucket: string; path: string }> = []
+
+    if (guide.file_bucket && guide.file_path) {
+      storageTargets.push({ bucket: guide.file_bucket, path: guide.file_path })
+    }
+
+    for (const item of refrendos ?? []) {
+      if (item.file_bucket && item.file_path) {
+        storageTargets.push({ bucket: item.file_bucket, path: item.file_path })
+      }
+    }
+
+    const { data, error } = await supabase.rpc('delete_guide_cascade', {
+      p_guide_id: guide.id,
+    })
+
+    if (error) {
+      setDeletingGuideId(null)
+      setMessage(`No se pudo eliminar la guía: ${error.message}`)
+      return
+    }
+
+    let storageWarning = ''
+    const byBucket = new Map<string, string[]>()
+
+    for (const item of storageTargets) {
+      const current = byBucket.get(item.bucket) ?? []
+      current.push(item.path)
+      byBucket.set(item.bucket, current)
+    }
+
+    for (const [bucket, paths] of byBucket.entries()) {
+      const cleanup = await supabase.storage
+        .from(bucket)
+        .remove([...new Set(paths)])
+
+      if (cleanup.error) storageWarning = cleanup.error.message
+    }
+
+    setDeletingGuideId(null)
+
+    const deletedIngresses = Number((data as any)?.deleted_empty_ingresses ?? 0)
+    const deletedReceipts = Number((data as any)?.deleted_receipts ?? 0)
+
+    setMessage(
+      storageWarning
+        ? `Guía ${guide.guide_no} eliminada en cadena. Advertencia al limpiar archivos: ${storageWarning}`
+        : `Guía ${guide.guide_no} eliminada en cadena correctamente${deletedReceipts ? ` · ${deletedReceipts} recepción(es) retiradas` : ''}${deletedIngresses ? ` · ${deletedIngresses} ingreso(s) vacío(s) eliminado(s)` : ''}.`
+    )
+
+    await reload()
+  }
+
   const visible = useMemo(() => {
     let rows = [...guides]
     if (mode === 'oc-cargos') rows = rows.filter((g) => ['ORDEN_COMPRA', 'CARGO_DIRECTO'].includes(g.guide_type))
@@ -1582,7 +1662,15 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
         <div className="task-toolbar">
           <div className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar guía, referencia, documento, almacén…" /></div>
         </div>
-        <GuideTable guides={visible} responsibleName={responsibleName} loading={loading} />
+        {message && <div className="inline-message">{message}</div>}
+        <GuideTable
+          guides={visible}
+          responsibleName={responsibleName}
+          loading={loading}
+          canDelete={mode === 'seguimiento' && profile?.role === 'ADMINISTRADOR'}
+          deletingGuideId={deletingGuideId}
+          onDelete={deleteGuideCascade}
+        />
       </section>
     )
   }
@@ -1916,7 +2004,21 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   )
 }
 
-function GuideTable({ guides, responsibleName, loading }: { guides: Guide[]; responsibleName: (id: string) => string; loading: boolean }) {
+function GuideTable({
+  guides,
+  responsibleName,
+  loading,
+  canDelete = false,
+  deletingGuideId = null,
+  onDelete,
+}: {
+  guides: Guide[]
+  responsibleName: (id: string) => string
+  loading: boolean
+  canDelete?: boolean
+  deletingGuideId?: string | null
+  onDelete?: (guide: Guide) => void | Promise<void>
+}) {
   if (loading) return <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando guías…</p></div>
   if (!guides.length) {
     return <div className="empty-work"><ImageIcon size={30} /><b>Sin guías</b><p>Los registros aparecerán aquí después de confirmar una guía.</p></div>
@@ -1925,7 +2027,7 @@ function GuideTable({ guides, responsibleName, loading }: { guides: Guide[]; res
   return (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>Tipo</th><th>Guía</th><th>Referencia</th><th>Documento</th><th>Emisión</th><th>Líneas</th><th>Almacén</th><th>Responsable</th><th>Estado de carga</th></tr></thead>
+        <thead><tr><th>Tipo</th><th>Guía</th><th>Referencia</th><th>Documento</th><th>Emisión</th><th>Líneas</th><th>Almacén</th><th>Responsable</th><th>Estado de carga</th>{canDelete && <th>Acción</th>}</tr></thead>
         <tbody>
           {guides.map((guide) => (
             <tr key={guide.id}>
@@ -1938,6 +2040,21 @@ function GuideTable({ guides, responsibleName, loading }: { guides: Guide[]; res
               <td>{guide.warehouse || '—'}</td>
               <td>{responsibleName(guide.responsible_user_id)}</td>
               <td><span className={guide.load_status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill'}>{guide.load_status}</span></td>
+              {canDelete && (
+                <td>
+                  <button
+                    className="icon-button guide-delete-button"
+                    disabled={deletingGuideId === guide.id}
+                    onClick={() => void onDelete?.(guide)}
+                    title="Eliminar guía en cadena"
+                    aria-label={`Eliminar guía ${guide.guide_no} en cadena`}
+                  >
+                    {deletingGuideId === guide.id
+                      ? <RefreshCw className="spin" size={15}/>
+                      : <Trash2 size={15}/>}
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
