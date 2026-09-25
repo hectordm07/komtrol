@@ -24549,3 +24549,37 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
     font-size: 10px;
   }
 }
+
+
+/* SCANNER SAVE FEEDBACK · 2026-09-25 */
+.scanner-footer-feedback.success {
+  border-color: #bfe3cd;
+  background: #eef9f2;
+  color: #207047;
+}
+
+.scanner-footer-feedback.error {
+  border-color: #efbdb7;
+  background: #fff0ee;
+  color: #a83d34;
+}
+
+.scanner-footer-feedback.warning {
+  border-color: #efdba7;
+  background: #fff9ea;
+  color: #80600b;
+}
+
+.scanner-footer-feedback.info {
+  border-color: var(--kt-blue-200);
+  background: var(--kt-blue-50);
+  color: var(--kt-blue-800);
+}
+
+@media (max-width: 760px) {
+  .scanner-footer-feedback {
+    min-height: 42px;
+    padding: 9px 10px;
+    border-radius: 10px;
+  }
+}
