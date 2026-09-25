@@ -1316,8 +1316,6 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
               </div>
             </div>
           )}
-
-          </div>
         </section>
       )}
     </div>
