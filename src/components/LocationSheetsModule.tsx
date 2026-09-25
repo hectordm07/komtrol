@@ -55,6 +55,8 @@ type Receipt = {
   sap_kmmp_no: string | null
   sap_fiori_no: string | null
   sap_status: 'PENDIENTE' | 'INGRESADO'
+  group_name: string | null
+  ocr_confidence: number | null
   guide_id: string | null
   guides?: { file_bucket: string | null; file_path: string | null; file_name: string | null }[] | { file_bucket: string | null; file_path: string | null; file_name: string | null } | null
   replenishment_receipt_lines?: ReceiptLine[]
@@ -89,6 +91,9 @@ type FlatLine = {
   verificationIncidentId: string | null
   guideFile: { file_bucket: string | null; file_path: string | null; file_name: string | null } | null
   warehouse: string | null
+  groupName: string | null
+  supplier: Supplier
+  ocrConfidence: number | null
   reference: string | null
   source: string
 }
@@ -162,6 +167,9 @@ function flattenIngress(
         verificationIncidentId: line.verification_incident_id,
         guideFile: Array.isArray(receipt.guides) ? receipt.guides[0] || null : receipt.guides || null,
         warehouse: receipt.warehouse,
+        groupName: receipt.group_name,
+        supplier: receipt.supplier,
+        ocrConfidence: receipt.ocr_confidence,
         reference: receipt.reference,
         source: receipt.source,
       })
@@ -235,7 +243,7 @@ async function exportIngressExcel(
   const aoa: any[][] = [
     ['HOJA DE UBICACIÓN - REVISIÓN MANUAL', '', '', '', '', '', '', 'N° INGRESO', ingress.ingress_no],
     [`FECHA: ${fmtDate(ingress.ingress_date)} · PROVEEDOR: ${ingress.supplier} · ALMACÉN: ${ingress.warehouse || '—'} · ${statusLabel}`, '', '', '', '', '', '', '', ''],
-    [`RESPONSABLE DE CARGA: ${responsible}`, '', '', '', '', '', '', '', ''],
+    [`RESPONSABLE DE CARGA: ${responsible} · GRUPO: ${Array.from(new Set(rows.map((row) => row.groupName).filter(Boolean))).join(' / ') || 'SIN GRUPO'} · OCR PROM.: ${(() => { const values = rows.map((row) => Number(row.ocrConfidence)).filter((value) => Number.isFinite(value)); return values.length ? (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1) + '%' : '—' })()}`, '', '', '', '', '', '', '', ''],
     ['NÚMERO DE PARTE', 'DESCRIPCIÓN', 'STOCK MINA', 'GUÍA DE REMISIÓN', 'CANT.', 'UBICACIÓN', 'RESPONSABLE', 'DIFERENCIA', 'OBSERVACIÓN'],
     ...rows.map((row) => [
       row.partNo,
@@ -405,8 +413,13 @@ function exportIngressPdf(
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(38, 63, 145)
     doc.setFontSize(6.5)
+    const reportGroups = Array.from(new Set(rows.map((row) => row.groupName).filter(Boolean))).join(' / ') || 'SIN GRUPO'
+    const reportOcrValues = rows.map((row) => Number(row.ocrConfidence)).filter((value) => Number.isFinite(value))
+    const reportOcr = reportOcrValues.length
+      ? (reportOcrValues.reduce((sum, value) => sum + value, 0) / reportOcrValues.length).toFixed(1) + '%'
+      : '—'
     doc.text(
-      `RESPONSABLE DE CARGA: ${responsible}`,
+      `RESPONSABLE: ${responsible} · GRUPO: ${reportGroups} · OCR: ${reportOcr}`,
       left + (reportWidth - numberBoxWidth) / 2,
       26.2,
       { align: 'center' }
@@ -643,6 +656,8 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
           sap_kmmp_no,
           sap_fiori_no,
           sap_status,
+          group_name,
+          ocr_confidence,
           guides (file_bucket, file_path, file_name),
           replenishment_receipt_lines (
             id,
@@ -808,6 +823,30 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
   function lineCount(row: Ingress) {
     return matchingReceipts(row)
       .reduce((sum, receipt) => sum + (receipt.replenishment_receipt_lines?.length ?? 0), 0)
+  }
+
+  function groupsForIngress(row: Ingress) {
+    const groups = Array.from(new Set(
+      matchingReceipts(row)
+        .map((receipt) => String(receipt.group_name || '').trim().toUpperCase())
+        .filter(Boolean)
+    ))
+    return groups.length ? groups.join(' / ') : 'SIN GRUPO'
+  }
+
+  function averageOcrForIngress(row: Ingress) {
+    const values = matchingReceipts(row)
+      .map((receipt) => Number(receipt.ocr_confidence))
+      .filter((value) => Number.isFinite(value))
+    if (!values.length) return null
+    return values.reduce((sum, value) => sum + value, 0) / values.length
+  }
+
+  function ocrChipClass(value: number | null) {
+    if (value == null) return 'ocr-chip empty'
+    if (value >= 90) return 'ocr-chip high'
+    if (value >= 70) return 'ocr-chip medium'
+    return 'ocr-chip low'
   }
 
   async function attachFile(incidentId: string, file: File, type: 'GUIA' | 'REPORTE' | 'FOTO') {
@@ -1130,6 +1169,8 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                   <th>Fecha</th>
                   <th>Proveedor</th>
                   <th>Almacén</th>
+                  <th>Grupo</th>
+                  <th>OCR</th>
                   <th>Guías</th>
                   <th>Líneas</th>
                   <th>Detalle</th>
@@ -1154,6 +1195,13 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                       </span>
                     </td>
                     <td>{row.warehouse || '—'}</td>
+                    <td><span className="guide-group-chip">{groupsForIngress(row)}</span></td>
+                    <td>
+                      {(() => {
+                        const value = averageOcrForIngress(row)
+                        return <span className={ocrChipClass(value)}>{value == null ? '—' : `${value.toFixed(1)}%`}</span>
+                      })()}
+                    </td>
                     <td><b>{guideCount(row)}</b></td>
                     <td><b>{lineCount(row)}</b></td>
                     <td>
@@ -1200,8 +1248,10 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
               <h2>{detailMode === 'FIORI' ? 'NI / INGRESO SAP FIORI' : detailMode === 'VERIFY' ? 'VERIFICACIÓN DE INVENTARIO' : 'REVISIÓN MANUAL'}</h2>
               <div className="location-sheet-meta-grid">
                 <span><small>FECHA</small><b>{fmtDate(selected.ingress_date)}</b></span>
-                <span><small>PROVEEDOR</small><b>{selected.supplier}</b></span>
+                <span><small>PROVEEDOR</small><b><span className={selected.supplier === 'CUMMINS' ? 'supplier-chip cummins' : selected.supplier === 'KOMATSU' ? 'supplier-chip komatsu' : 'supplier-chip pending'}>{selected.supplier.replace('_', ' ')}</span></b></span>
                 <span><small>ALMACÉN</small><b>{selected.warehouse || '—'}</b></span>
+                <span><small>GRUPO</small><b>{groupsForIngress(selected)}</b></span>
+                <span><small>OCR PROMEDIO</small><b>{averageOcrForIngress(selected) == null ? '—' : `${averageOcrForIngress(selected)!.toFixed(1)}%`}</b></span>
                 <span className="responsible-meta"><small>RESPONSABLE DE CARGA</small><b><UserRound size={14}/>{compactResponsibleName(selected.responsible_name)}</b></span>
               </div>
             </div>
@@ -1217,6 +1267,8 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
               <span><Truck size={15} /> {guideCount(selected)} guías</span>
               <span><PackageCheck size={15} /> {selectedRows.length} líneas</span>
               <span><CalendarDays size={15} /> {fmtDate(selected.ingress_date)}</span>
+              <span><b>Grupo:</b> {groupsForIngress(selected)}</span>
+              <span className={ocrChipClass(averageOcrForIngress(selected))}>OCR {averageOcrForIngress(selected) == null ? '—' : `${averageOcrForIngress(selected)!.toFixed(1)}%`}</span>
               <span className={sapFilter === 'PENDIENTE' ? 'sap-filter-chip pending' : sapFilter === 'INGRESADO' ? 'sap-filter-chip entered' : 'sap-filter-chip'}>
                 {sapFilter === 'PENDIENTE' ? 'Pendientes SAP' : sapFilter === 'INGRESADO' ? 'Ingresados SAP' : 'Todos'}
               </span>
