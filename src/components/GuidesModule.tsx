@@ -42,6 +42,7 @@ type Guide = {
   warehouse: string | null
   responsible_user_id: string
   status: string
+  load_status: 'VALIDADO' | 'OBSERVADO'
   notes: string | null
   ocr_confidence: number | null
   created_at: string
@@ -1365,6 +1366,9 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       emissionDate = form.transfer_start_date && form.transfer_start_date <= today ? form.transfer_start_date : today
     }
 
+    const loadStatus: 'VALIDADO' | 'OBSERVADO' =
+      acceptWithWarnings || showOcrWarning ? 'OBSERVADO' : 'VALIDADO'
+
     const payload = {
       guide_no: form.guide_no.trim().toUpperCase(),
       document_no: form.document_no.trim() || null,
@@ -1382,7 +1386,8 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       data_source: 'SCANNER',
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
       responsible_user_id: userId,
-      status: form.status,
+      status: loadStatus,
+      load_status: loadStatus,
       notes: [
         form.notes.trim(),
         acceptWithWarnings ? 'Registro confirmado por el usuario aceptando observaciones de OCR.' : '',
@@ -1427,12 +1432,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     await supabase.from('guide_history').insert({
       guide_id: created.id,
       action: 'REGISTRADA',
-      note: `Registrada por ${profile?.full_name || 'usuario'}`,
+      note: `Registrada por ${profile?.full_name || 'usuario'} · Estado de carga: ${loadStatus}`,
       changed_by: userId,
     })
 
     setSaving(false)
-    setMessage(`Guía ${created.guide_no} registrada correctamente como ${created.guide_type}.`)
+    setMessage(`Guía ${created.guide_no} registrada correctamente como ${created.guide_type}. Estado de carga: ${loadStatus}.`)
 
     const savedBatchId = selectedBatchIdRef.current
     if (savedBatchId) {
@@ -1455,7 +1460,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     const q = search.trim().toLowerCase()
     if (q) {
       rows = rows.filter((g) =>
-        [g.guide_no, g.reference, g.document_no, g.warehouse, g.guide_type, g.status]
+        [g.guide_no, g.reference, g.document_no, g.warehouse, g.guide_type, g.load_status]
           .some((value) => String(value ?? '').toLowerCase().includes(q))
       )
     }
@@ -1509,7 +1514,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     guide_type:guide.guide_type.replaceAll('_',' '),
     warehouse:guide.warehouse||'',
     responsible:responsibleName(guide.responsible_user_id),
-    status:guide.status,
+    load_status:guide.load_status,
     ocr_confidence:guide.ocr_confidence == null ? '' : `${guide.ocr_confidence}%`,
     notes:guide.notes||'',
   }))
@@ -1525,7 +1530,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     {header:'TIPO',key:'guide_type',width:18},
     {header:'ALMACÉN',key:'warehouse',width:18},
     {header:'RESPONSABLE',key:'responsible',width:26},
-    {header:'ESTADO',key:'status',width:16},
+    {header:'ESTADO DE CARGA',key:'load_status',width:18},
     {header:'OCR',key:'ocr_confidence',width:10},
     {header:'OBSERVACIONES',key:'notes',width:36},
   ]
@@ -1539,7 +1544,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     {header:'LÍN.',key:'line_count'},
     {header:'TIPO',key:'guide_type'},
     {header:'ALMACÉN',key:'warehouse'},
-    {header:'ESTADO',key:'status'},
+    {header:'CARGA',key:'load_status'},
   ]
 
   function exportGuidesExcel(){
@@ -1567,7 +1572,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     return (
       <section className="panel guide-list-panel">
         <div className="panel-title">
-          <div><h3>{title}</h3><p>Registros capturados desde Scanner de Guías y operación.</p></div>
+          <div><h3>{title}</h3><p>Repositorio único de guías registradas. El estado mostrado corresponde únicamente a la carga inicial.</p></div>
           <div className="button-row">
             <button className="secondary-button" disabled={!visible.length} onClick={exportGuidesPdf}><FileText size={16}/> PDF</button>
             <button className="secondary-button" disabled={!visible.length} onClick={exportGuidesExcel}><FileSpreadsheet size={16}/> Excel</button>
@@ -1903,13 +1908,10 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           </div>
         </div>
       </section>
-      <section className="panel guide-list-panel">
-        <div className="panel-title">
-          <div><h3>Últimas guías</h3><p>Historial reciente registrado en KOMTROL.</p></div>
-          <button className="icon-button" onClick={reload}><RefreshCw size={18} /></button>
-        </div>
-        <GuideTable guides={guides.slice(0, 12)} responsibleName={responsibleName} loading={loading} />
-      </section>
+      <div className="scanner-history-hint">
+        <CheckCircle2 size={16} />
+        <span>Las guías confirmadas se consultan una sola vez en <b>Seguimiento de Guías</b>. Scanner queda dedicado únicamente a captura y registro.</span>
+      </div>
     </div>
   )
 }
@@ -1923,7 +1925,7 @@ function GuideTable({ guides, responsibleName, loading }: { guides: Guide[]; res
   return (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>Tipo</th><th>Guía</th><th>Referencia</th><th>Documento</th><th>Emisión</th><th>Líneas</th><th>Almacén</th><th>Responsable</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Tipo</th><th>Guía</th><th>Referencia</th><th>Documento</th><th>Emisión</th><th>Líneas</th><th>Almacén</th><th>Responsable</th><th>Estado de carga</th></tr></thead>
         <tbody>
           {guides.map((guide) => (
             <tr key={guide.id}>
@@ -1935,7 +1937,7 @@ function GuideTable({ guides, responsibleName, loading }: { guides: Guide[]; res
               <td>{guide.line_count}</td>
               <td>{guide.warehouse || '—'}</td>
               <td>{responsibleName(guide.responsible_user_id)}</td>
-              <td><span className="status-pill">{guide.status}</span></td>
+              <td><span className={guide.load_status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill'}>{guide.load_status}</span></td>
             </tr>
           ))}
         </tbody>
