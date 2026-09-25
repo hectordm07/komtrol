@@ -95,7 +95,9 @@ type BatchScanItem = {
 
 type CameraBodyCapture = {
   pageNo: number
+  file: File
   fileName: string
+  ocrText: string
   confidence: number
   detectedLines: number
   highestLine: number
@@ -878,7 +880,9 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
         ...current.filter((page) => page.pageNo !== pageNo),
         {
           pageNo,
+          file: bodyFile,
           fileName: bodyFile.name,
+          ocrText: result.text,
           confidence: result.confidence,
           detectedLines: bodyLines.length,
           highestLine: highestBodyLine,
@@ -960,7 +964,9 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           )
           setCameraBodyCaptures([{
             pageNo: 1,
+            file: nextFile,
             fileName: nextFile.name,
+            ocrText: result.text,
             confidence: result.confidence,
             detectedLines: parsed.lines.length,
             highestLine,
