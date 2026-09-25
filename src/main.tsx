@@ -6,6 +6,7 @@ import './dashboard-final.css'
 import './mobile-final.css'
 import './scanner-batch.css'
 import './location-sheets-final.css'
+import './guide-logic-final.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
