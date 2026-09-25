@@ -983,7 +983,7 @@ function Workspace({ session }: { session: Session }) {
         { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
       ],
     },
-    ...((profile?.oc_cargo_access_level === 'COMERCIAL' || accessView === 'COMERCIAL')
+    ...((profile?.oc_cargo_access_level === 'COMERCIAL' || accessView === 'COMERCIAL' || role === 'ADMINISTRADOR')
       ? [{
           section: 'COMERCIAL',
           collapsible: true,
@@ -1600,12 +1600,12 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
 
-              {isCommercialOrdersTab && isCommercialArea && (
+              {isCommercialOrdersTab && (isCommercialArea || role === 'ADMINISTRADOR') && (
                 <OcCargoTrackingModule
                   userId={user.id}
                   profile={effectiveProfile!}
                   fixedType="ORDEN_COMPRA"
-                  commercialView
+                  commercialView={role !== 'ADMINISTRADOR'}
                 />
               )}
 
