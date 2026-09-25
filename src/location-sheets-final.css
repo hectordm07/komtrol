@@ -61,14 +61,15 @@
   table-layout: fixed;
 }
 
-.manual-review-table th:nth-child(1) { width: 13%; }
-.manual-review-table th:nth-child(2) { width: 24%; }
+.manual-review-table th:nth-child(1) { width: 12%; }
+.manual-review-table th:nth-child(2) { width: 23%; }
 .manual-review-table th:nth-child(3) { width: 9%; }
-.manual-review-table th:nth-child(4) { width: 13%; }
+.manual-review-table th:nth-child(4) { width: 12%; }
 .manual-review-table th:nth-child(5) { width: 7%; }
-.manual-review-table th:nth-child(6) { width: 11%; }
-.manual-review-table th:nth-child(7) { width: 12%; }
-.manual-review-table th:nth-child(8) { width: 11%; }
+.manual-review-table th:nth-child(6) { width: 10%; }
+.manual-review-table th:nth-child(7) { width: 10%; }
+.manual-review-table th:nth-child(8) { width: 7%; }
+.manual-review-table th:nth-child(9) { width: 10%; }
 
 .manual-review-table td {
   min-height: 48px;
@@ -76,6 +77,8 @@
 }
 
 .manual-review-table .manual-empty-cell,
+.manual-review-table .manual-responsible-cell,
+.manual-review-table .manual-difference-cell,
 .manual-review-table .manual-observation-cell {
   background:
     repeating-linear-gradient(
@@ -245,9 +248,12 @@
   .manual-review-table td:nth-child(5)::before { content: 'Cant.'; }
   .manual-review-table td:nth-child(6)::before { content: 'Ubicación'; }
   .manual-review-table td:nth-child(7)::before { content: 'Responsable'; }
-  .manual-review-table td:nth-child(8)::before { content: 'Observación'; }
+  .manual-review-table td:nth-child(8)::before { content: 'Diferencia'; }
+  .manual-review-table td:nth-child(9)::before { content: 'Observación'; }
 
   .manual-review-table .manual-empty-cell,
+  .manual-review-table .manual-responsible-cell,
+  .manual-review-table .manual-difference-cell,
   .manual-review-table .manual-observation-cell {
     min-height: 42px;
   }
@@ -347,6 +353,8 @@
   }
 
   body:has(.location-print-mode) .manual-review-table .manual-empty-cell,
+  body:has(.location-print-mode) .manual-review-table .manual-responsible-cell,
+  body:has(.location-print-mode) .manual-review-table .manual-difference-cell,
   body:has(.location-print-mode) .manual-review-table .manual-observation-cell {
     height: 11mm !important;
     background: #fff !important;
