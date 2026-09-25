@@ -1116,7 +1116,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                 event.target.value = ''
               }} />
             </label>}
-            <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={18} /></button>
+            <button className="icon-button" onClick={() => void reload()} title="Actualizar"><RefreshCw size={18} /></button>
           </div>
         </div>
 
