@@ -80,6 +80,16 @@ const emptyForm = {
   status: 'ACTIVO' as Material['status'],
 }
 
+function formatUsd(value?: number | null) {
+  if (value == null || !Number.isFinite(Number(value))) return '—'
+  return Number(value).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return 'Sin cambio registrado'
   const date = new Date(value)
@@ -727,7 +737,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         <>
           <div className="table-wrap materials-responsive-table materials-desktop-list">
             <table>
-              <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio</th><th>Estado</th><th>Acciones</th>{mode === 'master' && isAdmin && <th>Editar</th>}</tr></thead>
+              <thead><tr><th>Material</th><th>Stock Code</th><th>Descripción</th><th>Centro</th><th>Almacén</th><th>Ubicación</th><th>Ubicación anterior</th><th>Último cambio</th><th>Precio USD ($)</th><th>Estado</th><th>Acciones</th>{mode === 'master' && isAdmin && <th>Editar</th>}</tr></thead>
               <tbody>
                 {pagedMaterials.map((material) => (
                   <tr key={material.id}>
@@ -739,7 +749,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                     <td><b>{material.location || '—'}</b></td>
                     <td>{material.previous_location || '—'}</td>
                     <td><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(material.location_changed_at)}</span></td>
-                    <td>{material.price == null ? '—' : Number(material.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</td>
+                    <td>{material.price == null ? '—' : formatUsd(material.price)}</td>
                     <td><span className={material.status === 'ACTIVO' ? 'status-pill' : material.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{material.status}</span></td>
                     <td><button className="icon-button material-more-button" onClick={() => openActions(material)} title="Acciones"><MoreHorizontal size={17} /></button></td>
                     {mode === 'master' && isAdmin && <td><button className="icon-button small-icon" onClick={() => openEdit(material)}><Edit3 size={15} /></button></td>}
@@ -774,7 +784,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                   <div><span>Almacén</span><b>{material.warehouse || '—'}</b></div>
                   <div><span>Ubicación</span><b>{material.location || '—'}</b></div>
                   <div><span>Ubicación anterior</span><b>{material.previous_location || '—'}</b></div>
-                  <div><span>Precio</span><b>{material.price == null ? '—' : Number(material.price).toLocaleString('es-PE', { style: 'currency', currency: 'PEN' })}</b></div>
+                  <div><span>Precio USD</span><b>{formatUsd(material.price)}</b></div>
                 </div>
 
                 <div className="material-mobile-change">
@@ -795,7 +805,11 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
               </article>
             ))}
             {!filtered.length && <div className="empty-work"><Boxes size={30} /><b>Sin materiales</b><p>No hay registros que coincidan con la búsqueda.</p></div>}
-            {filtered.length > 250 && <div className="table-note">Mostrando 250 de {filtered.length}. Refina la búsqueda para reducir resultados.</div>}
+            {filtered.length > MATERIAL_PAGE_SIZE && (
+              <div className="table-note">
+                Mostrando {pageStart + 1}-{Math.min(pageStart + MATERIAL_PAGE_SIZE, filtered.length)} de {filtered.length}. La búsqueda se ejecuta sobre todo el Maestro cargado.
+              </div>
+            )}
           </div>
         </>
       )}
@@ -922,8 +936,17 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                   </div>
                 </div>
               )}
-              <label>Precio
-                <input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+              <label>Precio USD ($)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  placeholder="0.00"
+                />
+                <small>Todos los precios del Maestro se registran y muestran en dólares estadounidenses (USD).</small>
               </label>
               <label>Estado
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Material['status'] })}>
