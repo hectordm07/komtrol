@@ -24460,3 +24460,43 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   .analytics-ring > span { width: 64px; height: 64px; }
   .analytics-ring b { font-size: 20px; }
 }
+
+
+/* ---------- Tareas globales / cerradas ---------- */
+.task-agenda-row-closed {
+  background: linear-gradient(180deg, #fbfcff, #f5f7fb);
+}
+
+.task-agenda-row-closed td {
+  color: #6f7b92;
+}
+
+.task-agenda-row-closed .task-agenda-name b {
+  color: #526078;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.task-agenda-closed-label {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #edf8f1;
+  color: #208253 !important;
+  font-size: 8px !important;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.task-agenda-section:last-child .task-agenda-heading {
+  border-color: rgba(31, 130, 83, .14);
+  background: linear-gradient(180deg, #fbfffc, #f5fbf7);
+}
+
+.task-agenda-section:last-child .task-agenda-heading h3 {
+  color: #276d4b;
+}
