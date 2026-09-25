@@ -577,7 +577,7 @@ export function UniversalDashboardModule({
     {key:'PENDIENTE',label:'Pendiente',value:dashboardTaskBase.filter((t)=>t.status==='PENDIENTE'&&!isOverdue(t)).length},
     {key:'EN_PROCESO',label:'En proceso',value:dashboardTaskBase.filter((t)=>t.status==='EN_PROCESO'&&!isOverdue(t)).length},
     {key:'BLOQUEADO',label:'Bloqueado',value:dashboardTaskBase.filter((t)=>t.status==='BLOQUEADO').length},
-    {key:'CERRADO',label:'Cerrado',value:dashboardTaskBase.filter((t)=>t.status==='CERRADO').length},
+    {key:'CERRADO',label:'Completado',value:dashboardTaskBase.filter((t)=>t.status==='CERRADO').length},
     {key:'VENCIDA',label:'Vencido',value:overduePersonal.length},
   ]
 
