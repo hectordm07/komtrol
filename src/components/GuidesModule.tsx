@@ -1708,10 +1708,80 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       }
     }
 
+    let pageStorageWarning = ''
+
+    if (cameraBodyCaptures.length) {
+      const pageRows: Array<{
+        guide_id: string
+        page_no: number
+        file_bucket: string | null
+        file_path: string | null
+        file_name: string
+        ocr_text: string | null
+        ocr_confidence: number | null
+        detected_lines: number
+        highest_line: number
+        created_by: string
+      }> = []
+
+      const firstCapture = cameraBodyCaptures.find((page) => page.pageNo === 1)
+      if (firstCapture) {
+        pageRows.push({
+          guide_id: created.id,
+          page_no: 1,
+          file_bucket: fileBucket,
+          file_path: filePath,
+          file_name: firstCapture.fileName,
+          ocr_text: firstCapture.ocrText || null,
+          ocr_confidence: firstCapture.confidence > 0 ? firstCapture.confidence : null,
+          detected_lines: firstCapture.detectedLines,
+          highest_line: firstCapture.highestLine,
+          created_by: userId,
+        })
+      }
+
+      for (const page of cameraBodyCaptures.filter((item) => item.pageNo > 1)) {
+        const safe = page.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const pagePath = `${userId}/${created.id}/cuerpo-${String(page.pageNo).padStart(2, '0')}-${safe}`
+        const upload = await supabase.storage
+          .from('guide-documents')
+          .upload(pagePath, page.file, { upsert: false })
+
+        if (upload.error) {
+          pageStorageWarning = `No se pudo guardar el cuerpo ${page.pageNo}: ${upload.error.message}`
+          continue
+        }
+
+        pageRows.push({
+          guide_id: created.id,
+          page_no: page.pageNo,
+          file_bucket: 'guide-documents',
+          file_path: pagePath,
+          file_name: page.fileName,
+          ocr_text: page.ocrText || null,
+          ocr_confidence: page.confidence > 0 ? page.confidence : null,
+          detected_lines: page.detectedLines,
+          highest_line: page.highestLine,
+          created_by: userId,
+        })
+      }
+
+      if (pageRows.length) {
+        const { error: pageError } = await supabase.from('guide_pages').insert(pageRows)
+        if (pageError) {
+          pageStorageWarning = `No se pudo registrar el detalle de los cuerpos: ${pageError.message}`
+        }
+      }
+    }
+
     await supabase.from('guide_history').insert({
       guide_id: created.id,
       action: 'REGISTRADA',
-      note: `Registrada por ${profile?.full_name || 'usuario'} · Estado de carga: ${loadStatus}`,
+      note: [
+        `Registrada por ${profile?.full_name || 'usuario'}`,
+        `Estado de carga: ${loadStatus}`,
+        cameraBodyCaptures.length ? `${cameraBodyCaptures.length} cuerpo(s) consolidado(s)` : '',
+      ].filter(Boolean).join(' · '),
       changed_by: userId,
     })
 
@@ -1746,7 +1816,11 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     setSelectedBatch(null)
     closeSmartCamera()
     resetForm()
-    setMessage(`Guía ${savedGuideNo} guardada correctamente como ${savedGuideType}. Scanner limpiado automáticamente y listo para una nueva carga.`)
+    setMessage(
+      pageStorageWarning
+        ? `Guía ${savedGuideNo} guardada como ${savedGuideType}, pero con una observación en archivos: ${pageStorageWarning}`
+        : `Guía ${savedGuideNo} guardada correctamente como ${savedGuideType}${cameraBodyCaptures.length > 1 ? ` · ${cameraBodyCaptures.length} cuerpos consolidados` : ''}. Scanner limpiado automáticamente y listo para una nueva carga.`
+    )
 
     if (nextBatchItem) {
       window.setTimeout(() => loadBatchItem(nextBatchItem), 0)
@@ -1770,14 +1844,20 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     setDeletingGuideId(guide.id)
     setMessage('')
 
-    const { data: refrendos, error: refrendoError } = await supabase
-      .from('guide_refrendos')
-      .select('file_bucket,file_path')
-      .eq('guide_id', guide.id)
+    const [{ data: refrendos, error: refrendoError }, { data: guidePages, error: pageError }] = await Promise.all([
+      supabase
+        .from('guide_refrendos')
+        .select('file_bucket,file_path')
+        .eq('guide_id', guide.id),
+      supabase
+        .from('guide_pages')
+        .select('file_bucket,file_path')
+        .eq('guide_id', guide.id),
+    ])
 
-    if (refrendoError) {
+    if (refrendoError || pageError) {
       setDeletingGuideId(null)
-      setMessage(`No se pudo preparar la eliminación: ${refrendoError.message}`)
+      setMessage(`No se pudo preparar la eliminación: ${refrendoError?.message || pageError?.message || 'error desconocido'}`)
       return
     }
 
@@ -1788,6 +1868,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     }
 
     for (const item of refrendos ?? []) {
+      if (item.file_bucket && item.file_path) {
+        storageTargets.push({ bucket: item.file_bucket, path: item.file_path })
+      }
+    }
+
+    for (const item of guidePages ?? []) {
       if (item.file_bucket && item.file_path) {
         storageTargets.push({ bucket: item.file_bucket, path: item.file_path })
       }
