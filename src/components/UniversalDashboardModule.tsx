@@ -152,7 +152,7 @@ type Props={
   userId:string
   profile:Profile
   previewMode?:boolean
-  onNavigate:(tab:string)=>void
+  onNavigate:(tab:string,options?:{taskStatus?:'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'})=>void
 }
 
 const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -355,7 +355,9 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     return true
   }),[tasks,userId,previewMode,isAdminDashboard,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
 
-  const dashboardTaskBase=isAdminDashboard?tasks:personalTasks
+  const dashboardTaskBase=isAdminDashboard
+    ? tasks.filter((task)=>task.work_type!=='PERSONAL')
+    : personalTasks
   const openPersonal=dashboardTaskBase.filter(isOpen)
   const overduePersonal=dashboardTaskBase.filter(isOverdue)
   const due7=dashboardTaskBase.filter((task)=>{
@@ -455,11 +457,11 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   }).length
 
   const taskStatusSegments=[
-    {label:'Pendiente',value:dashboardTaskBase.filter((t)=>t.status==='PENDIENTE').length},
-    {label:'En proceso',value:dashboardTaskBase.filter((t)=>t.status==='EN_PROCESO').length},
-    {label:'Bloqueado',value:dashboardTaskBase.filter((t)=>t.status==='BLOQUEADO').length},
-    {label:'Cerrado',value:dashboardTaskBase.filter((t)=>t.status==='CERRADO').length},
-    {label:'Vencido',value:overduePersonal.length},
+    {key:'PENDIENTE',label:'Pendiente',value:dashboardTaskBase.filter((t)=>t.status==='PENDIENTE'&&!isOverdue(t)).length},
+    {key:'EN_PROCESO',label:'En proceso',value:dashboardTaskBase.filter((t)=>t.status==='EN_PROCESO'&&!isOverdue(t)).length},
+    {key:'BLOQUEADO',label:'Bloqueado',value:dashboardTaskBase.filter((t)=>t.status==='BLOQUEADO').length},
+    {key:'CERRADO',label:'Cerrado',value:dashboardTaskBase.filter((t)=>t.status==='CERRADO').length},
+    {key:'VENCIDA',label:'Vencido',value:overduePersonal.length},
   ]
 
   const expiryTypeData=[
@@ -642,7 +644,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           value={isAdminDashboard?globalPendingTotal:openPersonal.length}
           detail={isAdminDashboard?`${openPersonal.length} tareas · ${openIncidents.length} incidencias`:`${personalTasks.filter((t)=>t.status==='EN_PROCESO').length} en proceso`}
           tone="personal"
-          onClick={()=>onNavigate('mi-trabajo')}
+          onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}
         />
         <DashboardKpi
           icon={<Users/>}
@@ -666,14 +668,14 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           value={overduePersonal.length}
           detail={overduePersonal.length?'Requieren atención':'Sin retrasos'}
           critical={overduePersonal.length>0}
-          onClick={()=>onNavigate('mi-trabajo')}
+          onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'VENCIDA'})}
         />
         <DashboardKpi
           icon={<CalendarClock/>}
           label="Próximos 7 días"
           value={due7.length}
           detail={isAdminDashboard?'Pendientes globales por vencer':'Mis trabajos por vencer'}
-          onClick={()=>onNavigate('mi-trabajo')}
+          onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}
         />
         <DashboardKpi
           icon={<ShieldCheck/>}
@@ -842,7 +844,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           </div>
 
           <div className="universal-operational-kpis admin-area-kpis">
-            <button type="button" onClick={()=>onNavigate('mi-trabajo')}>
+            <button type="button" onClick={()=>onNavigate('tareas-globales',{taskStatus:'TODOS'})}>
               <span className="operational-report-icon"><ClipboardList size={19}/></span>
               <span><small>ÁREA DE TRABAJO</small><b>{openPersonal.length}</b><em>Tareas abiertas de toda la operación</em></span>
               <ChevronRight size={16}/>
@@ -877,13 +879,19 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       )}
 
       <div className="universal-dashboard-charts">
-        <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('mi-trabajo')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('mi-trabajo')}}>
+        <div className="dashboard-chart-link task-status-chart-link">
           <ProfessionalDonutChart
             title={isAdminDashboard?'Tareas globales por estado':'Mis trabajos por estado'}
-            subtitle={isAdminDashboard?'Toda la operación registrada':'Distribución de trabajo personal'}
+            subtitle={isAdminDashboard?'Solo tareas operativas compartidas; se excluyen tareas personales/privadas':'Distribución de trabajo personal'}
             segments={taskStatusSegments}
+            onSelect={(status)=>onNavigate(
+              isAdminDashboard?'tareas-globales':'mi-trabajo',
+              {taskStatus:status as 'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'}
+            )}
           />
-          <span className="dashboard-chart-access">Ver Área de trabajo <ChevronRight size={14}/></span>
+          <button type="button" className="dashboard-chart-access dashboard-chart-access-button" onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}>
+            Ver Área de trabajo <ChevronRight size={14}/>
+          </button>
         </div>
 
         <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('vencimientos-cursos')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('vencimientos-cursos')}}>
