@@ -3,22 +3,41 @@ type OcrProgress = (progress: number, message?: string) => void
 type GuideImageOcrResult = {
   text: string
   confidence: number
-  method: 'HEADER_FAST' | 'HEADER_PLUS_FULL'
+  method: 'HEADER_FAST' | 'HEADER_PLUS_DETAIL'
   barcodes: string[]
 }
 
-let workerPromise: Promise<any> | null = null
-let activeProgress: OcrProgress | null = null
+type WorkerSlot = {
+  worker: any | null
+  promise: Promise<any> | null
+  busy: boolean
+  progress: OcrProgress | null
+}
 
-async function getWorker() {
-  if (!workerPromise) {
-    workerPromise = (async () => {
+const workerSlots: WorkerSlot[] = [
+  { worker: null, promise: null, busy: false, progress: null },
+  { worker: null, promise: null, busy: false, progress: null },
+]
+const workerWaiters: Array<(slotIndex: number) => void> = []
+
+function supportedConcurrency() {
+  const cores = Number((navigator as any)?.hardwareConcurrency ?? 4)
+  const memory = Number((navigator as any)?.deviceMemory ?? 4)
+  return cores >= 6 && memory >= 4 ? 2 : 1
+}
+
+async function getWorker(slotIndex: number) {
+  const slot = workerSlots[slotIndex]
+  if (slot.worker) return slot.worker
+
+  if (!slot.promise) {
+    slot.promise = (async () => {
       const moduleUrl = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm'
       const tesseract: any = await import(/* @vite-ignore */ moduleUrl)
       const worker = await tesseract.createWorker('spa', 1, {
         logger: (event: any) => {
           if (event?.status === 'recognizing text' && typeof event.progress === 'number') {
-            activeProgress?.(Math.max(1, Math.round(event.progress * 100)))
+            slot.progress?.(Math.max(1, Math.round(event.progress * 100)))
           }
         },
       })
@@ -26,13 +45,54 @@ async function getWorker() {
         preserve_interword_spaces: '1',
         user_defined_dpi: '300',
       })
+      slot.worker = worker
       return worker
     })().catch((error) => {
-      workerPromise = null
+      slot.promise = null
+      slot.worker = null
       throw error
     })
   }
-  return workerPromise
+
+  return slot.promise
+}
+
+async function acquireWorker() {
+  const limit = supportedConcurrency()
+  const freeIndex = workerSlots.slice(0, limit).findIndex((slot) => !slot.busy)
+
+  if (freeIndex >= 0) {
+    workerSlots[freeIndex].busy = true
+    try {
+      const worker = await getWorker(freeIndex)
+      return { slotIndex: freeIndex, worker }
+    } catch (error) {
+      workerSlots[freeIndex].busy = false
+      throw error
+    }
+  }
+
+  const slotIndex = await new Promise<number>((resolve) => workerWaiters.push(resolve))
+  try {
+    const worker = await getWorker(slotIndex)
+    return { slotIndex, worker }
+  } catch (error) {
+    workerSlots[slotIndex].busy = false
+    throw error
+  }
+}
+
+function releaseWorker(slotIndex: number) {
+  const slot = workerSlots[slotIndex]
+  slot.progress = null
+
+  const waiter = workerWaiters.shift()
+  if (waiter) {
+    slot.busy = true
+    waiter(slotIndex)
+  } else {
+    slot.busy = false
+  }
 }
 
 async function loadImage(file: File) {
@@ -44,7 +104,6 @@ async function loadImage(file: File) {
     await image.decode()
     return image
   } finally {
-    // El navegador mantiene el bitmap decodificado aun después de liberar la URL.
     URL.revokeObjectURL(url)
   }
 }
@@ -65,24 +124,26 @@ function percentile(values: Uint8ClampedArray, target: number) {
   return target < 0.5 ? 0 : 255
 }
 
-async function prepareCanvas(
-  file: File,
-  mode: 'header' | 'full',
-  maxWidth = 1900,
-) {
-  const image = await loadImage(file)
+function regionFor(mode: 'header' | 'detail') {
+  // Las fotos de celular suelen incluir mesa/margen arriba. Estas franjas
+  // priorizan cabecera y tabla sin procesar toda la foto.
+  return mode === 'header'
+    ? { top: 0.03, bottom: 0.52, maxWidth: 2100 }
+    : { top: 0.27, bottom: 0.76, maxWidth: 2200 }
+}
+
+function prepareCanvas(image: HTMLImageElement, mode: 'header' | 'detail') {
   const sourceWidth = image.naturalWidth || image.width
   const sourceHeight = image.naturalHeight || image.height
   if (!sourceWidth || !sourceHeight) throw new Error('La imagen no tiene dimensiones válidas.')
 
-  // Las guías de KOMTROL concentran N° guía, referencia y fechas en la parte superior.
-  // El primer pase procesa solo esa zona para reducir notablemente el tiempo de OCR.
-  const cropHeight = mode === 'header'
-    ? Math.max(1, Math.round(sourceHeight * 0.58))
-    : sourceHeight
+  const region = regionFor(mode)
+  const cropY = Math.max(0, Math.round(sourceHeight * region.top))
+  const cropBottom = Math.min(sourceHeight, Math.round(sourceHeight * region.bottom))
+  const cropHeight = Math.max(1, cropBottom - cropY)
 
-  const scale = Math.min(1.8, maxWidth / sourceWidth)
-  const targetWidth = Math.max(900, Math.round(sourceWidth * scale))
+  const scale = Math.min(1.9, region.maxWidth / sourceWidth)
+  const targetWidth = Math.max(1000, Math.round(sourceWidth * scale))
   const targetHeight = Math.max(1, Math.round(cropHeight * scale))
 
   const canvas = document.createElement('canvas')
@@ -96,7 +157,7 @@ async function prepareCanvas(
   ctx.drawImage(
     image,
     0,
-    0,
+    cropY,
     sourceWidth,
     cropHeight,
     0,
@@ -105,20 +166,22 @@ async function prepareCanvas(
     targetHeight,
   )
 
-  // Normalización ligera: fondo más blanco, texto oscuro y contraste estable.
-  // Evita el umbral binario duro que suele borrar números finos de las guías.
   const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight)
   const data = imageData.data
-  const low = percentile(data, 0.04)
-  const high = percentile(data, 0.97)
-  const span = Math.max(36, high - low)
+  const low = percentile(data, 0.035)
+  const high = percentile(data, 0.975)
+  const span = Math.max(34, high - low)
 
   for (let i = 0; i < data.length; i += 4) {
     const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
     let normalized = ((gray - low) / span) * 255
     normalized = Math.max(0, Math.min(255, normalized))
-    // Contraste suave alrededor del gris medio.
-    normalized = Math.max(0, Math.min(255, (normalized - 128) * 1.16 + 128))
+    normalized = Math.max(0, Math.min(255, (normalized - 128) * 1.22 + 128))
+
+    // Levanta el fondo y oscurece trazos finos sin aplicar binarización dura.
+    if (normalized > 232) normalized = 255
+    else if (normalized < 92) normalized *= 0.82
+
     const value = Math.round(normalized)
     data[i] = value
     data[i + 1] = value
@@ -129,17 +192,41 @@ async function prepareCanvas(
   return canvas
 }
 
+function normalizedOcr(text: string) {
+  return text
+    .toUpperCase()
+    .replace(/[–—−]/g, '-')
+    .replace(/(?<=\d)[OQ](?=\d)/g, '0')
+    .replace(/(?<=\d)[IL](?=\d)/g, '1')
+    .replace(/\s+/g, ' ')
+}
+
 function likelyHasHeader(text: string) {
-  const normalized = text.toUpperCase().replace(/\s+/g, ' ')
-  const hasGuide = /\bT\s*[0-9O]{3}\s*[- ]\s*[0-9O]{7,9}\b/.test(normalized)
-  const hasReference = /REFEREN(?:CIA)?/.test(normalized) || /\b8[0-9O]{8,17}\b/.test(normalized)
+  const normalized = normalizedOcr(text)
+  const hasGuide =
+    /\bT\s*\d{3}\s*[- ]\s*\d{7,9}\b/.test(normalized) ||
+    /N[°ºO]?\s*T\s*\d{3}\s*[- ]?\s*\d{7,9}/.test(normalized)
+  const hasReference =
+    /REFEREN(?:CIA)?/.test(normalized) ||
+    /\b8\d{7,17}(?:[\/-]\d{3,17})?\b/.test(normalized)
   const hasDate = /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}/.test(normalized)
   return hasGuide && (hasReference || hasDate)
 }
 
 function likelyReplenishment(text: string) {
-  const normalized = text.toUpperCase().replace(/\s+/g, '')
-  return /REFERENCIA[^8]{0,20}89/.test(normalized) || /\b89[0-9O]{7,17}\b/.test(normalized)
+  const normalized = normalizedOcr(text).replace(/\s+/g, '')
+  return /REFERENCIA[^8]{0,20}89/.test(normalized) || /\b89\d{7,17}\b/.test(normalized)
+}
+
+function likelyHasMaterialRow(text: string) {
+  const normalized = normalizedOcr(text)
+  return (
+    /DESCRIPCI[ÓO]N/.test(normalized) &&
+    (
+      /\b\d{1,3}\s+[A-Z0-9][A-Z0-9._/-]{3,}\s+.{3,40}\s+\d+(?:[.,]\d+)?\s+(?:UND|EA|PC|PZ|PIE|FT|M|MT)\b/.test(normalized) ||
+      /\b\d+(?:[.,]\d+)?\s+(?:UND|EA|PC|PZ|PIE|FT|M|MT)\b/.test(normalized)
+    )
+  )
 }
 
 async function detectBarcodes(canvas: HTMLCanvasElement) {
@@ -163,92 +250,108 @@ async function detectBarcodes(canvas: HTMLCanvasElement) {
 }
 
 async function recognizeCanvas(
+  worker: any,
+  slotIndex: number,
   canvas: HTMLCanvasElement,
   psm: '3' | '6',
   progress?: OcrProgress,
 ) {
-  const worker = await getWorker()
-  activeProgress = progress ?? null
-  try {
-    await worker.setParameters({
-      tessedit_pageseg_mode: psm,
-      preserve_interword_spaces: '1',
-      user_defined_dpi: '300',
-    })
-    const result = await worker.recognize(canvas)
-    return {
-      text: String(result?.data?.text ?? ''),
-      confidence: Number(result?.data?.confidence ?? 0),
-    }
-  } finally {
-    activeProgress = null
+  const slot = workerSlots[slotIndex]
+  slot.progress = progress ?? null
+
+  await worker.setParameters({
+    tessedit_pageseg_mode: psm,
+    preserve_interword_spaces: '1',
+    user_defined_dpi: '300',
+  })
+
+  const result = await worker.recognize(canvas)
+  slot.progress = null
+
+  return {
+    text: String(result?.data?.text ?? ''),
+    confidence: Number(result?.data?.confidence ?? 0),
   }
 }
 
 export async function prewarmGuideOcr() {
-  await getWorker()
+  await getWorker(0)
 }
 
 export async function recognizeGuideImage(
   file: File,
   onProgress?: OcrProgress,
 ): Promise<GuideImageOcrResult> {
-  onProgress?.(2, 'Preparando imagen…')
-  const headerCanvas = await prepareCanvas(file, 'header', 1900)
+  const { slotIndex, worker } = await acquireWorker()
 
-  onProgress?.(5, 'Leyendo códigos y cabecera…')
-  const barcodePromise = detectBarcodes(headerCanvas)
-  const header = await recognizeCanvas(
-    headerCanvas,
-    '6',
-    (progress) => onProgress?.(5 + Math.round(progress * 0.55), 'Reconociendo cabecera…'),
-  )
-  const barcodes = await barcodePromise
+  try {
+    onProgress?.(2, 'Preparando imagen…')
+    const image = await loadImage(file)
+    const headerCanvas = prepareCanvas(image, 'header')
 
-  const barcodeText = barcodes.length
-    ? '\n--- CÓDIGOS DETECTADOS ---\n' + barcodes.join('\n') + '\n'
-    : ''
+    onProgress?.(5, 'Leyendo cabecera y códigos…')
+    const barcodePromise = detectBarcodes(headerCanvas)
+    const header = await recognizeCanvas(
+      worker,
+      slotIndex,
+      headerCanvas,
+      '6',
+      (progress) => onProgress?.(5 + Math.round(progress * 0.52), 'Reconociendo cabecera…'),
+    )
+    const barcodes = await barcodePromise
 
-  const headerText = barcodeText + header.text
-  const needsFull =
-    !likelyHasHeader(headerText) ||
-    likelyReplenishment(headerText) ||
-    header.confidence < 58
+    const barcodeText = barcodes.length
+      ? '\n--- CÓDIGOS DETECTADOS ---\n' + barcodes.join('\n') + '\n'
+      : ''
 
-  if (!needsFull) {
-    onProgress?.(100, 'Lectura rápida completada')
+    const headerText = barcodeText + header.text
+    const headerComplete = likelyHasHeader(headerText)
+    const hasMaterial = likelyHasMaterialRow(headerText)
+    const needsDetail =
+      !headerComplete ||
+      likelyReplenishment(headerText) ||
+      !hasMaterial
+
+    if (!needsDetail) {
+      onProgress?.(100, 'Lectura rápida completada')
+      headerCanvas.width = 1
+      headerCanvas.height = 1
+
+      return {
+        text: headerText,
+        confidence: header.confidence,
+        method: 'HEADER_FAST',
+        barcodes,
+      }
+    }
+
+    onProgress?.(58, 'Leyendo tabla de materiales…')
+    const detailCanvas = prepareCanvas(image, 'detail')
+    const detail = await recognizeCanvas(
+      worker,
+      slotIndex,
+      detailCanvas,
+      '6',
+      (progress) => onProgress?.(58 + Math.round(progress * 0.41), 'Reconociendo detalle…'),
+    )
+
     headerCanvas.width = 1
     headerCanvas.height = 1
+    detailCanvas.width = 1
+    detailCanvas.height = 1
+    onProgress?.(100, 'Lectura completada')
+
+    const confidence = header.confidence > 0 && detail.confidence > 0
+      ? (header.confidence * 0.62) + (detail.confidence * 0.38)
+      : Math.max(header.confidence, detail.confidence)
+
     return {
-      text: headerText,
-      confidence: header.confidence,
-      method: 'HEADER_FAST',
+      text: barcodeText + header.text + '\n--- DETALLE TABLA ---\n' + detail.text,
+      confidence,
+      method: 'HEADER_PLUS_DETAIL',
       barcodes,
     }
-  }
-
-  onProgress?.(62, 'Leyendo documento completo…')
-  const fullCanvas = await prepareCanvas(file, 'full', 2200)
-  const full = await recognizeCanvas(
-    fullCanvas,
-    '3',
-    (progress) => onProgress?.(62 + Math.round(progress * 0.37), 'Reconociendo detalle…'),
-  )
-
-  headerCanvas.width = 1
-  headerCanvas.height = 1
-  fullCanvas.width = 1
-  fullCanvas.height = 1
-  onProgress?.(100, 'Lectura completada')
-
-  const confidence = header.confidence > 0 && full.confidence > 0
-    ? (header.confidence * 0.45) + (full.confidence * 0.55)
-    : Math.max(header.confidence, full.confidence)
-
-  return {
-    text: barcodeText + header.text + '\n--- DETALLE DOCUMENTO ---\n' + full.text,
-    confidence,
-    method: 'HEADER_PLUS_FULL',
-    barcodes,
+  } finally {
+    releaseWorker(slotIndex)
   }
 }
