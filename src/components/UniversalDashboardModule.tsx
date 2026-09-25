@@ -207,9 +207,11 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   const [replenishmentIngresses,setReplenishmentIngresses]=useState<ReplenishmentIngress[]>([])
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
+  const [lastUpdated,setLastUpdated]=useState<Date|null>(null)
 
-  async function reload(){
-    setLoading(true)
+  async function reload(options?:{silent?:boolean}){
+    const silent=Boolean(options?.silent)
+    if(!silent) setLoading(true)
     setMessage('')
 
     const isAdmin = profile.role==='ADMINISTRADOR' && !previewMode
@@ -280,9 +282,23 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     setGuides((guideRes.data??[]) as DashboardGuide[])
     setReplenishmentReceipts((receiptRes.data??[]) as ReplenishmentReceipt[])
     setReplenishmentIngresses((ingressRes.data??[]) as ReplenishmentIngress[])
-    setLoading(false)
+    setLastUpdated(new Date())
+    if(!silent) setLoading(false)
   }
-  useEffect(()=>{reload()},[userId,previewMode,profile.role,profile.warehouse,profile.project])
+
+  useEffect(()=>{
+    void reload()
+    const refresh=()=>void reload({silent:true})
+    const onVisibility=()=>{ if(document.visibilityState==='visible') refresh() }
+    const timer=window.setInterval(refresh,20_000)
+    window.addEventListener('focus',refresh)
+    document.addEventListener('visibilitychange',onVisibility)
+    return ()=>{
+      window.clearInterval(timer)
+      window.removeEventListener('focus',refresh)
+      document.removeEventListener('visibilitychange',onVisibility)
+    }
+  },[userId,previewMode,profile.role,profile.warehouse,profile.project])
 
   const isAdminDashboard=profile.role==='ADMINISTRADOR'&&!previewMode
 
@@ -402,11 +418,18 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     .filter((row)=>row.movement_type==='SALIDA')
     .reduce((sum,row)=>sum+Number(row.quantity||0),0)
   const kardexBalance=Math.max(0,kardexEntries-kardexExits)
-  const kardexMaterials=new Set(
-    operationalKardex
-      .filter((row)=>row.material_no)
-      .map((row)=>row.material_no)
-  ).size
+  const kardexByMaterial=new Map<string,number>()
+  operationalKardex.forEach((row)=>{
+    if(!row.material_no) return
+    const current=kardexByMaterial.get(row.material_no)||0
+    const delta=row.movement_type==='ENTRADA'
+      ? Number(row.quantity||0)
+      : row.movement_type==='SALIDA'
+        ? -Number(row.quantity||0)
+        : 0
+    kardexByMaterial.set(row.material_no,current+delta)
+  })
+  const kardexMaterials=[...kardexByMaterial.values()].filter((value)=>value>0).length
   const incidentRoute=isAdminDashboard?'incidencias':operationalWarehouse==='CALLAO'?'inbound-incidencias':'incidencias'
   const surplusRoute=isAdminDashboard?'kardex-sobrantes':operationalWarehouse==='CALLAO'?'inbound-cajas':'kardex-sobrantes'
   const kardexRoute=isAdminDashboard?'kardex-sobrantes':operationalWarehouse==='CALLAO'?'inbound-kardex':'kardex-sobrantes'
@@ -577,11 +600,14 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     {label:'Órdenes de compra',value:purchaseOrders.length},
     {label:'Cargos directos',value:directCharges.length},
   ]
+  const kmmpCompleted=Math.max(0,operationalReplenishmentReceipts.length-pendingSapKmmp.length)
+  const fioriCompleted=Math.max(0,operationalReplenishmentIngresses.length-pendingFioriIngresses.length)
   const documentFlowData=[
-    {key:'REPOSICION',label:'Reposición registradas',value:replenishmentGuides.length,detail:'Guías de reposición registradas en KOMTROL.'},
-    {key:'KMMP',label:'Pend. SAP KMMP',value:pendingSapKmmp.length,detail:'Recepciones sin documento SAP KMMP válido que inicie con 18.'},
-    {key:'FIORI',label:'Pend. FIORI',value:pendingFioriIngresses.length,detail:'Ingresos agrupados sin NI SAP FIORI válido que inicie con 50.'},
-    {key:'CARGO',label:'Cargos pend. entrega',value:pendingDirectDelivery.length,detail:'Cargos directos sin fecha de entrega al cliente.'},
+    {key:'GUIAS',label:'Guías reposición',value:replenishmentGuides.length,detail:'Total de guías de reposición registradas en KOMTROL.'},
+    {key:'KMMP',label:'KMMP completado',value:kmmpCompleted,detail:`${pendingSapKmmp.length} pendiente(s) de ingreso SAP KMMP de ${operationalReplenishmentReceipts.length} recepción(es).`},
+    {key:'INGRESOS',label:'Ingresos reposición',value:operationalReplenishmentIngresses.length,detail:'Agrupaciones de ingreso generadas desde Hojas de Ubicación.'},
+    {key:'FIORI',label:'FIORI completado',value:fioriCompleted,detail:`${pendingFioriIngresses.length} ingreso(s) pendiente(s) de NI SAP FIORI.`},
+    {key:'CARGO',label:'Cargos entregados',value:Math.max(0,directCharges.length-pendingDirectDelivery.length),detail:`${pendingDirectDelivery.length} cargo(s) directo(s) pendiente(s) de entrega al cliente.`},
   ]
   const urgentExpirations=activeExpirations.filter((row)=>{
     const days=daysUntil(row.due_date)
@@ -602,6 +628,10 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
 
   return (
     <div className="universal-dashboard">
+      <div className="dashboard-live-toolbar">
+        <span><i/> Datos en vivo{lastUpdated ? ` · actualizado ${lastUpdated.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}` : ''}</span>
+        <button type="button" className="secondary-button" onClick={()=>void reload({silent:true})}><RefreshCw size={14}/> Actualizar</button>
+      </div>
       {message&&<div className="inline-message">{message}</div>}
 
       <div className="universal-dashboard-kpis">
@@ -699,22 +729,27 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         <div className="document-flow-kpis">
           <button type="button" onClick={()=>onNavigate('ingresos-reposicion')}>
             <span className="operational-report-icon"><PackageSearch size={19}/></span>
-            <span><small>REPOSICIÓN REGISTRADAS</small><b>{replenishmentGuides.length}</b><em>Guías registradas</em></span>
+            <span><small>GUÍAS REPOSICIÓN</small><b>{replenishmentGuides.length}</b><em>Total registradas</em></span>
             <ChevronRight size={16}/>
           </button>
           <button type="button" className={pendingSapKmmp.length?'attention':''} onClick={()=>onNavigate('ingresos-reposicion')}>
             <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-            <span><small>PEND. SAP KMMP</small><b>{pendingSapKmmp.length}</b><em>Sin ingreso 18…</em></span>
+            <span><small>SAP KMMP</small><b>{kmmpCompleted}/{operationalReplenishmentReceipts.length}</b><em>{pendingSapKmmp.length} pendientes · doc. 18…</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" onClick={()=>onNavigate('hoja-ubicacion')}>
+            <span className="operational-report-icon"><ClipboardList size={19}/></span>
+            <span><small>INGRESOS REPOSICIÓN</small><b>{operationalReplenishmentIngresses.length}</b><em>Agrupaciones generadas</em></span>
             <ChevronRight size={16}/>
           </button>
           <button type="button" className={pendingFioriIngresses.length?'attention':''} onClick={()=>onNavigate('hoja-ubicacion')}>
             <span className="operational-report-icon"><ClipboardList size={19}/></span>
-            <span><small>PEND. SAP FIORI</small><b>{pendingFioriIngresses.length}</b><em>Sin NI 50…</em></span>
+            <span><small>SAP FIORI</small><b>{fioriCompleted}/{operationalReplenishmentIngresses.length}</b><em>{pendingFioriIngresses.length} pendientes · NI 50…</em></span>
             <ChevronRight size={16}/>
           </button>
           <button type="button" className={pendingDirectDelivery.length?'attention':''} onClick={()=>onNavigate('cargos-directos')}>
             <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-            <span><small>CARGOS PEND. ENTREGA</small><b>{pendingDirectDelivery.length}</b><em>Sin fecha entrega cliente</em></span>
+            <span><small>CARGOS DIRECTOS</small><b>{pendingDirectDelivery.length}</b><em>Pendientes de entrega</em></span>
             <ChevronRight size={16}/>
           </button>
         </div>
@@ -722,8 +757,8 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         <div className="universal-operational-charts document-flow-charts">
           <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('ingresos-reposicion')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('ingresos-reposicion')}}>
             <ProfessionalBarChart
-              title="Estado del flujo documental"
-              subtitle="Recepción, SAP KMMP, FIORI y entrega"
+              title="Avance del proceso de ingreso"
+              subtitle="Diferencia guías registradas vs. ingresos SAP"
               data={documentFlowData}
               onSelect={(key)=>{
                 if(key==='FIORI') onNavigate('hoja-ubicacion')
@@ -765,7 +800,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           </button>
           <button type="button" onClick={()=>onNavigate(kardexRoute)}>
             <span className="operational-report-icon"><ClipboardList size={19}/></span>
-            <span><small>KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:2})}</b><em>{kardexMaterials} materiales registrados</em></span>
+            <span><small>KARDEX</small><b>{kardexBalance.toLocaleString('es-PE',{maximumFractionDigits:2})}</b><em>{kardexMaterials} materiales con saldo</em></span>
             <ChevronRight size={16}/>
           </button>
           <button type="button" className="operational-report-missing" onClick={()=>onNavigate(incidentRoute)}>
