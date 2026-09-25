@@ -80,6 +80,31 @@ type Refrendo = {
   created_at: string
 }
 
+type ObservationEmail = {
+  id: string
+  guide_id: string
+  followup_id: string | null
+  status: 'PENDIENTE' | 'ENVIANDO' | 'ENVIADO' | 'ERROR'
+  to_addresses: string[]
+  cc_addresses: string[]
+  subject: string
+  body_text: string
+  sent_at: string | null
+  error_message: string | null
+  created_at: string
+}
+
+type ObservationEmailPreview = {
+  status: ObservationEmail['status'] | 'BORRADOR'
+  to_addresses: string[]
+  cc_addresses: string[]
+  subject: string
+  body_text: string
+  sent_at: string | null
+  error_message: string | null
+  created_at: string | null
+}
+
 type BulkPreparedRefrendo = {
   key: string
   guideId: string
@@ -123,6 +148,7 @@ type Guide = {
   created_at: string
   followup?: Followup | null
   refrendos?: Refrendo[]
+  observationEmails?: ObservationEmail[]
 }
 
 type Props = {
@@ -233,6 +259,42 @@ function latestRefrendo(guide: Guide) {
   return [...(guide.refrendos || [])].sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0] || null
 }
 
+function latestObservationEmail(guide: Guide) {
+  return [...(guide.observationEmails || [])]
+    .sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())[0] || null
+}
+
+function composeObservationEmail(guide: Guide, followup: FollowupForm, reporter: string) {
+  const kind = guide.guide_type === 'ORDEN_COMPRA' ? 'ORDEN DE COMPRA' : 'CARGO DIRECTO'
+  const subject = `[KOMTROL][${kind} OBSERVADO] Guía ${guide.guide_no} | Ref. ${guide.reference}`
+  const body = [
+    'Estimados,',
+    '',
+    'Se reporta la siguiente guía como OBSERVADA desde KOMTROL.',
+    '',
+    `Tipo: ${kind}`,
+    `Guía: ${guide.guide_no}`,
+    `Referencia: ${guide.reference}`,
+    `N° Documento: ${guide.document_no || '—'}`,
+    `Almacén: ${guide.warehouse || '—'}`,
+    guide.guide_type === 'ORDEN_COMPRA'
+      ? `Valor OC $: ${followup.oc_value_usd || '—'}`
+      : '',
+    `Observaciones Almacén Mina: ${followup.mine_warehouse_observations || '—'}`,
+    `Observación Almacén KMMP: ${followup.kmmp_warehouse_observation || '—'}`,
+    `Recepcionado por: ${followup.received_by || '—'}`,
+    `Encargado de gestión: ${followup.management_owner || '—'}`,
+    `Ubicación de repuestos: ${followup.parts_location || '—'}`,
+    `Comentarios para anulación de guía: ${followup.cancellation_comments || '—'}`,
+    '',
+    'Favor su apoyo con la revisión y regularización correspondiente.',
+    '',
+    `Registro generado desde KOMTROL por ${reporter || 'usuario'}.`,
+  ].filter(Boolean).join('\n')
+
+  return { subject, body }
+}
+
 function emails(value: string) {
   return value
     .split(/[;,\s]+/)
@@ -265,6 +327,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
   const canEditOperational=!isCommercialView && (!specialAccess || ['COORDINADOR','SUPERVISOR','ADMINISTRADOR'].includes(profile?.role || ''))
 
   const [emailOpen, setEmailOpen] = useState(false)
+  const [observationEmailPreview,setObservationEmailPreview]=useState<ObservationEmailPreview|null>(null)
   const [sendingEmail, setSendingEmail] = useState(false)
   const [mail, setMail] = useState({
     to: '',
@@ -299,7 +362,8 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
         file_name,
         created_at,
         oc_cargo_followups (*),
-        guide_refrendos (*)
+        guide_refrendos (*),
+        guide_observation_emails (*)
       `)
       .in('guide_type', ['ORDEN_COMPRA', 'CARGO_DIRECTO'])
       .order('created_at', { ascending: false })
@@ -313,6 +377,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
         ...row,
         followup: normalizeFollowup(row.oc_cargo_followups),
         refrendos: (row.guide_refrendos ?? []) as Refrendo[],
+        observationEmails: (row.guide_observation_emails ?? []) as ObservationEmail[],
       })) as Guide[]
       setGuides(rows)
       if (selected) {
@@ -834,6 +899,54 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
   const daysReceptionToClient = selected ? daysBetween(receptionDate, form.client_delivery_date) : null
   const daysClientToRefrendo = selected ? daysBetween(form.client_delivery_date, form.refrendo_delivery_date) : null
 
+  function openObservationEmailPreview(guide: Guide) {
+    const sent = latestObservationEmail(guide)
+
+    if (sent) {
+      setObservationEmailPreview({
+        status: sent.status,
+        to_addresses: sent.to_addresses || [],
+        cc_addresses: sent.cc_addresses || [],
+        subject: sent.subject,
+        body_text: sent.body_text,
+        sent_at: sent.sent_at,
+        error_message: sent.error_message,
+        created_at: sent.created_at,
+      })
+      return
+    }
+
+    const draft = composeObservationEmail(
+      guide,
+      guide.id === selected?.id ? form : followupToForm(guide.followup),
+      profile?.full_name || 'usuario'
+    )
+
+    setObservationEmailPreview({
+      status: 'BORRADOR',
+      to_addresses: [],
+      cc_addresses: [],
+      subject: draft.subject,
+      body_text: draft.body,
+      sent_at: null,
+      error_message: null,
+      created_at: null,
+    })
+  }
+
+  async function copyObservationEmailPreview() {
+    if (!observationEmailPreview) return
+    const value = [
+      `Para: ${observationEmailPreview.to_addresses.join('; ') || '—'}`,
+      `CC: ${observationEmailPreview.cc_addresses.join('; ') || '—'}`,
+      `Asunto: ${observationEmailPreview.subject}`,
+      '',
+      observationEmailPreview.body_text,
+    ].join('\n')
+    await navigator.clipboard.writeText(value)
+    setMessage('Correo de observación copiado al portapapeles.')
+  }
+
   function buildEmail() {
     if (!selected) return
     if (selected.followup?.final_status !== 'OBSERVADO') {
@@ -841,34 +954,8 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
       return
     }
 
-    const kind = selected.guide_type === 'ORDEN_COMPRA' ? 'ORDEN DE COMPRA' : 'CARGO DIRECTO'
-    const subject = `[KOMTROL][${kind} OBSERVADO] Guía ${selected.guide_no} | Ref. ${selected.reference}`
-    const body = [
-      'Estimados,',
-      '',
-      `Se reporta la siguiente guía como OBSERVADA desde KOMTROL.`,
-      '',
-      `Tipo: ${kind}`,
-      `Guía: ${selected.guide_no}`,
-      `Referencia: ${selected.reference}`,
-      `N° Documento: ${selected.document_no || '—'}`,
-      `Almacén: ${selected.warehouse || '—'}`,
-      selected.guide_type === 'ORDEN_COMPRA'
-        ? `Valor OC $: ${form.oc_value_usd || '—'}`
-        : '',
-      `Observaciones Almacén Mina: ${form.mine_warehouse_observations || '—'}`,
-      `Observación Almacén KMMP: ${form.kmmp_warehouse_observation || '—'}`,
-      `Recepcionado por: ${form.received_by || '—'}`,
-      `Encargado de gestión: ${form.management_owner || '—'}`,
-      `Ubicación de repuestos: ${form.parts_location || '—'}`,
-      `Comentarios para anulación de guía: ${form.cancellation_comments || '—'}`,
-      '',
-      'Favor su apoyo con la revisión y regularización correspondiente.',
-      '',
-      `Registro generado desde KOMTROL por ${profile?.full_name || 'usuario'}.`,
-    ].filter(Boolean).join('\n')
-
-    setMail({ to: '', cc: '', subject, body })
+    const draft = composeObservationEmail(selected, form, profile?.full_name || 'usuario')
+    setMail({ to: '', cc: '', subject: draft.subject, body: draft.body })
     setEmailOpen(true)
   }
 
@@ -1014,6 +1101,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
                   <th>Recepción</th>
                   {activeType === 'ORDEN_COMPRA' && <th>Valor OC $</th>}
                   <th>Estatus final</th>
+                  {activeType === 'ORDEN_COMPRA' && <th>Correo observación</th>}
                   <th>Encargado</th>
                   <th>Ubicación</th>
                   <th>Refrendos</th>
@@ -1039,6 +1127,15 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
                         {statusLabel(guide.followup?.final_status || 'PENDIENTE')}
                       </span>
                     </td>
+                    {activeType === 'ORDEN_COMPRA' && (
+                      <td>
+                        {guide.followup?.final_status === 'OBSERVADO'
+                          ? <button className="secondary-button small-report observation-email-button" onClick={()=>openObservationEmailPreview(guide)}>
+                              <Mail size={14}/> {latestObservationEmail(guide) ? 'Ver correo' : 'Ver borrador'}
+                            </button>
+                          : <span className="oc-email-not-applicable">—</span>}
+                      </td>
+                    )}
                     <td>{guide.followup?.management_owner || '—'}</td>
                     <td>{guide.followup?.parts_location || '—'}</td>
                     <td>
@@ -1196,6 +1293,24 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
               <div><small>Cliente → refrendo</small><b>{daysClientToRefrendo ?? '—'}</b></div>
             </div>
 
+            {selected.followup?.final_status === 'OBSERVADO' && (
+              <div className="oc-observation-email-summary">
+                <Mail size={19}/>
+                <div>
+                  <small>CORREO DE OBSERVACIÓN</small>
+                  <b>{latestObservationEmail(selected)?.subject || composeObservationEmail(selected, form, profile?.full_name || 'usuario').subject}</b>
+                  <span>
+                    {latestObservationEmail(selected)
+                      ? `${latestObservationEmail(selected)?.status} · ${latestObservationEmail(selected)?.sent_at ? 'Enviado ' + fmtDate(latestObservationEmail(selected)?.sent_at) : 'Pendiente de envío'}`
+                      : 'Borrador generado con los datos de la observación.'}
+                  </span>
+                </div>
+                <button type="button" className="secondary-button" onClick={()=>openObservationEmailPreview(selected)}>
+                  <Eye size={15}/> Ver correo
+                </button>
+              </div>
+            )}
+
             <div className="oc-billing-control">
               <div className="oc-billing-copy">
                 <small>FACTURACIÓN</small>
@@ -1327,6 +1442,38 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
                 </button>}
               </div>
             </form>
+
+            {observationEmailPreview && (
+              <div className="oc-email-preview-overlay">
+                <section className="oc-email-preview-card">
+                  <div className="oc-email-head">
+                    <div>
+                      <b>Correo de observación</b>
+                      <small>{observationEmailPreview.status === 'BORRADOR' ? 'Borrador generado desde el seguimiento' : `Estado: ${observationEmailPreview.status}`}</small>
+                    </div>
+                    <button className="icon-button" onClick={()=>setObservationEmailPreview(null)}><X size={17}/></button>
+                  </div>
+
+                  <div className="oc-email-preview-meta">
+                    <span><small>PARA</small><b>{observationEmailPreview.to_addresses.join('; ') || 'Pendiente de destinatario'}</b></span>
+                    <span><small>CC</small><b>{observationEmailPreview.cc_addresses.join('; ') || '—'}</b></span>
+                    <span className="span-2"><small>ASUNTO</small><b>{observationEmailPreview.subject}</b></span>
+                    {observationEmailPreview.sent_at && <span><small>ENVIADO</small><b>{fmtDate(observationEmailPreview.sent_at)}</b></span>}
+                  </div>
+
+                  <pre className="oc-email-preview-body">{observationEmailPreview.body_text}</pre>
+
+                  {observationEmailPreview.error_message && (
+                    <div className="inline-message">{observationEmailPreview.error_message}</div>
+                  )}
+
+                  <div className="modal-actions">
+                    <button type="button" className="secondary-button" onClick={()=>void copyObservationEmailPreview()}><Copy size={15}/> Copiar</button>
+                    <button type="button" className="primary-button" onClick={()=>setObservationEmailPreview(null)}>Cerrar</button>
+                  </div>
+                </section>
+              </div>
+            )}
 
             {emailOpen && (
               <div className="oc-email-box">
