@@ -11069,3 +11069,140 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* ---------- Inicio · flujo documental y recepción ---------- */
+.document-flow-section {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(49,85,191,.08), transparent 27%),
+    #fff !important;
+}
+
+.document-flow-section::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #223c92, #4d6bd0);
+}
+
+.document-flow-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.document-flow-kpis > button {
+  min-width: 0;
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--kt-final-border);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fff, #fbfcff);
+  color: var(--kt-final-text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease;
+}
+
+.document-flow-kpis > button:hover {
+  transform: translateY(-1px);
+  border-color: #b7c6ee;
+}
+
+.document-flow-kpis > button > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.document-flow-kpis > button small {
+  color: #63729a;
+  font-size: 8.5px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.document-flow-kpis > button b {
+  color: #142d71;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.document-flow-kpis > button em {
+  color: #7c89a6;
+  font-size: 8px;
+  line-height: 1.12;
+  font-style: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-flow-kpis > button > svg {
+  color: #9aa7c0;
+}
+
+.document-flow-kpis > button.attention {
+  border-color: rgba(224, 76, 62, .18);
+  background: linear-gradient(180deg, #fff, #fff8f7);
+}
+
+.document-flow-kpis > button.attention .operational-report-icon {
+  background: #fff0ef !important;
+  color: #d23e35 !important;
+}
+
+.document-flow-kpis > button.attention b {
+  color: #c9362f;
+}
+
+.document-flow-charts {
+  margin-top: 2px;
+}
+
+@media (max-width: 1100px) {
+  .document-flow-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .document-flow-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .document-flow-kpis > button {
+    min-height: 78px;
+    grid-template-columns: 34px minmax(0, 1fr) 13px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .document-flow-kpis > button b {
+    font-size: 19px;
+  }
+
+  .document-flow-kpis > button small {
+    font-size: 7.5px;
+  }
+
+  .document-flow-kpis > button em {
+    font-size: 7px;
+  }
+}
+
+@media (max-width: 430px) {
+  .document-flow-kpis {
+    grid-template-columns: 1fr;
+  }
+}
