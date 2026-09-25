@@ -1201,6 +1201,13 @@ function Workspace({ session }: { session: Session }) {
   const flatNav = navSections.flatMap((group) =>
     group.items.map((item) => ({ ...item, section: group.section }))
   )
+  // Las vistas de OC y Cargos Directos siguen disponibles desde los indicadores
+  // del inicio, sin ocupar dos accesos duplicados en la barra lateral.
+  const sidebarSections = navSections
+    .map((group) => group.section === 'OPERACIONES'
+      ? { ...group, items: group.items.filter((item) => !['ordenes-compra', 'cargos-directos'].includes(item.id)) }
+      : group)
+    .filter((group) => group.items.length > 0)
   const currentNav = flatNav.find((item) => item.id === tab)
   const mobileHomeTab = 'inicio'
   const mobileWorkTab = flatNav.some((item) => item.id === 'mi-trabajo')
@@ -1339,7 +1346,7 @@ function Workspace({ session }: { session: Session }) {
         </div>
 
         <nav className="sidebar-nav">
-          {navSections.map((group) => {
+          {sidebarSections.map((group) => {
             const open = openSections.includes(group.section)
             const hasActiveItem = group.items.some((item) => item.id === tab)
             return (
@@ -1515,10 +1522,11 @@ function Workspace({ session }: { session: Session }) {
                 {unreadAppNotifications > 0 && <span>{unreadAppNotifications > 99 ? '99+' : unreadAppNotifications}</span>}
               </button>
               {notificationOpen && (
-                <div className="notification-panel">
+                <div className="notification-panel" role="region" aria-label="Notificaciones">
                   <div className="notification-panel-head">
-                    <div><b>Notificaciones</b><span>{unreadAppNotifications} sin leer</span></div>
-                    {unreadAppNotifications > 0 && <button onClick={markAllNotificationsRead}>Marcar todas</button>}
+                    <span className="notification-panel-head-icon"><Bell size={19} /></span>
+                    <div><b>Notificaciones</b><span>{unreadAppNotifications ? `${unreadAppNotifications} sin leer` : 'Todo al día'}</span></div>
+                    {unreadAppNotifications > 0 && <button onClick={markAllNotificationsRead}>Marcar todas como leídas</button>}
                   </div>
                   <div className="notification-panel-list">
                     {appNotifications.slice(0, 20).map((item) => (
@@ -1527,9 +1535,9 @@ function Workspace({ session }: { session: Session }) {
                         className={item.read_at ? 'notification-item' : 'notification-item unread'}
                         onClick={() => openAppNotification(item)}
                       >
-                        <i />
+                        <span className="notification-item-icon"><Bell size={17} /></span>
                         <div>
-                          <b>{item.title}</b>
+                          <b>{item.title}{!item.read_at && <i className="notification-unread-dot" aria-label="Sin leer" />}</b>
                           {item.message && <p>{item.message}</p>}
                           <span>{formatDate(item.created_at)}</span>
                         </div>

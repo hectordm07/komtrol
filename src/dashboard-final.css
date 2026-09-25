@@ -11864,6 +11864,87 @@
   color: #237a4b;
 }
 
+/* Notificaciones · el mismo azul, contraste y ritmo que las tarjetas de KOMTROL. */
+.notification-panel {
+  width: min(420px, calc(100vw - 24px));
+  border: 1px solid var(--kt-blue-200);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(29, 49, 117, .18);
+}
+.notification-panel-head {
+  min-height: 78px;
+  padding: 15px 18px;
+  justify-content: flex-start;
+  gap: 12px;
+  background: linear-gradient(120deg, var(--kt-blue-50), #fff);
+}
+.notification-panel-head-icon,
+.notification-item-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--kt-blue-100);
+  color: var(--kt-blue-700);
+}
+.notification-panel-head > div { flex: 1; min-width: 0; }
+.notification-panel-head b { font-size: 16px; line-height: 1.25; }
+.notification-panel-head > div > span { font-size: 13px; }
+.notification-panel-head button {
+  max-width: 118px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  background: #fff;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.25;
+}
+.notification-panel-head button:hover { background: var(--kt-blue-100); }
+.notification-panel-list { padding: 8px; }
+.notification-item {
+  min-height: 84px;
+  padding: 12px;
+  grid-template-columns: 38px minmax(0, 1fr) 16px;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--kt-border-soft);
+  border-radius: 0;
+}
+.notification-item:last-child { border-bottom: 0; }
+.notification-item:hover,
+.notification-item:focus-visible { background: var(--kt-blue-50); }
+.notification-item:focus-visible { outline: 2px solid var(--kt-blue-600); outline-offset: -2px; }
+.notification-item.unread { background: #f3f6ff; }
+.notification-item.unread .notification-item-icon { background: #e5ecff; }
+.notification-item > div { gap: 4px; }
+.notification-item b {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--kt-blue-950);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.notification-unread-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--kt-blue-600);
+}
+.notification-item p { font-size: 13px; line-height: 1.45; }
+.notification-item span:not(.notification-item-icon) { font-size: 12px; }
+.notification-item > svg { margin: 0; }
+.notification-empty { min-height: 148px; font-size: 14px; }
+@media (max-width: 620px) {
+  .notification-panel { width: auto; }
+  .notification-panel-head { padding: 12px; }
+  .notification-item { min-height: 78px; padding: 10px; }
+}
+
 /* Tablero: el estado se identifica también por el encabezado de columna. */
 .board-status-pendiente {
   background: #fffaf0 !important;
