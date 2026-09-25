@@ -24500,3 +24500,52 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
 .task-agenda-section.closed-section .task-agenda-heading h3 {
   color: #276d4b;
 }
+
+
+/* ---------- Organigrama de accesos del Administrador ---------- */
+.access-org-path {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  background: rgba(255,255,255,.045);
+}
+
+.access-org-path small {
+  color: rgba(255,255,255,.56);
+  font-size: 6.5px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.access-org-path span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255,255,255,.9);
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1.25;
+  flex-wrap: wrap;
+}
+
+.access-org-path svg {
+  flex: 0 0 auto;
+  color: rgba(255,255,255,.46);
+}
+
+.access-view-select-wrap select optgroup {
+  font-weight: 900;
+}
+
+@media (max-width: 760px) {
+  .access-org-path small {
+    font-size: 8px;
+  }
+
+  .access-org-path span {
+    font-size: 10px;
+  }
+}
