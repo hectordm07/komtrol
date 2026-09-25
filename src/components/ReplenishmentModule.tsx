@@ -11,6 +11,18 @@ import { SearchableSelect } from './SearchableSelect'
 
 type Supplier = 'KOMATSU' | 'CUMMINS' | 'POR_VALIDAR'
 
+type Profile = {
+  user_id: string
+  role: 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
+  warehouse?: string | null
+  group_name?: string | null
+}
+
+type Props = {
+  userId: string
+  profile: Profile
+}
+
 type ReceiptLine = {
   id: string
   line_no: number
@@ -31,6 +43,8 @@ type Receipt = {
   reference: string | null
   document_no: string | null
   warehouse: string | null
+  group_name: string | null
+  created_by: string
   source: 'SCANNER' | 'CARGA_MASIVA' | 'MANUAL' | 'MIGRADO'
   line_count: number
   notes: string | null
@@ -47,7 +61,17 @@ function fmtDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-PE').format(date)
 }
 
-export function ReplenishmentModule() {
+function groupMatches(userGroup?: string | null, rowGroup?: string | null) {
+  const normalize = (value?: string | null) => String(value || '').trim().toUpperCase().replace(/\s+/g, '')
+  const left = normalize(userGroup)
+  const right = normalize(rowGroup)
+  if (!left || !right) return false
+  if (left === right) return true
+  const split = (value: string) => value.split(/[/,;|]+/).filter(Boolean)
+  return split(right).includes(left) || split(left).includes(right)
+}
+
+export function ReplenishmentModule({ userId: _userId, profile }: Props) {
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [selected, setSelected] = useState<Receipt | null>(null)
   const [loading, setLoading] = useState(true)
@@ -72,6 +96,8 @@ export function ReplenishmentModule() {
         reference,
         document_no,
         warehouse,
+        group_name,
+        created_by,
         source,
         line_count,
         notes,
@@ -113,10 +139,22 @@ export function ReplenishmentModule() {
     reload()
   }, [])
 
+  const scopedReceipts = useMemo(() => {
+    if (profile.role === 'ADMINISTRADOR') return receipts
+    const warehouse = String(profile.warehouse || '').trim().toUpperCase()
+
+    return receipts.filter((row) => {
+      if (warehouse && String(row.warehouse || '').trim().toUpperCase() !== warehouse) return false
+      if (profile.role === 'COORDINADOR' || profile.role === 'SUPERVISOR') return true
+      if (row.created_by === profile.user_id) return true
+      return groupMatches(profile.group_name, row.group_name)
+    })
+  }, [receipts, profile])
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
 
-    return receipts.filter((row) => {
+    return scopedReceipts.filter((row) => {
       if (dateSearch && row.receipt_date !== dateSearch) return false
       if (supplier !== 'TODOS' && row.supplier !== supplier) return false
 
@@ -140,7 +178,7 @@ export function ReplenishmentModule() {
 
       return headerMatch || detailMatch
     })
-  }, [receipts, search, dateSearch, supplier])
+  }, [scopedReceipts, search, dateSearch, supplier])
 
   const selectedLines = useMemo(
     () => [...(selected?.replenishment_receipt_lines ?? [])].sort((a, b) => a.line_no - b.line_no),
