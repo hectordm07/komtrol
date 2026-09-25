@@ -98,6 +98,12 @@ function cleanText(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
 
+function cleanMaterialDescription(value: string) {
+  return cleanText(value)
+    .replace(/[|;,:-]+\s*$/g, '')
+    .trim()
+}
+
 function normalizeMaterialOcrText(value: string) {
   return value
     .replace(/[£€]/g, 'E')
@@ -196,7 +202,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
     byLine.set(lineNo, {
       line_no: lineNo,
       part_no: match[2].trim(),
-      description: cleanText(match[3]),
+      description: cleanMaterialDescription(match[3]),
       quantity: normalizeIntegerQuantity(match[4]),
       unit: match[5].toUpperCase(),
     })
@@ -261,7 +267,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
     byLine.set(lineNo, {
       line_no: lineNo,
       part_no: partNo,
-      description: cleanText(descriptionParts.join(' ')),
+      description: cleanMaterialDescription(descriptionParts.join(' ')),
       quantity,
       unit,
     })
@@ -284,7 +290,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
     byLine.set(byLine.size + 1, {
       line_no: byLine.size + 1,
       part_no: partNo,
-      description: cleanText(match[2]),
+      description: cleanMaterialDescription(match[2]),
       quantity: normalizeIntegerQuantity(match[3]),
       unit: match[4].toUpperCase(),
     })
@@ -1119,14 +1125,16 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
 
     setForm((prev) => ({
       ...prev,
-      guide_no: parsed.guide_no || fallbackGuide || prev.guide_no,
-      document_no: parsed.document_no || prev.document_no,
-      emission_date: parsed.emission_date || prev.emission_date,
-      transfer_start_date: parsed.transfer_start_date || prev.transfer_start_date,
+      // Cada lectura representa una guía independiente. No conservar valores
+      // OCR de la guía anterior si el documento actual viene vacío.
+      guide_no: parsed.guide_no || fallbackGuide || '',
+      document_no: parsed.document_no || '',
+      emission_date: parsed.emission_date || '',
+      transfer_start_date: parsed.transfer_start_date || '',
       date_source: parsed.date_source,
-      reference: parsed.reference || prev.reference,
-      line_count: String(parsed.line_count || Number(prev.line_count || 1)),
-      guide_type: parsed.reference ? parsed.guide_type : prev.guide_type,
+      reference: parsed.reference || '',
+      line_count: String(parsed.line_count || 1),
+      guide_type: parsed.reference ? parsed.guide_type : 'OTRO',
       notes: parsed.observations || '',
       ocr_text: text,
       ocr_confidence: confidence > 0 ? confidence.toFixed(1) : '',
