@@ -188,6 +188,21 @@ function effectiveStatus(task: Task) {
   return isOverdue(task) && task.status !== 'BLOQUEADO' ? 'VENCIDA' : task.status
 }
 
+function taskStatusLabel(status: Task['status'] | 'TODOS') {
+  if (status === 'TODOS') return 'Todos los estados'
+  return ({
+    PENDIENTE: 'Pendiente',
+    EN_PROCESO: 'En proceso',
+    BLOQUEADO: 'Bloqueado',
+    CERRADO: 'Completado',
+    VENCIDA: 'Vencida',
+  } as Record<Task['status'], string>)[status]
+}
+
+function taskStatusTone(status: Task['status']) {
+  return `task-state-${status.toLowerCase()}`
+}
+
 function defaultWorkType(mode: TasksMode): Task['work_type'] {
   if (mode === 'relevos') return 'RELEVO'
   if (mode === 'mi-trabajo' || mode === 'area-personal') return 'PERSONAL'
@@ -476,7 +491,7 @@ export function TasksModule({
   const filtered = useMemo(() => {
     let data = [...scopedTasks]
     if (workView === 'LISTA' && statusFilter === 'TODOS') {
-      data = data.filter((t) => t.status !== 'CERRADO' && t.progress < 100)
+      data = data.filter((t) => t.status !== 'CERRADO')
     }
     if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
     if (priorityFilter !== 'TODAS') data = data.filter((t) => t.priority === priorityFilter)
@@ -744,7 +759,7 @@ export function TasksModule({
     {value:'PENDIENTE',label:'Pendiente'},
     {value:'EN_PROCESO',label:'En proceso'},
     {value:'BLOQUEADO',label:'Bloqueado'},
-    {value:'CERRADO',label:'Cerrado'},
+    {value:'CERRADO',label:'Completado'},
     {value:'VENCIDA',label:'Vencida'},
   ]
   const priorityFilterOptions = [
@@ -808,7 +823,7 @@ export function TasksModule({
   const activeFilterSummary = useMemo(() => {
     const parts = [
       mode === 'global-admin' ? 'Tareas globales' : mode === 'tareas' ? 'Tareas' : mode === 'relevos' ? 'Relevos' : mode === 'area-personal' ? 'Área personal' : 'Mi trabajo',
-      statusFilter !== 'TODOS' ? `Estado: ${statusFilter.replaceAll('_',' ')}` : '',
+      statusFilter !== 'TODOS' ? `Estado: ${taskStatusLabel(statusFilter)}` : '',
       priorityFilter !== 'TODAS' ? `Prioridad: ${priorityFilter}` : '',
       categoryFilter !== 'TODAS' ? `Categoría: ${categoryFilter}` : '',
       labelFilter ? `Etiqueta: ${labelFilter}` : '',
@@ -843,8 +858,7 @@ export function TasksModule({
       Categoría: task.category || '',
       Etiquetas: (task.tags || []).join(', '),
       Prioridad: task.priority,
-      Estado: effectiveStatus(task).replaceAll('_',' '),
-      Avance: `${task.progress}%`,
+      Estado: taskStatusLabel(effectiveStatus(task)),
       'Fecha inicio': task.start_at ? new Date(task.start_at).toLocaleString('es-PE') : '',
       'Fecha límite': task.due_at ? new Date(task.due_at).toLocaleString('es-PE') : '',
       'Fecha cierre': task.closed_at ? new Date(task.closed_at).toLocaleString('es-PE') : '',
@@ -865,7 +879,7 @@ export function TasksModule({
     const worksheet = XLSX.utils.json_to_sheet(rows)
     worksheet['!cols'] = [
       {wch:18},{wch:11},{wch:36},{wch:48},{wch:20},{wch:16},{wch:20},{wch:24},
-      {wch:18},{wch:30},{wch:11},{wch:16},{wch:10},{wch:20},{wch:20},{wch:20},
+      {wch:18},{wch:30},{wch:11},{wch:16},{wch:20},{wch:20},{wch:20},
       {wch:20},{wch:42},{wch:20},
     ]
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Tareas')
@@ -915,7 +929,7 @@ export function TasksModule({
 
     autoTable(doc,{
       startY: 31 + Math.max(0,(filterLines.length-1)*3),
-      head:[['ID','Tipo','Título','Proyecto / Almacén','Responsable','Categoría / Etiquetas','Prioridad','Estado','Avance','Vence']],
+      head:[['ID','Tipo','Título','Proyecto / Almacén','Responsable','Categoría / Etiquetas','Prioridad','Estado','Vence']],
       body:filtered.map((task)=>[
         task.task_no,
         task.work_type,
@@ -924,8 +938,7 @@ export function TasksModule({
         profileName(task.responsible_id),
         [task.category,(task.tags||[]).join(', ')].filter(Boolean).join(' · ') || '—',
         task.priority,
-        effectiveStatus(task).replaceAll('_',' '),
-        `${task.progress}%`,
+        taskStatusLabel(effectiveStatus(task)),
         task.due_at ? new Date(task.due_at).toLocaleDateString('es-PE') : '—',
       ]),
       theme:'grid',
@@ -948,8 +961,8 @@ export function TasksModule({
       alternateRowStyles:{fillColor:[247,248,255]},
       columnStyles:{
         0:{cellWidth:16},1:{cellWidth:10},2:{cellWidth:30},3:{cellWidth:24},
-        4:{cellWidth:22},5:{cellWidth:26},6:{cellWidth:12},7:{cellWidth:16},
-        8:{cellWidth:8},9:{cellWidth:14},
+        4:{cellWidth:22},5:{cellWidth:26},6:{cellWidth:12},7:{cellWidth:18},
+        8:{cellWidth:14},
       },
       didDrawPage:()=>{
         const pageHeight=doc.internal.pageSize.getHeight()
@@ -1765,10 +1778,10 @@ function TaskAnalytics({ tasks, profiles, viewName }: { tasks: Task[]; profiles:
   todayStart.setHours(0, 0, 0, 0)
   const tomorrow = new Date(todayStart)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const open = tasks.filter((task) => task.status !== 'CERRADO' && task.progress < 100)
-  const closed = tasks.length - open.length
+  const open = tasks.filter((task) => task.status !== 'CERRADO')
+  const closed = tasks.filter((task) => task.status === 'CERRADO').length
   const progress = tasks.length ? Math.round(closed / tasks.length * 100) : 0
-  const datedClosed = tasks.filter((task) => (task.status === 'CERRADO' || task.progress >= 100) && task.closed_at && task.due_at)
+  const datedClosed = tasks.filter((task) => task.status === 'CERRADO' && task.closed_at && task.due_at)
   const withinDeadline = datedClosed.filter((task) => new Date(task.closed_at!).getTime() <= new Date(task.due_at!).getTime()).length
   const withinPercent = datedClosed.length ? Math.round(withinDeadline / datedClosed.length * 100) : 0
   const dueToday = open.filter((task) => task.due_at && new Date(task.due_at).getTime() >= now && new Date(task.due_at).getTime() < tomorrow.getTime()).length
@@ -1798,7 +1811,7 @@ function TaskAnalytics({ tasks, profiles, viewName }: { tasks: Task[]; profiles:
         <strong>AVANCE GENERAL</strong><b>{progress}% completado</b><span>{closed} de {tasks.length} tareas listas</span>
         <div className="analytics-ring" style={{ '--analytics-progress': `${progress}%` } as CSSProperties}><span><b>{progress}%</b><small>AVANCE</small></span></div>
       </div>
-      <div className="task-analytics-card analytics-on-time"><strong>DENTRO DEL PLAZO</strong><b>{withinPercent}%</b><span>{datedClosed.length ? `${withinDeadline} de ${datedClosed.length} tareas cerradas con fecha` : 'Sin cierres con fecha para calcular'}</span></div>
+      <div className="task-analytics-card analytics-on-time"><strong>DENTRO DEL PLAZO</strong><b>{withinPercent}%</b><span>{datedClosed.length ? `${withinDeadline} de ${datedClosed.length} tareas completadas con fecha` : 'Sin tareas completadas con fecha para calcular'}</span></div>
       <div className="task-analytics-card analytics-pending"><strong>PENDIENTES</strong><b>{open.length}</b><span>tareas por completar</span></div>
       <div className="task-analytics-card analytics-today"><strong>PARA HOY</strong><b>{dueToday}</b><span>vencen durante el día</span></div>
       <div className="task-analytics-card analytics-overdue"><strong>ATRASADAS</strong><b>{overdue}</b><span>requieren atención</span></div>
@@ -1831,10 +1844,10 @@ function TaskList({ tasks, profiles, labels, order, activeCategory, activePriori
     { title: 'Para hacer hoy', detail: 'Incluye tareas atrasadas', items: [] as Task[] },
     { title: 'Para los próximos 7 días', detail: 'Desde mañana hasta el séptimo día', items: [] as Task[] },
     { title: 'Para hacer más adelante', detail: 'Fechas posteriores o tareas sin fecha', items: [] as Task[] },
-    { title: 'Cerradas / completadas', detail: 'Trabajos finalizados', items: [] as Task[] },
+    { title: 'Completadas', detail: 'Trabajos finalizados', items: [] as Task[] },
   ]
   for (const task of tasks) {
-    if (task.status === 'CERRADO' || task.progress >= 100) {
+    if (task.status === 'CERRADO') {
       sections[3].items.push(task)
       continue
     }
@@ -1843,7 +1856,7 @@ function TaskList({ tasks, profiles, labels, order, activeCategory, activePriori
     section.items.push(task)
   }
   for (const section of sections) section.items.sort((a, b) => {
-    if (section.title === 'Cerradas / completadas') {
+    if (section.title === 'Completadas') {
       return new Date(b.closed_at || b.updated_at || b.created_at).getTime() - new Date(a.closed_at || a.updated_at || a.created_at).getTime()
     }
     return order === 'PRIORIDAD'
@@ -1851,19 +1864,19 @@ function TaskList({ tasks, profiles, labels, order, activeCategory, activePriori
       : dueTime(a) - dueTime(b) || priorityRank[a.priority] - priorityRank[b.priority] || a.title.localeCompare(b.title)
   })
 
-  const onlyClosed = tasks.length > 0 && tasks.every((task) => task.status === 'CERRADO' || task.progress >= 100)
+  const onlyClosed = tasks.length > 0 && tasks.every((task) => task.status === 'CERRADO')
   const visibleSections = sections.filter((section) =>
     section.items.length > 0 ||
-    (!onlyClosed && section.title !== 'Cerradas / completadas')
+    (!onlyClosed && section.title !== 'Completadas')
   )
 
   return <div className="task-agenda">
-    {visibleSections.map((section) => <section className={section.title === 'Cerradas / completadas' ? 'task-agenda-section closed-section' : 'task-agenda-section'} key={section.title}>
+    {visibleSections.map((section) => <section className={section.title === 'Completadas' ? 'task-agenda-section closed-section' : 'task-agenda-section'} key={section.title}>
       <div className="task-agenda-heading"><div><h3>{section.title}</h3><p>{section.detail}</p></div><span>{section.items.length}</span></div>
       {section.items.length ? <div className="task-agenda-table-wrap"><table className="task-agenda-table">
         <thead><tr><th>Nombre de tarea</th><th>Responsable</th><th>Categoría</th><th>Prioridad</th><th>Fecha de término</th><th>Acciones</th></tr></thead>
         <tbody>{section.items.map((task) => {
-          const isClosed = task.status === 'CERRADO' || task.progress >= 100
+          const isClosed = task.status === 'CERRADO'
           return <tr key={task.id} className={isClosed ? 'task-agenda-row-closed' : ''} onClick={() => onOpen(task)}>
           <td className="task-agenda-name"><b>{task.title}</b><span className="task-agenda-meta"><span>{task.task_no}</span>{task.tags?.map((tag) => <button type="button" key={tag} className={activeLabel === tag ? 'task-agenda-tag is-active' : 'task-agenda-tag'} style={{'--tag-color': colorFor(tag)} as CSSProperties} aria-pressed={activeLabel === tag} title={`Filtrar por etiqueta ${tag}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('label', tag) }}>{tag}</button>)}</span></td>
           <td>{task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</td>
@@ -1896,7 +1909,7 @@ function TaskBoard({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[
     PENDIENTE: 'Pendiente',
     EN_PROCESO: 'En proceso',
     BLOQUEADO: 'Bloqueado',
-    CERRADO: 'Cerrado',
+    CERRADO: 'Completado',
     VENCIDA: 'Vencida',
   }[status] || status)
 
@@ -1954,13 +1967,9 @@ function TaskBoard({ tasks, profiles, labels, onUpdate, onOpen }: { tasks: Task[
                       return <span key={tag} style={{color,borderColor:`${color}55`,background:`${color}14`}}>{tag}</span>
                     })}</div>}
                     <div className="task-card-meta"><span><UserRound size={13} /> {task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</span><span><CalendarDays size={13} /> {shortDate(task.due_at)}</span></div>
-                    <div className="progress-bar"><i style={{ width: `${task.progress}%` }} /></div>
                     <div className="task-card-actions" onClick={(e)=>e.stopPropagation()}>
-                      <select value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
+                      <select className={taskStatusTone(task.status)} value={task.status} onChange={(e) => onUpdate(task, { status: e.target.value as Task['status'] })}>
                         {columns.map((value) => <option key={value} value={value}>{labelFor(value)}</option>)}
-                      </select>
-                      <select value={task.progress} onChange={(e) => onUpdate(task, { progress: Number(e.target.value) })}>
-                        {[0, 25, 50, 75, 100].map((v) => <option key={v} value={v}>{v}%</option>)}
                       </select>
                     </div>
                   </article>
