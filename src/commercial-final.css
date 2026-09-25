@@ -338,3 +338,62 @@
     min-height: 225px;
   }
 }
+
+
+/* ---------- Comercial · vista directa sin encabezado redundante ---------- */
+.commercial-quickbar {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.commercial-quickbar > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.commercial-quickbar > div:first-child small {
+  color: #8a95ab;
+  font-size: 8.5px;
+  font-weight: 750;
+}
+
+.commercial-kpis-focused {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.commercial-kpis-focused button {
+  min-height: 88px;
+}
+
+@media (max-width: 1100px) {
+  .commercial-kpis-focused {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .commercial-quickbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .commercial-quickbar .commercial-dashboard-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .commercial-kpis-focused {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .commercial-kpis-focused {
+    grid-template-columns: 1fr !important;
+  }
+}
