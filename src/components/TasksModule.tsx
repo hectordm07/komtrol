@@ -201,6 +201,16 @@ function oppositeShift(value?: string | null) {
   return ''
 }
 
+function groupMatches(userGroup?: string | null, taskGroup?: string | null) {
+  const normalize = (value?: string | null) => String(value || '').trim().toUpperCase().replace(/\s+/g, '')
+  const left = normalize(userGroup)
+  const right = normalize(taskGroup)
+  if (!left || !right) return false
+  if (left === right) return true
+  const split = (value: string) => value.split(/[/,;|]+/).filter(Boolean)
+  return split(right).includes(left) || split(left).includes(right)
+}
+
 export function TasksModule({
   mode,
   userId,
@@ -216,6 +226,7 @@ export function TasksModule({
   onInitialTaskOpened,
   onTaskClosed,
 }: Props) {
+  const subjectUserId = profile?.user_id || userId
   const [tasks, setTasks] = useState<Task[]>([])
   const [incidents, setIncidents] = useState<CalendarIncident[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -379,7 +390,7 @@ export function TasksModule({
 
     if (scopeWarehouse) data = data.filter((t) => t.warehouse === scopeWarehouse)
     if (scopeProject) data = data.filter((t) => !t.project || t.project === scopeProject)
-    if (scopeGroup) data = data.filter((t) => t.group_name === scopeGroup)
+    if (scopeGroup) data = data.filter((t) => groupMatches(scopeGroup,t.group_name) || groupMatches(scopeGroup,t.assigned_group))
     if (scopeShift) data = data.filter((t) => t.shift_name === scopeShift)
 
     // A system-view preview represents an operational area, never the administrator's personal records.
@@ -393,7 +404,7 @@ export function TasksModule({
       // Mi trabajo = exclusivamente tareas personales del usuario.
       data = data.filter((t) =>
         t.work_type === 'PERSONAL' &&
-        (t.responsible_id === userId || t.created_by === userId)
+        (t.responsible_id === subjectUserId || t.created_by === subjectUserId)
       )
     } else if (workArea === 'TAREAS') {
       // Tareas = trabajo operativo del grupo/proyecto, nunca tareas personales ni relevos.
@@ -402,15 +413,15 @@ export function TasksModule({
       if (profile?.role === 'TRABAJADOR') {
         data = data.filter((t) => {
           // Una asignación directa prevalece sobre almacén/proyecto/grupo.
-          if (!previewMode && t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
+          if (t.assignment_type === 'PERSONA' && t.assigned_user_id === subjectUserId) return true
           if (profile.warehouse && t.warehouse !== profile.warehouse) return false
-          if (profile.project && t.project !== profile.project) return false
-          if (profile.group_name && t.group_name !== profile.group_name) return false
+          if (profile.project && t.project && t.project !== profile.project) return false
+          if (profile.group_name && !groupMatches(profile.group_name,t.group_name) && !groupMatches(profile.group_name,t.assigned_group)) return false
           return true
         })
       } else if (profile?.role === 'COORDINADOR' || profile?.role === 'SUPERVISOR') {
         data = data.filter((t) => {
-          if (!previewMode && t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
+          if (t.assignment_type === 'PERSONA' && t.assigned_user_id === subjectUserId) return true
           if (profile.warehouse && t.warehouse !== profile.warehouse) return false
           if (profile.project && t.project && t.project !== profile.project) return false
           return true
@@ -422,8 +433,8 @@ export function TasksModule({
 
       if (profile?.role === 'TRABAJADOR') {
         if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
-        if (profile.project) data = data.filter((t) => t.project === profile.project)
-        if (profile.group_name) data = data.filter((t) => t.group_name === profile.group_name)
+        if (profile.project) data = data.filter((t) => !t.project || t.project === profile.project)
+        if (profile.group_name) data = data.filter((t) => groupMatches(profile.group_name,t.group_name) || groupMatches(profile.group_name,t.assigned_group))
         if (profile.shift_name) {
           data = data.filter((t) =>
             t.relevo_from_shift === profile.shift_name ||
@@ -439,7 +450,7 @@ export function TasksModule({
 
     return data
   }, [
-    tasks, mode, userId, previewMode, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
+    tasks, mode, userId, subjectUserId, previewMode, profile?.role, profile?.warehouse, profile?.project, profile?.group_name, profile?.shift_name,
     scopeWarehouse, scopeProject, scopeGroup, scopeShift, workArea,
   ])
 
@@ -499,9 +510,13 @@ export function TasksModule({
 
     const belongsToUser = (task: Task) => {
       if (previewMode) {
-        return task.work_type !== 'PERSONAL' &&
-          (!scopeWarehouse || task.warehouse === scopeWarehouse) &&
-          (!scopeProject || task.project === scopeProject)
+        if (task.work_type === 'PERSONAL') return false
+        if (task.created_by === subjectUserId || task.responsible_id === subjectUserId || task.assigned_user_id === subjectUserId) return true
+        if (scopeWarehouse && task.warehouse !== scopeWarehouse) return false
+        if (scopeProject && task.project && task.project !== scopeProject) return false
+        if (profile?.role === 'COORDINADOR' || profile?.role === 'SUPERVISOR') return true
+        if (profile?.group_name && !groupMatches(profile.group_name,task.group_name) && !groupMatches(profile.group_name,task.assigned_group)) return false
+        return true
       }
       if (task.created_by === userId || task.responsible_id === userId || task.assigned_user_id === userId) return true
 
@@ -516,7 +531,7 @@ export function TasksModule({
       }
 
       if (task.assignment_type === 'GRUPO' && profile?.group_name) {
-        return task.assigned_group === profile.group_name || task.group_name === profile.group_name
+        return groupMatches(profile.group_name,task.assigned_group) || groupMatches(profile.group_name,task.group_name)
       }
 
       if (task.assignment_type === 'GUARDIA' && profile?.shift_name) {
@@ -529,7 +544,7 @@ export function TasksModule({
           task.shift_name === profile.shift_name
       }
 
-      return Boolean(profile?.group_name && task.group_name === profile.group_name)
+      return Boolean(profile?.group_name && (groupMatches(profile.group_name,task.group_name) || groupMatches(profile.group_name,task.assigned_group)))
     }
 
     return tasks
@@ -547,6 +562,7 @@ export function TasksModule({
   }, [
     tasks,
     userId,
+    subjectUserId,
     previewMode,
     scopeWarehouse,
     scopeProject,
