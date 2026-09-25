@@ -404,7 +404,11 @@ export function TasksModule({
       // Mi trabajo = exclusivamente tareas personales del usuario.
       data = data.filter((t) =>
         t.work_type === 'PERSONAL' &&
-        (t.responsible_id === subjectUserId || t.created_by === subjectUserId)
+        (
+          t.assigned_user_id === subjectUserId ||
+          t.responsible_id === subjectUserId ||
+          t.created_by === subjectUserId
+        )
       )
     } else if (workArea === 'TAREAS') {
       // Tareas = trabajo operativo del grupo/proyecto, nunca tareas personales ni relevos.
@@ -1082,10 +1086,17 @@ export function TasksModule({
       }
     }
 
-    const resolvedAssignmentType: AssignmentType =
-      form.work_type === 'PERSONAL' ? 'PERSONAL' : form.assignment_type
+    const specificPersonBecomesPersonal =
+      form.work_type === 'TAREA' &&
+      form.assignment_type === 'PERSONA'
 
-    if (resolvedAssignmentType === 'PERSONA' && !form.assigned_user_id) {
+    const resolvedWorkType: Task['work_type'] =
+      specificPersonBecomesPersonal ? 'PERSONAL' : form.work_type
+
+    const resolvedAssignmentType: AssignmentType =
+      resolvedWorkType === 'PERSONAL' ? 'PERSONAL' : form.assignment_type
+
+    if (form.assignment_type === 'PERSONA' && !form.assigned_user_id) {
       setSaving(false)
       setMessage('Selecciona la persona a quien se asignará la tarea.')
       return
@@ -1103,21 +1114,21 @@ export function TasksModule({
 
     const payload = {
       task_no: taskNumber(),
-      work_type: form.work_type,
+      work_type: resolvedWorkType,
       title: resolvedTitle,
       description: form.description.trim() || null,
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
       project: form.project.trim() || profile?.project || null,
       group_name: form.group_name.trim() || scopeGroup || profile?.group_name || null,
-      shift_name: form.work_type === 'RELEVO'
+      shift_name: resolvedWorkType === 'RELEVO'
         ? (form.relevo_to_shift || null)
         : (form.shift_name.trim() || scopeShift || profile?.shift_name || null),
-      relevo_from_shift: form.work_type === 'RELEVO' ? form.relevo_from_shift : null,
-      relevo_to_shift: form.work_type === 'RELEVO' ? form.relevo_to_shift : null,
+      relevo_from_shift: resolvedWorkType === 'RELEVO' ? form.relevo_from_shift : null,
+      relevo_to_shift: resolvedWorkType === 'RELEVO' ? form.relevo_to_shift : null,
       responsible_id: userId,
       assignment_type: resolvedAssignmentType,
       assigned_user_id: resolvedAssignmentType === 'PERSONAL'
-        ? userId
+        ? (specificPersonBecomesPersonal ? form.assigned_user_id : userId)
         : resolvedAssignmentType === 'PERSONA'
           ? form.assigned_user_id
           : null,
@@ -1639,8 +1650,8 @@ export function TasksModule({
                       </select>
                       <small className="field-help">
                         {profile?.role === 'ADMINISTRADOR'
-                          ? 'Administrador: puedes asignar esta tarea a cualquier usuario activo de KOMTROL.'
-                          : 'Solo personal del almacén/proyecto seleccionado.'}
+                          ? 'Administrador: puedes asignar esta tarea a cualquier usuario activo de KOMTROL. Al asignarla a una persona, pasará automáticamente a Mis trabajos del destinatario.'
+                          : 'Solo personal del almacén/proyecto seleccionado. Al asignarla a una persona, pasará automáticamente a Mis trabajos del destinatario.'}
                       </small>
                     </label>
                   )}
