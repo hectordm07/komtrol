@@ -65,6 +65,24 @@ type Props = {
   onInitialSearchApplied?: () => void
 }
 
+type BatchScanStatus = 'PENDIENTE' | 'PROCESANDO' | 'LISTO' | 'REVISAR' | 'ERROR' | 'GUARDADO'
+
+type BatchScanResult = {
+  text: string
+  confidence: number
+  parsed: ReturnType<typeof parseGuideOcr>
+  sourceLabel: string
+}
+
+type BatchScanItem = {
+  id: string
+  file: File
+  status: BatchScanStatus
+  progress: number
+  error?: string
+  result?: BatchScanResult
+}
+
 const emptyLine = (): GuideLine => ({ line_no: 1, part_no: '', description: '', quantity: '', unit: 'UND' })
 
 function cleanText(value: string) {
@@ -444,6 +462,13 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   const [search, setSearch] = useState('')
   const cameraRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const pdfRef = useRef<HTMLInputElement | null>(null)
+  const [batchItems, setBatchItems] = useState<BatchScanItem[]>([])
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
+  const batchItemsRef = useRef<BatchScanItem[]>([])
+  const batchQueueRef = useRef<BatchScanItem[]>([])
+  const batchRunningRef = useRef(false)
+  const selectedBatchIdRef = useRef<string | null>(null)
 
   const [form, setForm] = useState({
     guide_no: '',
@@ -499,6 +524,186 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
+
+  function updateBatchItems(updater: (items: BatchScanItem[]) => BatchScanItem[]) {
+    setBatchItems((current) => {
+      const next = updater(current)
+      batchItemsRef.current = next
+      return next
+    })
+  }
+
+  function updateBatchItem(id: string, changes: Partial<BatchScanItem>) {
+    updateBatchItems((items) => items.map((item) => item.id === id ? { ...item, ...changes } : item))
+  }
+
+  function setSelectedBatch(nextId: string | null) {
+    selectedBatchIdRef.current = nextId
+    setSelectedBatchId(nextId)
+  }
+
+  function setPreviewForFile(nextFile: File | null) {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    if (nextFile?.type.startsWith('image/')) {
+      setPreviewUrl(URL.createObjectURL(nextFile))
+    } else {
+      setPreviewUrl('')
+    }
+  }
+
+  function loadBatchItem(item: BatchScanItem) {
+    setSelectedBatch(item.id)
+    setDuplicateGuide(null)
+    setFile(item.file)
+    setPreviewForFile(item.file)
+    setScanProgress(item.progress)
+
+    if (item.result) {
+      applyOcrResult(
+        item.result.text,
+        item.result.confidence,
+        item.file,
+        item.result.sourceLabel,
+        true,
+      )
+      setMessage(
+        item.status === 'REVISAR'
+          ? 'Lectura terminada con campos pendientes. Revisa N° guía y referencia antes de confirmar.'
+          : 'Guía lista para validar. Mientras revisas, KOMTROL continúa procesando el resto del lote.'
+      )
+    } else if (item.status === 'PROCESANDO') {
+      setMessage('Esta guía se está procesando. Puedes revisar otra mientras termina.')
+    } else if (item.status === 'ERROR') {
+      setMessage(item.error || 'No se pudo procesar esta imagen.')
+    } else {
+      setMessage('Guía en cola de reconocimiento.')
+    }
+  }
+
+  function selectBatchById(id: string) {
+    const item = batchItemsRef.current.find((row) => row.id === id)
+    if (item) loadBatchItem(item)
+  }
+
+  async function processBatchQueue() {
+    if (batchRunningRef.current) return
+    batchRunningRef.current = true
+
+    try {
+      while (batchQueueRef.current.length) {
+        const item = batchQueueRef.current.shift()
+        if (!item) continue
+
+        updateBatchItem(item.id, { status: 'PROCESANDO', progress: 2, error: undefined })
+
+        try {
+          const ocr = await recognizeGuideImage(item.file, (progress) => {
+            updateBatchItem(item.id, { progress })
+            if (selectedBatchIdRef.current === item.id) {
+              setScanProgress(progress)
+            }
+          })
+
+          const parsed = parseGuideOcr(ocr.text, item.file.name, true)
+          const ready = Boolean(parsed.guide_no && parsed.reference)
+          const result: BatchScanResult = {
+            text: ocr.text,
+            confidence: ocr.confidence,
+            parsed,
+            sourceLabel: ocr.method === 'HEADER_FAST'
+              ? 'Imagen · lectura rápida'
+              : 'Imagen · lectura completa',
+          }
+
+          updateBatchItem(item.id, {
+            status: ready ? 'LISTO' : 'REVISAR',
+            progress: 100,
+            result,
+          })
+
+          if (!selectedBatchIdRef.current || selectedBatchIdRef.current === item.id) {
+            const latest = batchItemsRef.current.find((row) => row.id === item.id)
+            if (latest) loadBatchItem(latest)
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+          updateBatchItem(item.id, {
+            status: 'ERROR',
+            progress: 100,
+            error: errorMessage,
+          })
+          if (selectedBatchIdRef.current === item.id) {
+            setMessage(`No se pudo reconocer esta guía: ${errorMessage}`)
+          }
+        }
+      }
+    } finally {
+      batchRunningRef.current = false
+    }
+  }
+
+  function enqueueGuidePhotos(files: File[]) {
+    const images = files.filter((item) => item.type.startsWith('image/'))
+    if (!images.length) {
+      setMessage('Selecciona imágenes JPG, PNG o fotos de la cámara.')
+      return
+    }
+
+    const room = Math.max(0, 60 - batchItemsRef.current.length)
+    const accepted = images.slice(0, room)
+    if (!accepted.length) {
+      setMessage('El lote actual ya tiene 60 guías. Termina o limpia el lote para continuar.')
+      return
+    }
+
+    const stamp = Date.now()
+    const items: BatchScanItem[] = accepted.map((nextFile, index) => ({
+      id: `${stamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      file: nextFile,
+      status: 'PENDIENTE',
+      progress: 0,
+    }))
+
+    updateBatchItems((current) => [...current, ...items])
+    batchQueueRef.current.push(...items)
+
+    if (!selectedBatchIdRef.current && items[0]) {
+      setSelectedBatch(items[0].id)
+      setFile(items[0].file)
+      setPreviewForFile(items[0].file)
+      setMessage(`Lote recibido: ${accepted.length} guía${accepted.length === 1 ? '' : 's'}. Iniciando reconocimiento…`)
+    } else {
+      setMessage(`${accepted.length} guía${accepted.length === 1 ? '' : 's'} agregada${accepted.length === 1 ? '' : 's'} a la cola.`)
+    }
+
+    if (images.length > accepted.length) {
+      setMessage(`Se agregaron ${accepted.length} fotos. El máximo por lote es 60 guías.`)
+    }
+
+    void processBatchQueue()
+  }
+
+  function clearBatch() {
+    batchQueueRef.current = []
+    batchRunningRef.current = false
+    updateBatchItems(() => [])
+    setSelectedBatch(null)
+    resetForm()
+    setMessage('Lote limpiado. Puedes iniciar una nueva carga.')
+  }
+
+  function advanceToNextBatch(afterId: string) {
+    const next = batchItemsRef.current.find((item) =>
+      item.id !== afterId &&
+      item.status !== 'GUARDADO' &&
+      item.status !== 'ERROR'
+    )
+    if (next) {
+      loadBatchItem(next)
+    } else {
+      setSelectedBatch(null)
+    }
+  }
 
   function resetForm() {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -961,7 +1166,18 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
 
     setSaving(false)
     setMessage(`Guía ${created.guide_no} registrada correctamente como ${created.guide_type}.`)
+
+    const savedBatchId = selectedBatchIdRef.current
+    if (savedBatchId) {
+      updateBatchItem(savedBatchId, { status: 'GUARDADO', progress: 100 })
+    }
+
     resetForm()
+
+    if (savedBatchId) {
+      window.setTimeout(() => advanceToNextBatch(savedBatchId), 0)
+    }
+
     await reload()
   }
 
@@ -1103,20 +1319,112 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     <div className="scanner-module">
       <section className="panel scanner-panel scanner-enterprise">
         <div className="scanner-command-bar">
-          <div className="scanner-actions">
+          <div className="scanner-actions scanner-actions-batch">
             <button className="scan-action primary-scan" onClick={() => cameraRef.current?.click()}>
               <span className="scan-action-icon"><Camera size={21} /></span>
-              <span><b>Tomar foto</b><small>Usa la cámara trasera del celular</small></span>
+              <span><b>Tomar foto</b><small>Agrega una guía a la cola</small></span>
             </button>
             <button className="scan-action" onClick={() => fileRef.current?.click()}>
               <span className="scan-action-icon"><Upload size={21} /></span>
-              <span><b>Subir imagen / PDF</b><small>PDF digital o escaneado · JPG · PNG</small></span>
+              <span><b>Cargar lote de fotos</b><small>Selecciona hasta 60 guías</small></span>
             </button>
-            <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(e) => selectFile(e.target.files?.[0])} />
-            <input ref={fileRef} hidden type="file" accept="image/*,.pdf,application/pdf" onChange={(e) => selectFile(e.target.files?.[0])} />
+            <button className="scan-action" onClick={() => pdfRef.current?.click()}>
+              <span className="scan-action-icon"><FileText size={21} /></span>
+              <span><b>Subir PDF</b><small>PDF digital o escaneado</small></span>
+            </button>
+            <input
+              ref={cameraRef}
+              hidden
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? [])
+                enqueueGuidePhotos(files)
+                e.currentTarget.value = ''
+              }}
+            />
+            <input
+              ref={fileRef}
+              hidden
+              multiple
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                enqueueGuidePhotos(Array.from(e.target.files ?? []))
+                e.currentTarget.value = ''
+              }}
+            />
+            <input
+              ref={pdfRef}
+              hidden
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => {
+                void selectFile(e.target.files?.[0])
+                e.currentTarget.value = ''
+              }}
+            />
           </div>
-          <button className="secondary-button scanner-clear" onClick={resetForm}><X size={16} /> Limpiar</button>
+          <button
+            className="secondary-button scanner-clear"
+            onClick={batchItems.length ? clearBatch : resetForm}
+          >
+            <X size={16} /> {batchItems.length ? 'Limpiar lote' : 'Limpiar'}
+          </button>
         </div>
+
+        {batchItems.length > 0 && (
+          <section className="scanner-batch-panel">
+            <div className="scanner-batch-head">
+              <div>
+                <b>Lote de guías</b>
+                <span>
+                  {batchItems.filter((item) => item.status === 'GUARDADO').length} guardadas ·
+                  {' '}{batchItems.filter((item) => item.status === 'LISTO' || item.status === 'REVISAR').length} listas ·
+                  {' '}{batchItems.filter((item) => item.status === 'PROCESANDO').length} procesando ·
+                  {' '}{batchItems.filter((item) => item.status === 'PENDIENTE').length} en cola
+                </span>
+              </div>
+              <strong>{batchItems.length}/60</strong>
+            </div>
+
+            <div className="scanner-batch-list">
+              {batchItems.map((item, index) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`scanner-batch-item ${selectedBatchId === item.id ? 'selected' : ''} status-${item.status.toLowerCase()}`}
+                  onClick={() => selectBatchById(item.id)}
+                >
+                  <span className="scanner-batch-index">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="scanner-batch-copy">
+                    <b>{item.result?.parsed.guide_no || item.file.name}</b>
+                    <small>
+                      {item.result?.parsed.reference
+                        ? `Ref. ${item.result.parsed.reference}`
+                        : item.status === 'PROCESANDO'
+                          ? `Reconociendo · ${item.progress}%`
+                          : item.status === 'PENDIENTE'
+                            ? 'En cola'
+                            : item.status === 'ERROR'
+                              ? 'Error de lectura'
+                              : 'Revisar campos'}
+                    </small>
+                  </span>
+                  <span className="scanner-batch-status">
+                    {item.status === 'LISTO' ? 'Lista'
+                      : item.status === 'REVISAR' ? 'Revisar'
+                      : item.status === 'PROCESANDO' ? `${item.progress}%`
+                      : item.status === 'PENDIENTE' ? 'Cola'
+                      : item.status === 'GUARDADO' ? 'Guardada'
+                      : 'Error'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {file && (
           <div className="scan-file-card enterprise-file-card">
