@@ -1,0 +1,56 @@
+/* =========================================================
+   Guías · separación de captura, estado de carga y tratamiento
+   ========================================================= */
+
+.scanner-history-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(52, 79, 177, .14);
+  border-radius: 11px;
+  background: #f7f9ff;
+  color: #5e6b86;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.scanner-history-hint svg {
+  flex: 0 0 auto;
+  color: #2f4da8;
+}
+
+.scanner-history-hint b {
+  color: #2a438f;
+}
+
+.oc-guide-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.oc-guide-delete {
+  flex: 0 0 auto;
+  color: #b4232f !important;
+  border-color: rgba(180, 35, 47, .16) !important;
+  background: #fff6f7 !important;
+}
+
+.oc-guide-delete:hover {
+  background: #ffe8eb !important;
+}
+
+@media (max-width: 760px) {
+  .scanner-history-hint {
+    margin-top: 7px;
+    padding: 8px 9px;
+    font-size: 9.5px;
+  }
+
+  .oc-guide-actions {
+    min-width: 126px;
+  }
+}
