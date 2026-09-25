@@ -18,6 +18,28 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+    let refreshing = false
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return
+      refreshing = true
+      window.location.reload()
+    })
+
+    void navigator.serviceWorker
+      .register('/sw.js?v=4', { updateViaCache: 'none' })
+      .then((registration) => {
+        void registration.update()
+
+        const refreshServiceWorker = () => {
+          if (document.visibilityState === 'visible') {
+            void registration.update()
+          }
+        }
+
+        document.addEventListener('visibilitychange', refreshServiceWorker)
+        window.setInterval(() => void registration.update(), 60 * 60 * 1000)
+      })
+      .catch(() => undefined)
   })
 }
