@@ -239,23 +239,67 @@ function parseReplenishmentLines(text: string): GuideLine[] {
 }
 
 function parseLines(text: string): GuideLine[] {
+  const normalized = text.replace(/\r/g, '')
+  const tableStart = normalized.search(/DESCRIPCI[ÓO]N/i)
+
+  // En fotografías no aceptamos números aislados fuera de la tabla.
+  // Esto evita que RUC, peso, fechas o códigos de cabecera se cuenten como líneas.
+  if (tableStart < 0) return []
+
+  const rest = normalized.slice(tableStart)
+  const tableEndMatch = rest.match(/\n\s*(?:NOTA\s*:|OBSERVACIONES?\s*:|REPRESENTACI[ÓO]N\s+IMPRESA|AUTORIZADA\s+MEDIANTE)/i)
+  const section = tableEndMatch?.index != null ? rest.slice(0, tableEndMatch.index) : rest
+
+  const rows = section
+    .split('\n')
+    .map((row) => row.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
   const output: GuideLine[] = []
-  const rows = text.replace(/\r/g, '').split('\n').map((x) => x.trim()).filter(Boolean)
+  const seen = new Set<string>()
 
   for (const row of rows) {
-    const m = row.match(/^([A-Z0-9][A-Z0-9._/-]{4,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(UND|EA|PC|PZ|PIE|FT|M|MT)?$/i)
-    if (!m) continue
-    if (/^(FECHA|GUIA|REFERENCIA|DOCUMENTO|RUC|PUNTO|RAZON|DOMICILIO)/i.test(m[1])) continue
+    const numbered = row.match(
+      /^(\d{1,3})\s+([A-Z0-9][A-Z0-9._/-]{3,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(UND|EA|PC|PZ|PIE|FT|M|MT)\b/i
+    )
+
+    const unnumbered = row.match(
+      /^([A-Z0-9][A-Z0-9._/-]{4,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(UND|EA|PC|PZ|PIE|FT|M|MT)\b/i
+    )
+
+    const match = numbered || unnumbered
+    if (!match) continue
+
+    const partNo = numbered ? match[2] : match[1]
+    if (/^(FECHA|GUIA|GUÍA|REFERENCIA|DOCUMENTO|RUC|PUNTO|RAZON|DOMICILIO|CANTIDAD|PESO|VOLUMEN)/i.test(partNo)) continue
+
+    const description = cleanText(numbered ? match[3] : match[2])
+    const quantity = normalizeIntegerQuantity(numbered ? match[4] : match[3])
+    const unit = String(numbered ? match[5] : match[4]).toUpperCase()
+
+    if (!description || !quantity || !unit) continue
+
+    const key = `${partNo.toUpperCase()}|${description.toUpperCase()}|${quantity}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const requestedLine = numbered ? Number(match[1]) : output.length + 1
+    const safeLine = requestedLine >= 1 && requestedLine <= 999 ? requestedLine : output.length + 1
+
     output.push({
-      line_no: output.length + 1,
-      part_no: m[1],
-      description: cleanText(m[2]),
-      quantity: normalizeIntegerQuantity(m[3]),
-      unit: (m[4] || 'UND').toUpperCase(),
+      line_no: safeLine,
+      part_no: partNo,
+      description,
+      quantity,
+      unit,
     })
+
     if (output.length >= 999) break
   }
+
   return output
+    .sort((a, b) => a.line_no - b.line_no)
+    .map((line, index) => ({ ...line, line_no: index + 1 }))
 }
 
 function guideFromFileName(fileName?: string) {
@@ -620,7 +664,11 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     if (batchRunningRef.current) return
     batchRunningRef.current = true
 
-    try {
+    const cores = Number((navigator as any)?.hardwareConcurrency ?? 4)
+    const memory = Number((navigator as any)?.deviceMemory ?? 4)
+    const concurrency = cores >= 6 && memory >= 4 ? 2 : 1
+
+    const runWorker = async () => {
       while (batchQueueRef.current.length) {
         const item = batchQueueRef.current.shift()
         if (!item) continue
@@ -635,22 +683,15 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             }
           })
 
-          if (item.generation !== batchGenerationRef.current) continue
-
           const parsed = parseGuideOcr(ocr.text, item.file.name, true)
-          const ready = Boolean(
-            parsed.guide_no &&
-            parsed.reference &&
-            parsed.emission_date &&
-            (parsed.guide_type !== 'REPOSICION' || parsed.lines.length > 0)
-          )
+          const ready = Boolean(parsed.guide_no && parsed.reference)
           const result: BatchScanResult = {
             text: ocr.text,
             confidence: ocr.confidence,
             parsed,
             sourceLabel: ocr.method === 'HEADER_FAST'
               ? 'Imagen · lectura rápida'
-              : 'Imagen · lectura completa',
+              : 'Imagen · cabecera + tabla',
           }
 
           const completedItem: BatchScanItem = {
@@ -670,7 +711,6 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             loadBatchItem(completedItem)
           }
         } catch (error) {
-          if (item.generation !== batchGenerationRef.current) continue
           const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
           updateBatchItem(item.id, {
             status: 'ERROR',
@@ -682,8 +722,18 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           }
         }
       }
+    }
+
+    try {
+      await Promise.all(Array.from({ length: concurrency }, () => runWorker()))
     } finally {
       batchRunningRef.current = false
+
+      // Si se agregaron nuevas fotos justo cuando terminaban los workers,
+      // relanzamos la cola sin que el usuario tenga que tocar nada.
+      if (batchQueueRef.current.length) {
+        void processBatchQueue()
+      }
     }
   }
 
@@ -718,7 +768,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       setSelectedBatch(items[0].id)
       setFile(items[0].file)
       setPreviewForFile(items[0].file)
-      setMessage(`Lote recibido: ${accepted.length} guía${accepted.length === 1 ? '' : 's'}. Iniciando reconocimiento…`)
+      setMessage(`Lote recibido: ${accepted.length} guía${accepted.length === 1 ? '' : 's'}. KOMTROL las procesará en segundo plano mientras validas las primeras.`)
     } else {
       setMessage(`${accepted.length} guía${accepted.length === 1 ? '' : 's'} agregada${accepted.length === 1 ? '' : 's'} a la cola.`)
     }
@@ -874,7 +924,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
         result.text,
         result.confidence,
         imageFile,
-        result.method === 'HEADER_FAST' ? 'Imagen · lectura rápida' : 'Imagen · lectura completa',
+        result.method === 'HEADER_FAST' ? 'Imagen · lectura rápida' : 'Imagen · cabecera + tabla',
         true,
       )
     } catch (error) {
@@ -1376,11 +1426,11 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           <div className="scanner-actions scanner-actions-batch">
             <button className="scan-action primary-scan" disabled={scanning} onClick={() => cameraRef.current?.click()}>
               <span className="scan-action-icon"><Camera size={21} /></span>
-              <span><b>Tomar foto</b><small>Agrega una guía a la cola</small></span>
+              <span><b>Tomar foto</b><small>Captura y sigue con la siguiente</small></span>
             </button>
             <button className="scan-action" disabled={scanning} onClick={() => fileRef.current?.click()}>
               <span className="scan-action-icon"><Upload size={21} /></span>
-              <span><b>Cargar lote de fotos</b><small>Selecciona hasta 60 guías</small></span>
+              <span><b>Cargar 60 fotos</b><small>Selección múltiple · OCR en cola</small></span>
             </button>
             <button className="scan-action" disabled={scanning || batchItems.length > 0} onClick={() => pdfRef.current?.click()}>
               <span className="scan-action-icon"><FileText size={21} /></span>
