@@ -48,7 +48,6 @@ import { SurplusKardexModule } from './components/SurplusKardexModule'
 import { ExpirationsModule } from './components/ExpirationsModule'
 import { UniversalDashboardModule } from './components/UniversalDashboardModule'
 import { CommercialDashboardModule, type CommercialOrderFilter } from './components/CommercialDashboardModule'
-import { AdminPreviewPendingStrip } from './components/AdminPreviewPendingStrip'
 
 type Tab = string
 
@@ -709,7 +708,7 @@ function Workspace({ session }: { session: Session }) {
     setLoading(true)
     const [profileRes, accessProfilesRes, warehouseRes, incidentsRes, notificationsRes, appNotificationRes] = await Promise.all([
       supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-      supabase.from('user_profiles').select('*').eq('active',true).order('full_name'),
+      supabase.from('user_profiles').select('*').order('full_name'),
       supabase.from('warehouses').select('name,code,warehouse_scope,remote_group').eq('active',true).order('name'),
       supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('email_notifications').select('*').order('created_at', { ascending: false }).limit(100),
@@ -1399,7 +1398,7 @@ function Workspace({ session }: { session: Session }) {
                     <optgroup label="USUARIOS · PROYECTO MINERO">
                       {accessProfiles
                         .filter((item)=>item.user_id!==user.id&&item.warehouse?.toUpperCase()!=='CALLAO'&&item.oc_cargo_access_level!=='COMERCIAL')
-                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · {item.role}</option>)}
+                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · {item.role}{item.active === false ? ' · INACTIVO' : ''}</option>)}
                     </optgroup>
                   )}
 
@@ -1407,7 +1406,7 @@ function Workspace({ session }: { session: Session }) {
                     <optgroup label="USUARIOS · CALLAO">
                       {accessProfiles
                         .filter((item)=>item.user_id!==user.id&&item.warehouse?.toUpperCase()==='CALLAO')
-                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · {item.role}</option>)}
+                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · {item.role}{item.active === false ? ' · INACTIVO' : ''}</option>)}
                     </optgroup>
                   )}
 
@@ -1415,7 +1414,7 @@ function Workspace({ session }: { session: Session }) {
                     <optgroup label="USUARIOS · COMERCIAL">
                       {accessProfiles
                         .filter((item)=>item.user_id!==user.id&&item.oc_cargo_access_level==='COMERCIAL')
-                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · Comercial</option>)}
+                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · Comercial{item.active === false ? ' · INACTIVO' : ''}</option>)}
                     </optgroup>
                   )}
 
@@ -1571,21 +1570,6 @@ function Workspace({ session }: { session: Session }) {
             <>
               {tab === 'inicio' && (
                 <>
-                  {canPreviewSystemViews && isAccessPreview && (
-                    <AdminPreviewPendingStrip
-                      userId={user.id}
-                      profile={profile}
-                      onOpen={(targetTab) => {
-                        setAccessView('ACTUAL')
-                        setDashboardTaskStatus(null)
-                        setTab(targetTab)
-                        setOpenSections((current) => current.includes('ÁREA DE TRABAJO') ? current : [...current, 'ÁREA DE TRABAJO'])
-                        setToast('Vista Administrador restaurada para atender tu pendiente.')
-                        window.scrollTo({ top: 0, behavior: 'smooth' })
-                      }}
-                    />
-                  )}
-
                   {isCommercialArea ? (
                     <CommercialDashboardModule
                       onOpenOrders={(filter='TODOS') => {
