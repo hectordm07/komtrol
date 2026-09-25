@@ -1490,8 +1490,15 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { ...emptyLine(), line_no: prev.length + 1 }])
-    setForm((prev) => ({ ...prev, line_count: String(Number(prev.line_count || 0) + 1) }))
+    setLines((prev) => {
+      const nextLineNo = Math.max(...prev.map((line) => line.line_no || 0), 0) + 1
+      const next = [...prev, { ...emptyLine(), line_no: nextLineNo }]
+      setForm((current) => ({
+        ...current,
+        line_count: String(Math.max(Number(current.line_count || 1), nextLineNo)),
+      }))
+      return next
+    })
   }
 
   function updateLine(index: number, changes: Partial<GuideLine>) {
@@ -1500,8 +1507,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
 
   function removeLine(index: number) {
     setLines((prev) => {
-      const next = prev.filter((_, i) => i !== index).map((line, i) => ({ ...line, line_no: i + 1 }))
-      setForm((current) => ({ ...current, line_count: String(Math.max(next.length, 1)) }))
+      const next = prev.filter((_, i) => i !== index)
+      const highestLine = Math.max(...next.map((line) => line.line_no || 0), 0)
+      setForm((current) => ({
+        ...current,
+        line_count: String(Math.max(highestLine, next.length, 1)),
+      }))
       return next.length ? next : [emptyLine()]
     })
   }
@@ -1564,7 +1575,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           !normalizeIntegerQuantity(line.quantity) ? 'cantidad entera mayor a 0' : '',
           !line.unit.trim() ? 'UM' : '',
         ].filter(Boolean)
-        setMessage(`Revisa la línea ${invalidIndex + 1}: falta ${missing.join(', ')}.`)
+        setMessage(`Revisa la línea ${line.line_no || invalidIndex + 1}: falta ${missing.join(', ')}.`)
         return
       }
     }
@@ -1856,7 +1867,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
         : form.guide_type === 'REPOSICION' && !activeReplenishmentLines.length
           ? 'Falta al menos una línea'
           : invalidReplenishmentLine >= 0
-            ? `Revisar línea ${invalidReplenishmentLine + 1}`
+            ? `Revisar línea ${activeReplenishmentLines[invalidReplenishmentLine]?.line_no || invalidReplenishmentLine + 1}`
             : ''
   const messageTone = /no se pudo|error|obligatori|duplicad|ya se encuentra|no compatible/i.test(message)
     ? 'error'
