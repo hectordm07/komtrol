@@ -239,15 +239,15 @@ async function exportIngressExcel(
     { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
   ]
   ws['!cols'] = [
-    { wch: 21 },
-    { wch: 44 },
-    { wch: 14 },
-    { wch: 21 },
-    { wch: 10 },
-    { wch: 18 },
-    { wch: 23 },
+    { wch: 19 },
+    { wch: 38 },
+    { wch: 13 },
+    { wch: 20 },
+    { wch: 9 },
     { wch: 16 },
-    { wch: 30 },
+    { wch: 20 },
+    { wch: 14 },
+    { wch: 26 },
   ]
   ws['!rows'] = [{ hpt: 27 }, { hpt: 18 }, { hpt: 32 }]
   ws['!autofilter'] = { ref: `A3:I${rows.length + 3}` }
@@ -305,6 +305,7 @@ async function exportIngressExcel(
       if (!ws[address]) ws[address] = { t: 's', v: '' }
       const cell = ws[address]
       cell.s = {
+        fill: { fgColor: { rgb: 'FFFFFF' } },
         font: { name: 'Arial', sz: 9, bold: col === 0, color: { rgb: '334155' } },
         alignment: {
           horizontal: [2, 4].includes(col) ? 'center' : 'left',
@@ -312,6 +313,7 @@ async function exportIngressExcel(
           wrapText: [1, 6, 7, 8].includes(col),
         },
         border: thinBorder,
+        protection: { locked: false },
       }
       if (col === 4 && typeof cell.v === 'number') {
         const decimals = String(cell.v).split('.')[1]?.length ?? 0
@@ -333,13 +335,13 @@ function exportIngressPdf(
   rows: FlatLine[],
   sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS',
 ) {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
-  const left = 7
-  const right = 7
-  const numberBoxWidth = 42
-  const headerHeight = 19
+  const left = 6
+  const right = 6
+  const numberBoxWidth = 34
+  const headerHeight = 18
   const reportWidth = pageWidth - left - right
   const statusLabel =
     sapFilter === 'PENDIENTE' ? 'PENDIENTES SAP' :
@@ -358,7 +360,7 @@ function exportIngressPdf(
     doc.text(
       'HOJA DE UBICACIÓN - REVISIÓN MANUAL',
       left + (reportWidth - numberBoxWidth) / 2,
-      14,
+      13.5,
       { align: 'center' }
     )
 
@@ -368,7 +370,7 @@ function exportIngressPdf(
     doc.text(
       `${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`,
       left + (reportWidth - numberBoxWidth) / 2,
-      20.5,
+      20,
       { align: 'center' }
     )
 
@@ -378,16 +380,16 @@ function exportIngressPdf(
     doc.setTextColor(38, 63, 145)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
-    doc.text('N°', boxX + 10, 18, { align: 'center' })
-    doc.setFontSize(15)
-    doc.text(String(ingress.ingress_no), boxX + 28, 18.5, { align: 'center' })
+    doc.text('N°', boxX + 8, 17.5, { align: 'center' })
+    doc.setFontSize(14)
+    doc.text(String(ingress.ingress_no), boxX + 23, 18, { align: 'center' })
   }
 
   drawReportHeader()
 
   autoTable(doc, {
-    startY: 31,
-    margin: { left, right, top: 31, bottom: 12 },
+    startY: 29,
+    margin: { left, right, top: 29, bottom: 11 },
     head: [[
       'NÚMERO DE PARTE',
       'DESCRIPCIÓN',
@@ -412,38 +414,38 @@ function exportIngressPdf(
     ]),
     styles: {
       font: 'helvetica',
-      fontSize: 6.2,
-      cellPadding: 1.5,
+      fontSize: 5.2,
+      cellPadding: 1.0,
       lineColor: [190, 198, 210],
       lineWidth: 0.18,
       textColor: [51, 65, 85],
       valign: 'middle',
-      minCellHeight: 11,
+      minCellHeight: 9,
     },
     headStyles: {
       fillColor: [38, 63, 145],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center',
-      fontSize: 6,
-      minCellHeight: 10,
+      fontSize: 5.0,
+      minCellHeight: 9,
     },
     columnStyles: {
-      0: { cellWidth: 28, fontStyle: 'bold' },
-      1: { cellWidth: 58 },
-      2: { cellWidth: 20, halign: 'center' },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 16, halign: 'center' },
-      5: { cellWidth: 23 },
-      6: { cellWidth: 30 },
-      7: { cellWidth: 22 },
-      8: { cellWidth: 46 },
+      0: { cellWidth: 22, fontStyle: 'bold' },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 14, halign: 'center' },
+      3: { cellWidth: 24 },
+      4: { cellWidth: 12, halign: 'center' },
+      5: { cellWidth: 18 },
+      6: { cellWidth: 21 },
+      7: { cellWidth: 16 },
+      8: { cellWidth: 28 },
     },
     didDrawPage: (data: any) => {
       if (data.pageNumber > 1) drawReportHeader()
       doc.setTextColor(110, 120, 135)
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(6.5)
+      doc.setFontSize(5.8)
       doc.text(
         `Ingreso ${ingress.ingress_no} · Revisión manual · Página ${data.pageNumber}`,
         pageWidth - right,
