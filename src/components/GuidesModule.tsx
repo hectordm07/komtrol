@@ -1403,6 +1403,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       supplier: form.guide_type === 'REPOSICION' ? form.supplier : null,
       data_source: 'SCANNER',
       warehouse: form.warehouse.trim() || profile?.warehouse || null,
+      group_name: profile?.group_name || null,
       responsible_user_id: userId,
       status: loadStatus,
       load_status: loadStatus,
