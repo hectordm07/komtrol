@@ -412,11 +412,26 @@ export function TasksModule({
 
       if (profile?.role === 'TRABAJADOR') {
         data = data.filter((t) => {
-          // Una asignación directa prevalece sobre almacén/proyecto/grupo.
-          if (t.assignment_type === 'PERSONA' && t.assigned_user_id === subjectUserId) return true
+          // Las tareas asignadas a una PERSONA son privadas para esa persona,
+          // su creador o su responsable de gestión.
+          if (t.assignment_type === 'PERSONA') {
+            return t.assigned_user_id === subjectUserId ||
+              t.responsible_id === subjectUserId ||
+              t.created_by === subjectUserId
+          }
+
           if (profile.warehouse && t.warehouse !== profile.warehouse) return false
           if (profile.project && t.project && t.project !== profile.project) return false
-          if (profile.group_name && !groupMatches(profile.group_name,t.group_name) && !groupMatches(profile.group_name,t.assigned_group)) return false
+
+          const sameGroup = !profile.group_name ||
+            groupMatches(profile.group_name,t.group_name) ||
+            groupMatches(profile.group_name,t.assigned_group)
+          if (!sameGroup) return false
+
+          if (t.assignment_type === 'GUARDIA' && profile.shift_name) {
+            return t.assigned_shift === profile.shift_name
+          }
+
           return true
         })
       } else if (profile?.role === 'COORDINADOR' || profile?.role === 'SUPERVISOR') {
