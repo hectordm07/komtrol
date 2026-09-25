@@ -890,8 +890,10 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           ? `Cuerpo ${pageNo} incorporado: ${bodyLines.length} línea${bodyLines.length === 1 ? '' : 's'} detectada${bodyLines.length === 1 ? '' : 's'}${highestBodyLine ? ` · hasta línea ${highestBodyLine}` : ''}. Puedes capturar el siguiente cuerpo.`
           : `Cuerpo ${pageNo} leído, pero no se identificaron líneas completas. Revísalo antes de confirmar.`
       )
+      return true
     } catch (error) {
-      setCameraError(`No se pudo leer el cuerpo ${pageNo}: ${error instanceof Error ? error.message : 'error desconocido'}`)
+      setMessage(`No se pudo leer el cuerpo ${pageNo}: ${error instanceof Error ? error.message : 'error desconocido'}. Vuelve a capturar esta misma hoja.`)
+      return false
     } finally {
       setCameraPageProcessing(false)
       setScanning(false)
@@ -947,19 +949,30 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       if (cameraPageNo === 1) {
         setFile(nextFile)
         setPreviewForFile(nextFile)
-        await runImageOcr(nextFile)
-        setCameraBodyCaptures([{
-          pageNo: 1,
-          fileName: nextFile.name,
-          confidence: Number(form.ocr_confidence || 0),
-          detectedLines: 0,
-          highestLine: 0,
-        }])
-        setCameraPageNo(2)
-        setMessage('Primer cuerpo capturado. La cabecera pertenece a esta guía; ahora captura el cuerpo 2 para agregar solo sus materiales.')
+        const result = await runImageOcr(nextFile)
+
+        if (result) {
+          const parsed = parseGuideOcr(result.text, nextFile.name, true)
+          const highestLine = Math.max(
+            detectDocumentLineCount(result.text),
+            ...parsed.lines.map((line) => line.line_no),
+            0,
+          )
+          setCameraBodyCaptures([{
+            pageNo: 1,
+            fileName: nextFile.name,
+            confidence: result.confidence,
+            detectedLines: parsed.lines.length,
+            highestLine,
+          }])
+          setCameraPageNo(2)
+          setMessage(
+            `Primer cuerpo incorporado${parsed.guide_no ? ` · guía ${parsed.guide_no}` : ''}${highestLine ? ` · líneas hasta ${highestLine}` : ''}. Ahora captura el cuerpo 2; KOMTROL tomará solo la continuación de materiales.`
+          )
+        }
       } else {
-        await appendGuideBodyPhoto(nextFile, cameraPageNo)
-        setCameraPageNo((page) => page + 1)
+        const incorporated = await appendGuideBodyPhoto(nextFile, cameraPageNo)
+        if (incorporated) setCameraPageNo((page) => page + 1)
       }
     } finally {
       setCameraPageProcessing(false)
@@ -1328,8 +1341,10 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
         result.method === 'HEADER_FAST' ? 'Imagen · escáner optimizado' : 'Imagen · escáner optimizado + lectura por zonas',
         true,
       )
+      return result
     } catch (error) {
       setMessage(`No se pudo completar el OCR de la imagen: ${error instanceof Error ? error.message : 'error desconocido'}.`)
+      return null
     } finally {
       setScanning(false)
       setScanProgress(100)
