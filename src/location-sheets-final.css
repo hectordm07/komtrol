@@ -1,0 +1,354 @@
+/* =========================================================
+   KOMTROL · Hojas de Ubicación
+   Revisión manual + Verificación de Inventario
+   ========================================================= */
+
+.ingress-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.manual-review-view,
+.inventory-verification-view {
+  width: 100%;
+  min-width: 0;
+}
+
+.manual-review-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(49, 73, 162, .16);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8faff, #f2f5ff);
+  color: #2b3f79;
+}
+
+.manual-review-note > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.manual-review-note > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.manual-review-note b {
+  font-size: 12px;
+}
+
+.manual-review-note span {
+  color: #68758d;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.manual-review-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.manual-review-table table {
+  width: 100%;
+  min-width: 1080px;
+  table-layout: fixed;
+}
+
+.manual-review-table th:nth-child(1) { width: 13%; }
+.manual-review-table th:nth-child(2) { width: 24%; }
+.manual-review-table th:nth-child(3) { width: 9%; }
+.manual-review-table th:nth-child(4) { width: 13%; }
+.manual-review-table th:nth-child(5) { width: 7%; }
+.manual-review-table th:nth-child(6) { width: 11%; }
+.manual-review-table th:nth-child(7) { width: 12%; }
+.manual-review-table th:nth-child(8) { width: 11%; }
+
+.manual-review-table td {
+  min-height: 48px;
+  vertical-align: middle;
+}
+
+.manual-review-table .manual-empty-cell,
+.manual-review-table .manual-observation-cell {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 22px,
+      rgba(77, 91, 124, .09) 23px
+    );
+}
+
+.manual-review-table .manual-observation-cell {
+  min-height: 58px;
+}
+
+.manual-review-table .manual-qty {
+  text-align: center;
+  font-weight: 800;
+}
+
+.inventory-verification-view .verification-search {
+  margin-top: 10px;
+}
+
+.verification-mode-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.verification-mode-table table {
+  width: 100%;
+  min-width: 1180px;
+}
+
+.verification-row-editing {
+  background: rgba(255, 248, 221, .52);
+  box-shadow: inset 3px 0 0 #d7a516;
+}
+
+.verification-count-editor {
+  display: grid;
+  gap: 5px;
+  min-width: 120px;
+}
+
+.verification-count-editor .verification-count {
+  width: 100%;
+  min-width: 0;
+}
+
+.verification-locked-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid #e1e6ef;
+  border-radius: 9px;
+  background: #f6f8fb;
+  color: #31405f;
+  font-weight: 800;
+}
+
+.verification-evidence-stack {
+  display: grid;
+  gap: 6px;
+  min-width: 126px;
+}
+
+.verification-evidence-stack > small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #17824c;
+  font-weight: 800;
+}
+
+.verification-enable-button {
+  white-space: nowrap;
+}
+
+.location-verify-mode .verification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.location-verify-mode .verification-actions .primary-button,
+.location-verify-mode .verification-actions .secondary-button {
+  min-height: 36px;
+  padding: 6px 9px;
+  font-size: 10px;
+}
+
+@media (max-width: 760px) {
+  .ingress-mode-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .ingress-mode-actions > button {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    font-size: 10px;
+  }
+
+  .manual-review-note {
+    padding: 8px 9px;
+  }
+
+  .manual-review-table,
+  .verification-mode-table {
+    overflow-x: hidden;
+  }
+
+  .manual-review-table table,
+  .manual-review-table thead,
+  .manual-review-table tbody,
+  .manual-review-table tr,
+  .manual-review-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .manual-review-table thead {
+    display: none;
+  }
+
+  .manual-review-table tr {
+    margin-bottom: 9px;
+    padding: 9px;
+    border: 1px solid #dfe5ef;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .manual-review-table td {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    min-height: 34px;
+    padding: 6px 2px !important;
+    border: 0 !important;
+    border-bottom: 1px solid #edf0f5 !important;
+  }
+
+  .manual-review-table td:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .manual-review-table td::before {
+    color: #66728b;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .manual-review-table td:nth-child(1)::before { content: 'Número de parte'; }
+  .manual-review-table td:nth-child(2)::before { content: 'Descripción'; }
+  .manual-review-table td:nth-child(3)::before { content: 'Stock Mina'; }
+  .manual-review-table td:nth-child(4)::before { content: 'Guía remisión'; }
+  .manual-review-table td:nth-child(5)::before { content: 'Cant.'; }
+  .manual-review-table td:nth-child(6)::before { content: 'Ubicación'; }
+  .manual-review-table td:nth-child(7)::before { content: 'Responsable'; }
+  .manual-review-table td:nth-child(8)::before { content: 'Observación'; }
+
+  .manual-review-table .manual-empty-cell,
+  .manual-review-table .manual-observation-cell {
+    min-height: 42px;
+  }
+
+  .verification-mode-table table {
+    min-width: 0;
+  }
+}
+
+/* Impresión: mostrar exclusivamente el formato de revisión manual. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  body:has(.location-print-mode) * {
+    visibility: hidden !important;
+  }
+
+  body:has(.location-print-mode) .location-print-mode,
+  body:has(.location-print-mode) .location-print-mode * {
+    visibility: visible !important;
+  }
+
+  body:has(.location-print-mode) .location-print-mode {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  body:has(.location-print-mode) .ingress-detail-actions,
+  body:has(.location-print-mode) .manual-review-note {
+    display: none !important;
+  }
+
+  body:has(.location-print-mode) .ingress-report-title {
+    margin-bottom: 4mm !important;
+    break-after: avoid;
+  }
+
+  body:has(.location-print-mode) .manual-review-table {
+    overflow: visible !important;
+  }
+
+  body:has(.location-print-mode) .manual-review-table table {
+    display: table !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  body:has(.location-print-mode) .manual-review-table thead {
+    display: table-header-group !important;
+  }
+
+  body:has(.location-print-mode) .manual-review-table tbody {
+    display: table-row-group !important;
+  }
+
+  body:has(.location-print-mode) .manual-review-table tr {
+    display: table-row !important;
+    break-inside: avoid;
+  }
+
+  body:has(.location-print-mode) .manual-review-table th,
+  body:has(.location-print-mode) .manual-review-table td {
+    display: table-cell !important;
+    padding: 2.2mm 1.5mm !important;
+    border: .25mm solid #aeb6c4 !important;
+    font-size: 7pt !important;
+    color: #111827 !important;
+    vertical-align: middle !important;
+  }
+
+  body:has(.location-print-mode) .manual-review-table th {
+    background: #263f91 !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body:has(.location-print-mode) .manual-review-table td::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  body:has(.location-print-mode) .manual-review-table td {
+    min-height: 10mm !important;
+  }
+
+  body:has(.location-print-mode) .manual-review-table .manual-empty-cell,
+  body:has(.location-print-mode) .manual-review-table .manual-observation-cell {
+    height: 11mm !important;
+    background: #fff !important;
+  }
+}
