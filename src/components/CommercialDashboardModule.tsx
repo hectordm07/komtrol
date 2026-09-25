@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   BarChart3,
-  CheckCircle2,
-  Clock3,
-  ChevronRight,
+   ChevronRight,
   Eye,
   FileText,
   RefreshCw,
@@ -177,11 +175,10 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
 
   return (
     <div className="commercial-dashboard">
-      <section className="panel commercial-dashboard-hero">
+      <div className="commercial-quickbar">
         <div>
-          <span className="commercial-eyebrow">ÁREA COMERCIAL</span>
-          <h2>Dashboard de Órdenes de Compra</h2>
-          <p>Consulta el estado de las guías de OC y la disponibilidad de sus refrendos.{lastUpdated ? ` · Actualizado ${lastUpdated.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}` : ''}</p>
+          <span className="commercial-eyebrow">ÁREA COMERCIAL · ÓRDENES DE COMPRA</span>
+          <small>{lastUpdated ? `Actualizado ${lastUpdated.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}` : 'Datos en vivo'}</small>
         </div>
         <div className="commercial-dashboard-actions">
           <button className="secondary-button" onClick={() => void reload({silent:true})}>
@@ -191,24 +188,38 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
             <ShoppingCart size={16}/> Ver Órdenes de Compra
           </button>
         </div>
-      </section>
+      </div>
 
       {message && <div className="inline-message">{message}</div>}
 
-      <section className="commercial-kpis">
-        <button type="button" onClick={onOpenOrders}><ShoppingCart size={20}/><span><b>{metrics.total}</b><small>Total OC</small><em>Ver todas</em></span><ChevronRight size={15}/></button>
-        <button type="button" onClick={onOpenOrders}><Clock3 size={20}/><span><b>{metrics.pending}</b><small>Pendientes</small><em>Requieren seguimiento</em></span><ChevronRight size={15}/></button>
-        <button type="button" className={metrics.observed ? 'attention' : ''} onClick={onOpenOrders}><AlertTriangle size={20}/><span><b>{metrics.observed}</b><small>Observadas</small><em>Revisar tratamiento</em></span><ChevronRight size={15}/></button>
-        <button type="button" onClick={onOpenOrders}><CheckCircle2 size={20}/><span><b>{metrics.closed}</b><small>Refrendadas / cerradas</small><em>Proceso concluido</em></span><ChevronRight size={15}/></button>
-        <button type="button" onClick={onOpenOrders}><FileText size={20}/><span><b>{metrics.withRefrendo}</b><small>Con refrendo</small><em>Disponible para descarga</em></span><ChevronRight size={15}/></button>
-        <button type="button" className={metrics.withoutRefrendo ? 'attention' : ''} onClick={onOpenOrders}><BarChart3 size={20}/><span><b>{metrics.withoutRefrendo}</b><small>Sin refrendo</small><em>Pendiente documental</em></span><ChevronRight size={15}/></button>
+      <section className="commercial-kpis commercial-kpis-focused">
+        <button type="button" onClick={onOpenOrders}>
+          <ShoppingCart size={20}/>
+          <span><b>{metrics.total}</b><small>OC REGISTRADAS</small><em>Universo visible del área comercial</em></span>
+          <ChevronRight size={15}/>
+        </button>
+        <button type="button" className={metrics.observed ? 'attention' : ''} onClick={onOpenOrders}>
+          <AlertTriangle size={20}/>
+          <span><b>{metrics.observed}</b><small>OBSERVADAS</small><em>Requieren revisión y regularización</em></span>
+          <ChevronRight size={15}/>
+        </button>
+        <button type="button" className={metrics.withoutRefrendo ? 'attention' : ''} onClick={onOpenOrders}>
+          <BarChart3 size={20}/>
+          <span><b>{metrics.withoutRefrendo}</b><small>SIN REFRENDO</small><em>Pendiente documental</em></span>
+          <ChevronRight size={15}/>
+        </button>
+        <button type="button" onClick={onOpenOrders}>
+          <FileText size={20}/>
+          <span><b>{metrics.withRefrendo}</b><small>REFRENDO DISPONIBLE</small><em>Listo para visualizar o descargar</em></span>
+          <ChevronRight size={15}/>
+        </button>
       </section>
 
       <section className="commercial-dashboard-charts">
         <div className="commercial-chart-link" role="button" tabIndex={0} onClick={onOpenOrders} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders()}}>
           <ProfessionalDonutChart
-            title="Estado de Órdenes de Compra"
-            subtitle="Distribución actual del seguimiento comercial"
+            title="Distribución por estado"
+            subtitle="Seguimiento actual de las Órdenes de Compra"
             segments={statusSegments}
           />
           <span>Ver reporte de Órdenes de Compra <ChevronRight size={14}/></span>
