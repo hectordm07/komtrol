@@ -16,6 +16,7 @@ import {
   Search,
   Send,
   Upload,
+  Trash2,
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -114,6 +115,7 @@ type Guide = {
   warehouse: string | null
   responsible_user_id: string
   status: string
+  load_status: 'VALIDADO' | 'OBSERVADO'
   notes: string | null
   file_bucket: string | null
   file_path: string | null
@@ -253,6 +255,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
   const [bulkPrepared,setBulkPrepared]=useState<BulkPreparedRefrendo[]>([])
   const [bulkIssues,setBulkIssues]=useState<BulkIssue[]>([])
   const [bulkFiles,setBulkFiles]=useState<File[]>([])
+  const [deletingGuideId, setDeletingGuideId] = useState<string | null>(null)
 
   const specialAccess=profile?.oc_cargo_access_level || null
   const canUploadRefrendos=specialAccess!=='COMERCIAL'
@@ -287,6 +290,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
         warehouse,
         responsible_user_id,
         status,
+        load_status,
         notes,
         file_bucket,
         file_path,
@@ -334,7 +338,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
         guide.reference,
         guide.document_no,
         guide.warehouse,
-        guide.status,
+        guide.load_status,
         guide.followup?.final_status,
         guide.followup?.management_owner,
         guide.followup?.parts_location,
@@ -361,6 +365,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     emission_date:fmtDate(guide.emission_date),
     reception_at:fmtDate(guide.reception_at),
     oc_value:guide.followup?.oc_value_usd ?? '',
+    load_status:guide.load_status,
     final_status:statusLabel(guide.followup?.final_status || 'PENDIENTE'),
     management_owner:guide.followup?.management_owner||'',
     parts_location:guide.followup?.parts_location||'',
@@ -381,6 +386,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     {header:'EMISIÓN',key:'emission_date',width:14},
     {header:'RECEPCIÓN',key:'reception_at',width:14},
     {header:'VALOR OC USD',key:'oc_value',width:16},
+    {header:'ESTADO CARGA',key:'load_status',width:16},
     {header:'ESTADO FINAL',key:'final_status',width:18},
     {header:'ENCARGADO',key:'management_owner',width:24},
     {header:'UBICACIÓN',key:'parts_location',width:20},
@@ -721,6 +727,61 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     await reload()
   }
 
+  async function deleteGuide(guide: Guide) {
+    if (profile?.role !== 'ADMINISTRADOR' || deletingGuideId) return
+
+    const accepted = window.confirm(
+      `¿Eliminar la guía ${guide.guide_no} / ${guide.reference}?\n\nSe eliminará la carga y su seguimiento asociado. Esta acción no se puede deshacer.`
+    )
+    if (!accepted) return
+
+    setDeletingGuideId(guide.id)
+    setMessage('')
+
+    const { error } = await supabase
+      .from('guides')
+      .delete()
+      .eq('id', guide.id)
+
+    if (error) {
+      setDeletingGuideId(null)
+      setMessage(`No se pudo eliminar la guía: ${error.message}`)
+      return
+    }
+
+    const storageTargets = [
+      guide.file_bucket && guide.file_path
+        ? { bucket: guide.file_bucket, path: guide.file_path }
+        : null,
+      ...(guide.refrendos || []).map((item) => ({
+        bucket: item.file_bucket,
+        path: item.file_path,
+      })),
+    ].filter((item): item is { bucket: string; path: string } => Boolean(item?.bucket && item?.path))
+
+    const byBucket = new Map<string, string[]>()
+    for (const item of storageTargets) {
+      const list = byBucket.get(item.bucket) || []
+      list.push(item.path)
+      byBucket.set(item.bucket, list)
+    }
+
+    let storageWarning = ''
+    for (const [bucket, paths] of byBucket.entries()) {
+      const cleanup = await supabase.storage.from(bucket).remove([...new Set(paths)])
+      if (cleanup.error) storageWarning = cleanup.error.message
+    }
+
+    setDeletingGuideId(null)
+    if (selected?.id === guide.id) closeFollowup()
+    setMessage(
+      storageWarning
+        ? `Guía ${guide.guide_no} eliminada. Quedó una advertencia al limpiar archivos: ${storageWarning}`
+        : `Guía ${guide.guide_no} eliminada correctamente junto con su seguimiento.`
+    )
+    await reload()
+  }
+
   function openFollowup(guide: Guide) {
     setSelected(guide)
     setForm(followupToForm(guide.followup))
@@ -773,12 +834,6 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
       setSaving(false)
       setMessage(error?.message || 'No se pudo guardar el seguimiento.')
       return
-    }
-
-    if (form.final_status === 'OBSERVADO' && selected.status !== 'OBSERVADO') {
-      await supabase.from('guides').update({ status: 'OBSERVADO', updated_at: new Date().toISOString() }).eq('id', selected.id)
-    } else if (form.final_status === 'CERRADO' && selected.status !== 'CERRADO') {
-      await supabase.from('guides').update({ status: 'CERRADO', updated_at: new Date().toISOString() }).eq('id', selected.id)
     }
 
     await supabase.from('guide_history').insert({
@@ -1015,9 +1070,21 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                     <td>{fmtDate(guide.followup?.billing_sent_at)}</td>
                     <td>{guide.followup?.billing_sent_by_name || '—'}</td>
                     <td>
-                      <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
-                        <Eye size={14} /> Ver / Editar
-                      </button>
+                      <div className="oc-guide-actions">
+                        <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
+                          <Eye size={14} /> Ver / Editar
+                        </button>
+                        {profile?.role === 'ADMINISTRADOR' && (
+                          <button
+                            className="icon-button oc-guide-delete"
+                            disabled={deletingGuideId === guide.id}
+                            onClick={() => void deleteGuide(guide)}
+                            title="Eliminar carga de guía"
+                          >
+                            {deletingGuideId === guide.id ? <RefreshCw className="spin" size={14}/> : <Trash2 size={14}/>}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
