@@ -5,14 +5,17 @@ import {
   Boxes,
   Bell,
   CalendarClock,
+  CheckCircle2,
   ChevronRight,
   ClipboardList,
+  Clock3,
   GraduationCap,
   MailCheck,
   PackageSearch,
   RefreshCw,
   FileCheck2,
   ShieldCheck,
+  ShoppingCart,
   Users,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -160,7 +163,7 @@ type Props={
   onNavigate:(tab:string,options?:{
     taskStatus?:'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'
     restoreAdmin?:boolean
-    commercialFilter?:'TODOS'|'PENDIENTE'|'EN_SEGUIMIENTO'|'OBSERVADO'|'ENTREGADO_CLIENTE'|'REFRENDADO'|'ANULADO'|'CERRADO'|'SIN_REFRENDO'|'CON_REFRENDO'
+    commercialFilter?:'TODOS'|'PENDIENTE'|'PENDIENTES'|'EN_SEGUIMIENTO'|'OBSERVADO'|'ENTREGADO_CLIENTE'|'REFRENDADO'|'ANULADO'|'CERRADO'|'SIN_REFRENDO'|'CON_REFRENDO'|'PENDIENTE_ENTREGA'
   })=>void
 }
 
@@ -206,6 +209,74 @@ function expiryTab(type:Expiration['expiration_type']){
     : type==='LICENCIA_INTERNA'
       ? 'vencimientos-licencias'
       : 'vencimientos-emoa'
+}
+
+function ocCargoFollowup(guide:DashboardGuide):GuideFollowup|null{
+  const value=guide.oc_cargo_followups
+  return Array.isArray(value)?value[0]||null:value||null
+}
+
+function OcCargoDashboardSection({
+  type,rows,route,onNavigate,scope,
+}:{
+  type:'ORDEN_COMPRA'|'CARGO_DIRECTO'
+  rows:DashboardGuide[]
+  route:string
+  onNavigate:Props['onNavigate']
+  scope:string
+}){
+  const isOrder=type==='ORDEN_COMPRA'
+  const status=(guide:DashboardGuide)=>ocCargoFollowup(guide)?.final_status||'PENDIENTE'
+  const count=(predicate:(guide:DashboardGuide)=>boolean)=>rows.filter(predicate).length
+  const pending=count((guide)=>['PENDIENTE','EN_SEGUIMIENTO'].includes(status(guide)))
+  const pendingDelivery=count((guide)=>{
+    const followup=ocCargoFollowup(guide)
+    return !followup?.client_delivery_date && !['ANULADO','CERRADO','ENTREGADO_CLIENTE','REFRENDADO'].includes(status(guide))
+  })
+  const observed=count((guide)=>status(guide)==='OBSERVADO')
+  const withRefrendo=count((guide)=>(guide.guide_refrendos?.length||0)>0)
+  const delivered=count((guide)=>Boolean(ocCargoFollowup(guide)?.client_delivery_date)||['ENTREGADO_CLIENTE','REFRENDADO','CERRADO'].includes(status(guide)))
+  const billingSent=count((guide)=>['ENVIADO','REENVIADO','CONFIRMADO'].includes(ocCargoFollowup(guide)?.billing_status||''))
+  const segments=[
+    {key:'PENDIENTE',label:'Pendiente',value:count((guide)=>status(guide)==='PENDIENTE')},
+    {key:'EN_SEGUIMIENTO',label:'En seguimiento',value:count((guide)=>status(guide)==='EN_SEGUIMIENTO')},
+    {key:'OBSERVADO',label:'Observado',value:observed},
+    {key:'ENTREGADO_CLIENTE',label:'Entregado',value:count((guide)=>status(guide)==='ENTREGADO_CLIENTE')},
+    {key:'REFRENDADO',label:'Refrendado',value:count((guide)=>status(guide)==='REFRENDADO')},
+    {key:'CERRADO',label:'Cerrado',value:count((guide)=>status(guide)==='CERRADO')},
+  ]
+  const bars=isOrder?[
+    {key:'TODOS',label:'OC registradas',value:rows.length,detail:'Órdenes de compra visibles para este perfil.'},
+    {key:'PENDIENTES',label:'Pendientes',value:pending,detail:'Órdenes pendientes o en seguimiento.'},
+    {key:'OBSERVADO',label:'Observadas',value:observed,detail:'Órdenes que requieren regularización.'},
+    {key:'CON_REFRENDO',label:'Con refrendo',value:withRefrendo,detail:'Órdenes con PDF disponible.'},
+    {key:'FACTURACION',label:'Facturación',value:billingSent,detail:'Órdenes enviadas o confirmadas para facturación.'},
+  ]:[
+    {key:'TODOS',label:'Registrados',value:rows.length,detail:'Cargos directos visibles para este perfil.'},
+    {key:'PENDIENTE_ENTREGA',label:'Pend. entrega',value:pendingDelivery,detail:'Sin fecha de entrega al cliente.'},
+    {key:'ENTREGADOS',label:'Entregados',value:delivered,detail:'Cargos con entrega registrada.'},
+    {key:'CON_REFRENDO',label:'Con refrendo',value:withRefrendo,detail:'Cargos con PDF de refrendo disponible.'},
+    {key:'FACTURACION',label:'Facturación',value:billingSent,detail:'Cargos enviados o confirmados para facturación.'},
+  ]
+  const navigate=(filter:NonNullable<NonNullable<Parameters<Props['onNavigate']>[1]>['commercialFilter']>='TODOS')=>
+    onNavigate(route,{commercialFilter:filter})
+
+  return <section className="universal-operational-reports dashboard-commercial-oc-section" aria-label={isOrder?'Dashboard de Órdenes de Compra':'Dashboard de Cargos Directos'}>
+    <div className="universal-report-heading"><div>
+      <b>{isOrder?'Órdenes de Compra':'Cargos Directos'}</b>
+      <span>{scope}</span>
+    </div></div>
+    <div className="document-flow-kpis dashboard-commercial-oc-kpis">
+      <button type="button" onClick={()=>navigate()}><span className="operational-report-icon"><ShoppingCart size={19}/></span><span><small>{isOrder?'OC REGISTRADAS':'CARGOS REGISTRADOS'}</small><b>{rows.length}</b><em>Universo visible del perfil</em></span><ChevronRight size={16}/></button>
+      <button type="button" className={(isOrder?pending:pendingDelivery)?'attention':''} onClick={()=>navigate(isOrder?'PENDIENTES':'PENDIENTE_ENTREGA')}><span className="operational-report-icon"><Clock3 size={19}/></span><span><small>{isOrder?'PENDIENTES':'PEND. ENTREGA'}</small><b>{isOrder?pending:pendingDelivery}</b><em>{isOrder?'Requieren seguimiento':'Sin entrega al cliente'}</em></span><ChevronRight size={16}/></button>
+      <button type="button" className={observed?'attention':''} onClick={()=>navigate('OBSERVADO')}><span className="operational-report-icon"><AlertTriangle size={19}/></span><span><small>OBSERVADOS</small><b>{observed}</b><em>Requieren regularización</em></span><ChevronRight size={16}/></button>
+      <button type="button" className="success" onClick={()=>navigate('CON_REFRENDO')}><span className="operational-report-icon"><CheckCircle2 size={19}/></span><span><small>REFRENDO DISPONIBLE</small><b>{withRefrendo}</b><em>Listo para visualizar o descargar</em></span><ChevronRight size={16}/></button>
+    </div>
+    <div className="universal-operational-charts dashboard-commercial-oc-charts">
+      <div className="dashboard-chart-link"><ProfessionalDonutChart title={isOrder?'Estado de Órdenes de Compra':'Estado de Cargos Directos'} subtitle="Distribución actual del flujo documental" segments={segments} onSelect={(key)=>navigate(key as Parameters<typeof navigate>[0])}/><button type="button" className="dashboard-chart-access dashboard-chart-access-button" onClick={()=>navigate()}>Ver {isOrder?'Órdenes de Compra':'Cargos Directos'} <ChevronRight size={14}/></button></div>
+      <div className="dashboard-chart-link"><ProfessionalBarChart title={isOrder?'Avance documental de OC':'Avance de Cargos Directos'} subtitle={isOrder?'Registro, observaciones, refrendos y facturación':'Registro, entrega, refrendo y facturación'} data={bars} onSelect={(key)=>navigate(key==='PENDIENTES'?'PENDIENTES':key==='PENDIENTE_ENTREGA'?'PENDIENTE_ENTREGA':key==='OBSERVADO'?'OBSERVADO':key==='CON_REFRENDO'?'CON_REFRENDO':'TODOS')}/><button type="button" className="dashboard-chart-access dashboard-chart-access-button" onClick={()=>navigate()}>Abrir reporte documental <ChevronRight size={14}/></button></div>
+    </div>
+  </section>
 }
 
 export function UniversalDashboardModule({
@@ -276,8 +347,8 @@ export function UniversalDashboardModule({
         .limit(15000),
       supabase
         .from('guides')
-        .select('id,guide_no,guide_type,load_status,warehouse,group_name,created_by,responsible_user_id,created_at')
-        .eq('guide_type','REPOSICION')
+        .select('id,guide_no,guide_type,load_status,warehouse,group_name,created_by,responsible_user_id,created_at,oc_cargo_followups(final_status,client_delivery_date,billing_status),guide_refrendos(id)')
+        .in('guide_type',['REPOSICION','ORDEN_COMPRA','CARGO_DIRECTO'])
         .order('created_at',{ascending:false})
         .limit(5000),
       supabase
@@ -469,6 +540,7 @@ export function UniversalDashboardModule({
   const operationalGuides=guides.filter((guide)=>{
     if(isAdminDashboard) return true
     if(isCommercialProfile) return guide.guide_type==='ORDEN_COMPRA'
+    if(profile.oc_cargo_access_level==='DOCUMENTARIO' && guide.guide_type!=='REPOSICION') return true
     if(String(guide.warehouse||'').trim().toUpperCase()!==operationalWarehouse) return false
     if(isAreaManager) return true
     if(guide.created_by===profile.user_id || guide.responsible_user_id===profile.user_id) return true
@@ -681,6 +753,15 @@ export function UniversalDashboardModule({
   const licenseNearest=nearest('LICENCIA_INTERNA')
 
   const replenishmentGuides=operationalGuides.filter((guide)=>guide.guide_type==='REPOSICION')
+  const purchaseOrderRoute=canAccess('ordenes-compra')?'ordenes-compra':canAccess('comercial-ordenes-compra')?'comercial-ordenes-compra':null
+  const directChargeRoute=canAccess('cargos-directos')?'cargos-directos':null
+  const purchaseOrders=operationalGuides.filter((guide)=>guide.guide_type==='ORDEN_COMPRA')
+  const directCharges=operationalGuides.filter((guide)=>guide.guide_type==='CARGO_DIRECTO')
+  const documentScope=isCommercialProfile
+    ? 'Área Comercial · seguimiento documental de las OC'
+    : isAdminDashboard
+      ? 'Vista global · estado documental'
+      : `Información visible para ${profile.warehouse||profile.project||'tu perfil'}`
   const pendingSapKmmp=operationalReplenishmentReceipts.filter((row)=>!/^18\d+$/.test(String(row.sap_kmmp_no||'')))
   const pendingFioriIngresses=operationalReplenishmentIngresses.filter((row)=>!/^50\d+$/.test(String(row.sap_fiori_ni||'')))
   const kmmpCompleted=Math.max(0,operationalReplenishmentReceipts.length-pendingSapKmmp.length)
@@ -842,6 +923,9 @@ export function UniversalDashboardModule({
           onClick={()=>onNavigate(incidentRoute)}
         />}
       </div>
+
+      {purchaseOrderRoute&&<OcCargoDashboardSection type="ORDEN_COMPRA" rows={purchaseOrders} route={purchaseOrderRoute} scope={documentScope} onNavigate={onNavigate}/>}
+      {directChargeRoute&&<OcCargoDashboardSection type="CARGO_DIRECTO" rows={directCharges} route={directChargeRoute} scope={documentScope} onNavigate={onNavigate}/>}
 
       {hasDocumentFlowAccess&&!isCommercialProfile&&<section className="universal-operational-reports document-flow-section">
         <div className="universal-report-heading">

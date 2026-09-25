@@ -1360,7 +1360,7 @@ function Workspace({ session }: { session: Session }) {
                         className={tab === id ? 'active' : ''}
                         onClick={() => {
                           setDashboardTaskStatus(null)
-                          if (id === 'comercial-ordenes-compra' || id === 'ordenes-compra') setCommercialOrderFilter('TODOS')
+                          if (id === 'comercial-ordenes-compra' || id === 'ordenes-compra' || id === 'cargos-directos') setCommercialOrderFilter('TODOS')
                           setTab(id)
                           setMobileMenu(false)
                         }}
@@ -1593,7 +1593,7 @@ function Workspace({ session }: { session: Session }) {
                         ? (options?.taskStatus || 'TODOS')
                         : null
                     )
-                    if (targetTab === 'comercial-ordenes-compra' || targetTab === 'ordenes-compra') {
+                    if (targetTab === 'comercial-ordenes-compra' || targetTab === 'ordenes-compra' || targetTab === 'cargos-directos') {
                       setCommercialOrderFilter((options?.commercialFilter || 'TODOS') as CommercialOrderFilter)
                     }
                     setTab(targetTab)
@@ -1728,7 +1728,7 @@ function Workspace({ session }: { session: Session }) {
                   userId={user.id}
                   profile={effectiveProfile!}
                   fixedType={operationalOcType}
-                  initialFilter={tab === 'ordenes-compra' ? commercialOrderFilter : 'TODOS'}
+                  initialFilter={commercialOrderFilter}
                 />
               )}
 

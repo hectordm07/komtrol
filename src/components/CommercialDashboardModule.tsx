@@ -40,6 +40,7 @@ type CommercialGuide = {
 export type CommercialOrderFilter =
   | 'TODOS'
   | 'PENDIENTE'
+  | 'PENDIENTES'
   | 'EN_SEGUIMIENTO'
   | 'OBSERVADO'
   | 'ENTREGADO_CLIENTE'
@@ -48,6 +49,7 @@ export type CommercialOrderFilter =
   | 'CERRADO'
   | 'SIN_REFRENDO'
   | 'CON_REFRENDO'
+  | 'PENDIENTE_ENTREGA'
 
 type Props = {
   onOpenOrders: (filter?: CommercialOrderFilter) => void
