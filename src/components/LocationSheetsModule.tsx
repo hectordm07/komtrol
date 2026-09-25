@@ -624,9 +624,11 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     }
   }
 
-  async function reload() {
-    setLoading(true)
-    setMessage('')
+  async function reload(silent = false) {
+    if (!silent) {
+      setLoading(true)
+      setMessage('')
+    }
 
     const { data, error } = await supabase
       .from('replenishment_ingresses')
@@ -679,7 +681,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
       .limit(1000)
 
     if (error) {
-      setMessage(error.message)
+      if (!silent) setMessage(error.message)
       setIngresses([])
     } else {
       const rows = (data ?? []) as unknown as Ingress[]
@@ -692,13 +694,13 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
           .select('id,auto_email_status').in('id', incidentIds)
         setIncidentMailStatus(Object.fromEntries((statuses ?? []).map((item) => [item.id, item.auto_email_status])))
       } else setIncidentMailStatus({})
-      if (selected) {
-        const refreshed = rows.find((row) => row.id === selected.id) ?? null
-        setSelected(refreshed)
-      }
+      setSelected((current) => {
+        if (!current) return current
+        return rows.find((row) => row.id === current.id) ?? null
+      })
     }
 
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   function openIngress(row: Ingress, mode: 'PRINT' | 'VERIFY' | 'FIORI' = 'PRINT') {
@@ -782,8 +784,42 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
   }
 
   useEffect(() => {
-    reload()
-  }, [])
+    void reload()
+
+    let refreshTimer: number | null = null
+    const scheduleRefresh = () => {
+      if (refreshTimer != null) window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => {
+        void reload(true)
+      }, 250)
+    }
+
+    const channel = supabase
+      .channel(`location-sheets-live-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'replenishment_receipt_lines' },
+        scheduleRefresh
+      )
+      .subscribe()
+
+    const onFocus = () => { void reload(true) }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void reload(true)
+    }
+    const interval = window.setInterval(() => { void reload(true) }, 60_000)
+
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      if (refreshTimer != null) window.clearTimeout(refreshTimer)
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+      void supabase.removeChannel(channel)
+    }
+  }, [userId])
 
   const visible = useMemo(() => {
     const no = numberSearch.trim()
@@ -1324,7 +1360,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                 <Printer size={17} />
                 <div>
                   <b>Formato para revisión manual</b>
-                  <span>Imprime esta hoja y valida físicamente el material. Stock Mina se deja en blanco mientras no exista una fuente de stock confiable.</span>
+                  <span>Imprime esta hoja y valida físicamente el material. Stock Code y Ubicación se sincronizan automáticamente desde el Maestro cuando existan o sean actualizados posteriormente.</span>
                 </div>
               </div>
 
