@@ -21,7 +21,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
-  BriefcaseBusiness,
+  Briefcase,
   Upload,
   Users,
   X,
@@ -972,7 +972,7 @@ function Workspace({ session }: { session: Session }) {
           section: 'COMERCIAL',
           collapsible: true,
           items: [
-            { id: 'comercial-ordenes-compra' as Tab, label: 'Órdenes de Compra', icon: BriefcaseBusiness },
+            { id: 'comercial-ordenes-compra' as Tab, label: 'Órdenes de Compra', icon: Briefcase },
           ],
         }]
       : []),
@@ -1568,6 +1568,7 @@ function Workspace({ session }: { session: Session }) {
 
               {isOcCargoTab && (
                 <OcCargoTrackingModule
+                  key={tab}
                   userId={user.id}
                   profile={effectiveProfile!}
                   fixedType={operationalOcType}
