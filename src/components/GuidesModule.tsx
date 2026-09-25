@@ -1056,6 +1056,8 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl('')
     setFile(null)
+    if (fileRef.current) fileRef.current.value = ''
+    if (pdfRef.current) pdfRef.current.value = ''
     setScanProgress(0)
     setDuplicateGuide(null)
     setForm({
@@ -1527,19 +1529,36 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     const savedGuideNo = created.guide_no
     const savedGuideType = created.guide_type
     const savedBatchId = selectedBatchIdRef.current
+    const nextBatchItem = savedBatchId
+      ? (() => {
+          const candidates = batchItemsRef.current.filter((item) =>
+            item.id !== savedBatchId &&
+            item.status !== 'GUARDADO' &&
+            item.status !== 'ERROR'
+          )
+          return (
+            candidates.find((item) => item.status === 'LISTO') ||
+            candidates.find((item) => item.status === 'REVISAR') ||
+            candidates.find((item) => item.status === 'PROCESANDO') ||
+            candidates.find((item) => item.status === 'PENDIENTE') ||
+            null
+          )
+        })()
+      : null
 
+    // La guía confirmada deja de ocupar espacio en la cola inmediatamente.
+    // Así se puede cargar la siguiente sin tener que pulsar "Limpiar".
     if (savedBatchId) {
-      updateBatchItem(savedBatchId, { status: 'GUARDADO', progress: 100 })
+      updateBatchItems((items) => items.filter((item) => item.id !== savedBatchId))
     }
 
-    // Después de una confirmación exitosa el scanner queda limpio y listo
-    // para la siguiente guía. El mensaje de éxito se coloca después del reset
-    // para que el usuario tenga confirmación visible en celular.
+    setSelectedBatch(null)
+    closeSmartCamera()
     resetForm()
-    setMessage(`Guía ${savedGuideNo} guardada correctamente como ${savedGuideType}. Formulario limpio y listo para la siguiente guía.`)
+    setMessage(`Guía ${savedGuideNo} guardada correctamente como ${savedGuideType}. Scanner limpiado automáticamente y listo para una nueva carga.`)
 
-    if (savedBatchId) {
-      window.setTimeout(() => advanceToNextBatch(savedBatchId), 0)
+    if (nextBatchItem) {
+      window.setTimeout(() => loadBatchItem(nextBatchItem), 0)
     } else {
       window.setTimeout(() => {
         document.querySelector('.scanner-command-bar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
