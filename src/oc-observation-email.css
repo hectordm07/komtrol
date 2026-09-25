@@ -1,0 +1,167 @@
+/* =========================================================
+   OC / Comercial · correo de observación visible
+   ========================================================= */
+
+.observation-email-button {
+  white-space: nowrap;
+}
+
+.oc-email-not-applicable {
+  color: #9aa6bb;
+  font-weight: 700;
+}
+
+.oc-observation-email-summary {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid rgba(204, 54, 47, .18);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fff, #fff8f7);
+}
+
+.oc-observation-email-summary > svg {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 11px;
+  background: #fff0ef;
+  color: #c9362f;
+}
+
+.oc-observation-email-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.oc-observation-email-summary small {
+  color: #9a5c57;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+
+.oc-observation-email-summary b {
+  color: #5e2d2a;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oc-observation-email-summary span {
+  color: #8b6a66;
+  font-size: 9px;
+}
+
+.oc-email-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 27, 58, .34);
+  backdrop-filter: blur(4px);
+}
+
+.oc-email-preview-card {
+  width: min(780px, 100%);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(49, 72, 154, .18);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(21, 34, 78, .24);
+}
+
+.oc-email-preview-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin: 12px 0;
+}
+
+.oc-email-preview-meta > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  border: 1px solid #e5e9f2;
+  border-radius: 9px;
+  background: #f8faff;
+}
+
+.oc-email-preview-meta > span.span-2 {
+  grid-column: 1 / -1;
+}
+
+.oc-email-preview-meta small {
+  color: #7f8ca6;
+  font-size: 7.5px;
+  font-weight: 900;
+}
+
+.oc-email-preview-meta b {
+  color: #283b74;
+  font-size: 9.5px;
+  overflow-wrap: anywhere;
+}
+
+.oc-email-preview-body {
+  min-height: 220px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid #e3e7f0;
+  border-radius: 10px;
+  background: #fbfcfe;
+  color: #33415f;
+  font: 10px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .oc-observation-email-summary {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .oc-observation-email-summary > svg {
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+  }
+
+  .oc-observation-email-summary > button {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .oc-email-preview-overlay {
+    padding: 8px;
+  }
+
+  .oc-email-preview-card {
+    max-height: 92vh;
+    padding: 11px;
+    border-radius: 13px;
+  }
+
+  .oc-email-preview-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .oc-email-preview-meta > span.span-2 {
+    grid-column: auto;
+  }
+
+  .oc-email-preview-body {
+    min-height: 260px;
+    font-size: 9px;
+  }
+}
