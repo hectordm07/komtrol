@@ -8,6 +8,7 @@ import './scanner-batch.css'
 import './location-sheets-final.css'
 import './guide-logic-final.css'
 import './commercial-final.css'
+import './oc-observation-email.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
