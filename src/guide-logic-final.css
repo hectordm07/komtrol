@@ -54,3 +54,33 @@
     min-width: 126px;
   }
 }
+
+
+.guide-delete-button {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  display: inline-grid;
+  place-items: center;
+  color: #b4232f !important;
+  border-color: rgba(180, 35, 47, .18) !important;
+  background: #fff6f7 !important;
+}
+
+.guide-delete-button:hover:not(:disabled) {
+  background: #ffe8eb !important;
+  border-color: rgba(180, 35, 47, .32) !important;
+}
+
+.guide-delete-button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+@media (max-width: 760px) {
+  .guide-delete-button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+  }
+}
