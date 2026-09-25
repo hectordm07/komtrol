@@ -110,6 +110,7 @@ type KardexMovement={
 
 type GuideFollowup={
   final_status:string|null
+  client_delivery_date:string|null
 }
 
 type GuideRefrendo={
@@ -125,6 +126,25 @@ type DashboardGuide={
   created_at:string
   oc_cargo_followups?:GuideFollowup[]|GuideFollowup|null
   guide_refrendos?:GuideRefrendo[]|null
+}
+
+type ReplenishmentReceipt={
+  id:string
+  guide_id:string|null
+  guide_no:string|null
+  warehouse:string|null
+  sap_kmmp_no:string|null
+  sap_fiori_no:string|null
+  sap_status:string|null
+  ingress_id:string|null
+}
+
+type ReplenishmentIngress={
+  id:string
+  ingress_no:number
+  warehouse:string|null
+  sap_fiori_ni:string|null
+  ingress_date:string
 }
 
 
@@ -183,6 +203,8 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
   const [incidents,setIncidents]=useState<Incident[]>([])
   const [kardexMovements,setKardexMovements]=useState<KardexMovement[]>([])
   const [guides,setGuides]=useState<DashboardGuide[]>([])
+  const [replenishmentReceipts,setReplenishmentReceipts]=useState<ReplenishmentReceipt[]>([])
+  const [replenishmentIngresses,setReplenishmentIngresses]=useState<ReplenishmentIngress[]>([])
   const [loading,setLoading]=useState(true)
   const [message,setMessage]=useState('')
 
@@ -207,7 +229,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       expiryQuery = expiryQuery.eq('user_id',userId)
     }
 
-    const [taskRes,expiryRes,notificationRes,incidentRes,kardexRes,guideRes]=await Promise.all([
+    const [taskRes,expiryRes,notificationRes,incidentRes,kardexRes,guideRes,receiptRes,ingressRes]=await Promise.all([
       supabase
         .from('tasks')
         .select('id,task_no,work_type,title,warehouse,project,group_name,shift_name,relevo_from_shift,relevo_to_shift,responsible_id,assignment_type,assigned_user_id,assigned_group,assigned_shift,created_by,status,progress,priority,due_at,closed_at,created_at')
@@ -232,13 +254,23 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         .limit(15000),
       supabase
         .from('guides')
-        .select('id,guide_no,guide_type,load_status,warehouse,created_at,oc_cargo_followups(final_status),guide_refrendos(id)')
+        .select('id,guide_no,guide_type,load_status,warehouse,created_at,oc_cargo_followups(final_status,client_delivery_date),guide_refrendos(id)')
         .in('guide_type',['ORDEN_COMPRA','CARGO_DIRECTO','REPOSICION'])
         .order('created_at',{ascending:false})
         .limit(5000),
+      supabase
+        .from('replenishment_receipts')
+        .select('id,guide_id,guide_no,warehouse,sap_kmmp_no,sap_fiori_no,sap_status,ingress_id')
+        .order('created_at',{ascending:false})
+        .limit(5000),
+      supabase
+        .from('replenishment_ingresses')
+        .select('id,ingress_no,warehouse,sap_fiori_ni,ingress_date')
+        .order('ingress_date',{ascending:false})
+        .limit(3000),
     ])
 
-    const error=taskRes.error||expiryRes.error||notificationRes.error||incidentRes.error||kardexRes.error||guideRes.error
+    const error=taskRes.error||expiryRes.error||notificationRes.error||incidentRes.error||kardexRes.error||guideRes.error||receiptRes.error||ingressRes.error
     if(error) setMessage(error.message)
     setTasks((taskRes.data??[]) as Task[])
     setExpirations((expiryRes.data??[]) as Expiration[])
@@ -246,6 +278,8 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     setIncidents((incidentRes.data??[]) as Incident[])
     setKardexMovements((kardexRes.data??[]) as KardexMovement[])
     setGuides((guideRes.data??[]) as DashboardGuide[])
+    setReplenishmentReceipts((receiptRes.data??[]) as ReplenishmentReceipt[])
+    setReplenishmentIngresses((ingressRes.data??[]) as ReplenishmentIngress[])
     setLoading(false)
   }
   useEffect(()=>{reload()},[userId,previewMode,profile.role,profile.warehouse,profile.project])
@@ -335,6 +369,9 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     return !rowProject || rowProject===operationalProject
   })
   const operationalKardex=scopeWarehouse(kardexMovements)
+  const operationalGuides=scopeWarehouse(guides)
+  const operationalReplenishmentReceipts=scopeWarehouse(replenishmentReceipts)
+  const operationalReplenishmentIngresses=scopeWarehouse(replenishmentIngresses)
   const openIncidents=operationalIncidents.filter((row)=>row.status!=='CERRADO')
   const incidentEmailsSent=operationalIncidents.filter((row)=>row.auto_email_status==='ENVIADO').length
   const incidentEmailsPending=operationalIncidents.filter((row)=>
@@ -520,12 +557,32 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     return row?.final_status||'PENDIENTE'
   }
 
-  const purchaseOrders=guides.filter((guide)=>guide.guide_type==='ORDEN_COMPRA')
-  const directCharges=guides.filter((guide)=>guide.guide_type==='CARGO_DIRECTO')
+  const purchaseOrders=operationalGuides.filter((guide)=>guide.guide_type==='ORDEN_COMPRA')
+  const directCharges=operationalGuides.filter((guide)=>guide.guide_type==='CARGO_DIRECTO')
+  const replenishmentGuides=operationalGuides.filter((guide)=>guide.guide_type==='REPOSICION')
   const pendingPurchaseOrders=purchaseOrders.filter((guide)=>!['REFRENDADO','CERRADO'].includes(guideFollowupStatus(guide)))
   const pendingDirectCharges=directCharges.filter((guide)=>!['REFRENDADO','CERRADO'].includes(guideFollowupStatus(guide)))
+  const pendingDirectDelivery=directCharges.filter((guide)=>{
+    const value=guide.oc_cargo_followups
+    const row=Array.isArray(value)?value[0]:value
+    const finalStatus=row?.final_status||'PENDIENTE'
+    return !row?.client_delivery_date && !['ANULADO','CERRADO','ENTREGADO_CLIENTE','REFRENDADO'].includes(finalStatus)
+  })
   const purchaseOrdersWithoutRefrendo=purchaseOrders.filter((guide)=>(guide.guide_refrendos?.length||0)===0)
-  const observedLoads=guides.filter((guide)=>guide.load_status==='OBSERVADO')
+  const observedLoads=operationalGuides.filter((guide)=>guide.load_status==='OBSERVADO')
+  const pendingSapKmmp=operationalReplenishmentReceipts.filter((row)=>!/^18\d+$/.test(String(row.sap_kmmp_no||'')))
+  const pendingFioriIngresses=operationalReplenishmentIngresses.filter((row)=>!/^50\d+$/.test(String(row.sap_fiori_ni||'')))
+  const guideTypeSegments=[
+    {label:'Reposición',value:replenishmentGuides.length},
+    {label:'Órdenes de compra',value:purchaseOrders.length},
+    {label:'Cargos directos',value:directCharges.length},
+  ]
+  const documentFlowData=[
+    {key:'REPOSICION',label:'Reposición registradas',value:replenishmentGuides.length,detail:'Guías de reposición registradas en KOMTROL.'},
+    {key:'KMMP',label:'Pend. SAP KMMP',value:pendingSapKmmp.length,detail:'Recepciones sin documento SAP KMMP válido que inicie con 18.'},
+    {key:'FIORI',label:'Pend. FIORI',value:pendingFioriIngresses.length,detail:'Ingresos agrupados sin NI SAP FIORI válido que inicie con 50.'},
+    {key:'CARGO',label:'Cargos pend. entrega',value:pendingDirectDelivery.length,detail:'Cargos directos sin fecha de entrega al cliente.'},
+  ]
   const urgentExpirations=activeExpirations.filter((row)=>{
     const days=daysUntil(row.due_date)
     return days!==null&&days<=30
@@ -624,6 +681,62 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         />
       </div>
 
+      <section className="universal-operational-reports document-flow-section">
+        <div className="universal-report-heading">
+          <div>
+            <b>Flujo documental y recepción</b>
+            <span>{isAdminDashboard?'Vista global de guías, SAP y entregas':profile.warehouse?'Almacén ' + profile.warehouse:'Información autorizada para tu perfil'}</span>
+          </div>
+        </div>
+
+        <div className="document-flow-kpis">
+          <button type="button" onClick={()=>onNavigate('ingresos-reposicion')}>
+            <span className="operational-report-icon"><PackageSearch size={19}/></span>
+            <span><small>REPOSICIÓN REGISTRADAS</small><b>{replenishmentGuides.length}</b><em>Guías registradas</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" className={pendingSapKmmp.length?'attention':''} onClick={()=>onNavigate('ingresos-reposicion')}>
+            <span className="operational-report-icon"><FileCheck2 size={19}/></span>
+            <span><small>PEND. SAP KMMP</small><b>{pendingSapKmmp.length}</b><em>Sin ingreso 18…</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" className={pendingFioriIngresses.length?'attention':''} onClick={()=>onNavigate('hoja-ubicacion')}>
+            <span className="operational-report-icon"><ClipboardList size={19}/></span>
+            <span><small>PEND. SAP FIORI</small><b>{pendingFioriIngresses.length}</b><em>Sin NI 50…</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" className={pendingDirectDelivery.length?'attention':''} onClick={()=>onNavigate('cargos-directos')}>
+            <span className="operational-report-icon"><FileCheck2 size={19}/></span>
+            <span><small>CARGOS PEND. ENTREGA</small><b>{pendingDirectDelivery.length}</b><em>Sin fecha entrega cliente</em></span>
+            <ChevronRight size={16}/>
+          </button>
+        </div>
+
+        <div className="universal-operational-charts document-flow-charts">
+          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('ingresos-reposicion')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('ingresos-reposicion')}}>
+            <ProfessionalBarChart
+              title="Estado del flujo documental"
+              subtitle="Recepción, SAP KMMP, FIORI y entrega"
+              data={documentFlowData}
+              onSelect={(key)=>{
+                if(key==='FIORI') onNavigate('hoja-ubicacion')
+                else if(key==='CARGO') onNavigate('cargos-directos')
+                else onNavigate('ingresos-reposicion')
+              }}
+            />
+            <span className="dashboard-chart-access">Abrir tratamiento <ChevronRight size={14}/></span>
+          </div>
+          <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('seguimiento-guias')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('seguimiento-guias')}}>
+            <ProfessionalDonutChart
+              title="Guías registradas por tipo"
+              subtitle="Distribución visible según tu perfil"
+              segments={guideTypeSegments}
+            />
+            <span className="dashboard-chart-access">Ver Seguimiento de Guías <ChevronRight size={14}/></span>
+          </div>
+        </div>
+      </section>
+
       <section className="universal-operational-reports">
         <div className="universal-report-heading">
           <div>
@@ -693,7 +806,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
             </button>
             <button type="button" onClick={()=>onNavigate('cargos-directos')}>
               <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-              <span><small>CARGOS DIRECTOS</small><b>{pendingDirectCharges.length}</b><em>Pendientes de cierre o refrendo</em></span>
+              <span><small>CARGOS DIRECTOS</small><b>{pendingDirectDelivery.length}</b><em>Pendientes de entrega al cliente</em></span>
               <ChevronRight size={16}/>
             </button>
             <button type="button" onClick={()=>onNavigate('seguimiento-guias')}>
