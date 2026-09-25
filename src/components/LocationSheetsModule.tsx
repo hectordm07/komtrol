@@ -1190,7 +1190,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                     </td>
                     <td>{fmtDate(row.ingress_date)}</td>
                     <td>
-                      <span className={row.supplier === 'CUMMINS' ? 'supplier-chip cummins' : row.supplier === 'KOMATSU' ? 'supplier-chip' : 'supplier-chip pending'}>
+                      <span className={row.supplier === 'CUMMINS' ? 'supplier-chip cummins' : row.supplier === 'KOMATSU' ? 'supplier-chip komatsu' : 'supplier-chip pending'}>
                         {row.supplier.replace('_', ' ')}
                       </span>
                     </td>
