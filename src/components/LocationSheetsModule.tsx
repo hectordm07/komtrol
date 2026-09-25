@@ -205,7 +205,6 @@ async function exportIngressExcel(
   ingress: Ingress,
   rows: FlatLine[],
   sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS',
-  responsible: string,
 ) {
   const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
   const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
@@ -218,9 +217,9 @@ async function exportIngressExcel(
   // Formato de revisión manual: no incluye Stock Code ni Cant. recibida.
   // Stock Mina queda en blanco hasta contar con una fuente de stock confiable.
   const aoa: any[][] = [
-    ['HOJA DE UBICACIÓN - REVISIÓN MANUAL', '', '', '', '', '', 'N°', ingress.ingress_no],
-    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', ''],
-    ['NÚMERO DE PARTE', 'DESCRIPCIÓN', 'STOCK MINA', 'GUÍA DE REMISIÓN', 'CANT.', 'UBICACIÓN', 'RESPONSABLE', 'OBSERVACIÓN'],
+    ['HOJA DE UBICACIÓN - REVISIÓN MANUAL', '', '', '', '', '', '', 'N°', ingress.ingress_no],
+    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', '', ''],
+    ['NÚMERO DE PARTE', 'DESCRIPCIÓN', 'STOCK MINA', 'GUÍA DE REMISIÓN', 'CANT.', 'UBICACIÓN', 'RESPONSABLE', 'DIFERENCIA', 'OBSERVACIÓN'],
     ...rows.map((row) => [
       row.partNo,
       row.description,
@@ -228,28 +227,30 @@ async function exportIngressExcel(
       row.guideNo,
       row.quantity ?? '',
       row.location || '',
-      responsible,
+      '',
+      '',
       '',
     ]),
   ]
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
   ]
   ws['!cols'] = [
     { wch: 21 },
-    { wch: 46 },
-    { wch: 15 },
+    { wch: 44 },
+    { wch: 14 },
     { wch: 21 },
-    { wch: 11 },
+    { wch: 10 },
     { wch: 18 },
-    { wch: 29 },
-    { wch: 34 },
+    { wch: 23 },
+    { wch: 16 },
+    { wch: 30 },
   ]
   ws['!rows'] = [{ hpt: 27 }, { hpt: 18 }, { hpt: 32 }]
-  ws['!autofilter'] = { ref: `A3:H${rows.length + 3}` }
+  ws['!autofilter'] = { ref: `A3:I${rows.length + 3}` }
 
   const thinBorder = {
     top: { style: 'thin', color: { rgb: 'B8C0CC' } },
@@ -274,18 +275,18 @@ async function exportIngressExcel(
     }
   }
 
-  for (const address of ['G1', 'H1']) {
+  for (const address of ['H1', 'I1']) {
     const cell = ws[address]
     if (!cell) continue
     cell.s = {
       fill: { fgColor: { rgb: 'EEF2FF' } },
-      font: { name: 'Arial', sz: address === 'H1' ? 18 : 13, bold: true, color: { rgb: '263F91' } },
+      font: { name: 'Arial', sz: address === 'I1' ? 18 : 13, bold: true, color: { rgb: '263F91' } },
       alignment: { horizontal: 'center', vertical: 'center' },
       border: thinBorder,
     }
   }
 
-  for (let col = 0; col < 8; col++) {
+  for (let col = 0; col < 9; col++) {
     const address = XLSX.utils.encode_cell({ r: 2, c: col })
     const cell = ws[address]
     if (!cell) continue
@@ -299,7 +300,7 @@ async function exportIngressExcel(
 
   for (let row = 3; row < rows.length + 3; row++) {
     ws['!rows'][row] = { hpt: 31 }
-    for (let col = 0; col < 8; col++) {
+    for (let col = 0; col < 9; col++) {
       const address = XLSX.utils.encode_cell({ r: row, c: col })
       if (!ws[address]) ws[address] = { t: 's', v: '' }
       const cell = ws[address]
@@ -308,7 +309,7 @@ async function exportIngressExcel(
         alignment: {
           horizontal: [2, 4].includes(col) ? 'center' : 'left',
           vertical: 'center',
-          wrapText: [1, 6, 7].includes(col),
+          wrapText: [1, 6, 7, 8].includes(col),
         },
         border: thinBorder,
       }
@@ -331,7 +332,6 @@ function exportIngressPdf(
   ingress: Ingress,
   rows: FlatLine[],
   sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS',
-  responsible: string,
 ) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -396,6 +396,7 @@ function exportIngressPdf(
       'CANT.',
       'UBICACIÓN',
       'RESPONSABLE',
+      'DIFERENCIA',
       'OBSERVACIÓN',
     ]],
     body: rows.map((row) => [
@@ -405,7 +406,8 @@ function exportIngressPdf(
       row.guideNo,
       row.quantity == null ? '' : formatQuantity(Number(row.quantity)),
       row.location || '',
-      responsible,
+      '',
+      '',
       '',
     ]),
     styles: {
@@ -427,14 +429,15 @@ function exportIngressPdf(
       minCellHeight: 10,
     },
     columnStyles: {
-      0: { cellWidth: 29, fontStyle: 'bold' },
-      1: { cellWidth: 62 },
-      2: { cellWidth: 21, halign: 'center' },
-      3: { cellWidth: 31 },
-      4: { cellWidth: 17, halign: 'center' },
-      5: { cellWidth: 24 },
-      6: { cellWidth: 42 },
-      7: { cellWidth: 48 },
+      0: { cellWidth: 28, fontStyle: 'bold' },
+      1: { cellWidth: 58 },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 16, halign: 'center' },
+      5: { cellWidth: 23 },
+      6: { cellWidth: 30 },
+      7: { cellWidth: 22 },
+      8: { cellWidth: 46 },
     },
     didDrawPage: (data: any) => {
       if (data.pageNumber > 1) drawReportHeader()
@@ -872,7 +875,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     setExporting('excel')
     setMessage('')
     try {
-      await exportIngressExcel(selected, selectedRows, sapFilter, profile?.full_name || 'Responsable')
+      await exportIngressExcel(selected, selectedRows, sapFilter)
     } catch (error) {
       setMessage(
         `No se pudo generar el Excel: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -887,7 +890,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     setExporting('pdf')
     setMessage('')
     try {
-      await exportIngressPdf(selected, selectedRows, sapFilter, profile?.full_name || 'Responsable')
+      await exportIngressPdf(selected, selectedRows, sapFilter)
     } catch (error) {
       setMessage(
         `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -1120,6 +1123,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                       <th>CANT.</th>
                       <th>UBICACIÓN</th>
                       <th>RESPONSABLE</th>
+                      <th>DIFERENCIA</th>
                       <th>OBSERVACIÓN</th>
                     </tr>
                   </thead>
@@ -1132,7 +1136,8 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                         <td>{row.guideNo || '—'}</td>
                         <td className="manual-qty">{row.quantity == null ? '' : formatQuantity(Number(row.quantity))}</td>
                         <td>{row.location || ''}</td>
-                        <td>{profile?.full_name || '—'}</td>
+                        <td className="manual-responsible-cell">&nbsp;</td>
+                        <td className="manual-difference-cell">&nbsp;</td>
                         <td className="manual-observation-cell">&nbsp;</td>
                       </tr>
                     ))}
