@@ -48,6 +48,7 @@ import { SurplusKardexModule } from './components/SurplusKardexModule'
 import { ExpirationsModule } from './components/ExpirationsModule'
 import { UniversalDashboardModule } from './components/UniversalDashboardModule'
 import { CommercialDashboardModule, type CommercialOrderFilter } from './components/CommercialDashboardModule'
+import { AdminPreviewPendingStrip } from './components/AdminPreviewPendingStrip'
 
 type Tab = string
 
@@ -1461,47 +1462,62 @@ function Workspace({ session }: { session: Session }) {
           ) : (
             <>
               {tab === 'inicio' && (
-                isCommercialArea ? (
-                  <CommercialDashboardModule
-                    onOpenOrders={(filter='TODOS') => {
-                      setCommercialOrderFilter(filter)
-                      setTab('comercial-ordenes-compra')
-                      setOpenSections((current) => current.includes('COMERCIAL') ? current : [...current, 'COMERCIAL'])
-                      setMobileMenu(false)
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }}
-                  />
-                ) : (
-                  <UniversalDashboardModule
-                    key={accessView}
-                    userId={user.id}
-                    profile={effectiveProfile!}
-                    previewMode={isAccessPreview}
-                    availableTabs={flatNav.map((item)=>item.id)}
-                    adminValidationMode={canPreviewSystemViews && isAccessPreview}
-                    adminProfile={canPreviewSystemViews ? profile : null}
-                    onNavigate={(targetTab, options) => {
-                      const target = flatNav.find((item) => item.id === targetTab)
-                      if (!target) {
-                        setToast('Este indicador no está disponible para tu perfil.')
-                        return
-                      }
-                      if (options?.restoreAdmin) {
+                <>
+                  {canPreviewSystemViews && isAccessPreview && (
+                    <AdminPreviewPendingStrip
+                      userId={user.id}
+                      profile={profile}
+                      onOpen={(targetTab) => {
                         setAccessView('ACTUAL')
+                        setDashboardTaskStatus(null)
+                        setTab(targetTab)
+                        setOpenSections((current) => current.includes('ÁREA DE TRABAJO') ? current : [...current, 'ÁREA DE TRABAJO'])
                         setToast('Vista Administrador restaurada para atender tu pendiente.')
-                      }
-                      setDashboardTaskStatus(targetTab === 'tareas-globales' ? (options?.taskStatus || 'TODOS') : null)
-                      setTab(targetTab)
-                      setOpenSections((current) =>
-                        current.includes(target.section)
-                          ? current
-                          : [...current, target.section]
-                      )
-                      setMobileMenu(false)
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }}
-                  />
-                )
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                    />
+                  )}
+
+                  {isCommercialArea ? (
+                    <CommercialDashboardModule
+                      onOpenOrders={(filter='TODOS') => {
+                        setCommercialOrderFilter(filter)
+                        setTab('comercial-ordenes-compra')
+                        setOpenSections((current) => current.includes('COMERCIAL') ? current : [...current, 'COMERCIAL'])
+                        setMobileMenu(false)
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                    />
+                  ) : (
+                    <UniversalDashboardModule
+                      key={accessView}
+                      userId={user.id}
+                      profile={effectiveProfile!}
+                      previewMode={isAccessPreview}
+                      availableTabs={flatNav.map((item)=>item.id)}
+                      onNavigate={(targetTab, options) => {
+                        const target = flatNav.find((item) => item.id === targetTab)
+                        if (!target) {
+                          setToast('Este indicador no está disponible para tu perfil.')
+                          return
+                        }
+                        if (options?.restoreAdmin) {
+                          setAccessView('ACTUAL')
+                          setToast('Vista Administrador restaurada para atender tu pendiente.')
+                        }
+                        setDashboardTaskStatus(targetTab === 'tareas-globales' ? (options?.taskStatus || 'TODOS') : null)
+                        setTab(targetTab)
+                        setOpenSections((current) =>
+                          current.includes(target.section)
+                            ? current
+                            : [...current, target.section]
+                        )
+                        setMobileMenu(false)
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                    />
+                  )}
+                </>
               )}
 
               {tab === 'incidencias' && (
