@@ -331,31 +331,35 @@ export function UniversalDashboardModule({
     if(task.work_type==='PERSONAL') return false
     if(isAdminDashboard) return true
 
-    // Una tarea asignada directamente a una persona debe aparecer aunque
-    // provenga de otro almacén/proyecto: la asignación explícita tiene prioridad.
+    // Una asignación directa siempre debe ser visible para su destinatario real.
     if(!previewMode && task.assignment_type==='PERSONA' && task.assigned_user_id===userId) return true
 
     const normalizedWarehouse=String(profile.warehouse||'').trim().toUpperCase()
     const normalizedProject=String(profile.project||'').trim().toUpperCase()
     const normalizedGroup=String(profile.group_name||'').trim().toUpperCase()
     const normalizedShift=String(profile.shift_name||'').trim().toUpperCase()
+    const taskWarehouse=String(task.warehouse||'').trim().toUpperCase()
+    const taskProject=String(task.project||'').trim().toUpperCase()
 
-    const sameWarehouse = normalizedWarehouse
-      ? String(task.warehouse||'').trim().toUpperCase()===normalizedWarehouse
-      : true
+    const sameWarehouse = normalizedWarehouse ? taskWarehouse===normalizedWarehouse : true
     const sameProject = normalizedProject
-      ? String(task.project||'').trim().toUpperCase()===normalizedProject
+      ? (!taskProject || taskProject===normalizedProject)
       : true
+
+    if(!sameWarehouse || !sameProject) return false
+
+    // Supervisor y Coordinador representan al almacén/proyecto completo:
+    // ven TODOS los trabajos grupales y relevos del ámbito, sin limitar por grupo/guardia.
+    if(profile.role==='SUPERVISOR' || profile.role==='COORDINADOR') return true
+
     const taskGroups=[
       String(task.group_name||'').trim().toUpperCase(),
       String(task.assigned_group||'').trim().toUpperCase(),
     ].filter(Boolean)
-    const sameGroup = normalizedGroup
-      ? taskGroups.includes(normalizedGroup)
-      : true
+    const sameGroup = normalizedGroup ? taskGroups.includes(normalizedGroup) : true
+    if(!sameGroup) return false
 
-    if(!sameWarehouse || !sameProject || !sameGroup) return false
-
+    // El Almacenero sí conserva el alcance de su grupo y guardia.
     if(task.work_type==='RELEVO' && normalizedShift){
       const relatedShifts=[
         task.shift_name,
@@ -368,7 +372,7 @@ export function UniversalDashboardModule({
     }
 
     return true
-  }),[tasks,userId,previewMode,isAdminDashboard,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
+  }),[tasks,userId,previewMode,isAdminDashboard,profile.role,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
 
   const adminScopeWarehouse=String(adminProfile?.warehouse||'').trim().toUpperCase()
   const adminScopeProject=String(adminProfile?.project||'').trim().toUpperCase()
