@@ -11312,3 +11312,41 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* ---------- Gráfico de tareas globales accionable ---------- */
+.task-status-chart-link {
+  cursor: default !important;
+}
+
+.dashboard-chart-access-button {
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-top: 1px solid rgba(58, 79, 147, .10);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 0 10px;
+  color: #3553a6;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.dashboard-chart-access-button:hover {
+  background: #f7f9ff;
+}
+
+.pro-donut-legend [role="button"] {
+  cursor: pointer;
+}
+
+.pro-donut-legend [role="button"]:hover,
+.pro-donut-legend [role="button"]:focus-visible {
+  background: #f4f7ff;
+  outline: none;
+}
