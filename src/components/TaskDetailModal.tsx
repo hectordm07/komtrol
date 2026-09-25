@@ -772,7 +772,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
             task.created_by
           )
 
-    if (resolvedAssignmentType === 'PERSONA' && !editForm.assigned_user_id) {
+    if ((specificPersonBecomesPersonal || resolvedAssignmentType === 'PERSONA') && !editForm.assigned_user_id) {
       setMessage('Selecciona la persona asignada.')
       return
     }
