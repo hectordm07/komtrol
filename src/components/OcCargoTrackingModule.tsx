@@ -29,6 +29,7 @@ type Profile = {
   full_name: string
   role: Role
   warehouse?: string | null
+  group_name?: string | null
   oc_cargo_access_level?: 'COMERCIAL' | 'DOCUMENTARIO' | null
 }
 
@@ -137,6 +138,8 @@ type Guide = {
   line_count: number
   guide_type: GuideType
   warehouse: string | null
+  group_name: string | null
+  created_by: string
   responsible_user_id: string
   status: string
   load_status: 'VALIDADO' | 'OBSERVADO'
@@ -258,6 +261,16 @@ function normalizeMatchText(value: string) {
     .replace(/[^A-Z0-9]/g, '')
 }
 
+function groupMatches(userGroup?: string | null, rowGroup?: string | null) {
+  const normalize = (value?: string | null) => String(value || '').trim().toUpperCase().replace(/\s+/g, '')
+  const left = normalize(userGroup)
+  const right = normalize(rowGroup)
+  if (!left || !right) return false
+  if (left === right) return true
+  const split = (value: string) => value.split(/[/,;|]+/).filter(Boolean)
+  return split(right).includes(left) || split(left).includes(right)
+}
+
 function safeFileName(value: string) {
   return value
     .normalize('NFD')
@@ -365,6 +378,8 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
         line_count,
         guide_type,
         warehouse,
+        group_name,
+        created_by,
         responsible_user_id,
         status,
         load_status,
@@ -414,9 +429,22 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
     reload()
   }, [userId])
 
+  const scopedGuides = useMemo(() => {
+    if (!profile) return []
+    if (profile.role === 'ADMINISTRADOR' || specialAccess === 'COMERCIAL' || specialAccess === 'DOCUMENTARIO') return guides
+
+    const warehouse = String(profile.warehouse || '').trim().toUpperCase()
+    return guides.filter((guide) => {
+      if (warehouse && String(guide.warehouse || '').trim().toUpperCase() !== warehouse) return false
+      if (profile.role === 'COORDINADOR' || profile.role === 'SUPERVISOR') return true
+      if (guide.created_by === profile.user_id || guide.responsible_user_id === profile.user_id) return true
+      return groupMatches(profile.group_name, guide.group_name)
+    })
+  }, [guides, profile, specialAccess])
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return guides.filter((guide) => {
+    return scopedGuides.filter((guide) => {
       if (guide.guide_type !== activeType) return false
       if (statusFilter === 'SIN_REFRENDO' && (guide.refrendos?.length || 0) > 0) return false
       if (statusFilter === 'CON_REFRENDO' && (guide.refrendos?.length || 0) === 0) return false
@@ -436,10 +464,10 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
         guide.followup?.parts_location,
       ].some((value) => String(value ?? '').toLowerCase().includes(q))
     })
-  }, [guides, activeType, statusFilter, search])
+  }, [scopedGuides, activeType, statusFilter, search])
 
   const counts = useMemo(() => {
-    const rows = guides.filter((guide) => guide.guide_type === activeType)
+    const rows = scopedGuides.filter((guide) => guide.guide_type === activeType)
     return {
       total: rows.length,
       observed: rows.filter((guide) => guide.followup?.final_status === 'OBSERVADO').length,
@@ -448,7 +476,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
       withRefrendo: rows.filter((guide) => (guide.refrendos?.length || 0) > 0).length,
       billingSent: rows.filter((guide) => ['ENVIADO','REENVIADO','CONFIRMADO'].includes(guide.followup?.billing_status || '')).length,
     }
-  }, [guides, activeType])
+  }, [scopedGuides, activeType])
 
   const ocExportRows=visible.map((guide)=>({
     guide_no:guide.guide_no,
@@ -574,7 +602,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
     const normalized = normalizeMatchText(text)
     let best: { guide: Guide; score: number } | null = null
 
-    for (const guide of guides) {
+    for (const guide of scopedGuides) {
       const candidates = [guide.reference, guide.guide_no, guide.document_no]
         .filter((value): value is string => Boolean(value))
         .map((value) => normalizeMatchText(value))
