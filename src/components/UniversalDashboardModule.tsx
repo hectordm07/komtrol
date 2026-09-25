@@ -613,14 +613,15 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     const days=daysUntil(row.due_date)
     return days!==null&&days<=30
   }).length
+  const commercialPendingTotal=pendingPurchaseOrders.length
+  const operationsPendingTotal=pendingSapKmmp.length+pendingFioriIngresses.length+pendingDirectDelivery.length
+  const communicationsPendingTotal=incidentEmailsPending+incidentEmailsError
   const globalPendingTotal=
     openPersonal.length+
     openIncidents.length+
     urgentExpirations+
-    pendingPurchaseOrders.length+
-    pendingDirectDelivery.length+
-    pendingSapKmmp.length+
-    pendingFioriIngresses.length
+    commercialPendingTotal+
+    operationsPendingTotal
 
   if(loading){
     return <div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando dashboard…</p></div>
@@ -834,31 +835,41 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         <section className="universal-operational-reports admin-global-control">
           <div className="universal-report-heading">
             <div>
-              <b>Control global del Administrador</b>
-              <span>Todos los pendientes operativos, comerciales y documentarios de KOMTROL.</span>
+              <b>Pendientes por área</b>
+              <span>Vista ejecutiva del Administrador · todas las áreas de KOMTROL.</span>
             </div>
-            <span className="status-pill">{globalPendingTotal.toLocaleString('es-PE')} pendientes</span>
+            <span className="status-pill">{globalPendingTotal.toLocaleString('es-PE')} pendientes operativos</span>
           </div>
 
-          <div className="universal-operational-kpis">
-            <button type="button" onClick={()=>onNavigate('comercial-ordenes-compra')}>
+          <div className="universal-operational-kpis admin-area-kpis">
+            <button type="button" onClick={()=>onNavigate('mi-trabajo')}>
+              <span className="operational-report-icon"><ClipboardList size={19}/></span>
+              <span><small>ÁREA DE TRABAJO</small><b>{openPersonal.length}</b><em>Tareas abiertas de toda la operación</em></span>
+              <ChevronRight size={16}/>
+            </button>
+            <button type="button" className={urgentExpirations?'operational-report-missing':''} onClick={()=>onNavigate('vencimientos-emoa')}>
+              <span className="operational-report-icon"><CalendarClock size={19}/></span>
+              <span><small>VENCIMIENTOS</small><b>{urgentExpirations}</b><em>Vencidos o próximos 30 días</em></span>
+              <ChevronRight size={16}/>
+            </button>
+            <button type="button" className={commercialPendingTotal?'operational-report-missing':''} onClick={()=>onNavigate('comercial-resumen')}>
               <span className="operational-report-icon"><ShoppingCart size={19}/></span>
-              <span><small>ÓRDENES DE COMPRA</small><b>{pendingPurchaseOrders.length}</b><em>{purchaseOrdersWithoutRefrendo.length} sin refrendo</em></span>
+              <span><small>COMERCIAL</small><b>{commercialPendingTotal}</b><em>{purchaseOrdersWithoutRefrendo.length} OC sin refrendo</em></span>
               <ChevronRight size={16}/>
             </button>
-            <button type="button" onClick={()=>onNavigate('cargos-directos')}>
+            <button type="button" className={operationsPendingTotal?'operational-report-missing':''} onClick={()=>onNavigate('ingresos-reposicion')}>
               <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-              <span><small>CARGOS DIRECTOS</small><b>{pendingDirectDelivery.length}</b><em>Pendientes de entrega al cliente</em></span>
+              <span><small>OPERACIONES</small><b>{operationsPendingTotal}</b><em>{pendingSapKmmp.length} KMMP · {pendingFioriIngresses.length} FIORI · {pendingDirectDelivery.length} entregas</em></span>
               <ChevronRight size={16}/>
             </button>
-            <button type="button" onClick={()=>onNavigate('seguimiento-guias')}>
-              <span className="operational-report-icon"><PackageSearch size={19}/></span>
-              <span><small>GUÍAS OBSERVADAS</small><b>{observedLoads.length}</b><em>Observadas desde la carga inicial</em></span>
+            <button type="button" className={openIncidents.length?'operational-report-missing':''} onClick={()=>onNavigate(incidentRoute)}>
+              <span className="operational-report-icon"><AlertTriangle size={19}/></span>
+              <span><small>INCIDENCIAS</small><b>{openIncidents.length}</b><em>Pendientes de tratamiento</em></span>
               <ChevronRight size={16}/>
             </button>
-            <button type="button" className={incidentEmailsError?'operational-report-missing':''} onClick={()=>onNavigate(incidentRoute)}>
+            <button type="button" className={communicationsPendingTotal?'operational-report-missing':''} onClick={()=>onNavigate('correos')}>
               <span className="operational-report-icon"><MailCheck size={19}/></span>
-              <span><small>CORREOS / ALERTAS</small><b>{incidentEmailsPending+incidentEmailsError}</b><em>{incidentEmailsError} con error</em></span>
+              <span><small>CORREOS / ALERTAS</small><b>{communicationsPendingTotal}</b><em>{incidentEmailsError} con error · {incidentEmailsPending} pendientes</em></span>
               <ChevronRight size={16}/>
             </button>
           </div>
