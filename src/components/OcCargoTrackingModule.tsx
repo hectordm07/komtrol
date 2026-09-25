@@ -21,6 +21,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
 import { SearchableSelect } from './SearchableSelect'
+import { ProfessionalBarChart, ProfessionalDonutChart } from './DashboardVisuals'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -164,6 +165,7 @@ type OrderListFilter =
   | 'CERRADO'
   | 'SIN_REFRENDO'
   | 'CON_REFRENDO'
+  | 'PENDIENTE_ENTREGA'
 
 type Props = {
   userId: string
@@ -448,8 +450,12 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
       if (guide.guide_type !== activeType) return false
       if (statusFilter === 'SIN_REFRENDO' && (guide.refrendos?.length || 0) > 0) return false
       if (statusFilter === 'CON_REFRENDO' && (guide.refrendos?.length || 0) === 0) return false
+      if (statusFilter === 'PENDIENTE_ENTREGA') {
+        const finalStatus = guide.followup?.final_status ?? 'PENDIENTE'
+        if (guide.followup?.client_delivery_date || ['ANULADO','CERRADO','ENTREGADO_CLIENTE','REFRENDADO'].includes(finalStatus)) return false
+      }
       if (
-        !['TODOS','SIN_REFRENDO','CON_REFRENDO'].includes(statusFilter) &&
+        !['TODOS','SIN_REFRENDO','CON_REFRENDO','PENDIENTE_ENTREGA'].includes(statusFilter) &&
         (guide.followup?.final_status ?? 'PENDIENTE') !== statusFilter
       ) return false
       if (!q) return true
@@ -466,17 +472,61 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
     })
   }, [scopedGuides, activeType, statusFilter, search])
 
+  const activeRows = useMemo(
+    () => scopedGuides.filter((guide) => guide.guide_type === activeType),
+    [scopedGuides, activeType]
+  )
+
   const counts = useMemo(() => {
-    const rows = scopedGuides.filter((guide) => guide.guide_type === activeType)
+    const rows = activeRows
+    const pendingDelivery = rows.filter((guide) => {
+      const finalStatus = guide.followup?.final_status ?? 'PENDIENTE'
+      return !guide.followup?.client_delivery_date &&
+        !['ANULADO','CERRADO','ENTREGADO_CLIENTE','REFRENDADO'].includes(finalStatus)
+    }).length
+    const delivered = rows.filter((guide) =>
+      Boolean(guide.followup?.client_delivery_date) ||
+      ['ENTREGADO_CLIENTE','REFRENDADO','CERRADO'].includes(guide.followup?.final_status || '')
+    ).length
+
     return {
       total: rows.length,
       observed: rows.filter((guide) => guide.followup?.final_status === 'OBSERVADO').length,
       refrendado: rows.filter((guide) => guide.followup?.final_status === 'REFRENDADO').length,
       pending: rows.filter((guide) => !guide.followup || ['PENDIENTE', 'EN_SEGUIMIENTO'].includes(guide.followup.final_status)).length,
+      pendingDelivery,
+      delivered,
       withRefrendo: rows.filter((guide) => (guide.refrendos?.length || 0) > 0).length,
       billingSent: rows.filter((guide) => ['ENVIADO','REENVIADO','CONFIRMADO'].includes(guide.followup?.billing_status || '')).length,
     }
-  }, [scopedGuides, activeType])
+  }, [activeRows])
+
+  const statusSegments = useMemo(() => [
+    {key:'PENDIENTE',label:'Pendiente',value:activeRows.filter((guide)=>!guide.followup || guide.followup.final_status==='PENDIENTE').length},
+    {key:'EN_SEGUIMIENTO',label:'En seguimiento',value:activeRows.filter((guide)=>guide.followup?.final_status==='EN_SEGUIMIENTO').length},
+    {key:'OBSERVADO',label:'Observado',value:activeRows.filter((guide)=>guide.followup?.final_status==='OBSERVADO').length},
+    {key:'ENTREGADO_CLIENTE',label:'Entregado',value:activeRows.filter((guide)=>guide.followup?.final_status==='ENTREGADO_CLIENTE').length},
+    {key:'REFRENDADO',label:'Refrendado',value:activeRows.filter((guide)=>guide.followup?.final_status==='REFRENDADO').length},
+    {key:'CERRADO',label:'Cerrado',value:activeRows.filter((guide)=>guide.followup?.final_status==='CERRADO').length},
+  ],[activeRows])
+
+  const processBars = useMemo(() => activeType === 'CARGO_DIRECTO'
+    ? [
+        {key:'REGISTRADOS',label:'Registrados',value:counts.total,detail:'Cargos directos visibles para este perfil.'},
+        {key:'PENDIENTE_ENTREGA',label:'Pend. entrega',value:counts.pendingDelivery,detail:'Sin fecha de entrega al cliente.'},
+        {key:'ENTREGADOS',label:'Entregados',value:counts.delivered,detail:'Cargos con entrega registrada.'},
+        {key:'REFRENDO',label:'Con refrendo',value:counts.withRefrendo,detail:'Cargos con PDF de refrendo disponible.'},
+        {key:'FACTURACION',label:'Facturación',value:counts.billingSent,detail:'Cargos enviados o confirmados para facturación.'},
+      ]
+    : [
+        {key:'REGISTRADOS',label:'OC registradas',value:counts.total,detail:'Órdenes de compra visibles para este perfil.'},
+        {key:'PENDIENTES',label:'Pendientes',value:counts.pending,detail:'Órdenes pendientes o en seguimiento.'},
+        {key:'OBSERVADAS',label:'Observadas',value:counts.observed,detail:'Órdenes que requieren regularización.'},
+        {key:'REFRENDO',label:'Con refrendo',value:counts.withRefrendo,detail:'Órdenes con PDF disponible.'},
+        {key:'FACTURACION',label:'Facturación',value:counts.billingSent,detail:'Órdenes enviadas o confirmadas para facturación.'},
+      ],
+    [activeType,counts]
+  )
 
   const ocExportRows=visible.map((guide)=>({
     guide_no:guide.guide_no,
@@ -1098,6 +1148,52 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
           </div>
         )}
 
+        <section className="oc-cargo-professional-summary" aria-label="Resumen y analítica">
+          <div className="oc-cargo-summary-cards">
+            <button type="button" className="oc-cargo-summary-card" onClick={()=>setStatusFilter('TODOS')}>
+              <span><FileText size={18}/></span>
+              <div><small>{activeType==='ORDEN_COMPRA'?'OC REGISTRADAS':'CARGOS REGISTRADOS'}</small><b>{counts.total}</b><em>Universo visible del perfil</em></div>
+            </button>
+            <button type="button" className={activeType==='CARGO_DIRECTO'&&counts.pendingDelivery?'oc-cargo-summary-card attention':'oc-cargo-summary-card'} onClick={()=>setStatusFilter(activeType==='CARGO_DIRECTO'?'PENDIENTE_ENTREGA':'PENDIENTE')}>
+              <span><Clock3 size={18}/></span>
+              <div><small>{activeType==='CARGO_DIRECTO'?'PEND. ENTREGA':'PENDIENTES'}</small><b>{activeType==='CARGO_DIRECTO'?counts.pendingDelivery:counts.pending}</b><em>{activeType==='CARGO_DIRECTO'?'Sin entrega al cliente':'Requieren seguimiento'}</em></div>
+            </button>
+            <button type="button" className={counts.observed?'oc-cargo-summary-card attention':'oc-cargo-summary-card'} onClick={()=>setStatusFilter('OBSERVADO')}>
+              <span><AlertTriangle size={18}/></span>
+              <div><small>OBSERVADOS</small><b>{counts.observed}</b><em>Requieren regularización</em></div>
+            </button>
+            <button type="button" className="oc-cargo-summary-card success" onClick={()=>setStatusFilter('CON_REFRENDO')}>
+              <span><CheckCircle2 size={18}/></span>
+              <div><small>REFRENDO DISPONIBLE</small><b>{counts.withRefrendo}</b><em>Listo para visualizar o descargar</em></div>
+            </button>
+          </div>
+
+          <div className="oc-cargo-analytics-grid">
+            <div className="oc-cargo-chart-card">
+              <ProfessionalDonutChart
+                title={activeType==='ORDEN_COMPRA'?'Estado de Órdenes de Compra':'Estado de Cargos Directos'}
+                subtitle="Distribución actual del flujo documental"
+                segments={statusSegments}
+                onSelect={(key)=>setStatusFilter((key||'TODOS') as OrderListFilter)}
+              />
+            </div>
+            <div className="oc-cargo-chart-card">
+              <ProfessionalBarChart
+                title={activeType==='ORDEN_COMPRA'?'Avance documental de OC':'Avance de Cargos Directos'}
+                subtitle={activeType==='ORDEN_COMPRA'?'Registro, observaciones, refrendos y facturación':'Registro, entrega, refrendo y facturación'}
+                data={processBars}
+                onSelect={(key)=>{
+                  if(key==='PENDIENTE_ENTREGA') setStatusFilter('PENDIENTE_ENTREGA')
+                  else if(key==='OBSERVADAS') setStatusFilter('OBSERVADO')
+                  else if(key==='REFRENDO') setStatusFilter('CON_REFRENDO')
+                  else if(key==='PENDIENTES') setStatusFilter('PENDIENTE')
+                  else setStatusFilter('TODOS')
+                }}
+              />
+            </div>
+          </div>
+        </section>
+
         <div className="task-toolbar oc-cargo-toolbar">
           <div className="search">
             <Search size={17} />
@@ -1121,6 +1217,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
               {value:'CERRADO',label:'Cerrado'},
               {value:'SIN_REFRENDO',label:'Sin refrendo'},
               {value:'CON_REFRENDO',label:'Refrendo disponible'},
+              ...(activeType === 'CARGO_DIRECTO' ? [{value:'PENDIENTE_ENTREGA',label:'Pendiente de entrega'}] : []),
             ]}
             placeholder="Filtrar reporte…"
             clearable={true}
@@ -1133,6 +1230,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
             <span>Filtro activo: <b>{
               statusFilter === 'SIN_REFRENDO' ? 'Sin refrendo' :
               statusFilter === 'CON_REFRENDO' ? 'Refrendo disponible' :
+              statusFilter === 'PENDIENTE_ENTREGA' ? 'Pendiente de entrega' :
               statusLabel(statusFilter)
             }</b></span>
             <button type="button" onClick={()=>setStatusFilter('TODOS')}><X size={13}/> Quitar filtro</button>
