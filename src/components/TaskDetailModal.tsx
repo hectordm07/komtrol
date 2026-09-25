@@ -225,6 +225,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
   const [extensionNote, setExtensionNote] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({
+    work_type: initialTask.work_type,
     title: initialTask.title,
     description: initialTask.description || '',
     priority: initialTask.priority,
@@ -233,6 +234,8 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
     assigned_user_id: initialTask.assigned_user_id || userId,
     assigned_group: initialTask.assigned_group || initialTask.group_name || '',
     assigned_shift: initialTask.assigned_shift || initialTask.shift_name || '',
+    relevo_from_shift: initialTask.relevo_from_shift || initialTask.shift_name || '',
+    relevo_to_shift: initialTask.relevo_to_shift || '',
     tags: (initialTask.tags || []).join(', '),
     due_at: toLocalInput(initialTask.due_at),
     email_subject: initialTask.email_subject || '',
@@ -737,19 +740,60 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
 
   async function saveEdit(event: FormEvent) {
     event.preventDefault()
+
+    const nextWorkType = editForm.work_type
+    if (nextWorkType === 'RELEVO') {
+      if (!editForm.relevo_from_shift || !editForm.relevo_to_shift) {
+        setMessage('Selecciona la guardia que entrega y la guardia que recibe el relevo.')
+        return
+      }
+      if (editForm.relevo_from_shift === editForm.relevo_to_shift) {
+        setMessage('La guardia de origen y destino del relevo deben ser diferentes.')
+        return
+      }
+    }
+
+    const resolvedAssignmentType: AssignmentType =
+      nextWorkType === 'PERSONAL' ? 'PERSONAL' : editForm.assignment_type
+
+    const personalOwner =
+      editForm.assigned_user_id ||
+      task.assigned_user_id ||
+      task.responsible_id ||
+      task.created_by
+
+    if (resolvedAssignmentType === 'PERSONA' && !editForm.assigned_user_id) {
+      setMessage('Selecciona la persona asignada.')
+      return
+    }
+    if (resolvedAssignmentType === 'GRUPO' && !editForm.assigned_group) {
+      setMessage('Selecciona el grupo asignado.')
+      return
+    }
+    if (resolvedAssignmentType === 'GUARDIA' && !editForm.assigned_shift) {
+      setMessage('Selecciona la guardia asignada.')
+      return
+    }
+
     const changes = {
+      work_type: nextWorkType,
       title: editForm.title.trim(),
       description: editForm.description.trim() || null,
       priority: editForm.priority,
       category: editForm.category.trim() || null,
-      assignment_type: task.work_type === 'PERSONAL' ? 'PERSONAL' : editForm.assignment_type,
-      assigned_user_id: task.work_type === 'PERSONAL'
-        ? (task.assigned_user_id || task.responsible_id || task.created_by)
-        : editForm.assignment_type === 'PERSONA'
+      assignment_type: resolvedAssignmentType,
+      assigned_user_id: resolvedAssignmentType === 'PERSONAL'
+        ? personalOwner
+        : resolvedAssignmentType === 'PERSONA'
           ? editForm.assigned_user_id
           : null,
-      assigned_group: task.work_type !== 'PERSONAL' && editForm.assignment_type === 'GRUPO' ? editForm.assigned_group : null,
-      assigned_shift: task.work_type !== 'PERSONAL' && editForm.assignment_type === 'GUARDIA' ? editForm.assigned_shift : null,
+      assigned_group: resolvedAssignmentType === 'GRUPO' ? editForm.assigned_group : null,
+      assigned_shift: resolvedAssignmentType === 'GUARDIA' ? editForm.assigned_shift : null,
+      shift_name: nextWorkType === 'RELEVO'
+        ? editForm.relevo_to_shift
+        : task.shift_name,
+      relevo_from_shift: nextWorkType === 'RELEVO' ? editForm.relevo_from_shift : null,
+      relevo_to_shift: nextWorkType === 'RELEVO' ? editForm.relevo_to_shift : null,
       tags: editForm.tags.split(',').map((item) => item.trim()).filter(Boolean),
       due_at: editForm.due_at ? new Date(editForm.due_at).toISOString() : null,
       email_subject: editForm.email_subject.trim() || null,
@@ -764,22 +808,25 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
 
     await supabase.from('task_history').insert({
       task_id: task.id,
-      action: 'EDITADA',
-      field_name: 'detalle',
-      old_value: null,
-      new_value: null,
-      note: 'Se actualizaron los datos generales de la tarea.',
+      action: task.work_type === nextWorkType ? 'EDITADA' : 'TIPO_TRABAJO_CAMBIADO',
+      field_name: task.work_type === nextWorkType ? 'detalle' : 'work_type',
+      old_value: task.work_type,
+      new_value: nextWorkType,
+      note: task.work_type === nextWorkType
+        ? 'Se actualizaron los datos generales de la tarea.'
+        : `Se movió de ${task.work_type === 'PERSONAL' ? 'Mis trabajos' : task.work_type === 'RELEVO' ? 'Relevos' : 'Tareas grupales'} a ${nextWorkType === 'PERSONAL' ? 'Mis trabajos' : nextWorkType === 'RELEVO' ? 'Relevos' : 'Tareas grupales'}.`,
       changed_by: userId,
     })
 
-    const editRecipientProfiles = editForm.assignment_type === 'PERSONA'
+    const editRecipientProfiles = resolvedAssignmentType === 'PERSONA' || resolvedAssignmentType === 'PERSONAL'
       ? personAssignmentProfiles
       : scopedProfiles
 
     const editRecipients = editRecipientProfiles
       .filter((profile) => {
-        if (editForm.assignment_type === 'PERSONA') return profile.user_id === editForm.assigned_user_id
-        if (editForm.assignment_type === 'GRUPO') return profile.group_name === editForm.assigned_group
+        if (resolvedAssignmentType === 'PERSONAL') return profile.user_id === personalOwner
+        if (resolvedAssignmentType === 'PERSONA') return profile.user_id === editForm.assigned_user_id
+        if (resolvedAssignmentType === 'GRUPO') return profile.group_name === editForm.assigned_group
         return profile.shift_name === editForm.assigned_shift
       })
       .map((profile)=>profile.user_id)
@@ -791,11 +838,15 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
         uniqueEditRecipients.map((recipientId)=>({
           user_id: recipientId,
           notification_type: 'TASK_ASSIGNED',
-          title: 'Asignación de tarea actualizada',
+          title: task.work_type === nextWorkType ? 'Asignación de tarea actualizada' : 'Tipo de trabajo actualizado',
           message: `${task.task_no} · ${editForm.title.trim()}`,
           task_id: task.id,
           created_by: userId,
-          metadata: { task_no: task.task_no, assignment_type: editForm.assignment_type },
+          metadata: {
+            task_no: task.task_no,
+            work_type: nextWorkType,
+            assignment_type: resolvedAssignmentType,
+          },
         }))
       )
     }
@@ -925,6 +976,29 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
               <button type="button" className="secondary-button task-edit-cancel" onClick={() => setEditOpen(false)}>Cancelar</button>
             </div>
             <div className="form-grid">
+              <label>Tipo de trabajo
+                <select
+                  value={editForm.work_type}
+                  onChange={(event) => {
+                    const nextType = event.target.value as TaskDetailTask['work_type']
+                    setEditForm((current) => ({
+                      ...current,
+                      work_type: nextType,
+                      assignment_type: nextType === 'PERSONAL'
+                        ? 'PERSONA'
+                        : current.assignment_type,
+                      assigned_user_id: current.assigned_user_id || task.assigned_user_id || task.responsible_id || task.created_by,
+                      relevo_from_shift: current.relevo_from_shift || task.relevo_from_shift || task.shift_name || currentProfile?.shift_name || '',
+                      relevo_to_shift: current.relevo_to_shift || task.relevo_to_shift || '',
+                    }))
+                  }}
+                >
+                  <option value="PERSONAL">Mis trabajos</option>
+                  <option value="TAREA">Tareas grupales</option>
+                  <option value="RELEVO">Relevos</option>
+                </select>
+                <small>Permite mover el registro entre las tres áreas manteniendo el historial.</small>
+              </label>
               <label className="span-2">Título<input required value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></label>
               <label className="span-2">Descripción<textarea rows={3} value={editForm.description} onChange={(event) => setEditForm({ ...editForm, description: event.target.value })} /></label>
               <label>Prioridad
@@ -933,10 +1007,30 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
                 </select>
               </label>
               <label>Categoría<input value={editForm.category} onChange={(event) => setEditForm({ ...editForm, category: event.target.value })} /></label>
-              {task.work_type === 'PERSONAL' ? (
-                <label>Asignación
-                  <input value={profileName(task.assigned_user_id || task.responsible_id || task.created_by)} disabled />
-                  <small>Las tareas de Mi trabajo permanecen asignadas al propio usuario.</small>
+              {editForm.work_type === 'RELEVO' && (
+                <>
+                  <label>Guardia que entrega
+                    <select value={editForm.relevo_from_shift} onChange={(event)=>setEditForm({...editForm,relevo_from_shift:event.target.value})}>
+                      <option value="">Seleccionar</option>
+                      <option value="GUARDIA A">Guardia A</option>
+                      <option value="GUARDIA B">Guardia B</option>
+                    </select>
+                  </label>
+                  <label>Guardia que recibe
+                    <select value={editForm.relevo_to_shift} onChange={(event)=>setEditForm({...editForm,relevo_to_shift:event.target.value})}>
+                      <option value="">Seleccionar</option>
+                      <option value="GUARDIA A">Guardia A</option>
+                      <option value="GUARDIA B">Guardia B</option>
+                    </select>
+                  </label>
+                </>
+              )}
+              {editForm.work_type === 'PERSONAL' ? (
+                <label>Usuario de Mi trabajo
+                  <select value={editForm.assigned_user_id} onChange={(event)=>setEditForm({...editForm,assigned_user_id:event.target.value})}>
+                    {personAssignmentProfiles.map((profile)=><option key={profile.user_id} value={profile.user_id}>{profile.full_name}{profile.warehouse ? ` · ${profile.warehouse}` : ''}{profile.group_name ? ` · ${profile.group_name}` : ''}</option>)}
+                  </select>
+                  <small>Este registro quedará como trabajo personal del usuario seleccionado.</small>
                 </label>
               ) : (
                 <>
