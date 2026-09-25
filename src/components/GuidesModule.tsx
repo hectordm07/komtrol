@@ -571,12 +571,32 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           ? 'Lectura terminada con campos pendientes. Revisa N° guía y referencia antes de confirmar.'
           : 'Guía lista para validar. Mientras revisas, KOMTROL continúa procesando el resto del lote.'
       )
-    } else if (item.status === 'PROCESANDO') {
-      setMessage('Esta guía se está procesando. Puedes revisar otra mientras termina.')
-    } else if (item.status === 'ERROR') {
-      setMessage(item.error || 'No se pudo procesar esta imagen.')
     } else {
-      setMessage('Guía en cola de reconocimiento.')
+      setForm((prev) => ({
+        ...prev,
+        guide_no: '',
+        document_no: '',
+        emission_date: '',
+        transfer_start_date: '',
+        date_source: 'FECHA_CARGA',
+        reference: '',
+        line_count: '1',
+        guide_type: 'OTRO',
+        supplier: 'KOMATSU',
+        status: 'VALIDADO',
+        notes: '',
+        ocr_text: '',
+        ocr_confidence: '',
+      }))
+      setLines([emptyLine()])
+
+      if (item.status === 'PROCESANDO') {
+        setMessage('Esta guía se está procesando. Puedes revisar otra mientras termina.')
+      } else if (item.status === 'ERROR') {
+        setMessage(item.error || 'No se pudo procesar esta imagen.')
+      } else {
+        setMessage('Guía en cola de reconocimiento.')
+      }
     }
   }
 
@@ -615,15 +635,21 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
               : 'Imagen · lectura completa',
           }
 
-          updateBatchItem(item.id, {
+          const completedItem: BatchScanItem = {
+            ...item,
             status: ready ? 'LISTO' : 'REVISAR',
+            progress: 100,
+            result,
+          }
+
+          updateBatchItem(item.id, {
+            status: completedItem.status,
             progress: 100,
             result,
           })
 
           if (!selectedBatchIdRef.current || selectedBatchIdRef.current === item.id) {
-            const latest = batchItemsRef.current.find((row) => row.id === item.id)
-            if (latest) loadBatchItem(latest)
+            loadBatchItem(completedItem)
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
@@ -685,7 +711,6 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
 
   function clearBatch() {
     batchQueueRef.current = []
-    batchRunningRef.current = false
     updateBatchItems(() => [])
     setSelectedBatch(null)
     resetForm()
@@ -693,11 +718,17 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   }
 
   function advanceToNextBatch(afterId: string) {
-    const next = batchItemsRef.current.find((item) =>
+    const candidates = batchItemsRef.current.filter((item) =>
       item.id !== afterId &&
       item.status !== 'GUARDADO' &&
       item.status !== 'ERROR'
     )
+    const next =
+      candidates.find((item) => item.status === 'LISTO') ||
+      candidates.find((item) => item.status === 'REVISAR') ||
+      candidates.find((item) => item.status === 'PROCESANDO') ||
+      candidates.find((item) => item.status === 'PENDIENTE')
+
     if (next) {
       loadBatchItem(next)
     } else {
@@ -732,6 +763,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
 
   async function selectFile(nextFile?: File) {
     if (!nextFile) return
+    setSelectedBatch(null)
     setMessage('')
     setDuplicateGuide(null)
     setFile(nextFile)
