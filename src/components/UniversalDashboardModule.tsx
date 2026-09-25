@@ -986,7 +986,7 @@ export function UniversalDashboardModule({
           <span className="dashboard-chart-access">Revisar vigencias <ChevronRight size={14}/></span>
         </div>}
 
-        {hasTaskAccess&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'}) onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}}>
+        {hasTaskAccess&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(isAdminDashboard?'tareas-globales':'mi-trabajo',{taskStatus:'TODOS'})}}>
           <ProfessionalTrendChart
             title="Actividad de tareas"
             subtitle="Tareas creadas en los últimos 6 meses"
