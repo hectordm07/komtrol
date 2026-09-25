@@ -233,6 +233,7 @@ export function TasksModule({
   const [listOrder, setListOrder] = useState<'PRIORIDAD' | 'FECHA'>('PRIORIDAD')
   const [categoryFilter, setCategoryFilter] = useState('TODAS')
   const [responsibleFilter, setResponsibleFilter] = useState('TODOS')
+  const [groupFilter, setGroupFilter] = useState('TODOS')
   const [workArea, setWorkArea] = useState<'MI_TRABAJO' | 'TAREAS' | 'RELEVOS'>(
     mode === 'relevos' ? 'RELEVOS' : (mode === 'tareas' || mode === 'global-admin') ? 'TAREAS' : 'MI_TRABAJO'
   )
@@ -455,6 +456,9 @@ export function TasksModule({
       t.assigned_user_id === responsibleFilter ||
       (t.assignment_type === 'PERSONAL' && t.responsible_id === responsibleFilter)
     )
+    if (groupFilter !== 'TODOS') data = data.filter((t) =>
+      t.group_name === groupFilter || t.assigned_group === groupFilter
+    )
 
     const q = search.toLowerCase().trim()
     if (q) {
@@ -480,7 +484,7 @@ export function TasksModule({
     return data
   }, [
     scopedTasks, search, workView,
-    statusFilter, priorityFilter, categoryFilter, labelFilter, responsibleFilter,
+    statusFilter, priorityFilter, categoryFilter, labelFilter, responsibleFilter, groupFilter,
   ])
 
   const dueReviewCandidates = useMemo(() => {
@@ -727,6 +731,16 @@ export function TasksModule({
       keywords:[p.dni,p.warehouse,p.project,p.group_name,p.shift_name].filter(Boolean).join(' '),
     })),
   ]
+  const groupFilterOptions = [
+    {value:'TODOS',label:'Todos los grupos',keywords:'todos grupos areas'},
+    ...Array.from(new Set(
+      scopedTasks
+        .flatMap((task)=>[task.group_name,task.assigned_group])
+        .filter((value): value is string=>Boolean(value))
+    ))
+      .sort((a,b)=>a.localeCompare(b))
+      .map((group)=>({value:group,label:group,keywords:group})),
+  ]
 
   const assignmentLabel = (task: Task) => {
     if (task.assignment_type === 'PERSONAL') return profileName(task.assigned_user_id || task.responsible_id)
@@ -743,6 +757,7 @@ export function TasksModule({
     setCategoryFilter('TODAS')
     setLabelFilter('')
     setResponsibleFilter('TODOS')
+    setGroupFilter('TODOS')
   }
 
   function quickFilter(kind: 'category' | 'priority' | 'label', value: string) {
@@ -763,6 +778,7 @@ export function TasksModule({
       categoryFilter !== 'TODAS' ? `Categoría: ${categoryFilter}` : '',
       labelFilter ? `Etiqueta: ${labelFilter}` : '',
       responsibleFilter !== 'TODOS' ? `Responsable: ${profileName(responsibleFilter)}` : '',
+      groupFilter !== 'TODOS' ? `Grupo: ${groupFilter}` : '',
       search.trim() ? `Búsqueda: ${search.trim()}` : '',
       scopeWarehouse ? `Almacén: ${scopeWarehouse}` : '',
       scopeProject ? `Proyecto: ${scopeProject}` : '',
@@ -770,7 +786,7 @@ export function TasksModule({
     ].filter(Boolean)
     return parts.join(' · ')
   }, [
-    mode,statusFilter,priorityFilter,categoryFilter,labelFilter,responsibleFilter,search,
+    mode,statusFilter,priorityFilter,categoryFilter,labelFilter,responsibleFilter,groupFilter,search,
     scopeWarehouse,scopeProject,scopeGroup,profiles,
   ])
 
@@ -1330,6 +1346,7 @@ export function TasksModule({
             <div className="task-filter-item"><span>Prioridad</span><SearchableSelect ariaLabel="Filtrar por prioridad" value={priorityFilter} onChange={(value)=>setPriorityFilter((value||'TODAS') as 'TODAS' | Task['priority'])} options={priorityFilterOptions} clearable={false} /></div>
             <div className="task-filter-item"><span>Categoría</span><SearchableSelect ariaLabel="Filtrar por categoría" value={categoryFilter} onChange={(value)=>setCategoryFilter(value||'TODAS')} options={categoryFilterOptions} clearable={false} /></div>
             <div className="task-filter-item"><span>Responsable</span><SearchableSelect ariaLabel="Filtrar por responsable" value={responsibleFilter} onChange={(value)=>setResponsibleFilter(value||'TODOS')} options={responsibleFilterOptions} noResultsText="Usuario no encontrado" clearable={false} /></div>
+            <div className="task-filter-item"><span>Grupo</span><SearchableSelect ariaLabel="Filtrar por grupo" value={groupFilter} onChange={(value)=>setGroupFilter(value||'TODOS')} options={groupFilterOptions} noResultsText="Grupo no encontrado" clearable={false} /></div>
           </div>
           <label className="task-list-order"><span>Ordenar por</span>
             <select aria-label="Orden de las tareas" value={listOrder} onChange={(event) => setListOrder(event.target.value as 'PRIORIDAD' | 'FECHA')}>
@@ -1341,12 +1358,13 @@ export function TasksModule({
             <button type="button" className="secondary-button" onClick={exportTasksPdf} title="Exportar filtro actual a PDF"><FileText size={16}/> PDF</button>
             <button type="button" className="secondary-button" onClick={exportTasksExcel} title="Exportar filtro actual a Excel"><FileSpreadsheet size={16}/> Excel</button>
           </div>
-          {(labelFilter || categoryFilter !== 'TODAS' || priorityFilter !== 'TODAS' || statusFilter !== 'TODOS' || responsibleFilter !== 'TODOS' || search) && (
+          {(labelFilter || categoryFilter !== 'TODAS' || priorityFilter !== 'TODAS' || statusFilter !== 'TODOS' || responsibleFilter !== 'TODOS' || groupFilter !== 'TODOS' || search) && (
             <div className="task-active-filters">
               <span>{filtered.length} tarea{filtered.length === 1 ? '' : 's'} encontrada{filtered.length === 1 ? '' : 's'}</span>
               {labelFilter && <span className="task-active-filter-chip">Etiqueta: {labelFilter}</span>}
               {categoryFilter !== 'TODAS' && <span className="task-active-filter-chip">Categoría: {categoryFilter}</span>}
               {priorityFilter !== 'TODAS' && <span className="task-active-filter-chip">Prioridad: {priorityFilter}</span>}
+              {groupFilter !== 'TODOS' && <span className="task-active-filter-chip">Grupo: {groupFilter}</span>}
               <button type="button" onClick={clearTaskFilters}>Limpiar filtros</button>
             </div>
           )}
