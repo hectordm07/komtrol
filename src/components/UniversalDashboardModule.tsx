@@ -804,31 +804,35 @@ export function UniversalDashboardModule({
         </div>
 
         <div className="document-flow-kpis">
-          <button type="button" onClick={()=>onNavigate('ingresos-reposicion')}>
-            <span className="operational-report-icon"><PackageSearch size={19}/></span>
-            <span><small>GUÍAS REPOSICIÓN</small><b>{replenishmentGuides.length}</b><em>Total registradas</em></span>
-            <ChevronRight size={16}/>
-          </button>
-          <button type="button" className={pendingSapKmmp.length?'attention':''} onClick={()=>onNavigate('ingresos-reposicion')}>
-            <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-            <span><small>SAP KMMP</small><b>{kmmpCompleted}/{operationalReplenishmentReceipts.length}</b><em>{pendingSapKmmp.length} pendientes · doc. 18…</em></span>
-            <ChevronRight size={16}/>
-          </button>
-          <button type="button" onClick={()=>onNavigate('hoja-ubicacion')}>
-            <span className="operational-report-icon"><ClipboardList size={19}/></span>
-            <span><small>INGRESOS REPOSICIÓN</small><b>{operationalReplenishmentIngresses.length}</b><em>Agrupaciones generadas</em></span>
-            <ChevronRight size={16}/>
-          </button>
-          <button type="button" className={pendingFioriIngresses.length?'attention':''} onClick={()=>onNavigate('hoja-ubicacion')}>
-            <span className="operational-report-icon"><ClipboardList size={19}/></span>
-            <span><small>SAP FIORI</small><b>{fioriCompleted}/{operationalReplenishmentIngresses.length}</b><em>{pendingFioriIngresses.length} pendientes · NI 50…</em></span>
-            <ChevronRight size={16}/>
-          </button>
-          <button type="button" className={pendingDirectDelivery.length?'attention':''} onClick={()=>onNavigate('cargos-directos')}>
+          {canAccess('ingresos-reposicion')&&<>
+            <button type="button" onClick={()=>onNavigate('ingresos-reposicion')}>
+              <span className="operational-report-icon"><PackageSearch size={19}/></span>
+              <span><small>GUÍAS REPOSICIÓN</small><b>{replenishmentGuides.length}</b><em>Total registradas</em></span>
+              <ChevronRight size={16}/>
+            </button>
+            <button type="button" className={pendingSapKmmp.length?'attention':''} onClick={()=>onNavigate('ingresos-reposicion')}>
+              <span className="operational-report-icon"><FileCheck2 size={19}/></span>
+              <span><small>SAP KMMP</small><b>{kmmpCompleted}/{operationalReplenishmentReceipts.length}</b><em>{pendingSapKmmp.length} pendientes · doc. 18…</em></span>
+              <ChevronRight size={16}/>
+            </button>
+          </>}
+          {canAccess('hoja-ubicacion')&&<>
+            <button type="button" onClick={()=>onNavigate('hoja-ubicacion')}>
+              <span className="operational-report-icon"><ClipboardList size={19}/></span>
+              <span><small>INGRESOS REPOSICIÓN</small><b>{operationalReplenishmentIngresses.length}</b><em>Agrupaciones generadas</em></span>
+              <ChevronRight size={16}/>
+            </button>
+            <button type="button" className={pendingFioriIngresses.length?'attention':''} onClick={()=>onNavigate('hoja-ubicacion')}>
+              <span className="operational-report-icon"><ClipboardList size={19}/></span>
+              <span><small>SAP FIORI</small><b>{fioriCompleted}/{operationalReplenishmentIngresses.length}</b><em>{pendingFioriIngresses.length} pendientes · NI 50…</em></span>
+              <ChevronRight size={16}/>
+            </button>
+          </>}
+          {canAccess('cargos-directos')&&<button type="button" className={pendingDirectDelivery.length?'attention':''} onClick={()=>onNavigate('cargos-directos')}>
             <span className="operational-report-icon"><FileCheck2 size={19}/></span>
             <span><small>CARGOS DIRECTOS</small><b>{pendingDirectDelivery.length}</b><em>Pendientes de entrega</em></span>
             <ChevronRight size={16}/>
-          </button>
+          </button>}
         </div>
 
         <div className="universal-operational-charts document-flow-charts">
