@@ -3,7 +3,7 @@ type OcrProgress = (progress: number, message?: string) => void
 type GuideImageOcrResult = {
   text: string
   confidence: number
-  method: 'HEADER_FAST' | 'HEADER_PLUS_DETAIL'
+  method: 'HEADER_FAST' | 'HEADER_PLUS_DETAIL' | 'BODY_DETAIL'
   barcodes: string[]
 }
 
@@ -138,7 +138,7 @@ function regionFor(mode: 'header' | 'detail') {
   // cabecera y tabla del formato Komatsu sin perder compatibilidad con otros PDFs/fotos.
   return mode === 'header'
     ? { left: 0.00, top: 0.02, right: 1.00, bottom: 0.50, maxWidth: 2200, minWidth: 1100 }
-    : { left: 0.00, top: 0.23, right: 1.00, bottom: 0.70, maxWidth: 2400, minWidth: 1200 }
+    : { left: 0.00, top: 0.20, right: 1.00, bottom: 0.93, maxWidth: 2800, minWidth: 1500 }
 }
 
 function prepareRegionCanvas(image: HTMLImageElement, region: CropRegion) {
@@ -290,6 +290,70 @@ async function recognizeCanvas(
 
 export async function prewarmGuideOcr() {
   await getWorker(0)
+}
+
+export async function recognizeGuideBodyImage(
+  file: File,
+  onProgress?: OcrProgress,
+): Promise<GuideImageOcrResult> {
+  const { slotIndex, worker } = await acquireWorker()
+
+  try {
+    onProgress?.(3, 'Preparando cuerpo de la guía…')
+    const image = await loadImage(file)
+
+    // Los cuerpos 2, 3, etc. normalmente ya no repiten la cabecera.
+    // Se prioriza casi toda la tabla para recuperar correlativo, material,
+    // descripción, cantidad y UM hasta el final físico de la hoja.
+    const bodyCanvas = prepareRegionCanvas(image, {
+      left: 0.00,
+      top: 0.055,
+      right: 0.995,
+      bottom: 0.925,
+      maxWidth: 3000,
+      minWidth: 1700,
+    })
+
+    onProgress?.(10, 'Leyendo líneas del cuerpo…')
+    const body = await recognizeCanvas(
+      worker,
+      slotIndex,
+      bodyCanvas,
+      '6',
+      (progress) => onProgress?.(10 + Math.round(progress * 0.76), 'Reconociendo materiales…'),
+    )
+
+    // Segunda lectura sobre la zona central de la tabla. En fotos verticales
+    // ayuda cuando sellos, sombras o bordes hacen perder algunos correlativos.
+    onProgress?.(88, 'Verificando correlativos y cantidades…')
+    const focusedCanvas = prepareRegionCanvas(image, {
+      left: 0.00,
+      top: 0.10,
+      right: 0.995,
+      bottom: 0.84,
+      maxWidth: 3200,
+      minWidth: 1850,
+    })
+    const focused = await recognizeCanvas(worker, slotIndex, focusedCanvas, '6')
+
+    bodyCanvas.width = 1
+    bodyCanvas.height = 1
+    focusedCanvas.width = 1
+    focusedCanvas.height = 1
+
+    onProgress?.(100, 'Cuerpo leído')
+
+    return {
+      text:
+        '--- CUERPO DE GUIA ---\n' + body.text +
+        '\n--- VERIFICACION CUERPO ---\n' + focused.text,
+      confidence: Math.max(body.confidence, focused.confidence),
+      method: 'BODY_DETAIL',
+      barcodes: [],
+    }
+  } finally {
+    releaseWorker(slotIndex)
+  }
 }
 
 export async function recognizeGuideImage(
