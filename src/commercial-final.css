@@ -166,3 +166,175 @@
     flex-wrap: wrap;
   }
 }
+
+
+/* ---------- Comercial · tarjetas accionables y gráficos ---------- */
+.commercial-kpis button {
+  min-width: 0;
+  min-height: 94px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(54, 79, 173, .14);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff, #fbfcff);
+  box-shadow: 0 8px 22px rgba(34, 52, 111, .055);
+  color: #21356f;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.commercial-kpis button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(54, 79, 173, .28);
+  box-shadow: 0 11px 26px rgba(34, 52, 111, .085);
+}
+
+.commercial-kpis button > svg:first-child {
+  width: 38px;
+  height: 38px;
+  padding: 9px;
+  border-radius: 11px;
+  background: #eef3ff;
+  color: #3152b5;
+}
+
+.commercial-kpis button > svg:last-child {
+  color: #9aa7c0;
+}
+
+.commercial-kpis button span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.commercial-kpis button b {
+  color: #18316f;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.commercial-kpis button small {
+  color: #52648b;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.commercial-kpis button em {
+  color: #8b96ad;
+  font-size: 8px;
+  line-height: 1.15;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commercial-kpis button.attention {
+  border-color: rgba(214, 61, 52, .18);
+  background: linear-gradient(180deg, #fff, #fff9f8);
+}
+
+.commercial-kpis button.attention > svg:first-child {
+  background: #fff0ef;
+  color: #d43d34;
+}
+
+.commercial-kpis button.attention b {
+  color: #c7352d;
+}
+
+.commercial-dashboard-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.commercial-chart-link {
+  min-width: 0;
+  border-radius: 15px;
+  cursor: pointer;
+}
+
+.commercial-chart-link .pro-chart-card {
+  height: 100%;
+  min-height: 245px;
+  margin: 0;
+}
+
+.commercial-chart-link > span {
+  min-height: 32px;
+  margin-top: -33px;
+  padding: 0 14px;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  color: #3553a6;
+  font-size: 9px;
+  font-weight: 850;
+  pointer-events: none;
+}
+
+.commercial-trend-card {
+  grid-column: 1 / -1;
+}
+
+.commercial-trend-card .pro-chart-card {
+  min-height: 220px;
+}
+
+@media (max-width: 1100px) {
+  .commercial-dashboard-charts {
+    grid-template-columns: 1fr;
+  }
+
+  .commercial-trend-card {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .commercial-kpis button {
+    min-height: 82px;
+    grid-template-columns: 34px minmax(0, 1fr) 14px;
+    padding: 9px;
+    gap: 7px;
+  }
+
+  .commercial-kpis button > svg:first-child {
+    width: 34px;
+    height: 34px;
+    padding: 8px;
+  }
+
+  .commercial-kpis button b {
+    font-size: 19px;
+  }
+
+  .commercial-kpis button small {
+    font-size: 8px;
+  }
+
+  .commercial-kpis button em {
+    font-size: 7.5px;
+  }
+
+  .commercial-dashboard-charts {
+    gap: 8px;
+  }
+
+  .commercial-chart-link .pro-chart-card,
+  .commercial-trend-card .pro-chart-card {
+    min-height: 225px;
+  }
+}
