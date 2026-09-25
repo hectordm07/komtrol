@@ -697,6 +697,10 @@ export function UniversalDashboardModule({
   const hasExpirationAccess=['vencimientos-emoa','vencimientos-cursos','vencimientos-licencias'].some(canAccess)
   const hasDocumentFlowAccess=['ingresos-reposicion','hoja-ubicacion','cargos-directos','seguimiento-guias'].some(canAccess)
   const hasOperationalReportAccess=[incidentRoute,surplusRoute,kardexRoute].some(canAccess)
+  const inboundReportOnly=
+    canAccess('inbound-incidencias') &&
+    !canAccess('incidencias') &&
+    !hasDocumentFlowAccess
 
   const visibleDocumentFlowData=documentFlowData.filter((row)=>{
     if(row.key==='FIORI'||row.key==='INGRESOS') return canAccess('hoja-ubicacion')
@@ -898,8 +902,12 @@ export function UniversalDashboardModule({
       {hasOperationalReportAccess&&<section className="universal-operational-reports">
         <div className="universal-report-heading">
           <div>
-            <b>Reportes operativos</b>
-            <span>{isAdminDashboard?'Vista global · todos los almacenes y proyectos':[profile.warehouse, profile.project].filter(Boolean).join(' · ') || 'Almacenes autorizados'}</span>
+            <b>{inboundReportOnly?'Reportes Inbound · Callao':'Reportes operativos'}</b>
+            <span>{inboundReportOnly
+              ? 'Indicadores autorizados para la operación Inbound de Callao'
+              : isAdminDashboard
+                ? 'Vista global · todos los almacenes y proyectos'
+                : [profile.warehouse, profile.project].filter(Boolean).join(' · ') || 'Almacenes autorizados'}</span>
           </div>
         </div>
 
