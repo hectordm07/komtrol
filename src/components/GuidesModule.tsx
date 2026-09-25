@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
-import { recognizeGuideImage } from '../lib/guideImageOcr'
+import { prewarmGuideOcr, recognizeGuideImage } from '../lib/guideImageOcr'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -512,6 +512,13 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   useEffect(() => {
     reload()
   }, [userId])
+
+  useEffect(() => {
+    if (mode !== 'scanner') return
+    void prewarmGuideOcr().catch(() => {
+      // El OCR seguirá intentando cargar cuando el usuario seleccione una imagen.
+    })
+  }, [mode])
 
   useEffect(() => {
     if (!initialSearch) return
