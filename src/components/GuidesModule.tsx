@@ -1489,7 +1489,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     const { data: created, error } = await supabase.from('guides').insert(payload).select('*').single()
     if (error || !created) {
       setSaving(false)
-      setMessage(error?.message ?? 'No se pudo guardar la guía.')
+      setMessage(`No se pudo guardar la guía: ${error?.message ?? 'error desconocido'}`)
       return
     }
 
@@ -1523,17 +1523,27 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     })
 
     setSaving(false)
-    setMessage(`Guía ${created.guide_no} registrada correctamente como ${created.guide_type}. Estado de carga: ${loadStatus}.`)
 
+    const savedGuideNo = created.guide_no
+    const savedGuideType = created.guide_type
     const savedBatchId = selectedBatchIdRef.current
+
     if (savedBatchId) {
       updateBatchItem(savedBatchId, { status: 'GUARDADO', progress: 100 })
     }
 
+    // Después de una confirmación exitosa el scanner queda limpio y listo
+    // para la siguiente guía. El mensaje de éxito se coloca después del reset
+    // para que el usuario tenga confirmación visible en celular.
     resetForm()
+    setMessage(`Guía ${savedGuideNo} guardada correctamente como ${savedGuideType}. Formulario limpio y listo para la siguiente guía.`)
 
     if (savedBatchId) {
       window.setTimeout(() => advanceToNextBatch(savedBatchId), 0)
+    } else {
+      window.setTimeout(() => {
+        document.querySelector('.scanner-command-bar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 80)
     }
 
     await reload()
@@ -2034,7 +2044,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           <div className="guide-lines enterprise-guide-lines">
             <div className="guide-lines-head">
               <div><b>Líneas de Reposición</b><span>Número de parte, descripción, cantidad y unidad.</span></div>
-              <button className="secondary-button" onClick={addLine}><Plus size={16} /> Agregar línea</button>
+              <button className="secondary-button" type="button" onClick={addLine}><Plus size={16} /> Agregar línea</button>
             </div>
             <div className="table-wrap">
               <table>
@@ -2056,7 +2066,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
                         onBlur={() => updateLine(index, { quantity: normalizeIntegerQuantity(line.quantity) })}
                       /></td>
                       <td><input value={line.unit} onChange={(e) => updateLine(index, { unit: e.target.value.toUpperCase() })} /></td>
-                      <td><button className="icon-button small-icon" onClick={() => removeLine(index)} title="Quitar"><X size={15} /></button></td>
+                      <td><button className="icon-button small-icon" type="button" onClick={() => removeLine(index)} title="Quitar"><X size={15} /></button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -2085,8 +2095,15 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
               <div className="scanner-confirmation-issue"><AlertTriangle size={14}/><span>{confirmationIssue}</span></div>
             ) : null}
           </div>
-          {!duplicateGuide && message && /no se pudo|error|obligatori|revisa|falta|duplicad|ya se encuentra/i.test(message) && (
-            <div className="scanner-footer-feedback"><AlertTriangle size={14}/><span>{message}</span></div>
+          {!duplicateGuide && message && (
+            <div className={`scanner-footer-feedback ${messageTone}`}>
+              {messageTone === 'success'
+                ? <CheckCircle2 size={14}/>
+                : messageTone === 'error' || messageTone === 'warning'
+                  ? <AlertTriangle size={14}/>
+                  : <ScanLine size={14}/>}
+              <span>{message}</span>
+            </div>
           )}
           <div className="scanner-footer-actions">
             <button className="secondary-button" type="button" onClick={resetForm}><X size={16}/> Cancelar</button>
@@ -2095,7 +2112,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
                 <AlertTriangle size={16}/> Aceptar con observaciones
               </button>
             )}
-            <button className="primary-button" disabled={saving || scanning} onClick={() => saveGuide(false)}>
+            <button className="primary-button" type="button" disabled={saving || scanning} onClick={() => void saveGuide(false)}>
               {saving ? <RefreshCw className="spin" size={17} /> : <CheckCircle2 size={17} />}
               {saving ? 'Guardando…' : 'Confirmar registro'}
             </button>
