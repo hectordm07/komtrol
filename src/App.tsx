@@ -47,7 +47,7 @@ import { IncidentEmailSettings } from './components/IncidentEmailSettings'
 import { SurplusKardexModule } from './components/SurplusKardexModule'
 import { ExpirationsModule } from './components/ExpirationsModule'
 import { UniversalDashboardModule } from './components/UniversalDashboardModule'
-import { CommercialDashboardModule } from './components/CommercialDashboardModule'
+import { CommercialDashboardModule, type CommercialOrderFilter } from './components/CommercialDashboardModule'
 
 type Tab = string
 
@@ -504,6 +504,7 @@ function Workspace({ session }: { session: Session }) {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [taskToOpen, setTaskToOpen] = useState<string | null>(null)
   const [dashboardTaskStatus, setDashboardTaskStatus] = useState<'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'|null>(null)
+  const [commercialOrderFilter,setCommercialOrderFilter]=useState<CommercialOrderFilter>('TODOS')
   const [commentToOpen, setCommentToOpen] = useState<string | null>(null)
   const [popNotification, setPopNotification] = useState<AppNotification | null>(null)
   const knownNotificationIds = useRef(new Set<string>())
@@ -697,6 +698,8 @@ function Workspace({ session }: { session: Session }) {
     setMobileMenu(false)
     setNotificationOpen(false)
     setTaskToOpen(null)
+    setDashboardTaskStatus(null)
+    setCommercialOrderFilter('TODOS')
     const nextLabel = next === 'ACTUAL'
       ? 'Administrador'
       : ({
@@ -1280,7 +1283,12 @@ function Workspace({ session }: { session: Session }) {
                       <button
                         key={id}
                         className={tab === id ? 'active' : ''}
-                        onClick={() => { setDashboardTaskStatus(null); setTab(id); setMobileMenu(false) }}
+                        onClick={() => {
+                          setDashboardTaskStatus(null)
+                          if (id === 'comercial-ordenes-compra') setCommercialOrderFilter('TODOS')
+                          setTab(id)
+                          setMobileMenu(false)
+                        }}
                       >
                         <Icon size={18} />
                         {label}
@@ -1455,7 +1463,8 @@ function Workspace({ session }: { session: Session }) {
               {tab === 'inicio' && (
                 isCommercialArea ? (
                   <CommercialDashboardModule
-                    onOpenOrders={() => {
+                    onOpenOrders={(filter='TODOS') => {
+                      setCommercialOrderFilter(filter)
                       setTab('comercial-ordenes-compra')
                       setOpenSections((current) => current.includes('COMERCIAL') ? current : [...current, 'COMERCIAL'])
                       setMobileMenu(false)
@@ -1613,7 +1622,8 @@ function Workspace({ session }: { session: Session }) {
 
               {isCommercialSummaryTab && role === 'ADMINISTRADOR' && (
                 <CommercialDashboardModule
-                  onOpenOrders={() => {
+                  onOpenOrders={(filter='TODOS') => {
+                    setCommercialOrderFilter(filter)
                     setTab('comercial-ordenes-compra')
                     setOpenSections((current) => current.includes('COMERCIAL') ? current : [...current, 'COMERCIAL'])
                     setMobileMenu(false)
@@ -1624,10 +1634,12 @@ function Workspace({ session }: { session: Session }) {
 
               {isCommercialOrdersTab && (isCommercialArea || role === 'ADMINISTRADOR') && (
                 <OcCargoTrackingModule
+                  key={`commercial-orders-${commercialOrderFilter}-${role}`}
                   userId={user.id}
                   profile={effectiveProfile!}
                   fixedType="ORDEN_COMPRA"
                   commercialView={role !== 'ADMINISTRADOR'}
+                  initialFilter={commercialOrderFilter}
                 />
               )}
 
