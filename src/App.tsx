@@ -1477,11 +1477,17 @@ function Workspace({ session }: { session: Session }) {
                     userId={user.id}
                     profile={effectiveProfile!}
                     previewMode={isAccessPreview}
+                    availableTabs={flatNav.map((item)=>item.id)}
+                    adminValidationMode={canPreviewSystemViews && isAccessPreview}
                     onNavigate={(targetTab, options) => {
                       const target = flatNav.find((item) => item.id === targetTab)
                       if (!target) {
                         setToast('Este indicador no está disponible para tu perfil.')
                         return
+                      }
+                      if (options?.restoreAdmin) {
+                        setAccessView('ACTUAL')
+                        setToast('Vista Administrador restaurada para atender tu pendiente.')
                       }
                       setDashboardTaskStatus(targetTab === 'tareas-globales' ? (options?.taskStatus || 'TODOS') : null)
                       setTab(targetTab)
