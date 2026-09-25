@@ -111,6 +111,7 @@ type KardexMovement={
 type GuideFollowup={
   final_status:string|null
   client_delivery_date:string|null
+  billing_status:string|null
 }
 
 type GuideRefrendo={
@@ -162,6 +163,7 @@ type Props={
   onNavigate:(tab:string,options?:{
     taskStatus?:'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'
     restoreAdmin?:boolean
+    commercialFilter?:'TODOS'|'PENDIENTE'|'EN_SEGUIMIENTO'|'OBSERVADO'|'ENTREGADO_CLIENTE'|'REFRENDADO'|'ANULADO'|'CERRADO'|'SIN_REFRENDO'|'CON_REFRENDO'
   })=>void
 }
 
@@ -197,23 +199,12 @@ function groupMatches(userGroup?:string|null,rowGroup?:string|null){
   return split(right).includes(left)||split(left).includes(right)
 }
 
-function formatDate(value?:string|null){
-  if(!value) return 'Sin fecha'
-  const date=new Date(value)
-  if(Number.isNaN(date.getTime())) return 'Sin fecha'
-  return new Intl.DateTimeFormat('es-PE',{day:'2-digit',month:'short',year:'numeric'}).format(date)
-}
-
 function expiryTab(type:Expiration['expiration_type']){
   return type==='CURSO'
     ? 'vencimientos-cursos'
     : type==='LICENCIA_INTERNA'
       ? 'vencimientos-licencias'
       : 'vencimientos-emoa'
-}
-
-function expiryLabel(type:Expiration['expiration_type']){
-  return type==='CURSO'?'Curso':type==='LICENCIA_INTERNA'?'Licencia interna':'EMOA'
 }
 
 export function UniversalDashboardModule({
@@ -284,7 +275,7 @@ export function UniversalDashboardModule({
         .limit(15000),
       supabase
         .from('guides')
-        .select('id,guide_no,guide_type,load_status,warehouse,group_name,created_by,responsible_user_id,created_at,oc_cargo_followups(final_status,client_delivery_date),guide_refrendos(id)')
+        .select('id,guide_no,guide_type,load_status,warehouse,group_name,created_by,responsible_user_id,created_at,oc_cargo_followups(final_status,client_delivery_date,billing_status),guide_refrendos(id)')
         .in('guide_type',['ORDEN_COMPRA','CARGO_DIRECTO','REPOSICION'])
         .order('created_at',{ascending:false})
         .limit(5000),
@@ -473,8 +464,10 @@ export function UniversalDashboardModule({
     return rows.filter((row)=>String(row.warehouse||'').trim().toUpperCase()===operationalWarehouse)
   }
 
+  const isCommercialProfile=profile.oc_cargo_access_level==='COMERCIAL'
   const operationalGuides=guides.filter((guide)=>{
     if(isAdminDashboard) return true
+    if(isCommercialProfile) return guide.guide_type==='ORDEN_COMPRA'
     if(String(guide.warehouse||'').trim().toUpperCase()!==operationalWarehouse) return false
     if(isAreaManager) return true
     if(guide.created_by===profile.user_id || guide.responsible_user_id===profile.user_id) return true
@@ -650,39 +643,6 @@ export function UniversalDashboardModule({
     return points
   },[dashboardTaskBase])
 
-  const upcoming=useMemo(()=>{
-    const taskItems=dashboardTaskBase
-      .filter((task)=>isOpen(task)&&task.due_at)
-      .map((task)=>({
-        id:`task-${task.id}`,
-        kind:'TAREA' as const,
-        title:task.title,
-        detail:task.task_no,
-        due:task.due_at as string,
-        days:daysUntil(task.due_at),
-        tab:isAdminDashboard?'tareas-globales':'mi-trabajo',
-      }))
-
-    const expiryItems=activeExpirations.map((row)=>({
-      id:`expiry-${row.id}`,
-      kind:'VENCIMIENTO' as const,
-      title:row.title,
-      detail:expiryLabel(row.expiration_type),
-      due:row.due_date,
-      days:daysUntil(row.due_date),
-      tab:expiryTab(row.expiration_type),
-    }))
-
-    return [...taskItems,...expiryItems]
-      .filter((row)=>canAccess(row.tab))
-      .sort((a,b)=>{
-        const ad=a.days??999999
-        const bd=b.days??999999
-        return ad-bd
-      })
-      .slice(0,10)
-  },[dashboardTaskBase,activeExpirations])
-
   const nearest=(type:Expiration['expiration_type'])=>{
     const list=expiryByType(type)
       .map((row)=>({...row,days:daysUntil(row.due_date)}))
@@ -704,8 +664,11 @@ export function UniversalDashboardModule({
   const purchaseOrders=operationalGuides.filter((guide)=>guide.guide_type==='ORDEN_COMPRA')
   const directCharges=operationalGuides.filter((guide)=>guide.guide_type==='CARGO_DIRECTO')
   const replenishmentGuides=operationalGuides.filter((guide)=>guide.guide_type==='REPOSICION')
-  const pendingPurchaseOrders=purchaseOrders.filter((guide)=>!['REFRENDADO','CERRADO'].includes(guideFollowupStatus(guide)))
-  const pendingDirectCharges=directCharges.filter((guide)=>!['REFRENDADO','CERRADO'].includes(guideFollowupStatus(guide)))
+  const pendingPurchaseOrders=purchaseOrders.filter((guide)=>['PENDIENTE','EN_SEGUIMIENTO'].includes(guideFollowupStatus(guide)))
+  const observedPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='OBSERVADO')
+  const deliveredPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='ENTREGADO_CLIENTE')
+  const refrendadoPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='REFRENDADO')
+  const closedPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='CERRADO')
   const pendingDirectDelivery=directCharges.filter((guide)=>{
     const value=guide.oc_cargo_followups
     const row=Array.isArray(value)?value[0]:value
@@ -713,7 +676,12 @@ export function UniversalDashboardModule({
     return !row?.client_delivery_date && !['ANULADO','CERRADO','ENTREGADO_CLIENTE','REFRENDADO'].includes(finalStatus)
   })
   const purchaseOrdersWithoutRefrendo=purchaseOrders.filter((guide)=>(guide.guide_refrendos?.length||0)===0)
-  const observedLoads=operationalGuides.filter((guide)=>guide.load_status==='OBSERVADO')
+  const purchaseOrdersWithRefrendo=purchaseOrders.filter((guide)=>(guide.guide_refrendos?.length||0)>0)
+  const purchaseOrdersBillingSent=purchaseOrders.filter((guide)=>{
+    const value=guide.oc_cargo_followups
+    const row=Array.isArray(value)?value[0]:value
+    return ['ENVIADO','REENVIADO','CONFIRMADO'].includes(row?.billing_status||'')
+  })
   const pendingSapKmmp=operationalReplenishmentReceipts.filter((row)=>!/^18\d+$/.test(String(row.sap_kmmp_no||'')))
   const pendingFioriIngresses=operationalReplenishmentIngresses.filter((row)=>!/^50\d+$/.test(String(row.sap_fiori_ni||'')))
   const guideTypeSegments=[
@@ -748,6 +716,31 @@ export function UniversalDashboardModule({
     urgentExpirations+
     commercialPendingTotal+
     operationsPendingTotal
+
+  const purchaseOrderRoute =
+    isCommercialProfile && canAccess('comercial-ordenes-compra')
+      ? 'comercial-ordenes-compra'
+      : canAccess('ordenes-compra')
+        ? 'ordenes-compra'
+        : canAccess('comercial-ordenes-compra')
+          ? 'comercial-ordenes-compra'
+          : null
+
+  const purchaseOrderStatusSegments=[
+    {key:'PENDIENTE',label:'Pendiente',value:purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='PENDIENTE').length},
+    {key:'EN_SEGUIMIENTO',label:'En seguimiento',value:purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='EN_SEGUIMIENTO').length},
+    {key:'OBSERVADO',label:'Observado',value:observedPurchaseOrders.length},
+    {key:'ENTREGADO_CLIENTE',label:'Entregado',value:deliveredPurchaseOrders.length},
+    {key:'REFRENDADO',label:'Refrendado',value:refrendadoPurchaseOrders.length},
+    {key:'CERRADO',label:'Cerrado',value:closedPurchaseOrders.length},
+  ]
+  const purchaseOrderProgressData=[
+    {key:'TODOS',label:'OC registradas',value:purchaseOrders.length,detail:'Órdenes de Compra visibles según el perfil.'},
+    {key:'PENDIENTE',label:'Pendientes',value:pendingPurchaseOrders.length,detail:'Pendientes o en seguimiento.'},
+    {key:'OBSERVADO',label:'Observadas',value:observedPurchaseOrders.length,detail:'Requieren revisión o regularización.'},
+    {key:'CON_REFRENDO',label:'Con refrendo',value:purchaseOrdersWithRefrendo.length,detail:'Refrendos disponibles para visualizar o descargar.'},
+    {key:'FACTURACION',label:'Facturación',value:purchaseOrdersBillingSent.length,detail:'Órdenes enviadas o confirmadas para facturación.'},
+  ]
 
   const hasTaskAccess=canAccess(isAdminDashboard?'tareas-globales':'mi-trabajo')
   const hasExpirationAccess=['vencimientos-emoa','vencimientos-cursos','vencimientos-licencias'].some(canAccess)
@@ -891,7 +884,71 @@ export function UniversalDashboardModule({
         />}
       </div>
 
-      {hasDocumentFlowAccess&&<section className="universal-operational-reports document-flow-section">
+      {purchaseOrderRoute&&<section className="universal-operational-reports dashboard-commercial-oc-section">
+        <div className="universal-report-heading">
+          <div>
+            <b>Órdenes de Compra</b>
+            <span>{isCommercialProfile
+              ? 'Área Comercial · seguimiento documental de todas las OC'
+              : isAdminDashboard
+                ? 'Vista global · estado documental de las OC'
+                : `Información visible para ${profile.warehouse||profile.project||'tu perfil'}`}</span>
+          </div>
+        </div>
+
+        <div className="document-flow-kpis dashboard-commercial-oc-kpis">
+          <button type="button" onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'TODOS'})}>
+            <span className="operational-report-icon"><ShoppingCart size={19}/></span>
+            <span><small>OC REGISTRADAS</small><b>{purchaseOrders.length}</b><em>Universo visible del perfil</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" className={pendingPurchaseOrders.length?'attention':''} onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'PENDIENTE'})}>
+            <span className="operational-report-icon"><Clock3 size={19}/></span>
+            <span><small>PENDIENTES</small><b>{pendingPurchaseOrders.length}</b><em>Requieren seguimiento</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" className={observedPurchaseOrders.length?'attention':''} onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'OBSERVADO'})}>
+            <span className="operational-report-icon"><AlertTriangle size={19}/></span>
+            <span><small>OBSERVADOS</small><b>{observedPurchaseOrders.length}</b><em>Requieren regularización</em></span>
+            <ChevronRight size={16}/>
+          </button>
+          <button type="button" className="success" onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'CON_REFRENDO'})}>
+            <span className="operational-report-icon"><CheckCircle2 size={19}/></span>
+            <span><small>REFRENDO DISPONIBLE</small><b>{purchaseOrdersWithRefrendo.length}</b><em>Listo para visualizar o descargar</em></span>
+            <ChevronRight size={16}/>
+          </button>
+        </div>
+
+        <div className="universal-operational-charts dashboard-commercial-oc-charts">
+          <div className="dashboard-chart-link">
+            <ProfessionalDonutChart
+              title="Estado de Órdenes de Compra"
+              subtitle="Distribución actual del flujo documental"
+              segments={purchaseOrderStatusSegments}
+              onSelect={(key)=>onNavigate(purchaseOrderRoute,{commercialFilter:key as 'PENDIENTE'|'EN_SEGUIMIENTO'|'OBSERVADO'|'ENTREGADO_CLIENTE'|'REFRENDADO'|'CERRADO'})}
+            />
+            <span className="dashboard-chart-access">Ver Órdenes de Compra <ChevronRight size={14}/></span>
+          </div>
+          <div className="dashboard-chart-link">
+            <ProfessionalBarChart
+              title="Avance documental de OC"
+              subtitle="Registro, observaciones, refrendos y facturación"
+              data={purchaseOrderProgressData}
+              onSelect={(key)=>{
+                const filter =
+                  key==='OBSERVADO' ? 'OBSERVADO' :
+                  key==='CON_REFRENDO' ? 'CON_REFRENDO' :
+                  key==='PENDIENTE' ? 'PENDIENTE' :
+                  'TODOS'
+                onNavigate(purchaseOrderRoute,{commercialFilter:filter})
+              }}
+            />
+            <span className="dashboard-chart-access">Abrir reporte documental <ChevronRight size={14}/></span>
+          </div>
+        </div>
+      </section>}
+
+      {hasDocumentFlowAccess&&!isCommercialProfile&&<section className="universal-operational-reports document-flow-section">
         <div className="universal-report-heading">
           <div>
             <b>Flujo documental y recepción</b>
@@ -1120,38 +1177,7 @@ export function UniversalDashboardModule({
         </div>}
       </div>
 
-      {(hasTaskAccess||hasExpirationAccess)&&<section className="panel universal-upcoming">
-        <div className="panel-title">
-          <div>
-            <h3>{isAdminDashboard?'Próximos pendientes globales':'Próximos compromisos'}</h3>
-            <p>{isAdminDashboard?'Tareas y vencimientos de toda la operación, ordenados por fecha.':'Tareas y vencimientos ordenados por fecha.'}</p>
-          </div>
-          <span className="status-pill">{upcoming.length} próximos</span>
-        </div>
-        <div className="universal-upcoming-list">
-          {upcoming.map((row)=>(
-            <button key={row.id} onClick={()=>onNavigate(row.tab)}>
-              <span className={row.days!==null&&row.days<0?'universal-date-badge overdue':'universal-date-badge'}>
-                <b>{row.days===null?'—':row.days<0?`${Math.abs(row.days)}d`:`${row.days}d`}</b>
-                <small>{row.days!==null&&row.days<0?'vencido':'restan'}</small>
-              </span>
-              <span className="universal-upcoming-copy">
-                <small>{row.kind} · {row.detail}</small>
-                <b>{row.title}</b>
-                <span>{formatDate(row.due)}</span>
-              </span>
-              <ChevronRight size={17}/>
-            </button>
-          ))}
-          {!upcoming.length&&(
-            <div className="empty-work">
-              <CheckCircle2 size={28}/>
-              <b>Sin compromisos próximos</b>
-              <p>{isAdminDashboard?'No existen pendientes globales con fecha registrada.':'No tienes tareas o vencimientos pendientes con fecha registrada.'}</p>
-            </div>
-          )}
-        </div>
-      </section>}
+
     </div>
   )
 }
