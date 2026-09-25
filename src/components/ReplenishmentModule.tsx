@@ -56,7 +56,6 @@ export function ReplenishmentModule() {
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
   const [sapKmmp, setSapKmmp] = useState('')
-  const [sapFiori, setSapFiori] = useState('')
   const [savingSap, setSavingSap] = useState(false)
 
   async function reload() {
@@ -151,7 +150,6 @@ export function ReplenishmentModule() {
   function openDetail(row: Receipt) {
     setSelected(row)
     setSapKmmp(row.sap_kmmp_no || '')
-    setSapFiori(row.sap_fiori_no || '')
     setMessage('')
   }
 
@@ -159,17 +157,11 @@ export function ReplenishmentModule() {
     if (!selected) return
 
     const kmmp = sapKmmp.trim()
-    const fiori = sapFiori.trim()
 
     if (kmmp && !/^18\d+$/.test(kmmp)) {
       setMessage('SAP KMMP inválido: debe contener solo números y empezar con 18. Ejemplo: 180499543.')
       return
     }
-    if (fiori && !/^50\d+$/.test(fiori)) {
-      setMessage('SAP FIORI inválido: debe contener solo números y empezar con 50. Ejemplo: 5000288368.')
-      return
-    }
-
     setSavingSap(true)
     setMessage('')
 
@@ -177,7 +169,6 @@ export function ReplenishmentModule() {
       .from('replenishment_receipts')
       .update({
         sap_kmmp_no: kmmp || null,
-        sap_fiori_no: fiori || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', selected.id)
@@ -355,8 +346,8 @@ export function ReplenishmentModule() {
                   </b>
                 </div>
                 <p>
-                  Se considera <b>INGRESADO</b> cuando exista un documento válido de SAP KMMP (18…) o SAP FIORI (50…).
-                  Las guías ingresadas dejan de aparecer en la Hoja de Ubicación de pendientes.
+                  Desde esta guía se registra el ingreso <b>SAP KMMP (18…)</b>.
+                  El NI de <b>SAP FIORI (50…)</b> se registra desde la Hoja de Ubicación del ingreso agrupado.
                 </p>
               </div>
 
@@ -370,18 +361,9 @@ export function ReplenishmentModule() {
                   />
                   <small>Debe iniciar con 18</small>
                 </label>
-                <label>SAP FIORI
-                  <input
-                    inputMode="numeric"
-                    value={sapFiori}
-                    onChange={(e) => setSapFiori(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Ej. 5000288368"
-                  />
-                  <small>Debe iniciar con 50</small>
-                </label>
                 <button className="primary-button sap-save-button" disabled={savingSap} onClick={saveSapEntry}>
                   {savingSap ? <RefreshCw className="spin" size={16} /> : <PackageCheck size={16} />}
-                  {savingSap ? 'Guardando…' : 'Guardar ingreso SAP'}
+                  {savingSap ? 'Guardando…' : 'Guardar SAP KMMP'}
                 </button>
               </div>
             </div>
