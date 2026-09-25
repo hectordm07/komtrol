@@ -605,6 +605,8 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     status: string
   } | null>(null)
 
+  const profileWarehouse = String(profile?.warehouse || '').trim().toUpperCase()
+
   async function reload() {
     setLoading(true)
     const [guideRes, profileRes] = await Promise.all([
@@ -620,6 +622,15 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   useEffect(() => {
     reload()
   }, [userId])
+
+  useEffect(() => {
+    if (!profileWarehouse) return
+    setForm((current) =>
+      current.warehouse.trim().toUpperCase() === profileWarehouse
+        ? current
+        : { ...current, warehouse: profileWarehouse }
+    )
+  }, [profileWarehouse])
 
   useEffect(() => {
     if (mode !== 'scanner') return
@@ -1299,10 +1310,13 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       setMessage('Falta la Referencia. Complétala antes de confirmar.')
       return
     }
-    if (!form.warehouse.trim() && !profile?.warehouse) {
-      setMessage('Falta el Almacén. Complétalo antes de confirmar.')
+
+    const resolvedWarehouse = String(form.warehouse || profileWarehouse).trim().toUpperCase()
+    if (!resolvedWarehouse) {
+      setMessage('No se puede registrar la guía sin Almacén. Configura el almacén del perfil antes de continuar.')
       return
     }
+
     if (form.guide_type === 'REPOSICION' && !form.supplier) {
       setMessage('Selecciona el proveedor de la Reposición: KOMATSU o CUMMINS.')
       return
@@ -1402,7 +1416,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       guide_type: form.guide_type,
       supplier: form.guide_type === 'REPOSICION' ? form.supplier : null,
       data_source: 'SCANNER',
-      warehouse: form.warehouse.trim() || profile?.warehouse || null,
+      warehouse: resolvedWarehouse,
       group_name: profile?.group_name || null,
       responsible_user_id: userId,
       status: loadStatus,
@@ -1553,7 +1567,11 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     if (profile && profile.role !== 'ADMINISTRADOR') {
       const warehouse = String(profile.warehouse || '').trim().toUpperCase()
       rows = rows.filter((guide) => {
-        if (warehouse && String(guide.warehouse || '').trim().toUpperCase() !== warehouse) return false
+        const guideWarehouse = String(guide.warehouse || '').trim().toUpperCase()
+
+        // Registros históricos sin almacén no deben desaparecer para su responsable.
+        // Si ya tienen almacén, nunca se mezclan entre proyectos distintos.
+        if (warehouse && guideWarehouse && guideWarehouse !== warehouse) return false
         if (profile.role === 'COORDINADOR' || profile.role === 'SUPERVISOR') return true
         if (guide.created_by === profile.user_id || guide.responsible_user_id === profile.user_id) return true
         return groupMatches(profile.group_name, guide.group_name)
@@ -1593,7 +1611,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     ? 'Falta N° de guía'
     : !form.reference.trim()
       ? 'Falta referencia'
-      : (!form.warehouse.trim() && !profile?.warehouse)
+      : !String(form.warehouse || profileWarehouse).trim()
         ? 'Falta almacén'
         : form.guide_type === 'REPOSICION' && !activeReplenishmentLines.length
           ? 'Falta al menos una línea'
@@ -1937,7 +1955,17 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             <div className="guide-form-section-title"><b>Contexto operativo</b><span>Ubicación, responsable y observaciones</span></div>
             <div className="form-grid guide-form guide-form-professional">
               <label>Almacén
-                <input value={form.warehouse} onChange={(e) => setForm({ ...form, warehouse: e.target.value })} placeholder="Almacén" />
+                <input
+                  value={form.warehouse}
+                  onChange={(e) => setForm({ ...form, warehouse: e.target.value.toUpperCase() })}
+                  placeholder="Almacén"
+                  readOnly={profile?.role !== 'ADMINISTRADOR'}
+                />
+                <small>
+                  {profileWarehouse
+                    ? 'Asignado automáticamente desde el perfil del usuario.'
+                    : 'Obligatorio: configura un almacén en el perfil antes de registrar la guía.'}
+                </small>
               </label>
               <label>Responsable
                 <input value={profile?.full_name || 'Usuario actual'} disabled />
