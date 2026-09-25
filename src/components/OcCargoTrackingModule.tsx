@@ -1,10 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Copy,
+   CheckCircle2,
+   Copy,
   DollarSign,
   Download,
   Eye,
@@ -15,8 +13,7 @@ import {
   RefreshCw,
   Save,
   Search,
-  Send,
-  Upload,
+   Upload,
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -151,11 +148,24 @@ type Guide = {
   observationEmails?: ObservationEmail[]
 }
 
+type OrderListFilter =
+  | 'TODOS'
+  | 'PENDIENTE'
+  | 'EN_SEGUIMIENTO'
+  | 'OBSERVADO'
+  | 'ENTREGADO_CLIENTE'
+  | 'REFRENDADO'
+  | 'ANULADO'
+  | 'CERRADO'
+  | 'SIN_REFRENDO'
+  | 'CON_REFRENDO'
+
 type Props = {
   userId: string
   profile: Profile | null
   fixedType?: GuideType
   commercialView?: boolean
+  initialFilter?: OrderListFilter
 }
 
 type FollowupForm = {
@@ -302,13 +312,13 @@ function emails(value: string) {
     .filter(Boolean)
 }
 
-export function OcCargoTrackingModule({ userId, profile, fixedType, commercialView = false }: Props) {
+export function OcCargoTrackingModule({ userId, profile, fixedType, commercialView = false, initialFilter = 'TODOS' }: Props) {
   const [guides, setGuides] = useState<Guide[]>([])
   const [activeType, setActiveType] = useState<GuideType>(fixedType || 'ORDEN_COMPRA')
   const [selected, setSelected] = useState<Guide | null>(null)
   const [form, setForm] = useState<FollowupForm>(emptyFollowup())
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('TODOS')
+  const [statusFilter, setStatusFilter] = useState<OrderListFilter>(initialFilter)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -395,6 +405,10 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
   }, [fixedType])
 
   useEffect(() => {
+    setStatusFilter(initialFilter || 'TODOS')
+  }, [initialFilter])
+
+  useEffect(() => {
     reload()
   }, [userId])
 
@@ -402,7 +416,12 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
     const q = search.trim().toLowerCase()
     return guides.filter((guide) => {
       if (guide.guide_type !== activeType) return false
-      if (statusFilter !== 'TODOS' && (guide.followup?.final_status ?? 'PENDIENTE') !== statusFilter) return false
+      if (statusFilter === 'SIN_REFRENDO' && (guide.refrendos?.length || 0) > 0) return false
+      if (statusFilter === 'CON_REFRENDO' && (guide.refrendos?.length || 0) === 0) return false
+      if (
+        !['TODOS','SIN_REFRENDO','CON_REFRENDO'].includes(statusFilter) &&
+        (guide.followup?.final_status ?? 'PENDIENTE') !== statusFilter
+      ) return false
       if (!q) return true
       return [
         guide.guide_no,
@@ -1049,14 +1068,6 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
           </div>
         )}
 
-        <div className="oc-cargo-kpis oc-cargo-kpis-expanded">
-          <div><CheckCircle2 size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
-          <div><Clock3 size={17} /><span><b>{counts.pending}</b><small>Pendientes</small></span></div>
-          <div><AlertTriangle size={17} /><span><b>{counts.observed}</b><small>Observados</small></span></div>
-          <div><CalendarDays size={17} /><span><b>{counts.withRefrendo}</b><small>Con refrendo PDF</small></span></div>
-          <div><Send size={17} /><span><b>{counts.billingSent}</b><small>Enviados a Facturación</small></span></div>
-        </div>
-
         <div className="task-toolbar oc-cargo-toolbar">
           <div className="search">
             <Search size={17} />
@@ -1068,7 +1079,7 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
           </div>
           <SearchableSelect
             value={statusFilter}
-            onChange={(value)=>setStatusFilter(value||'TODOS')}
+            onChange={(value)=>setStatusFilter((value||'TODOS') as OrderListFilter)}
             options={[
               {value:'TODOS',label:'Todos los estados'},
               {value:'PENDIENTE',label:'Pendiente'},
@@ -1078,50 +1089,61 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
               {value:'REFRENDADO',label:'Refrendado'},
               {value:'ANULADO',label:'Anulado'},
               {value:'CERRADO',label:'Cerrado'},
+              {value:'SIN_REFRENDO',label:'Sin refrendo'},
+              {value:'CON_REFRENDO',label:'Refrendo disponible'},
             ]}
-            placeholder="Buscar estado…"
-            clearable={false}
+            placeholder="Filtrar reporte…"
+            clearable={true}
             ariaLabel="Filtrar por estado"
           />
         </div>
+
+        {statusFilter !== 'TODOS' && (
+          <div className="oc-active-report-filter">
+            <span>Filtro activo: <b>{
+              statusFilter === 'SIN_REFRENDO' ? 'Sin refrendo' :
+              statusFilter === 'CON_REFRENDO' ? 'Refrendo disponible' :
+              statusLabel(statusFilter)
+            }</b></span>
+            <button type="button" onClick={()=>setStatusFilter('TODOS')}><X size={13}/> Quitar filtro</button>
+          </div>
+        )}
 
         {message && !selected && <div className="inline-message">{message}</div>}
 
         {loading ? (
           <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando guías…</p></div>
         ) : (
-          <div className="table-wrap">
-            <table>
+          <div className="table-wrap oc-cargo-table-wrap">
+            <table className="oc-cargo-compact-table">
               <thead>
                 <tr>
                   <th>Guía</th>
-                  <th>Referencia</th>
-                  <th>N° Documento</th>
-                  <th>Emisión</th>
-                  <th>Recepción</th>
-                  {activeType === 'ORDEN_COMPRA' && <th>Valor OC $</th>}
+                  <th>Referencia / Documento</th>
+                  <th>Fechas</th>
                   <th>Estatus final</th>
                   {activeType === 'ORDEN_COMPRA' && <th>Correo observación</th>}
-                  <th>Encargado</th>
-                  <th>Ubicación</th>
-                  <th>Refrendos</th>
-                  <th>Estado Facturación</th>
-                  <th>Fecha de Envío</th>
-                  <th>Enviado por</th>
+                  <th>Gestión</th>
+                  <th>Refrendo</th>
+                  <th>Facturación</th>
                   <th>Seguimiento</th>
                 </tr>
               </thead>
               <tbody>
                 {visible.map((guide) => (
                   <tr key={guide.id}>
-                    <td><b>{guide.guide_no}</b><small>{guide.warehouse || 'Sin almacén'}</small></td>
-                    <td>{guide.reference}</td>
-                    <td>{guide.document_no || '—'}</td>
-                    <td>{fmtDate(guide.emission_date)}</td>
-                    <td>{fmtDate(guide.reception_at)}</td>
-                    {activeType === 'ORDEN_COMPRA' && (
-                      <td>{guide.followup?.oc_value_usd == null ? '—' : Number(guide.followup.oc_value_usd).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</td>
-                    )}
+                    <td className="oc-guide-cell">
+                      <b>{guide.guide_no}</b>
+                      <small>{guide.warehouse || 'Sin almacén'}</small>
+                    </td>
+                    <td className="oc-reference-cell">
+                      <b>{guide.reference}</b>
+                      <small>Doc. {guide.document_no || '—'}</small>
+                    </td>
+                    <td className="oc-dates-cell">
+                      <span><small>EMI</small>{fmtDate(guide.emission_date)}</span>
+                      <span><small>REC</small>{fmtDate(guide.reception_at)}</span>
+                    </td>
                     <td>
                       <span className={guide.followup?.final_status === 'OBSERVADO' ? 'status-pill danger' : guide.followup?.final_status === 'REFRENDADO' || guide.followup?.final_status === 'CERRADO' ? 'status-pill' : 'status-pill warning'}>
                         {statusLabel(guide.followup?.final_status || 'PENDIENTE')}
@@ -1136,8 +1158,10 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
                           : <span className="oc-email-not-applicable">—</span>}
                       </td>
                     )}
-                    <td>{guide.followup?.management_owner || '—'}</td>
-                    <td>{guide.followup?.parts_location || '—'}</td>
+                    <td className="oc-management-cell">
+                      <b>{guide.followup?.management_owner || 'Sin encargado'}</b>
+                      <small>{guide.followup?.parts_location || 'Sin ubicación'}</small>
+                    </td>
                     <td>
                       {latestRefrendo(guide)
                         ? <div className="refrendo-action-group">
@@ -1146,9 +1170,12 @@ export function OcCargoTrackingModule({ userId, profile, fixedType, commercialVi
                           </div>
                         : <span className="status-pill warning">PENDIENTE</span>}
                     </td>
-                    <td><span className={['ENVIADO','REENVIADO','CONFIRMADO'].includes(guide.followup?.billing_status||'')?'status-pill':'status-pill warning'}>{statusLabel(guide.followup?.billing_status||'PENDIENTE')}</span></td>
-                    <td>{fmtDate(guide.followup?.billing_sent_at)}</td>
-                    <td>{guide.followup?.billing_sent_by_name || '—'}</td>
+                    <td className="oc-billing-cell">
+                      <span className={['ENVIADO','REENVIADO','CONFIRMADO'].includes(guide.followup?.billing_status||'')?'status-pill':'status-pill warning'}>
+                        {statusLabel(guide.followup?.billing_status||'PENDIENTE')}
+                      </span>
+                      <small>{guide.followup?.billing_sent_at ? fmtDate(guide.followup.billing_sent_at) : 'Sin envío'}</small>
+                    </td>
                     <td>
                       <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
                         <Eye size={14} /> {isCommercialView ? 'Ver estado' : 'Ver / Editar'}
