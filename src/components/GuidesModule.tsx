@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
-import { prewarmGuideOcr, recognizeGuideImage } from '../lib/guideImageOcr'
+import { prewarmGuideOcr, recognizeGuideBodyImage, recognizeGuideImage } from '../lib/guideImageOcr'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -91,6 +91,14 @@ type BatchScanItem = {
   progress: number
   error?: string
   result?: BatchScanResult
+}
+
+type CameraBodyCapture = {
+  pageNo: number
+  fileName: string
+  confidence: number
+  detectedLines: number
+  highestLine: number
 }
 
 const emptyLine = (): GuideLine => ({ line_no: 1, part_no: '', description: '', quantity: '', unit: 'UND' })
@@ -300,6 +308,36 @@ function parseReplenishmentLines(text: string): GuideLine[] {
   return [...byLine.values()]
     .sort((a, b) => a.line_no - b.line_no)
     .slice(0, 999)
+}
+
+function mergeGuideBodyLines(current: GuideLine[], incoming: GuideLine[]) {
+  const byLine = new Map<number, GuideLine>()
+
+  for (const line of current) {
+    const hasData = line.part_no.trim() || line.description.trim() || line.quantity.trim()
+    if (!hasData) continue
+    byLine.set(line.line_no, line)
+  }
+
+  for (const line of incoming) {
+    const hasData = line.part_no.trim() || line.description.trim() || line.quantity.trim()
+    if (!hasData) continue
+
+    const existing = byLine.get(line.line_no)
+    if (!existing) {
+      byLine.set(line.line_no, line)
+      continue
+    }
+
+    const existingScore = [existing.part_no, existing.description, existing.quantity, existing.unit]
+      .filter((value) => String(value || '').trim()).length
+    const incomingScore = [line.part_no, line.description, line.quantity, line.unit]
+      .filter((value) => String(value || '').trim()).length
+
+    if (incomingScore >= existingScore) byLine.set(line.line_no, line)
+  }
+
+  return [...byLine.values()].sort((a, b) => a.line_no - b.line_no)
 }
 
 function parseLines(text: string): GuideLine[] {
@@ -622,6 +660,9 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraStarting, setCameraStarting] = useState(false)
   const [cameraError, setCameraError] = useState('')
+  const [cameraPageNo, setCameraPageNo] = useState(1)
+  const [cameraPageProcessing, setCameraPageProcessing] = useState(false)
+  const [cameraBodyCaptures, setCameraBodyCaptures] = useState<CameraBodyCapture[]>([])
   const [batchItems, setBatchItems] = useState<BatchScanItem[]>([])
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
   const batchItemsRef = useRef<BatchScanItem[]>([])
@@ -709,10 +750,20 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     if (videoRef.current) videoRef.current.srcObject = null
   }
 
-  async function openSmartCamera() {
+  async function openSmartCamera(options?: { continueGuide?: boolean }) {
     setCameraError('')
     setCameraStarting(true)
     setCameraOpen(true)
+
+    if (!options?.continueGuide) {
+      resetForm()
+      setCameraPageNo(1)
+      setCameraBodyCaptures([])
+    } else {
+      const highestCaptured = cameraBodyCaptures.reduce((max, page) => Math.max(max, page.pageNo), 1)
+      setCameraPageNo(Math.max(2, highestCaptured + 1))
+    }
+
     stopCameraStream()
 
     try {
@@ -771,6 +822,83 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     setCameraError('')
   }
 
+  async function appendGuideBodyPhoto(bodyFile: File, pageNo: number) {
+    setCameraPageProcessing(true)
+    setScanning(true)
+    setScanProgress(3)
+    setMessage(`Leyendo cuerpo ${pageNo} de la misma guía…`)
+
+    try {
+      const result = await recognizeGuideBodyImage(bodyFile, (progress, status) => {
+        setScanProgress(progress)
+        if (status) setMessage(`Cuerpo ${pageNo} · ${status}`)
+      })
+
+      const bodyLines = parseReplenishmentLines(result.text)
+      const bodyLineCount = detectDocumentLineCount(result.text)
+      const highestBodyLine = Math.max(
+        bodyLineCount,
+        ...bodyLines.map((line) => line.line_no),
+        0,
+      )
+
+      setLines((current) => {
+        const merged = mergeGuideBodyLines(current, bodyLines)
+        const highestMerged = Math.max(...merged.map((line) => line.line_no), 0)
+
+        setForm((prev) => {
+          const previousConfidence = Number(prev.ocr_confidence || 0)
+          const previousPages = Math.max(pageNo - 1, 1)
+          const combinedConfidence = result.confidence > 0
+            ? ((previousConfidence * previousPages) + result.confidence) / (previousPages + 1)
+            : previousConfidence
+
+          return {
+            ...prev,
+            line_count: String(Math.max(
+              Number(prev.line_count || 1),
+              highestBodyLine,
+              highestMerged,
+              merged.length,
+              1,
+            )),
+            ocr_text: [
+              prev.ocr_text,
+              `--- CUERPO ${pageNo} ---`,
+              result.text,
+            ].filter(Boolean).join('\n'),
+            ocr_confidence: combinedConfidence > 0 ? combinedConfidence.toFixed(1) : prev.ocr_confidence,
+          }
+        })
+
+        return merged.length ? merged : current
+      })
+
+      setCameraBodyCaptures((current) => [
+        ...current.filter((page) => page.pageNo !== pageNo),
+        {
+          pageNo,
+          fileName: bodyFile.name,
+          confidence: result.confidence,
+          detectedLines: bodyLines.length,
+          highestLine: highestBodyLine,
+        },
+      ].sort((a, b) => a.pageNo - b.pageNo))
+
+      setMessage(
+        bodyLines.length
+          ? `Cuerpo ${pageNo} incorporado: ${bodyLines.length} línea${bodyLines.length === 1 ? '' : 's'} detectada${bodyLines.length === 1 ? '' : 's'}${highestBodyLine ? ` · hasta línea ${highestBodyLine}` : ''}. Puedes capturar el siguiente cuerpo.`
+          : `Cuerpo ${pageNo} leído, pero no se identificaron líneas completas. Revísalo antes de confirmar.`
+      )
+    } catch (error) {
+      setCameraError(`No se pudo leer el cuerpo ${pageNo}: ${error instanceof Error ? error.message : 'error desconocido'}`)
+    } finally {
+      setCameraPageProcessing(false)
+      setScanning(false)
+      setScanProgress(100)
+    }
+  }
+
   async function captureSmartCamera() {
     const video = videoRef.current
     if (!video || !video.videoWidth || !video.videoHeight) {
@@ -812,8 +940,30 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       { type: 'image/jpeg' }
     )
 
-    enqueueGuidePhotos([nextFile])
     setCameraError('')
+    setCameraPageProcessing(true)
+
+    try {
+      if (cameraPageNo === 1) {
+        setFile(nextFile)
+        setPreviewForFile(nextFile)
+        await runImageOcr(nextFile)
+        setCameraBodyCaptures([{
+          pageNo: 1,
+          fileName: nextFile.name,
+          confidence: Number(form.ocr_confidence || 0),
+          detectedLines: 0,
+          highestLine: 0,
+        }])
+        setCameraPageNo(2)
+        setMessage('Primer cuerpo capturado. La cabecera pertenece a esta guía; ahora captura el cuerpo 2 para agregar solo sus materiales.')
+      } else {
+        await appendGuideBodyPhoto(nextFile, cameraPageNo)
+        setCameraPageNo((page) => page + 1)
+      }
+    } finally {
+      setCameraPageProcessing(false)
+    }
   }
 
   useEffect(() => {
@@ -1061,6 +1211,8 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     if (pdfRef.current) pdfRef.current.value = ''
     setScanProgress(0)
     setDuplicateGuide(null)
+    setCameraPageNo(1)
+    setCameraBodyCaptures([])
     setForm({
       guide_no: '',
       document_no: '',
@@ -1467,7 +1619,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       reception_source: 'FECHA_CARGA',
       reference: form.reference.trim(),
       line_count: form.guide_type === 'REPOSICION'
-        ? Math.max(replenishmentLines.length, 1)
+        ? Math.max(
+            replenishmentLines.length,
+            Number(form.line_count || 1),
+            ...replenishmentLines.map((line) => line.line_no || 0),
+            1,
+          )
         : Math.max(Math.round(Number(form.line_count || 1)), 1),
       guide_type: form.guide_type,
       supplier: form.guide_type === 'REPOSICION' ? form.supplier : null,
@@ -1499,7 +1656,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     if (form.guide_type === 'REPOSICION') {
       const validLines = replenishmentLines.map((line, index) => ({
         guide_id: created.id,
-        line_no: index + 1,
+        line_no: line.line_no || index + 1,
         part_no: line.part_no.trim(),
         description: line.description.trim(),
         quantity: Number(normalizeIntegerQuantity(line.quantity)),
@@ -1813,9 +1970,9 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       <section className="panel scanner-panel scanner-enterprise">
         <div className="scanner-command-bar">
           <div className="scanner-actions scanner-actions-batch">
-            <button className="scan-action primary-scan" disabled={scanning} onClick={() => void openSmartCamera()}>
+            <button className="scan-action primary-scan" disabled={scanning || cameraPageProcessing} onClick={() => void openSmartCamera()}>
               <span className="scan-action-icon"><Camera size={21} /></span>
-              <span><b>Cámara guiada</b><small>Encuadra la hoja y captura</small></span>
+              <span><b>Cámara · guía con cuerpos</b><small>1er cuerpo: cabecera + detalle · siguientes: solo detalle</small></span>
             </button>
             <button className="scan-action" disabled={scanning} onClick={() => fileRef.current?.click()}>
               <span className="scan-action-icon"><Upload size={21} /></span>
@@ -1860,8 +2017,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             <section className="guide-camera-modal">
               <div className="guide-camera-head">
                 <div>
-                  <b>Cámara guiada</b>
-                  <span>Alinea las 4 esquinas de la guía dentro del marco.</span>
+                  <b>Guía con varios cuerpos</b>
+                  <span>
+                    {cameraPageNo === 1
+                      ? 'Cuerpo 1: captura la cabecera y la primera tabla.'
+                      : `Cuerpo ${cameraPageNo}: captura solo la continuación de materiales de la misma guía.`}
+                  </span>
                 </div>
                 <button className="icon-button" type="button" onClick={closeSmartCamera} title="Cerrar cámara">
                   <X size={19} />
@@ -1875,25 +2036,62 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
                   <i className="corner tr" />
                   <i className="corner bl" />
                   <i className="corner br" />
-                  <span>Hoja plana · sin reflejos · llena el marco</span>
+                  <span>{cameraPageNo === 1 ? 'CUERPO 1 · CABECERA + TABLA' : `CUERPO ${cameraPageNo} · CONTINUACIÓN`}</span>
                 </div>
                 {cameraStarting && <div className="guide-camera-loading"><RefreshCw className="spin" size={22}/> Abriendo cámara…</div>}
                 {cameraError && <div className="guide-camera-error"><AlertTriangle size={18}/>{cameraError}</div>}
               </div>
 
+              <div className="guide-camera-session">
+                <span><b>{cameraBodyCaptures.length}</b> cuerpo{cameraBodyCaptures.length === 1 ? '' : 's'} capturado{cameraBodyCaptures.length === 1 ? '' : 's'}</span>
+                <span><b>{lines.filter((line) => line.part_no.trim()).length}</b> líneas detectadas</span>
+                <span><b>{form.guide_no || 'Pendiente'}</b> guía actual</span>
+              </div>
+
               <div className="guide-camera-actions">
-                <button className="secondary-button" type="button" onClick={closeSmartCamera}>
-                  <X size={16}/> Terminar
+                <button className="secondary-button" type="button" disabled={cameraPageProcessing} onClick={closeSmartCamera}>
+                  <X size={16}/> Terminar cuerpos
                 </button>
-                <button className="primary-button" type="button" disabled={cameraStarting || Boolean(cameraError)} onClick={() => void captureSmartCamera()}>
-                  <Camera size={17}/> Capturar y siguiente
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={cameraStarting || cameraPageProcessing || Boolean(cameraError)}
+                  onClick={() => void captureSmartCamera()}
+                >
+                  {cameraPageProcessing ? <RefreshCw className="spin" size={17}/> : <Camera size={17}/>}
+                  {cameraPageProcessing
+                    ? 'Procesando…'
+                    : cameraPageNo === 1
+                      ? 'Capturar cuerpo 1'
+                      : `Capturar cuerpo ${cameraPageNo}`}
                 </button>
               </div>
               <small className="guide-camera-counter">
-                {batchItems.length} foto{batchItems.length === 1 ? '' : 's'} en la carga masiva.
+                Cuando termines todos los cuerpos, pulsa <b>Terminar cuerpos</b> y valida una sola guía consolidada.
               </small>
             </section>
           </div>
+        )}
+
+        {cameraBodyCaptures.length > 0 && (
+          <section className="scanner-multibody-summary">
+            <div>
+              <b>Guía consolidada por cuerpos</b>
+              <span>
+                {cameraBodyCaptures.length} cuerpo{cameraBodyCaptures.length === 1 ? '' : 's'} ·
+                {' '}{lines.filter((line) => line.part_no.trim()).length} líneas detectadas ·
+                {' '}última línea {Math.max(...lines.map((line) => line.line_no || 0), 0)}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={scanning || cameraPageProcessing}
+              onClick={() => void openSmartCamera({ continueGuide: true })}
+            >
+              <Camera size={15}/> Agregar otro cuerpo
+            </button>
+          </section>
         )}
 
         {batchItems.length > 0 && (
