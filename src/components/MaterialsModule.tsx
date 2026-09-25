@@ -228,6 +228,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
   const [withdrawReason, setWithdrawReason] = useState('')
   const [newLocation, setNewLocation] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
+  const [quickSaving, setQuickSaving] = useState<Record<string, 'stock_code' | 'location'>>({})
 
   async function reload() {
     setLoading(true)
@@ -304,6 +305,66 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
     () => matches.filter((row) => row.kind !== 'TEXTO').slice(0, 5),
     [matches]
   )
+
+  async function quickUpdateMaterial(
+    material: Material,
+    field: 'stock_code' | 'location',
+    rawValue: string,
+  ) {
+    if (!isAdmin || mode !== 'master') return
+
+    const normalizedValue = field === 'location'
+      ? rawValue.trim().toUpperCase()
+      : rawValue.trim()
+    const previousValue = String(material[field] ?? '')
+    if (normalizedValue === previousValue) return
+
+    setQuickSaving((current) => ({ ...current, [material.id]: field }))
+    setMessage('')
+
+    const payload = {
+      [field]: normalizedValue || null,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await supabase
+      .from('materials')
+      .update(payload)
+      .eq('id', material.id)
+      .select('*')
+      .single()
+
+    if (error || !data) {
+      setQuickSaving((current) => {
+        const next = { ...current }
+        delete next[material.id]
+        return next
+      })
+      setMessage(error?.message || 'No se pudo actualizar el material.')
+      return
+    }
+
+    await supabase.from('material_history').insert({
+      material_id: material.id,
+      action: field === 'location' ? 'UBICACION_ACTUALIZADA_DIRECTA' : 'SC_ACTUALIZADO_DIRECTO',
+      old_values: { [field]: material[field] },
+      new_values: { [field]: normalizedValue || null },
+      changed_by: userId,
+    })
+
+    setMaterials((current) => current.map((row) => row.id === material.id ? data as Material : row))
+    setQuickSaving((current) => {
+      const next = { ...current }
+      delete next[material.id]
+      return next
+    })
+    setMessage(
+      field === 'location'
+        ? `Ubicación de ${material.material_no} actualizada. Hojas de Ubicación vinculadas se sincronizan automáticamente.`
+        : `Stock Code de ${material.material_no} actualizado. Hojas de Ubicación vinculadas se sincronizan automáticamente.`
+    )
+  }
 
   function openNew() {
     setEditing(null)
@@ -742,11 +803,51 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                 {pagedMaterials.map((material) => (
                   <tr key={material.id}>
                     <td><b>{material.material_no}</b></td>
-                    <td>{material.stock_code || '—'}</td>
+                    <td>
+                      {mode === 'master' && isAdmin ? (
+                        <div className="material-inline-edit">
+                          <input
+                            defaultValue={material.stock_code || ''}
+                            placeholder="Sin SC"
+                            disabled={Boolean(quickSaving[material.id])}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.currentTarget.blur()
+                              if (event.key === 'Escape') {
+                                event.currentTarget.value = material.stock_code || ''
+                                event.currentTarget.blur()
+                              }
+                            }}
+                            onBlur={(event) => void quickUpdateMaterial(material, 'stock_code', event.currentTarget.value)}
+                            aria-label={`Stock Code de ${material.material_no}`}
+                          />
+                          {quickSaving[material.id] === 'stock_code' && <RefreshCw className="spin" size={13}/>}
+                        </div>
+                      ) : material.stock_code || '—'}
+                    </td>
                     <td>{material.description}</td>
                     <td>{material.center || '—'}</td>
                     <td>{material.warehouse || '—'}</td>
-                    <td><b>{material.location || '—'}</b></td>
+                    <td>
+                      {mode === 'master' && isAdmin ? (
+                        <div className="material-inline-edit location">
+                          <input
+                            defaultValue={material.location || ''}
+                            placeholder="Sin ubicación"
+                            disabled={Boolean(quickSaving[material.id])}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.currentTarget.blur()
+                              if (event.key === 'Escape') {
+                                event.currentTarget.value = material.location || ''
+                                event.currentTarget.blur()
+                              }
+                            }}
+                            onBlur={(event) => void quickUpdateMaterial(material, 'location', event.currentTarget.value)}
+                            aria-label={`Ubicación de ${material.material_no}`}
+                          />
+                          {quickSaving[material.id] === 'location' && <RefreshCw className="spin" size={13}/>}
+                        </div>
+                      ) : <b>{material.location || '—'}</b>}
+                    </td>
                     <td>{material.previous_location || '—'}</td>
                     <td><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(material.location_changed_at)}</span></td>
                     <td>{material.price == null ? '—' : formatUsd(material.price)}</td>
@@ -779,10 +880,34 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                 <p className="material-mobile-description">{material.description || 'Sin descripción'}</p>
 
                 <div className="material-mobile-data">
-                  <div><span>Stock Code</span><b>{material.stock_code || '—'}</b></div>
+                  <div>
+                    <span>Stock Code</span>
+                    {mode === 'master' && isAdmin ? (
+                      <input
+                        className="material-mobile-inline-input"
+                        defaultValue={material.stock_code || ''}
+                        placeholder="Sin SC"
+                        disabled={Boolean(quickSaving[material.id])}
+                        onBlur={(event) => void quickUpdateMaterial(material, 'stock_code', event.currentTarget.value)}
+                        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                      />
+                    ) : <b>{material.stock_code || '—'}</b>}
+                  </div>
                   <div><span>Centro</span><b>{material.center || '—'}</b></div>
                   <div><span>Almacén</span><b>{material.warehouse || '—'}</b></div>
-                  <div><span>Ubicación</span><b>{material.location || '—'}</b></div>
+                  <div>
+                    <span>Ubicación</span>
+                    {mode === 'master' && isAdmin ? (
+                      <input
+                        className="material-mobile-inline-input"
+                        defaultValue={material.location || ''}
+                        placeholder="Sin ubicación"
+                        disabled={Boolean(quickSaving[material.id])}
+                        onBlur={(event) => void quickUpdateMaterial(material, 'location', event.currentTarget.value)}
+                        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                      />
+                    ) : <b>{material.location || '—'}</b>}
+                  </div>
                   <div><span>Ubicación anterior</span><b>{material.previous_location || '—'}</b></div>
                   <div><span>Precio USD</span><b>{formatUsd(material.price)}</b></div>
                 </div>
