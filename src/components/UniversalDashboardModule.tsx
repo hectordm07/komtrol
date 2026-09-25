@@ -154,6 +154,7 @@ type Props={
   previewMode?:boolean
   availableTabs?:string[]
   adminValidationMode?:boolean
+  adminProfile?:Profile|null
   onNavigate:(tab:string,options?:{
     taskStatus?:'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'
     restoreAdmin?:boolean
@@ -207,6 +208,7 @@ export function UniversalDashboardModule({
   previewMode=false,
   availableTabs=[],
   adminValidationMode=false,
+  adminProfile=null,
   onNavigate,
 }:Props){
   const [tasks,setTasks]=useState<Task[]>([])
@@ -368,24 +370,57 @@ export function UniversalDashboardModule({
     return true
   }),[tasks,userId,previewMode,isAdminDashboard,profile.warehouse,profile.project,profile.group_name,profile.shift_name])
 
+  const adminScopeWarehouse=String(adminProfile?.warehouse||'').trim().toUpperCase()
+  const adminScopeProject=String(adminProfile?.project||'').trim().toUpperCase()
+  const adminScopeGroup=String(adminProfile?.group_name||'').trim().toUpperCase()
+  const adminScopeShift=String(adminProfile?.shift_name||'').trim().toUpperCase()
+
+  const adminSameScope=(task:Task)=>{
+    const warehouse=String(task.warehouse||'').trim().toUpperCase()
+    const project=String(task.project||'').trim().toUpperCase()
+    if(adminScopeWarehouse&&warehouse&&warehouse!==adminScopeWarehouse) return false
+    if(adminScopeProject&&project&&project!==adminScopeProject) return false
+    return true
+  }
+
+  const adminDirectTask=(task:Task)=>
+    task.assigned_user_id===userId||
+    task.responsible_id===userId||
+    task.created_by===userId
+
   const adminValidationPersonal=tasks.filter((task)=>
     adminValidationMode &&
     task.work_type==='PERSONAL' &&
     isOpen(task) &&
-    (task.assigned_user_id===userId||task.responsible_id===userId||task.created_by===userId)
+    adminDirectTask(task)
   )
-  const adminValidationTasks=tasks.filter((task)=>
-    adminValidationMode &&
-    task.work_type==='TAREA' &&
-    isOpen(task) &&
-    (task.assigned_user_id===userId||task.responsible_id===userId||task.created_by===userId)
-  )
-  const adminValidationRelevos=tasks.filter((task)=>
-    adminValidationMode &&
-    task.work_type==='RELEVO' &&
-    isOpen(task) &&
-    (task.assigned_user_id===userId||task.responsible_id===userId||task.created_by===userId)
-  )
+
+  const adminValidationTasks=tasks.filter((task)=>{
+    if(!adminValidationMode||task.work_type!=='TAREA'||!isOpen(task)) return false
+    if(adminDirectTask(task)) return true
+    if(!adminSameScope(task)) return false
+    if(task.assignment_type==='GRUPO'&&adminScopeGroup){
+      const assigned=String(task.assigned_group||task.group_name||'').trim().toUpperCase()
+      return assigned===adminScopeGroup
+    }
+    if(task.assignment_type==='GUARDIA'&&adminScopeShift){
+      return String(task.assigned_shift||task.shift_name||'').trim().toUpperCase()===adminScopeShift
+    }
+    return false
+  })
+
+  const adminValidationRelevos=tasks.filter((task)=>{
+    if(!adminValidationMode||task.work_type!=='RELEVO'||!isOpen(task)) return false
+    if(adminDirectTask(task)) return true
+    if(!adminSameScope(task)||!adminScopeShift) return false
+    const shifts=[
+      task.assigned_shift,
+      task.shift_name,
+      task.relevo_from_shift,
+      task.relevo_to_shift,
+    ].map((value)=>String(value||'').trim().toUpperCase()).filter(Boolean)
+    return shifts.includes(adminScopeShift)
+  })
 
   const dashboardTaskBase=isAdminDashboard
     ? tasks.filter((task)=>task.work_type!=='PERSONAL')
