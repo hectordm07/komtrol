@@ -185,6 +185,10 @@ async function recognizeCanvas(
   }
 }
 
+export async function prewarmGuideOcr() {
+  await getWorker()
+}
+
 export async function recognizeGuideImage(
   file: File,
   onProgress?: OcrProgress,
