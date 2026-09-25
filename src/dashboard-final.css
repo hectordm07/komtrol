@@ -11971,3 +11971,419 @@
 .board-status-en_proceso > div:first-child > i { background: #3d6bdc !important; }
 .board-status-bloqueado > div:first-child > i { background: #c64c4c !important; }
 .board-status-cerrado > div:first-child > i { background: #37976a !important; }
+
+
+/* =========================================================
+   KOMTROL · NOTIFICACIONES + CUENTA + MODO OPERATIVO 2026-09-25
+   ========================================================= */
+.notification-panel {
+  width: min(458px, calc(100vw - 24px)) !important;
+  max-height: min(640px, 76dvh) !important;
+  overflow: hidden;
+  border: 1px solid #d8e1fb !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  box-shadow: 0 24px 62px rgba(26, 43, 108, .22) !important;
+  font-family: inherit;
+}
+
+.notification-panel-head {
+  min-height: 84px !important;
+  padding: 16px 18px !important;
+  border-bottom: 1px solid #e7ecfb !important;
+  background:
+    linear-gradient(135deg, rgba(239, 243, 255, .98), rgba(255, 255, 255, .98)) !important;
+  gap: 13px !important;
+}
+
+.notification-panel-head-icon {
+  width: 42px !important;
+  height: 42px !important;
+  border: 1px solid #d7e1ff;
+  border-radius: 13px !important;
+  background: #edf2ff !important;
+  color: #344fb5 !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+}
+
+.notification-panel-head b {
+  color: #16245f !important;
+  font-size: 16px !important;
+  font-weight: 850 !important;
+  letter-spacing: -.015em;
+}
+
+.notification-panel-head > div > span {
+  color: #6f7ea8 !important;
+  font-size: 11px !important;
+  font-weight: 600;
+}
+
+.notification-panel-head button {
+  min-height: 32px;
+  max-width: 132px !important;
+  padding: 6px 9px !important;
+  border: 1px solid #dce4fb !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  color: #3451b2 !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+}
+
+.notification-panel-head button:hover {
+  background: #f3f6ff !important;
+  border-color: #cbd8fb !important;
+}
+
+.notification-panel-list {
+  max-height: min(530px, calc(76dvh - 84px)) !important;
+  padding: 7px 9px 9px !important;
+  background: #fff;
+}
+
+.notification-item {
+  position: relative;
+  min-height: 88px !important;
+  padding: 12px 10px !important;
+  grid-template-columns: 40px minmax(0, 1fr) 24px !important;
+  gap: 12px !important;
+  border-bottom: 1px solid #edf0f8 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.notification-item:hover,
+.notification-item:focus-visible {
+  background: #f6f8ff !important;
+  box-shadow: inset 0 0 0 1px #e3e9fb;
+  transform: translateY(-1px);
+}
+
+.notification-item.unread {
+  background: #f3f6ff !important;
+}
+
+.notification-item.unread::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 13px;
+  bottom: 13px;
+  width: 3px;
+  border-radius: 99px;
+  background: #4562c4;
+}
+
+.notification-item-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border: 1px solid #dce4fb;
+  border-radius: 12px !important;
+  background: #f1f4ff !important;
+  color: #5369bd !important;
+}
+
+.notification-item.unread .notification-item-icon {
+  background: #e8eeff !important;
+  color: #2f4db4 !important;
+}
+
+.notification-item > div {
+  gap: 3px !important;
+}
+
+.notification-item b {
+  color: #1a2866 !important;
+  font-size: 13px !important;
+  font-weight: 850 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -.008em;
+}
+
+.notification-item p {
+  color: #43557f !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+.notification-item span:not(.notification-item-icon) {
+  color: #7b88aa !important;
+  font-size: 10px !important;
+  font-weight: 600;
+}
+
+.notification-item > svg {
+  width: 22px;
+  height: 22px;
+  padding: 4px;
+  border-radius: 7px;
+  background: #f4f6fd;
+  color: #6076c8 !important;
+}
+
+.notification-unread-dot {
+  width: 6px !important;
+  height: 6px !important;
+  background: #4562c4 !important;
+  box-shadow: 0 0 0 3px rgba(69, 98, 196, .10);
+}
+
+.notification-empty {
+  color: #7b88a8 !important;
+  font-size: 12px !important;
+}
+
+.operational-mode-button {
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 9px;
+  border: 1px solid rgba(184, 200, 255, .25);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(78, 101, 190, .20), rgba(255,255,255,.05));
+  color: #fff;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.operational-mode-button > svg:first-child {
+  color: #b9c7ff;
+}
+
+.operational-mode-button > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.operational-mode-button b {
+  color: #fff;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.operational-mode-button small {
+  color: rgba(233, 238, 255, .66);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.operational-mode-button:hover {
+  border-color: rgba(200, 213, 255, .42);
+  background: linear-gradient(135deg, rgba(84, 110, 208, .28), rgba(255,255,255,.08));
+}
+
+.operational-mode-button.active {
+  border-color: rgba(159, 219, 190, .34);
+  background: rgba(70, 150, 111, .16);
+}
+
+.operational-mode-button.active > svg:first-child {
+  color: #bfe7d0;
+}
+
+.access-preview-badge.operational {
+  border-color: #cbd7fb !important;
+  background: #eef3ff !important;
+  color: #2e4aa8 !important;
+}
+
+.access-preview-note.operational {
+  background: rgba(78, 151, 112, .16);
+  color: #d8f2e3;
+}
+
+.account-action-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 12px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 9px;
+  background: rgba(255,255,255,.045);
+  color: #aebbd0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.account-action-button:hover {
+  border-color: rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08);
+  color: #fff;
+}
+
+.account-action-button svg {
+  color: #9fb1ea;
+}
+
+.account-password-modal {
+  width: min(470px, calc(100vw - 24px)) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid #dce4f6;
+  border-radius: 18px !important;
+}
+
+.account-password-modal .modal-head {
+  margin: 0 !important;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e9edf7;
+  background: linear-gradient(135deg, #f4f7ff, #fff);
+}
+
+.account-password-modal .modal-head h2 {
+  margin-top: 7px;
+  color: #18245d;
+  font-size: 20px;
+}
+
+.account-password-modal .modal-head p {
+  max-width: 360px;
+  color: #6f7d9e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.account-modal-kicker {
+  color: #4560b9;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.account-password-form {
+  padding: 18px 20px 4px;
+  display: grid;
+  gap: 14px;
+}
+
+.account-password-form label {
+  color: #273568;
+  font-size: 11px;
+}
+
+.account-password-form input {
+  min-height: 44px;
+  border-color: #dce3f2;
+  background: #fbfcff;
+  font-size: 14px;
+}
+
+.account-password-form label > small {
+  color: #7d89a4;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.account-password-alert {
+  margin: 12px 20px 0 !important;
+}
+
+.account-password-modal .modal-actions {
+  margin: 14px 0 0 !important;
+  padding: 14px 20px 18px;
+  border-top: 1px solid #edf0f6;
+  background: #fbfcff;
+}
+
+@media (max-width: 760px) {
+  .operational-mode-button {
+    min-height: 60px;
+  }
+
+  .operational-mode-button b {
+    font-size: 11px;
+  }
+
+  .operational-mode-button small {
+    font-size: 9px;
+  }
+
+  .account-action-button {
+    min-height: 44px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 620px) {
+  .notification-panel {
+    left: 8px !important;
+    right: 8px !important;
+    top: 64px !important;
+    width: auto !important;
+    max-height: calc(100dvh - 80px) !important;
+    border-radius: 16px !important;
+  }
+
+  .notification-panel-head {
+    min-height: 74px !important;
+    padding: 12px !important;
+  }
+
+  .notification-panel-head-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .notification-panel-head b {
+    font-size: 15px !important;
+  }
+
+  .notification-panel-list {
+    max-height: calc(100dvh - 154px) !important;
+  }
+
+  .notification-item {
+    min-height: 82px !important;
+    padding: 10px 8px !important;
+    grid-template-columns: 38px minmax(0,1fr) 22px !important;
+    gap: 9px !important;
+  }
+
+  .notification-item-icon {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .notification-item b {
+    font-size: 12px !important;
+  }
+
+  .notification-item p {
+    font-size: 11px !important;
+  }
+
+  .account-password-modal {
+    width: calc(100vw - 12px) !important;
+  }
+
+  .account-password-modal .modal-head,
+  .account-password-form,
+  .account-password-modal .modal-actions {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .account-password-modal .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .account-password-modal .modal-actions > button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
