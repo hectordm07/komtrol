@@ -24583,3 +24583,114 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
     border-radius: 10px;
   }
 }
+
+
+/* KOMTROL · GRUPO / OCR / PROVEEDOR EN GUIAS Y HOJAS 2026-09-25 */
+.supplier-chip.komatsu {
+  background: #eaf0ff;
+  color: #2446a8;
+  border: 1px solid #ccd9ff;
+}
+
+.supplier-chip.cummins {
+  background: #fff0f0;
+  color: #b42318;
+  border: 1px solid #ffcaca;
+}
+
+.supplier-chip.pending {
+  background: #f3f4f7;
+  color: #667085;
+  border: 1px solid #e4e7ec;
+}
+
+.guide-group-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  max-width: 170px;
+  padding: 2px 7px;
+  border: 1px solid #dbe3fb;
+  border-radius: 999px;
+  background: #f4f6ff;
+  color: #334b90;
+  font-size: 9px;
+  font-weight: 850;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.ocr-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 23px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 9px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ocr-chip.high {
+  background: #eaf8f1;
+  border-color: #c7ecd9;
+  color: #087c58;
+}
+
+.ocr-chip.medium {
+  background: #fff7e8;
+  border-color: #f7dca8;
+  color: #9a5b05;
+}
+
+.ocr-chip.low {
+  background: #fff0f0;
+  border-color: #ffcaca;
+  color: #b42318;
+}
+
+.ocr-chip.empty {
+  background: #f3f4f7;
+  border-color: #e4e7ec;
+  color: #667085;
+}
+
+.guide-list-panel .table-wrap,
+.ingress-list-table {
+  overflow-x: auto;
+}
+
+.guide-list-panel table {
+  min-width: 1380px;
+}
+
+.location-sheet-meta-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.location-sheet-meta-grid .responsible-meta {
+  min-width: 190px;
+}
+
+.ingress-detail-summary .ocr-chip {
+  min-height: 22px;
+}
+
+@media (max-width: 1100px) {
+  .location-sheet-meta-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .location-sheet-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guide-list-panel table {
+    min-width: 1260px;
+  }
+}
