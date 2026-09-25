@@ -11785,3 +11785,108 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* ---------- Tareas · estados semánticos ---------- */
+.task-state-chip,
+.task-detail-status-select,
+.task-card-actions select {
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.task-state-chip.task-state-pendiente,
+.task-detail-status-select.task-state-pendiente,
+.task-card-actions select.task-state-pendiente {
+  background: #fff8dc !important;
+  border-color: #ead58f !important;
+  color: #8a6500 !important;
+}
+
+.task-state-chip.task-state-en_proceso,
+.task-detail-status-select.task-state-en_proceso,
+.task-card-actions select.task-state-en_proceso {
+  background: #edf3ff !important;
+  border-color: #bfd0f5 !important;
+  color: #2857b8 !important;
+}
+
+.task-state-chip.task-state-bloqueado,
+.task-detail-status-select.task-state-bloqueado,
+.task-card-actions select.task-state-bloqueado {
+  background: #fff0ee !important;
+  border-color: #efbdb7 !important;
+  color: #b42318 !important;
+}
+
+.task-state-chip.task-state-cerrado,
+.task-detail-status-select.task-state-cerrado,
+.task-card-actions select.task-state-cerrado {
+  background: #eaf8ef !important;
+  border-color: #bfe4cd !important;
+  color: #237a4b !important;
+}
+
+.task-state-chip.task-state-vencida {
+  background: #fff0ee !important;
+  border-color: #efbdb7 !important;
+  color: #b42318 !important;
+}
+
+.task-detail-status-select {
+  min-width: 154px !important;
+  border-width: 1px !important;
+  box-shadow: none !important;
+}
+
+.task-detail-status-select:focus {
+  box-shadow: 0 0 0 3px rgba(60,88,190,.10) !important;
+}
+
+/* La lista nativa conserva los mismos tonos cuando el navegador lo admite. */
+.task-detail-status-select option[value="PENDIENTE"],
+.task-card-actions select option[value="PENDIENTE"] {
+  background: #fff8dc;
+  color: #8a6500;
+}
+.task-detail-status-select option[value="EN_PROCESO"],
+.task-card-actions select option[value="EN_PROCESO"] {
+  background: #edf3ff;
+  color: #2857b8;
+}
+.task-detail-status-select option[value="BLOQUEADO"],
+.task-card-actions select option[value="BLOQUEADO"] {
+  background: #fff0ee;
+  color: #b42318;
+}
+.task-detail-status-select option[value="CERRADO"],
+.task-card-actions select option[value="CERRADO"] {
+  background: #eaf8ef;
+  color: #237a4b;
+}
+
+/* Tablero: el estado se identifica también por el encabezado de columna. */
+.board-status-pendiente {
+  background: #fffaf0 !important;
+  border-color: #ecdca9 !important;
+  color: #8a6500 !important;
+}
+.board-status-en_proceso {
+  background: #f2f6ff !important;
+  border-color: #c8d6f6 !important;
+  color: #2857b8 !important;
+}
+.board-status-bloqueado {
+  background: #fff4f2 !important;
+  border-color: #efc8c3 !important;
+  color: #b42318 !important;
+}
+.board-status-cerrado {
+  background: #f0faf4 !important;
+  border-color: #c7e7d2 !important;
+  color: #237a4b !important;
+}
+
+.board-status-pendiente > div:first-child > i { background: #d69a1d !important; }
+.board-status-en_proceso > div:first-child > i { background: #3d6bdc !important; }
+.board-status-bloqueado > div:first-child > i { background: #c64c4c !important; }
+.board-status-cerrado > div:first-child > i { background: #37976a !important; }
