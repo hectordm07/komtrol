@@ -76,6 +76,7 @@ type BatchScanResult = {
 
 type BatchScanItem = {
   id: string
+  generation: number
   file: File
   status: BatchScanStatus
   progress: number
@@ -468,6 +469,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   const batchItemsRef = useRef<BatchScanItem[]>([])
   const batchQueueRef = useRef<BatchScanItem[]>([])
   const batchRunningRef = useRef(false)
+  const batchGenerationRef = useRef(0)
   const selectedBatchIdRef = useRef<string | null>(null)
 
   const [form, setForm] = useState({
@@ -631,6 +633,8 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             }
           })
 
+          if (item.generation !== batchGenerationRef.current) continue
+
           const parsed = parseGuideOcr(ocr.text, item.file.name, true)
           const ready = Boolean(parsed.guide_no && parsed.reference)
           const result: BatchScanResult = {
@@ -659,6 +663,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             loadBatchItem(completedItem)
           }
         } catch (error) {
+          if (item.generation !== batchGenerationRef.current) continue
           const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
           updateBatchItem(item.id, {
             status: 'ERROR',
@@ -690,8 +695,10 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     }
 
     const stamp = Date.now()
+    const generation = batchGenerationRef.current
     const items: BatchScanItem[] = accepted.map((nextFile, index) => ({
       id: `${stamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      generation,
       file: nextFile,
       status: 'PENDIENTE',
       progress: 0,
@@ -717,6 +724,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   }
 
   function clearBatch() {
+    batchGenerationRef.current += 1
     batchQueueRef.current = []
     updateBatchItems(() => [])
     setSelectedBatch(null)
@@ -1359,15 +1367,15 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       <section className="panel scanner-panel scanner-enterprise">
         <div className="scanner-command-bar">
           <div className="scanner-actions scanner-actions-batch">
-            <button className="scan-action primary-scan" onClick={() => cameraRef.current?.click()}>
+            <button className="scan-action primary-scan" disabled={scanning} onClick={() => cameraRef.current?.click()}>
               <span className="scan-action-icon"><Camera size={21} /></span>
               <span><b>Tomar foto</b><small>Agrega una guía a la cola</small></span>
             </button>
-            <button className="scan-action" onClick={() => fileRef.current?.click()}>
+            <button className="scan-action" disabled={scanning} onClick={() => fileRef.current?.click()}>
               <span className="scan-action-icon"><Upload size={21} /></span>
               <span><b>Cargar lote de fotos</b><small>Selecciona hasta 60 guías</small></span>
             </button>
-            <button className="scan-action" onClick={() => pdfRef.current?.click()}>
+            <button className="scan-action" disabled={scanning || batchItems.length > 0} onClick={() => pdfRef.current?.click()}>
               <span className="scan-action-icon"><FileText size={21} /></span>
               <span><b>Subir PDF</b><small>PDF digital o escaneado</small></span>
             </button>
