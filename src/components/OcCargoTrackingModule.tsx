@@ -6,6 +6,7 @@ import {
   Clock3,
   Copy,
   DollarSign,
+  Download,
   Eye,
   FileSpreadsheet,
   FileText,
@@ -127,6 +128,8 @@ type Guide = {
 type Props = {
   userId: string
   profile: Profile | null
+  fixedType?: GuideType
+  commercialView?: boolean
 }
 
 type FollowupForm = {
@@ -237,9 +240,9 @@ function emails(value: string) {
     .filter(Boolean)
 }
 
-export function OcCargoTrackingModule({ userId, profile }: Props) {
+export function OcCargoTrackingModule({ userId, profile, fixedType, commercialView = false }: Props) {
   const [guides, setGuides] = useState<Guide[]>([])
-  const [activeType, setActiveType] = useState<GuideType>('ORDEN_COMPRA')
+  const [activeType, setActiveType] = useState<GuideType>(fixedType || 'ORDEN_COMPRA')
   const [selected, setSelected] = useState<Guide | null>(null)
   const [form, setForm] = useState<FollowupForm>(emptyFollowup())
   const [search, setSearch] = useState('')
@@ -256,9 +259,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
   const [bulkFiles,setBulkFiles]=useState<File[]>([])
 
   const specialAccess=profile?.oc_cargo_access_level || null
-  const canUploadRefrendos=specialAccess!=='COMERCIAL'
-  const canUpdateBilling=specialAccess!=='COMERCIAL'
-  const canEditOperational=!specialAccess || ['COORDINADOR','SUPERVISOR','ADMINISTRADOR'].includes(profile?.role || '')
+  const isCommercialView = commercialView || specialAccess === 'COMERCIAL'
+  const canUploadRefrendos=!isCommercialView
+  const canUpdateBilling=!isCommercialView
+  const canEditOperational=!isCommercialView && (!specialAccess || ['COORDINADOR','SUPERVISOR','ADMINISTRADOR'].includes(profile?.role || ''))
 
   const [emailOpen, setEmailOpen] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -320,6 +324,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
 
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (fixedType) setActiveType(fixedType)
+  }, [fixedType])
 
   useEffect(() => {
     reload()
@@ -415,7 +423,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
   function exportOcExcel(){
     exportRowsToExcel(
       `KOMTROL_${activeType}`,
-      activeType==='ORDEN_COMPRA'?'Orden Compra':'Cargo Directo',
+      activeType==='ORDEN_COMPRA'?'Órdenes de Compra':'Cargos Directos',
       ocExcelColumns,
       ocExportRows,
       [['Tipo',activeType],['Registros',ocExportRows.length]]
@@ -449,6 +457,31 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
     }
 
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  async function downloadRefrendo(guide: Guide) {
+    const refrendo = latestRefrendo(guide)
+    if (!refrendo) {
+      setMessage('Esta guía todavía no tiene refrendo cargado.')
+      return
+    }
+
+    const { data, error } = await supabase.storage
+      .from(refrendo.file_bucket)
+      .createSignedUrl(refrendo.file_path, 120, { download: refrendo.file_name })
+
+    if (error || !data?.signedUrl) {
+      setMessage(error?.message || 'No se pudo descargar el refrendo.')
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = data.signedUrl
+    link.download = refrendo.file_name
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
   }
 
   function matchGuideForText(text: string): { guide: Guide; score: number } | null {
@@ -897,8 +930,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
       <section className="panel oc-cargo-list-panel">
         <div className="panel-title">
           <div>
-            <h3>OC / Cargos Directos</h3>
-            <p>Seguimiento de guías, refrendos PDF y control de envío a Facturación.</p>
+            <h3>{activeType === 'ORDEN_COMPRA' ? 'Órdenes de Compra' : 'Cargos Directos'}</h3>
+            <p>{isCommercialView
+              ? 'Consulta comercial de estado de guía y refrendos PDF. Acceso de solo lectura.'
+              : 'Seguimiento de guías, refrendos PDF y control de envío a Facturación.'}</p>
           </div>
           <div className="button-row">
             {canUploadRefrendos&&<button className="secondary-button" onClick={()=>{setBulkOpen(true);setBulkProgress('');setBulkPrepared([]);setBulkIssues([])}}><Upload size={16}/> Carga masiva refrendos</button>}
@@ -908,22 +943,24 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
           </div>
         </div>
 
-        <div className="oc-cargo-type-tabs">
-          <button
-            className={activeType === 'ORDEN_COMPRA' ? 'active' : ''}
-            onClick={() => setActiveType('ORDEN_COMPRA')}
-          >
-            Orden de Compra
-            <span>{guides.filter((g) => g.guide_type === 'ORDEN_COMPRA').length}</span>
-          </button>
-          <button
-            className={activeType === 'CARGO_DIRECTO' ? 'active' : ''}
-            onClick={() => setActiveType('CARGO_DIRECTO')}
-          >
-            Cargos Directos
-            <span>{guides.filter((g) => g.guide_type === 'CARGO_DIRECTO').length}</span>
-          </button>
-        </div>
+        {!fixedType && (
+          <div className="oc-cargo-type-tabs">
+            <button
+              className={activeType === 'ORDEN_COMPRA' ? 'active' : ''}
+              onClick={() => setActiveType('ORDEN_COMPRA')}
+            >
+              Órdenes de Compra
+              <span>{guides.filter((g) => g.guide_type === 'ORDEN_COMPRA').length}</span>
+            </button>
+            <button
+              className={activeType === 'CARGO_DIRECTO' ? 'active' : ''}
+              onClick={() => setActiveType('CARGO_DIRECTO')}
+            >
+              Cargos Directos
+              <span>{guides.filter((g) => g.guide_type === 'CARGO_DIRECTO').length}</span>
+            </button>
+          </div>
+        )}
 
         <div className="oc-cargo-kpis oc-cargo-kpis-expanded">
           <div><CheckCircle2 size={17} /><span><b>{counts.total}</b><small>Total</small></span></div>
@@ -1006,7 +1043,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                     <td>{guide.followup?.parts_location || '—'}</td>
                     <td>
                       {latestRefrendo(guide)
-                        ? <button className="secondary-button small-report refrendo-view-button" onClick={()=>viewRefrendo(guide)}><Eye size={14}/> Ver refrendo{(guide.refrendos?.length||0)>1?' (' + guide.refrendos?.length + ')':''}</button>
+                        ? <div className="refrendo-action-group">
+                            <button className="secondary-button small-report refrendo-view-button" onClick={()=>viewRefrendo(guide)}><Eye size={14}/> Ver</button>
+                            <button className="secondary-button small-report refrendo-download-button" onClick={()=>downloadRefrendo(guide)}><Download size={14}/> Descargar</button>
+                          </div>
                         : <span className="status-pill warning">PENDIENTE</span>}
                     </td>
                     <td><span className={['ENVIADO','REENVIADO','CONFIRMADO'].includes(guide.followup?.billing_status||'')?'status-pill':'status-pill warning'}>{statusLabel(guide.followup?.billing_status||'PENDIENTE')}</span></td>
@@ -1014,7 +1054,7 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                     <td>{guide.followup?.billing_sent_by_name || '—'}</td>
                     <td>
                       <button className="secondary-button small-report" onClick={() => openFollowup(guide)}>
-                        <Eye size={14} /> Ver / Editar
+                        <Eye size={14} /> {isCommercialView ? 'Ver estado' : 'Ver / Editar'}
                       </button>
                     </td>
                   </tr>
@@ -1190,7 +1230,10 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
                   <b>{latestRefrendo(selected)?.file_name}</b>
                   <span>{selected.refrendos?.length || 1} documento(s) vinculado(s)</span>
                 </div>
-                <button type="button" className="secondary-button" onClick={()=>viewRefrendo(selected)}><Eye size={15}/> Ver refrendo</button>
+                <div className="refrendo-action-group">
+                  <button type="button" className="secondary-button" onClick={()=>viewRefrendo(selected)}><Eye size={15}/> Ver refrendo</button>
+                  <button type="button" className="secondary-button" onClick={()=>downloadRefrendo(selected)}><Download size={15}/> Descargar</button>
+                </div>
               </div>
             )}
 
@@ -1273,9 +1316,11 @@ export function OcCargoTrackingModule({ userId, profile }: Props) {
               </fieldset>
               <div className="modal-actions span-2 oc-followup-actions">
                 <button type="button" className="secondary-button" onClick={closeFollowup}>Cerrar</button>
-                <button type="button" className="secondary-button" disabled={selected.followup?.final_status !== 'OBSERVADO'} onClick={buildEmail}>
-                  <Mail size={16} /> Reportar observado
-                </button>
+                {!isCommercialView && (
+                  <button type="button" className="secondary-button" disabled={selected.followup?.final_status !== 'OBSERVADO'} onClick={buildEmail}>
+                    <Mail size={16} /> Reportar observado
+                  </button>
+                )}
                 {canEditOperational&&<button className="primary-button" disabled={saving}>
                   {saving ? <RefreshCw className="spin" size={16} /> : <Save size={16} />}
                   {saving ? 'Guardando…' : 'Guardar seguimiento'}
