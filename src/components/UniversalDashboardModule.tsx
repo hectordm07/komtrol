@@ -5,15 +5,12 @@ import {
   Boxes,
   Bell,
   CalendarClock,
-  CheckCircle2,
   ChevronRight,
   ClipboardList,
-  Clock3,
   GraduationCap,
   MailCheck,
   PackageSearch,
   RefreshCw,
-  ShoppingCart,
   FileCheck2,
   ShieldCheck,
   Users,
@@ -279,8 +276,8 @@ export function UniversalDashboardModule({
         .limit(15000),
       supabase
         .from('guides')
-        .select('id,guide_no,guide_type,load_status,warehouse,group_name,created_by,responsible_user_id,created_at,oc_cargo_followups(final_status,client_delivery_date,billing_status),guide_refrendos(id)')
-        .in('guide_type',['ORDEN_COMPRA','CARGO_DIRECTO','REPOSICION'])
+        .select('id,guide_no,guide_type,load_status,warehouse,group_name,created_by,responsible_user_id,created_at')
+        .eq('guide_type','REPOSICION')
         .order('created_at',{ascending:false})
         .limit(5000),
       supabase
@@ -683,44 +680,9 @@ export function UniversalDashboardModule({
   const courseNearest=nearest('CURSO')
   const licenseNearest=nearest('LICENCIA_INTERNA')
 
-  function guideFollowupStatus(guide:DashboardGuide){
-    const value=guide.oc_cargo_followups
-    const row=Array.isArray(value)?value[0]:value
-    return row?.final_status||'PENDIENTE'
-  }
-
-  const purchaseOrders=operationalGuides.filter((guide)=>guide.guide_type==='ORDEN_COMPRA')
-  const directCharges=operationalGuides.filter((guide)=>guide.guide_type==='CARGO_DIRECTO')
   const replenishmentGuides=operationalGuides.filter((guide)=>guide.guide_type==='REPOSICION')
-  const pendingPurchaseOrders=purchaseOrders.filter((guide)=>['PENDIENTE','EN_SEGUIMIENTO'].includes(guideFollowupStatus(guide)))
-  const observedPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='OBSERVADO')
-  const deliveredPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='ENTREGADO_CLIENTE')
-  const refrendadoPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='REFRENDADO')
-  const closedPurchaseOrders=purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='CERRADO')
-  const pendingDirectDelivery=directCharges.filter((guide)=>{
-    const value=guide.oc_cargo_followups
-    const row=Array.isArray(value)?value[0]:value
-    const finalStatus=row?.final_status||'PENDIENTE'
-    return !row?.client_delivery_date && !['ANULADO','CERRADO','ENTREGADO_CLIENTE','REFRENDADO'].includes(finalStatus)
-  })
-  const purchaseOrdersWithoutRefrendo=purchaseOrders.filter((guide)=>(guide.guide_refrendos?.length||0)===0)
-  const purchaseOrdersWithRefrendo=purchaseOrders.filter((guide)=>(guide.guide_refrendos?.length||0)>0)
-  const purchaseOrdersBillingSent=purchaseOrders.filter((guide)=>{
-    const value=guide.oc_cargo_followups
-    const row=Array.isArray(value)?value[0]:value
-    return ['ENVIADO','REENVIADO','CONFIRMADO'].includes(row?.billing_status||'')
-  })
   const pendingSapKmmp=operationalReplenishmentReceipts.filter((row)=>!/^18\d+$/.test(String(row.sap_kmmp_no||'')))
   const pendingFioriIngresses=operationalReplenishmentIngresses.filter((row)=>!/^50\d+$/.test(String(row.sap_fiori_ni||'')))
-  const guideTypeSegments=[
-    {label:'Reposición',value:replenishmentGuides.length},
-    {label:'Órdenes de compra',value:purchaseOrders.length},
-    {label:'Cargos directos',value:directCharges.length},
-  ]
-  const directCargoSegments=[
-    {key:'PENDIENTE_ENTREGA',label:'Pend. entrega',value:pendingDirectDelivery.length},
-    {key:'ENTREGADOS',label:'Entregados',value:Math.max(0,directCharges.length-pendingDirectDelivery.length)},
-  ]
   const kmmpCompleted=Math.max(0,operationalReplenishmentReceipts.length-pendingSapKmmp.length)
   const fioriCompleted=Math.max(0,operationalReplenishmentIngresses.length-pendingFioriIngresses.length)
   const documentFlowData=[
@@ -728,51 +690,22 @@ export function UniversalDashboardModule({
     {key:'KMMP',label:'KMMP completado',value:kmmpCompleted,detail:`${pendingSapKmmp.length} pendiente(s) de ingreso SAP KMMP de ${operationalReplenishmentReceipts.length} recepción(es).`},
     {key:'INGRESOS',label:'Ingresos reposición',value:operationalReplenishmentIngresses.length,detail:'Agrupaciones de ingreso generadas desde Hojas de Ubicación.'},
     {key:'FIORI',label:'FIORI completado',value:fioriCompleted,detail:`${pendingFioriIngresses.length} ingreso(s) pendiente(s) de NI SAP FIORI.`},
-    {key:'OC',label:'Órdenes de compra',value:purchaseOrders.length,detail:`${pendingPurchaseOrders.length} OC pendiente(s) · ${purchaseOrdersWithoutRefrendo.length} sin refrendo.`},
-    {key:'CARGO',label:'Cargos entregados',value:Math.max(0,directCharges.length-pendingDirectDelivery.length),detail:`${pendingDirectDelivery.length} cargo(s) directo(s) pendiente(s) de entrega al cliente.`},
   ]
   const urgentExpirations=activeExpirations.filter((row)=>{
     const days=daysUntil(row.due_date)
     return days!==null&&days<=30
   }).length
-  const commercialPendingTotal=pendingPurchaseOrders.length
-  const operationsPendingTotal=pendingSapKmmp.length+pendingFioriIngresses.length+pendingDirectDelivery.length
+  const operationsPendingTotal=pendingSapKmmp.length+pendingFioriIngresses.length
   const communicationsPendingTotal=incidentEmailsPending+incidentEmailsError
   const globalPendingTotal=
     openPersonal.length+
     openIncidents.length+
     urgentExpirations+
-    commercialPendingTotal+
     operationsPendingTotal
-
-  const purchaseOrderRoute =
-    isCommercialProfile && canAccess('comercial-ordenes-compra')
-      ? 'comercial-ordenes-compra'
-      : canAccess('ordenes-compra')
-        ? 'ordenes-compra'
-        : canAccess('comercial-ordenes-compra')
-          ? 'comercial-ordenes-compra'
-          : null
-
-  const purchaseOrderStatusSegments=[
-    {key:'PENDIENTE',label:'Pendiente',value:purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='PENDIENTE').length},
-    {key:'EN_SEGUIMIENTO',label:'En seguimiento',value:purchaseOrders.filter((guide)=>guideFollowupStatus(guide)==='EN_SEGUIMIENTO').length},
-    {key:'OBSERVADO',label:'Observado',value:observedPurchaseOrders.length},
-    {key:'ENTREGADO_CLIENTE',label:'Entregado',value:deliveredPurchaseOrders.length},
-    {key:'REFRENDADO',label:'Refrendado',value:refrendadoPurchaseOrders.length},
-    {key:'CERRADO',label:'Cerrado',value:closedPurchaseOrders.length},
-  ]
-  const purchaseOrderProgressData=[
-    {key:'TODOS',label:'OC registradas',value:purchaseOrders.length,detail:'Órdenes de Compra visibles según el perfil.'},
-    {key:'PENDIENTE',label:'Pendientes',value:pendingPurchaseOrders.length,detail:'Pendientes o en seguimiento.'},
-    {key:'OBSERVADO',label:'Observadas',value:observedPurchaseOrders.length,detail:'Requieren revisión o regularización.'},
-    {key:'CON_REFRENDO',label:'Con refrendo',value:purchaseOrdersWithRefrendo.length,detail:'Refrendos disponibles para visualizar o descargar.'},
-    {key:'FACTURACION',label:'Facturación',value:purchaseOrdersBillingSent.length,detail:'Órdenes enviadas o confirmadas para facturación.'},
-  ]
 
   const hasTaskAccess=canAccess(isAdminDashboard?'tareas-globales':'mi-trabajo')
   const hasExpirationAccess=['vencimientos-emoa','vencimientos-cursos','vencimientos-licencias'].some(canAccess)
-  const hasDocumentFlowAccess=['ingresos-reposicion','hoja-ubicacion','ordenes-compra','cargos-directos','seguimiento-guias'].some(canAccess)
+  const hasDocumentFlowAccess=['ingresos-reposicion','hoja-ubicacion'].some(canAccess)
   const hasOperationalReportAccess=[incidentRoute,surplusRoute,kardexRoute].some(canAccess)
   const inboundReportOnly=
     canAccess('inbound-incidencias') &&
@@ -781,8 +714,6 @@ export function UniversalDashboardModule({
 
   const visibleDocumentFlowData=documentFlowData.filter((row)=>{
     if(row.key==='FIORI'||row.key==='INGRESOS') return canAccess('hoja-ubicacion')
-    if(row.key==='OC') return canAccess('ordenes-compra')
-    if(row.key==='CARGO') return canAccess('cargos-directos')
     if(row.key==='GUIAS'||row.key==='KMMP') return canAccess('ingresos-reposicion')
     return false
   })
@@ -912,70 +843,6 @@ export function UniversalDashboardModule({
         />}
       </div>
 
-      {purchaseOrderRoute&&<section className="universal-operational-reports dashboard-commercial-oc-section">
-        <div className="universal-report-heading">
-          <div>
-            <b>Órdenes de Compra</b>
-            <span>{isCommercialProfile
-              ? 'Área Comercial · seguimiento documental de todas las OC'
-              : isAdminDashboard
-                ? 'Vista global · estado documental de las OC'
-                : `Información visible para ${profile.warehouse||profile.project||'tu perfil'}`}</span>
-          </div>
-        </div>
-
-        <div className="document-flow-kpis dashboard-commercial-oc-kpis">
-          <button type="button" onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'TODOS'})}>
-            <span className="operational-report-icon"><ShoppingCart size={19}/></span>
-            <span><small>OC REGISTRADAS</small><b>{purchaseOrders.length}</b><em>Universo visible del perfil</em></span>
-            <ChevronRight size={16}/>
-          </button>
-          <button type="button" className={pendingPurchaseOrders.length?'attention':''} onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'PENDIENTE'})}>
-            <span className="operational-report-icon"><Clock3 size={19}/></span>
-            <span><small>PENDIENTES</small><b>{pendingPurchaseOrders.length}</b><em>Requieren seguimiento</em></span>
-            <ChevronRight size={16}/>
-          </button>
-          <button type="button" className={observedPurchaseOrders.length?'attention':''} onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'OBSERVADO'})}>
-            <span className="operational-report-icon"><AlertTriangle size={19}/></span>
-            <span><small>OBSERVADOS</small><b>{observedPurchaseOrders.length}</b><em>Requieren regularización</em></span>
-            <ChevronRight size={16}/>
-          </button>
-          <button type="button" className="success" onClick={()=>onNavigate(purchaseOrderRoute,{commercialFilter:'CON_REFRENDO'})}>
-            <span className="operational-report-icon"><CheckCircle2 size={19}/></span>
-            <span><small>REFRENDO DISPONIBLE</small><b>{purchaseOrdersWithRefrendo.length}</b><em>Listo para visualizar o descargar</em></span>
-            <ChevronRight size={16}/>
-          </button>
-        </div>
-
-        <div className="universal-operational-charts dashboard-commercial-oc-charts">
-          <div className="dashboard-chart-link">
-            <ProfessionalDonutChart
-              title="Estado de Órdenes de Compra"
-              subtitle="Distribución actual del flujo documental"
-              segments={purchaseOrderStatusSegments}
-              onSelect={(key)=>onNavigate(purchaseOrderRoute,{commercialFilter:key as 'PENDIENTE'|'EN_SEGUIMIENTO'|'OBSERVADO'|'ENTREGADO_CLIENTE'|'REFRENDADO'|'CERRADO'})}
-            />
-            <span className="dashboard-chart-access">Ver Órdenes de Compra <ChevronRight size={14}/></span>
-          </div>
-          <div className="dashboard-chart-link">
-            <ProfessionalBarChart
-              title="Avance documental de OC"
-              subtitle="Registro, observaciones, refrendos y facturación"
-              data={purchaseOrderProgressData}
-              onSelect={(key)=>{
-                const filter =
-                  key==='OBSERVADO' ? 'OBSERVADO' :
-                  key==='CON_REFRENDO' ? 'CON_REFRENDO' :
-                  key==='PENDIENTE' ? 'PENDIENTE' :
-                  'TODOS'
-                onNavigate(purchaseOrderRoute,{commercialFilter:filter})
-              }}
-            />
-            <span className="dashboard-chart-access">Abrir reporte documental <ChevronRight size={14}/></span>
-          </div>
-        </div>
-      </section>}
-
       {hasDocumentFlowAccess&&!isCommercialProfile&&<section className="universal-operational-reports document-flow-section">
         <div className="universal-report-heading">
           <div>
@@ -1015,16 +882,6 @@ export function UniversalDashboardModule({
               <ChevronRight size={16}/>
             </button>
           </>}
-          {canAccess('ordenes-compra')&&<button type="button" className={pendingPurchaseOrders.length?'attention':''} onClick={()=>onNavigate('ordenes-compra')}>
-            <span className="operational-report-icon"><ShoppingCart size={19}/></span>
-            <span><small>ÓRDENES DE COMPRA</small><b>{purchaseOrders.length}</b><em>{pendingPurchaseOrders.length} pendientes · {purchaseOrdersWithoutRefrendo.length} sin refrendo</em></span>
-            <ChevronRight size={16}/>
-          </button>}
-          {canAccess('cargos-directos')&&<button type="button" className={pendingDirectDelivery.length?'attention':''} onClick={()=>onNavigate('cargos-directos')}>
-            <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-            <span><small>CARGOS DIRECTOS</small><b>{directCharges.length}</b><em>{pendingDirectDelivery.length} pendientes de entrega</em></span>
-            <ChevronRight size={16}/>
-          </button>}
         </div>
 
         <div className="universal-operational-charts document-flow-charts">
@@ -1035,28 +892,10 @@ export function UniversalDashboardModule({
               data={visibleDocumentFlowData}
               onSelect={(key)=>{
                 if(key==='FIORI') onNavigate('hoja-ubicacion')
-                else if(key==='OC') onNavigate('ordenes-compra')
-                else if(key==='CARGO') onNavigate('cargos-directos')
                 else onNavigate('ingresos-reposicion')
               }}
             />
             <span className="dashboard-chart-access">Abrir tratamiento <ChevronRight size={14}/></span>
-          </div>}
-          {canAccess('seguimiento-guias')&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('seguimiento-guias')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('seguimiento-guias')}}>
-            <ProfessionalDonutChart
-              title="Guías registradas por tipo"
-              subtitle="Distribución visible según tu perfil"
-              segments={guideTypeSegments}
-            />
-            <span className="dashboard-chart-access">Ver Seguimiento de Guías <ChevronRight size={14}/></span>
-          </div>}
-          {canAccess('cargos-directos')&&directCharges.length>0&&<div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('cargos-directos')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('cargos-directos')}}>
-            <ProfessionalDonutChart
-              title="Estado de Cargos Directos"
-              subtitle="Entregas pendientes y completadas para este perfil"
-              segments={directCargoSegments}
-            />
-            <span className="dashboard-chart-access">Abrir Cargos Directos <ChevronRight size={14}/></span>
           </div>}
         </div>
       </section>}
@@ -1137,14 +976,9 @@ export function UniversalDashboardModule({
               <span><small>VENCIMIENTOS</small><b>{urgentExpirations}</b><em>Vencidos o próximos 30 días</em></span>
               <ChevronRight size={16}/>
             </button>
-            <button type="button" className={commercialPendingTotal?'operational-report-missing':''} onClick={()=>onNavigate('comercial-resumen')}>
-              <span className="operational-report-icon"><ShoppingCart size={19}/></span>
-              <span><small>COMERCIAL</small><b>{commercialPendingTotal}</b><em>{purchaseOrdersWithoutRefrendo.length} OC sin refrendo</em></span>
-              <ChevronRight size={16}/>
-            </button>
             <button type="button" className={operationsPendingTotal?'operational-report-missing':''} onClick={()=>onNavigate('ingresos-reposicion')}>
               <span className="operational-report-icon"><FileCheck2 size={19}/></span>
-              <span><small>OPERACIONES</small><b>{operationsPendingTotal}</b><em>{pendingSapKmmp.length} KMMP · {pendingFioriIngresses.length} FIORI · {pendingDirectDelivery.length} entregas</em></span>
+              <span><small>OPERACIONES</small><b>{operationsPendingTotal}</b><em>{pendingSapKmmp.length} KMMP · {pendingFioriIngresses.length} FIORI</em></span>
               <ChevronRight size={16}/>
             </button>
             <button type="button" className={openIncidents.length?'operational-report-missing':''} onClick={()=>onNavigate(incidentRoute)}>

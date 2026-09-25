@@ -1201,13 +1201,6 @@ function Workspace({ session }: { session: Session }) {
   const flatNav = navSections.flatMap((group) =>
     group.items.map((item) => ({ ...item, section: group.section }))
   )
-  // Las vistas de OC y Cargos Directos siguen disponibles desde los indicadores
-  // del inicio, sin ocupar dos accesos duplicados en la barra lateral.
-  const sidebarSections = navSections
-    .map((group) => group.section === 'OPERACIONES'
-      ? { ...group, items: group.items.filter((item) => !['ordenes-compra', 'cargos-directos'].includes(item.id)) }
-      : group)
-    .filter((group) => group.items.length > 0)
   const currentNav = flatNav.find((item) => item.id === tab)
   const mobileHomeTab = 'inicio'
   const mobileWorkTab = flatNav.some((item) => item.id === 'mi-trabajo')
@@ -1346,7 +1339,7 @@ function Workspace({ session }: { session: Session }) {
         </div>
 
         <nav className="sidebar-nav">
-          {sidebarSections.map((group) => {
+          {navSections.map((group) => {
             const open = openSections.includes(group.section)
             const hasActiveItem = group.items.some((item) => item.id === tab)
             return (
