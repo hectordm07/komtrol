@@ -303,7 +303,7 @@ export async function recognizeGuideImage(
     const image = await loadImage(file)
     const headerCanvas = prepareCanvas(image, 'header')
 
-    onProgress?.(5, 'Leyendo cabecera y códigos…')
+    onProgress?.(5, 'Mejorando imagen como escáner y leyendo cabecera…')
     const barcodePromise = detectBarcodes(headerCanvas)
     const header = await recognizeCanvas(
       worker,
@@ -321,31 +321,32 @@ export async function recognizeGuideImage(
     let headerText = barcodeText + header.text
     let focusedConfidence = 0
 
-    // Si la lectura general no encontró la guía/referencia, hacemos micro-OCR
-    // sobre las zonas donde el formato Komatsu las imprime normalmente.
-    if (!likelyHasHeader(headerText)) {
-      onProgress?.(54, 'Afinando N° de guía y referencia…')
+    // Verificación dedicada: una lectura general puede devolver un número con
+    // formato válido pero equivocado (ej. T901-05445301). Por eso la guía y la
+    // referencia SIEMPRE se vuelven a leer en sus zonas reales del formato.
+    // PSM 6 funciona mejor en fotos de celular porque conserva varias líneas
+    // cortas dentro del recuadro, a diferencia de PSM 7 que fuerza una sola.
+    onProgress?.(50, 'Verificando N° de guía y referencia…')
 
-      const guideZone = prepareRegionCanvas(image, {
-        left: 0.55, top: 0.045, right: 0.985, bottom: 0.22, maxWidth: 1500, minWidth: 900,
-      })
-      const referenceZone = prepareRegionCanvas(image, {
-        left: 0.48, top: 0.18, right: 0.985, bottom: 0.40, maxWidth: 1700, minWidth: 950,
-      })
+    const guideZone = prepareRegionCanvas(image, {
+      left: 0.54, top: 0.07, right: 0.995, bottom: 0.21, maxWidth: 1750, minWidth: 1050,
+    })
+    const referenceZone = prepareRegionCanvas(image, {
+      left: 0.42, top: 0.235, right: 0.995, bottom: 0.35, maxWidth: 1850, minWidth: 1100,
+    })
 
-      const guideFocused = await recognizeCanvas(worker, slotIndex, guideZone, '7')
-      const referenceFocused = await recognizeCanvas(worker, slotIndex, referenceZone, '11')
+    const guideFocused = await recognizeCanvas(worker, slotIndex, guideZone, '6')
+    const referenceFocused = await recognizeCanvas(worker, slotIndex, referenceZone, '6')
 
-      guideZone.width = 1
-      guideZone.height = 1
-      referenceZone.width = 1
-      referenceZone.height = 1
+    guideZone.width = 1
+    guideZone.height = 1
+    referenceZone.width = 1
+    referenceZone.height = 1
 
-      focusedConfidence = Math.max(guideFocused.confidence, referenceFocused.confidence)
-      headerText +=
-        '\n--- ZONA NUMERO GUIA ---\n' + guideFocused.text +
-        '\n--- ZONA REFERENCIA ---\n' + referenceFocused.text
-    }
+    focusedConfidence = Math.max(guideFocused.confidence, referenceFocused.confidence)
+    headerText +=
+      '\n--- ZONA NUMERO GUIA ---\n' + guideFocused.text +
+      '\n--- ZONA REFERENCIA ---\n' + referenceFocused.text
 
     const headerComplete = likelyHasHeader(headerText)
     const hasMaterial = likelyHasMaterialRow(headerText)
@@ -367,28 +368,28 @@ export async function recognizeGuideImage(
       }
     }
 
-    onProgress?.(62, 'Leyendo detalle de materiales…')
+    onProgress?.(64, 'Leyendo detalle de materiales…')
     const detailCanvas = prepareCanvas(image, 'detail')
     const detail = await recognizeCanvas(
       worker,
       slotIndex,
       detailCanvas,
       '6',
-      (progress) => onProgress?.(62 + Math.round(progress * 0.27), 'Reconociendo detalle…'),
+      (progress) => onProgress?.(64 + Math.round(progress * 0.22), 'Reconociendo detalle…'),
     )
 
     let materialFocusedText = ''
     let materialFocusedConfidence = 0
 
-    // Las líneas de tabla se pueden perder por las divisiones verticales.
-    // Si no aparece una fila clara, hacemos un segundo pase más abierto sobre
-    // la zona exacta de materiales, útil para N° parte + cantidad (ej. 58E9800720 / 2 UND).
-    if (!likelyHasMaterialRow(detail.text)) {
-      onProgress?.(90, 'Afinando N° de parte y cantidad…')
+    // En reposiciones hacemos siempre una lectura concentrada de la tabla.
+    // Esto reduce el efecto de sellos, líneas verticales y fondo de la mesa.
+    // En el formato Komatsu la primera línea suele estar entre 30% y 42% de la foto.
+    if (likelyReplenishment(headerText) || !likelyHasMaterialRow(detail.text)) {
+      onProgress?.(88, 'Afinando N° de parte, descripción y cantidad…')
       const materialZone = prepareRegionCanvas(image, {
-        left: 0.00, top: 0.27, right: 1.00, bottom: 0.53, maxWidth: 2400, minWidth: 1300,
+        left: 0.00, top: 0.285, right: 0.995, bottom: 0.43, maxWidth: 2500, minWidth: 1500,
       })
-      const materialFocused = await recognizeCanvas(worker, slotIndex, materialZone, '11')
+      const materialFocused = await recognizeCanvas(worker, slotIndex, materialZone, '6')
       materialFocusedText = materialFocused.text
       materialFocusedConfidence = materialFocused.confidence
       materialZone.width = 1
@@ -399,7 +400,7 @@ export async function recognizeGuideImage(
     headerCanvas.height = 1
     detailCanvas.width = 1
     detailCanvas.height = 1
-    onProgress?.(100, 'Lectura completada')
+    onProgress?.(100, 'Lectura optimizada completada')
 
     const headerConfidence = Math.max(header.confidence, focusedConfidence)
     const detailConfidence = Math.max(detail.confidence, materialFocusedConfidence)
