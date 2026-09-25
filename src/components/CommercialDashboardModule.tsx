@@ -38,8 +38,20 @@ type CommercialGuide = {
   guide_refrendos?: Refrendo[] | null
 }
 
+export type CommercialOrderFilter =
+  | 'TODOS'
+  | 'PENDIENTE'
+  | 'EN_SEGUIMIENTO'
+  | 'OBSERVADO'
+  | 'ENTREGADO_CLIENTE'
+  | 'REFRENDADO'
+  | 'ANULADO'
+  | 'CERRADO'
+  | 'SIN_REFRENDO'
+  | 'CON_REFRENDO'
+
 type Props = {
-  onOpenOrders: () => void
+  onOpenOrders: (filter?: CommercialOrderFilter) => void
 }
 
 function normalizeFollowup(value: CommercialGuide['oc_cargo_followups']) {
@@ -139,11 +151,11 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
     const other = Math.max(0, metrics.total - metrics.pending - metrics.observed - metrics.closed - delivered)
 
     return [
-      { label: 'Pendientes', value: metrics.pending },
-      { label: 'Observadas', value: metrics.observed },
-      { label: 'Entregadas', value: delivered },
-      { label: 'Refrendadas / cerradas', value: metrics.closed },
-      { label: 'Otros', value: other },
+      { key: 'PENDIENTE', label: 'Pendientes', value: metrics.pending },
+      { key: 'OBSERVADO', label: 'Observadas', value: metrics.observed },
+      { key: 'ENTREGADO_CLIENTE', label: 'Entregadas', value: delivered },
+      { key: 'REFRENDADO', label: 'Refrendadas / cerradas', value: metrics.closed },
+      { key: 'TODOS', label: 'Otros', value: other },
     ]
   }, [guides, metrics])
 
@@ -184,7 +196,7 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
           <button className="secondary-button" onClick={() => void reload({silent:true})}>
             <RefreshCw size={16}/> Actualizar
           </button>
-          <button className="primary-button" onClick={onOpenOrders}>
+          <button className="primary-button" onClick={()=>onOpenOrders('TODOS')}>
             <ShoppingCart size={16}/> Ver Órdenes de Compra
           </button>
         </div>
@@ -193,22 +205,22 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
       {message && <div className="inline-message">{message}</div>}
 
       <section className="commercial-kpis commercial-kpis-focused">
-        <button type="button" onClick={onOpenOrders}>
+        <button type="button" onClick={()=>onOpenOrders('TODOS')}>
           <ShoppingCart size={20}/>
           <span><b>{metrics.total}</b><small>OC REGISTRADAS</small><em>Universo visible del área comercial</em></span>
           <ChevronRight size={15}/>
         </button>
-        <button type="button" className={metrics.observed ? 'attention' : ''} onClick={onOpenOrders}>
+        <button type="button" className={metrics.observed ? 'attention' : ''} onClick={()=>onOpenOrders('OBSERVADO')}>
           <AlertTriangle size={20}/>
           <span><b>{metrics.observed}</b><small>OBSERVADAS</small><em>Requieren revisión y regularización</em></span>
           <ChevronRight size={15}/>
         </button>
-        <button type="button" className={metrics.withoutRefrendo ? 'attention' : ''} onClick={onOpenOrders}>
+        <button type="button" className={metrics.withoutRefrendo ? 'attention' : ''} onClick={()=>onOpenOrders('SIN_REFRENDO')}>
           <BarChart3 size={20}/>
           <span><b>{metrics.withoutRefrendo}</b><small>SIN REFRENDO</small><em>Pendiente documental</em></span>
           <ChevronRight size={15}/>
         </button>
-        <button type="button" onClick={onOpenOrders}>
+        <button type="button" className="success" onClick={()=>onOpenOrders('CON_REFRENDO')}>
           <FileText size={20}/>
           <span><b>{metrics.withRefrendo}</b><small>REFRENDO DISPONIBLE</small><em>Listo para visualizar o descargar</em></span>
           <ChevronRight size={15}/>
@@ -216,24 +228,25 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
       </section>
 
       <section className="commercial-dashboard-charts">
-        <div className="commercial-chart-link" role="button" tabIndex={0} onClick={onOpenOrders} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders()}}>
+        <div className="commercial-chart-link">
           <ProfessionalDonutChart
             title="Distribución por estado"
             subtitle="Seguimiento actual de las Órdenes de Compra"
             segments={statusSegments}
+            onSelect={(key)=>onOpenOrders(key as CommercialOrderFilter)}
           />
           <span>Ver reporte de Órdenes de Compra <ChevronRight size={14}/></span>
         </div>
-        <div className="commercial-chart-link" role="button" tabIndex={0} onClick={onOpenOrders} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders()}}>
+        <div className="commercial-chart-link">
           <ProfessionalBarChart
             title="Cobertura de refrendos"
             subtitle="Disponibilidad documental de las OC"
             data={refrendoData}
-            onSelect={()=>onOpenOrders()}
+            onSelect={(key)=>onOpenOrders(key === 'CON' ? 'CON_REFRENDO' : 'SIN_REFRENDO')}
           />
           <span>Revisar refrendos <ChevronRight size={14}/></span>
         </div>
-        <div className="commercial-chart-link commercial-trend-card" role="button" tabIndex={0} onClick={onOpenOrders} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders()}}>
+        <div className="commercial-chart-link commercial-trend-card" role="button" tabIndex={0} onClick={()=>onOpenOrders('TODOS')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders('TODOS')}}>
           <ProfessionalTrendChart
             title="Órdenes registradas"
             subtitle="Últimos 6 meses"
@@ -249,7 +262,7 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
             <h3>Órdenes de Compra recientes</h3>
             <p>Vista resumida del estado de guía y refrendo.</p>
           </div>
-          <button className="secondary-button" onClick={onOpenOrders}><Eye size={15}/> Ver todas</button>
+          <button className="secondary-button" onClick={()=>onOpenOrders('TODOS')}><Eye size={15}/> Ver todas</button>
         </div>
 
         {loading ? (
