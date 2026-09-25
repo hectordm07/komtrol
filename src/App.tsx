@@ -11,6 +11,7 @@ import {
   ClipboardList,
   LogOut,
   GraduationCap,
+  KeyRound,
   Mail,
   Menu,
   PackageCheck,
@@ -524,6 +525,11 @@ function Workspace({ session }: { session: Session }) {
   const [saving, setSaving] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
   const [accessView, setAccessView] = useState<AccessView>('ACTUAL')
   const [now, setNow] = useState(() => new Date())
   const [viewport, setViewport] = useState(() => {
@@ -689,6 +695,8 @@ function Workspace({ session }: { session: Session }) {
       } as Record<Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>, PreviewAccessConfig>)[accessView as Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>]
 
   const isAccessPreview = Boolean(previewAccess)
+  const isOperationalWorkerMode = accessView === 'MI_PERFIL_OPERATIVO' && actualRole === 'ADMINISTRADOR'
+  const isReadOnlyAccessPreview = isAccessPreview && !isOperationalWorkerMode
   const role: Profile['role'] = previewAccess?.role ?? actualRole
   const effectiveProfile: Profile | null = profile
     ? {
@@ -1011,6 +1019,34 @@ function Workspace({ session }: { session: Session }) {
 
   async function logout() {
     await supabase.auth.signOut()
+  }
+
+  async function updateOwnPassword(event: FormEvent) {
+    event.preventDefault()
+    setPasswordMessage('')
+
+    if (!/^\d{6,8}$/.test(newPassword)) {
+      setPasswordMessage('La nueva clave debe tener de 6 a 8 dígitos.')
+      return
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage('Las claves no coinciden.')
+      return
+    }
+
+    setPasswordSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setPasswordSaving(false)
+
+    if (error) {
+      setPasswordMessage(`No se pudo cambiar la clave: ${error.message}`)
+      return
+    }
+
+    setNewPassword('')
+    setConfirmNewPassword('')
+    setPasswordModalOpen(false)
+    setToast('Clave actualizada correctamente.')
   }
 
   const allNavSections = [
@@ -1384,6 +1420,19 @@ function Workspace({ session }: { session: Session }) {
                 <small>Rol real: Administrador</small>
               </div>
 
+              <button
+                type="button"
+                className={isOperationalWorkerMode ? 'operational-mode-button active' : 'operational-mode-button'}
+                onClick={() => changeAccessView(isOperationalWorkerMode ? 'ACTUAL' : 'MI_PERFIL_OPERATIVO')}
+              >
+                <ClipboardList size={16} />
+                <span>
+                  <b>{isOperationalWorkerMode ? 'Volver a Administrador' : 'Trabajar como Almacenero'}</b>
+                  <small>{isOperationalWorkerMode ? 'Regresa al acceso completo del sistema' : 'Modo operativo · permite registrar y editar datos'}</small>
+                </span>
+                <ChevronRight size={15} />
+              </button>
+
               <div className="access-view-select-wrap">
                 <ShieldCheck size={14} />
                 <select
@@ -1393,7 +1442,7 @@ function Workspace({ session }: { session: Session }) {
                 >
                   <optgroup label="MIS ACCESOS">
                     <option value="ACTUAL">Administrador · acceso completo</option>
-                    {profile?.worker_access&&<option value="MI_PERFIL_OPERATIVO">Mi perfil operativo · Almacenero Proyecto Minero</option>}
+                    <option value="MI_PERFIL_OPERATIVO">Mi perfil operativo · Almacenero Proyecto Minero</option>
                   </optgroup>
 
                   {accessProfiles.some((item)=>item.user_id!==user.id&&item.warehouse?.toUpperCase()!=='CALLAO'&&item.oc_cargo_access_level!=='COMERCIAL')&&(
@@ -1462,8 +1511,10 @@ function Workspace({ session }: { session: Session }) {
               </div>
 
               {isAccessPreview && (
-                <div className="access-preview-note">
-                  Vista de prueba activa. No cambia tu rol real de Administrador.
+                <div className={isOperationalWorkerMode ? 'access-preview-note operational' : 'access-preview-note'}>
+                  {isOperationalWorkerMode
+                    ? 'Modo operativo activo. Puedes registrar, editar y completar información como Almacenero de Proyecto Minero usando tu propia cuenta.'
+                    : 'Vista de prueba activa. No cambia tu rol real de Administrador.'}
                 </div>
               )}
             </div>
@@ -1472,9 +1523,21 @@ function Workspace({ session }: { session: Session }) {
             <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
             <div>
               <b>{displayName}</b>
-              <span>{isAccessPreview ? `${previewAccess?.shortLabel || role} · VISTA DE PRUEBA` : role}</span>
+              <span>{isOperationalWorkerMode ? `${previewAccess?.shortLabel || role} · MODO OPERATIVO` : isAccessPreview ? `${previewAccess?.shortLabel || role} · VISTA DE PRUEBA` : role}</span>
             </div>
           </div>
+          <button
+            type="button"
+            className="account-action-button"
+            onClick={() => {
+              setNewPassword('')
+              setConfirmNewPassword('')
+              setPasswordMessage('')
+              setPasswordModalOpen(true)
+            }}
+          >
+            <KeyRound size={17} /> Cambiar clave
+          </button>
           <button className="logout-button" onClick={logout}><LogOut size={17} /> Salir</button>
         </div>
       </aside>
@@ -1493,7 +1556,11 @@ function Workspace({ session }: { session: Session }) {
           <div className="topbar-title-block">
             <div className="topbar-title-line">
               <h1>{currentNav?.label ?? 'KOMTROL'}</h1>
-              {isAccessPreview && <span className="access-preview-badge">{previewAccess?.shortLabel}</span>}
+              {isAccessPreview && (
+                <span className={isOperationalWorkerMode ? 'access-preview-badge operational' : 'access-preview-badge'}>
+                  {isOperationalWorkerMode ? 'MODO OPERATIVO · ' : 'VISTA · '}{previewAccess?.shortLabel}
+                </span>
+              )}
             </div>
             <p>{displayName} · {isAccessPreview ? (previewAccess?.position || role) : role}{effectiveProfile?.warehouse ? ` · ${effectiveProfile.warehouse}` : ''}{effectiveProfile?.group_name ? ` · ${effectiveProfile.group_name}` : ''}{effectiveProfile?.shift_name ? ` · ${effectiveProfile.shift_name}` : ''}</p>
           </div>
@@ -1505,7 +1572,7 @@ function Workspace({ session }: { session: Session }) {
               {screenProfileLabel(viewport.profile)} · {viewport.width}×{viewport.height}
             </span>
             <button className="icon-button" onClick={reload} title="Actualizar"><RefreshCw size={19} /></button>
-            {!isAccessPreview && <div className="notification-center">
+            {!isReadOnlyAccessPreview && <div className="notification-center">
               <button
                 className={unreadAppNotifications ? 'icon-button notification-bell has-unread' : 'icon-button notification-bell'}
                 title="Notificaciones"
@@ -1553,7 +1620,7 @@ function Workspace({ session }: { session: Session }) {
               <span className="user-greeting-date"><i />{todayLabel(now)}</span>
               <div className="user-greeting-copy">
                 <strong>{greetingForDate(now)}, <b>{firstName(displayName)}</b></strong>
-                <small>{effectiveProfile?.warehouse || 'SIN ALMACÉN'}{effectiveProfile?.group_name ? ` · ${effectiveProfile.group_name}` : ''}{effectiveProfile?.shift_name ? ` · ${effectiveProfile.shift_name}` : ''}{isAccessPreview ? ` · VISTA ${previewAccess?.shortLabel?.toUpperCase()}` : ''}</small>
+                <small>{effectiveProfile?.warehouse || 'SIN ALMACÉN'}{effectiveProfile?.group_name ? ` · ${effectiveProfile.group_name}` : ''}{effectiveProfile?.shift_name ? ` · ${effectiveProfile.shift_name}` : ''}{isOperationalWorkerMode ? ` · MODO ${previewAccess?.shortLabel?.toUpperCase()}` : isAccessPreview ? ` · VISTA ${previewAccess?.shortLabel?.toUpperCase()}` : ''}</small>
               </div>
             </div>
           </section>
@@ -1576,7 +1643,7 @@ function Workspace({ session }: { session: Session }) {
                   key={accessView}
                   userId={user.id}
                   profile={effectiveProfile!}
-                  previewMode={isAccessPreview}
+                  previewMode={isReadOnlyAccessPreview}
                   availableTabs={flatNav.map((item)=>item.id)}
                   onNavigate={(targetTab, options) => {
                     const target = flatNav.find((item) => item.id === targetTab)
@@ -1691,7 +1758,7 @@ function Workspace({ session }: { session: Session }) {
                   mode={(tab === 'tareas-globales' ? 'global-admin' : tab) as TasksMode}
                   userId={user.id}
                   profile={effectiveProfile!}
-                  previewMode={isAccessPreview}
+                  previewMode={isReadOnlyAccessPreview}
                   scopeWarehouse={isAccessPreview ? previewAccess?.warehouse : undefined}
                   scopeProject={isAccessPreview ? previewAccess?.project : undefined}
                   initialStatusFilter={dashboardTaskStatus || 'TODOS'}
@@ -1708,7 +1775,7 @@ function Workspace({ session }: { session: Session }) {
                   type={expirationType}
                   userId={user.id}
                   profile={effectiveProfile!}
-                  previewMode={isAccessPreview}
+                  previewMode={isReadOnlyAccessPreview}
                 />
               )}
 
@@ -1945,8 +2012,80 @@ function Workspace({ session }: { session: Session }) {
         </div>
       )}
 
+      {passwordModalOpen && (
+        <div
+          className="modal-backdrop account-modal-backdrop"
+          onMouseDown={(event) => event.target === event.currentTarget && !passwordSaving && setPasswordModalOpen(false)}
+        >
+          <form className="modal account-password-modal" onSubmit={updateOwnPassword}>
+            <div className="modal-head">
+              <div>
+                <span className="account-modal-kicker"><KeyRound size={14} /> SEGURIDAD DE CUENTA</span>
+                <h2>Cambiar clave</h2>
+                <p>Actualiza tu clave personal de acceso a KOMTROL. Esta opción está disponible para todos los perfiles.</p>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                disabled={passwordSaving}
+                onClick={() => setPasswordModalOpen(false)}
+                aria-label="Cerrar"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="account-password-form">
+              <label>
+                Nueva clave
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={8}
+                  placeholder="6 a 8 dígitos"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value.replace(/\D/g, '').slice(0, 8))}
+                  autoFocus
+                />
+                <small>Usa entre 6 y 8 dígitos. No compartas tu clave con otros usuarios.</small>
+              </label>
+              <label>
+                Confirmar nueva clave
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={8}
+                  placeholder="Repite la nueva clave"
+                  value={confirmNewPassword}
+                  onChange={(event) => setConfirmNewPassword(event.target.value.replace(/\D/g, '').slice(0, 8))}
+                />
+              </label>
+            </div>
+
+            {passwordMessage && <div className="form-alert account-password-alert">{passwordMessage}</div>}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={passwordSaving}
+                onClick={() => setPasswordModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button className="primary-button" disabled={passwordSaving || !newPassword || !confirmNewPassword}>
+                {passwordSaving ? <RefreshCw className="spin" size={18} /> : <KeyRound size={18} />}
+                {passwordSaving ? 'Actualizando…' : 'Actualizar clave'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {toast && <div className="toast">{toast}</div>}
-      {popNotification && !isAccessPreview && (
+      {popNotification && !isReadOnlyAccessPreview && (
         <div className="task-notification-pop" role="alert">
           <Bell size={19}/>
           <div><b>{popNotification.title}</b><p>{popNotification.message}</p></div>
