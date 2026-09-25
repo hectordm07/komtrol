@@ -114,7 +114,8 @@ type CalendarIncident = {
   created_at: string
 }
 
-type Mode = 'mi-trabajo' | 'tareas' | 'relevos' | 'area-personal' | 'lista' | 'tablero' | 'calendario'
+type Mode = 'mi-trabajo' | 'tareas' | 'relevos' | 'area-personal' | 'lista' | 'tablero' | 'calendario' | 'global-admin'
+type TaskStatusFilter = 'TODOS' | Task['status']
 
 type Props = {
   mode: Mode
@@ -125,6 +126,7 @@ type Props = {
   scopeGroup?: string
   scopeShift?: string
   previewMode?: boolean
+  initialStatusFilter?: TaskStatusFilter
   initialTaskId?: string | null
   initialCommentId?: string | null
   onInitialTaskOpened?: () => void
@@ -208,6 +210,7 @@ export function TasksModule({
   scopeGroup,
   scopeShift,
   previewMode = false,
+  initialStatusFilter = 'TODOS',
   initialTaskId,
   initialCommentId,
   onInitialTaskOpened,
@@ -224,14 +227,14 @@ export function TasksModule({
   const [titleGenerating, setTitleGenerating] = useState(false)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'TODOS' | Task['status']>('TODOS')
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>(initialStatusFilter)
   const [priorityFilter, setPriorityFilter] = useState<'TODAS' | Task['priority']>('TODAS')
   const [labelFilter, setLabelFilter] = useState('')
   const [listOrder, setListOrder] = useState<'PRIORIDAD' | 'FECHA'>('PRIORIDAD')
   const [categoryFilter, setCategoryFilter] = useState('TODAS')
   const [responsibleFilter, setResponsibleFilter] = useState('TODOS')
   const [workArea, setWorkArea] = useState<'MI_TRABAJO' | 'TAREAS' | 'RELEVOS'>(
-    mode === 'relevos' ? 'RELEVOS' : mode === 'tareas' ? 'TAREAS' : 'MI_TRABAJO'
+    mode === 'relevos' ? 'RELEVOS' : (mode === 'tareas' || mode === 'global-admin') ? 'TAREAS' : 'MI_TRABAJO'
   )
   const [workView, setWorkView] = useState<'LISTA' | 'TABLERO' | 'CALENDARIO'>(
     mode === 'tablero' ? 'TABLERO' : mode === 'calendario' ? 'CALENDARIO' : 'LISTA'
@@ -339,7 +342,7 @@ export function TasksModule({
 
   useEffect(() => {
     if (mode === 'relevos') setWorkArea('RELEVOS')
-    else if (mode === 'tareas') setWorkArea('TAREAS')
+    else if (mode === 'tareas' || mode === 'global-admin') setWorkArea('TAREAS')
     else if (mode !== 'area-personal') setWorkArea('MI_TRABAJO')
 
     if (mode === 'tablero') setWorkView('TABLERO')
@@ -348,8 +351,9 @@ export function TasksModule({
   }, [mode])
 
   useEffect(() => {
-    if (workView === 'LISTA' && statusFilter === 'CERRADO') setStatusFilter('TODOS')
-  }, [workView, statusFilter])
+    setStatusFilter(initialStatusFilter || 'TODOS')
+    if (initialStatusFilter && initialStatusFilter !== 'TODOS') setWorkView('LISTA')
+  }, [initialStatusFilter])
 
   useEffect(() => {
     setForm((prev) => ({
@@ -380,7 +384,11 @@ export function TasksModule({
     // A system-view preview represents an operational area, never the administrator's personal records.
     if (previewMode) data = data.filter((t) => t.work_type !== 'PERSONAL')
 
-    if (mode === 'area-personal' || workArea === 'MI_TRABAJO') {
+    if (mode === 'global-admin' && profile?.role === 'ADMINISTRADOR') {
+      // Vista global del Administrador: solo trabajo operativo compartido.
+      // Las tareas personales/privadas de otros usuarios nunca se exponen aquí.
+      data = data.filter((t) => t.work_type !== 'PERSONAL')
+    } else if (mode === 'area-personal' || workArea === 'MI_TRABAJO') {
       // Mi trabajo = exclusivamente tareas personales del usuario.
       data = data.filter((t) =>
         t.work_type === 'PERSONAL' &&
@@ -436,7 +444,9 @@ export function TasksModule({
 
   const filtered = useMemo(() => {
     let data = [...scopedTasks]
-    if (workView === 'LISTA') data = data.filter((t) => t.status !== 'CERRADO' && t.progress < 100)
+    if (workView === 'LISTA' && statusFilter === 'TODOS') {
+      data = data.filter((t) => t.status !== 'CERRADO' && t.progress < 100)
+    }
     if (statusFilter !== 'TODOS') data = data.filter((t) => effectiveStatus(t) === statusFilter)
     if (priorityFilter !== 'TODAS') data = data.filter((t) => t.priority === priorityFilter)
     if (categoryFilter !== 'TODAS') data = data.filter((t) => t.category === categoryFilter)
@@ -546,7 +556,7 @@ export function TasksModule({
   const dueReviewTask = pendingDateReviewTasks.find((task) => task.id === dueReviewTaskId) || pendingDateReviewTasks[0] || null
 
   useEffect(() => {
-    if (loading || !pendingDateReviewTasks.length || dueReviewOpen || showForm || selectedTask) return
+    if (mode === 'global-admin' || loading || !pendingDateReviewTasks.length || dueReviewOpen || showForm || selectedTask) return
     const dayKey = new Date().toLocaleDateString('en-CA')
     const storageKey = `komtrol-date-review:${userId}:${dayKey}`
     if (sessionStorage.getItem(storageKey)) return
@@ -557,7 +567,7 @@ export function TasksModule({
     setDueReviewDue(dateTimeInputValue(first.due_at))
     setDueReviewNote('')
     setDueReviewOpen(true)
-  }, [loading, pendingDateReviewTasks, dueReviewOpen, showForm, selectedTask, userId])
+  }, [mode, loading, pendingDateReviewTasks, dueReviewOpen, showForm, selectedTask, userId])
 
   function selectDueReviewTask(task: Task) {
     setDueReviewTaskId(task.id)
@@ -743,7 +753,7 @@ export function TasksModule({
 
   const activeFilterSummary = useMemo(() => {
     const parts = [
-      mode === 'tareas' ? 'Tareas' : mode === 'relevos' ? 'Relevos' : mode === 'area-personal' ? 'Área personal' : 'Mi trabajo',
+      mode === 'global-admin' ? 'Tareas globales' : mode === 'tareas' ? 'Tareas' : mode === 'relevos' ? 'Relevos' : mode === 'area-personal' ? 'Área personal' : 'Mi trabajo',
       statusFilter !== 'TODOS' ? `Estado: ${statusFilter.replaceAll('_',' ')}` : '',
       priorityFilter !== 'TODAS' ? `Prioridad: ${priorityFilter}` : '',
       categoryFilter !== 'TODAS' ? `Categoría: ${categoryFilter}` : '',
@@ -1312,7 +1322,7 @@ export function TasksModule({
 
         <div className="task-toolbar task-filter-toolbar">
           <div className="task-filter-options">
-            <div className="task-filter-item"><span>Estado</span><SearchableSelect ariaLabel="Filtrar por estado" value={statusFilter} onChange={(value)=>setStatusFilter((value||'TODOS') as 'TODOS' | Task['status'])} options={workView === 'LISTA' ? statusFilterOptions.filter((option) => option.value !== 'CERRADO') : statusFilterOptions} clearable={false} /></div>
+            <div className="task-filter-item"><span>Estado</span><SearchableSelect ariaLabel="Filtrar por estado" value={statusFilter} onChange={(value)=>setStatusFilter((value||'TODOS') as 'TODOS' | Task['status'])} options={statusFilterOptions} clearable={false} /></div>
             <div className="task-filter-item"><span>Prioridad</span><SearchableSelect ariaLabel="Filtrar por prioridad" value={priorityFilter} onChange={(value)=>setPriorityFilter((value||'TODAS') as 'TODAS' | Task['priority'])} options={priorityFilterOptions} clearable={false} /></div>
             <div className="task-filter-item"><span>Categoría</span><SearchableSelect ariaLabel="Filtrar por categoría" value={categoryFilter} onChange={(value)=>setCategoryFilter(value||'TODAS')} options={categoryFilterOptions} clearable={false} /></div>
             <div className="task-filter-item"><span>Responsable</span><SearchableSelect ariaLabel="Filtrar por responsable" value={responsibleFilter} onChange={(value)=>setResponsibleFilter(value||'TODOS')} options={responsibleFilterOptions} noResultsText="Usuario no encontrado" clearable={false} /></div>
@@ -1362,7 +1372,7 @@ export function TasksModule({
         )}
 
         {!loading && <section className="work-indicators" aria-label="Analítica de la vista">
-          <TaskAnalytics tasks={scopedTasks} profiles={profiles} viewName={workArea === 'MI_TRABAJO' ? 'mis trabajos' : workArea === 'RELEVOS' ? 'relevos' : 'tareas grupales'} />
+          <TaskAnalytics tasks={scopedTasks} profiles={profiles} viewName={mode === 'global-admin' ? 'tareas globales' : workArea === 'MI_TRABAJO' ? 'mis trabajos' : workArea === 'RELEVOS' ? 'relevos' : 'tareas grupales'} />
         </section>}
       </section>
 
@@ -1757,37 +1767,50 @@ function TaskList({ tasks, profiles, labels, order, activeCategory, activePriori
     { title: 'Para hacer hoy', detail: 'Incluye tareas atrasadas', items: [] as Task[] },
     { title: 'Para los próximos 7 días', detail: 'Desde mañana hasta el séptimo día', items: [] as Task[] },
     { title: 'Para hacer más adelante', detail: 'Fechas posteriores o tareas sin fecha', items: [] as Task[] },
+    { title: 'Cerradas / completadas', detail: 'Trabajos finalizados', items: [] as Task[] },
   ]
   for (const task of tasks) {
-    if (task.status === 'CERRADO' || task.progress >= 100) continue
+    if (task.status === 'CERRADO' || task.progress >= 100) {
+      sections[3].items.push(task)
+      continue
+    }
     const due = dueTime(task)
     const section = due < tomorrow.getTime() ? sections[0] : due < nextWeek.getTime() ? sections[1] : sections[2]
     section.items.push(task)
   }
-  for (const section of sections) section.items.sort((a, b) =>
-    order === 'PRIORIDAD'
+  for (const section of sections) section.items.sort((a, b) => {
+    if (section.title === 'Cerradas / completadas') {
+      return new Date(b.closed_at || b.updated_at || b.created_at).getTime() - new Date(a.closed_at || a.updated_at || a.created_at).getTime()
+    }
+    return order === 'PRIORIDAD'
       ? priorityRank[a.priority] - priorityRank[b.priority] || dueTime(a) - dueTime(b) || a.title.localeCompare(b.title)
       : dueTime(a) - dueTime(b) || priorityRank[a.priority] - priorityRank[b.priority] || a.title.localeCompare(b.title)
-  )
+  })
 
   return <div className="task-agenda">
     {sections.map((section) => <section className="task-agenda-section" key={section.title}>
       <div className="task-agenda-heading"><div><h3>{section.title}</h3><p>{section.detail}</p></div><span>{section.items.length}</span></div>
       {section.items.length ? <div className="task-agenda-table-wrap"><table className="task-agenda-table">
         <thead><tr><th>Nombre de tarea</th><th>Responsable</th><th>Categoría</th><th>Prioridad</th><th>Fecha de término</th><th>Acciones</th></tr></thead>
-        <tbody>{section.items.map((task) => <tr key={task.id} onClick={() => onOpen(task)}>
+        <tbody>{section.items.map((task) => {
+          const isClosed = task.status === 'CERRADO' || task.progress >= 100
+          return <tr key={task.id} className={isClosed ? 'task-agenda-row-closed' : ''} onClick={() => onOpen(task)}>
           <td className="task-agenda-name"><b>{task.title}</b><span className="task-agenda-meta"><span>{task.task_no}</span>{task.tags?.map((tag) => <button type="button" key={tag} className={activeLabel === tag ? 'task-agenda-tag is-active' : 'task-agenda-tag'} style={{'--tag-color': colorFor(tag)} as CSSProperties} aria-pressed={activeLabel === tag} title={`Filtrar por etiqueta ${tag}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('label', tag) }}>{tag}</button>)}</span></td>
           <td>{task.assignment_type === 'PERSONA' || task.assignment_type === 'PERSONAL' ? name(task.assigned_user_id || task.responsible_id) : task.assignment_type === 'GRUPO' ? (task.assigned_group || task.group_name || 'Grupo') : (task.assigned_shift || task.shift_name || 'Guardia')}</td>
           <td>{task.category ? <button type="button" className={activeCategory === task.category ? 'task-agenda-category is-active' : 'task-agenda-category'} aria-pressed={activeCategory === task.category} title={`Filtrar por categoría ${task.category}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('category', task.category!) }}>{task.category}</button> : 'Sin categoría'}</td>
           <td><button type="button" className={`priority-chip task-agenda-priority p-${task.priority.toLowerCase()}${activePriority === task.priority ? ' is-active' : ''}`} aria-pressed={activePriority === task.priority} title={`Filtrar por prioridad ${task.priority}`} onClick={(event) => { event.stopPropagation(); onQuickFilter('priority', task.priority) }}>{task.priority}</button></td>
-          <td className={isOverdue(task) ? 'task-agenda-overdue' : ''}>{task.due_at ? shortDate(task.due_at) : 'Sin fecha'}{isOverdue(task) && <small>Vencida</small>}</td>
+          <td className={isOverdue(task) ? 'task-agenda-overdue' : ''}>
+            {isClosed ? (task.closed_at ? shortDate(task.closed_at) : 'Completada') : (task.due_at ? shortDate(task.due_at) : 'Sin fecha')}
+            {isClosed ? <small className="task-agenda-closed-label">Cerrada</small> : isOverdue(task) && <small>Vencida</small>}
+          </td>
           <td><div className="task-agenda-actions" onClick={(event) => event.stopPropagation()}>
-            <button type="button" disabled={busyTaskId === task.id} title="Completar tarea" aria-label={`Completar ${task.title}`} onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}><CheckCircle2 size={17}/></button>
-            {section.title !== 'Para hacer hoy' && <button type="button" disabled={busyTaskId === task.id} title="Pasar tarea para hoy" aria-label={`Pasar ${task.title} para hoy`} onClick={() => onMoveToday(task)}><CalendarDays size={17}/></button>}
+            {!isClosed && <button type="button" disabled={busyTaskId === task.id} title="Completar tarea" aria-label={`Completar ${task.title}`} onClick={() => onUpdate(task, { status: 'CERRADO', progress: 100 })}><CheckCircle2 size={17}/></button>}
+            {!isClosed && section.title !== 'Para hacer hoy' && <button type="button" disabled={busyTaskId === task.id} title="Pasar tarea para hoy" aria-label={`Pasar ${task.title} para hoy`} onClick={() => onMoveToday(task)}><CalendarDays size={17}/></button>}
             {canDelete(task) && <button type="button" className="delete-action" disabled={busyTaskId === task.id} title="Eliminar tarea" aria-label={`Eliminar ${task.title}`} onClick={() => onDelete(task)}><Trash2 size={17}/></button>}
             <button type="button" title="Abrir tarea" aria-label={`Abrir ${task.title}`} onClick={() => onOpen(task)}><ChevronRight size={17}/></button>
           </div></td>
-        </tr>)}</tbody>
+        </tr>
+        })}</tbody>
       </table></div> : <div className="task-agenda-empty">Sin tareas en esta sección</div>}
     </section>)}
   </div>
