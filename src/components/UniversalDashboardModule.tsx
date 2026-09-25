@@ -345,15 +345,19 @@ export function UniversalDashboardModule({
     if(task.work_type==='PERSONAL') return false
     if(isAdminDashboard) return true
 
-    // Una asignación directa siempre debe ser visible para su destinatario real.
-    if(task.assignment_type==='PERSONA' && task.assigned_user_id===profile.user_id) return true
-
     const normalizedWarehouse=String(profile.warehouse||'').trim().toUpperCase()
     const normalizedProject=String(profile.project||'').trim().toUpperCase()
-    const normalizedGroup=String(profile.group_name||'').trim().toUpperCase()
     const normalizedShift=String(profile.shift_name||'').trim().toUpperCase()
     const taskWarehouse=String(task.warehouse||'').trim().toUpperCase()
     const taskProject=String(task.project||'').trim().toUpperCase()
+
+    // Una tarea asignada a PERSONA se mantiene privada para el destinatario,
+    // creador o responsable, incluso durante la vista simulada del Administrador.
+    if(task.assignment_type==='PERSONA'){
+      return task.assigned_user_id===profile.user_id ||
+        task.responsible_id===profile.user_id ||
+        task.created_by===profile.user_id
+    }
 
     const sameWarehouse = normalizedWarehouse ? taskWarehouse===normalizedWarehouse : true
     const sameProject = normalizedProject
@@ -366,14 +370,13 @@ export function UniversalDashboardModule({
     // ven TODOS los trabajos grupales y relevos del ámbito, sin limitar por grupo/guardia.
     if(profile.role==='SUPERVISOR' || profile.role==='COORDINADOR') return true
 
-    const taskGroups=[
-      String(task.group_name||'').trim().toUpperCase(),
-      String(task.assigned_group||'').trim().toUpperCase(),
-    ].filter(Boolean)
-    const sameGroup = normalizedGroup ? taskGroups.includes(normalizedGroup) : true
-    if(!sameGroup) return false
+    if(profile.group_name && !groupMatches(profile.group_name,task.group_name) && !groupMatches(profile.group_name,task.assigned_group)) return false
 
-    // El Almacenero sí conserva el alcance de su grupo y guardia.
+    if(task.assignment_type==='GUARDIA' && normalizedShift && task.assigned_shift){
+      if(String(task.assigned_shift).trim().toUpperCase()!==normalizedShift) return false
+    }
+
+    // El Almacenero conserva además la continuidad de su propia guardia en relevos.
     if(task.work_type==='RELEVO' && normalizedShift){
       const relatedShifts=[
         task.shift_name,
