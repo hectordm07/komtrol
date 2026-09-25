@@ -66,9 +66,11 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
   const [guides, setGuides] = useState<CommercialGuide[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [lastUpdated,setLastUpdated]=useState<Date|null>(null)
 
-  async function reload() {
-    setLoading(true)
+  async function reload(options?:{silent?:boolean}) {
+    const silent=Boolean(options?.silent)
+    if(!silent) setLoading(true)
     setMessage('')
 
     const { data, error } = await supabase
@@ -96,11 +98,22 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
       setGuides((data ?? []) as CommercialGuide[])
     }
 
-    setLoading(false)
+    setLastUpdated(new Date())
+    if(!silent) setLoading(false)
   }
 
   useEffect(() => {
     void reload()
+    const refresh=()=>void reload({silent:true})
+    const onVisibility=()=>{ if(document.visibilityState==='visible') refresh() }
+    const timer=window.setInterval(refresh,20_000)
+    window.addEventListener('focus',refresh)
+    document.addEventListener('visibilitychange',onVisibility)
+    return ()=>{
+      window.clearInterval(timer)
+      window.removeEventListener('focus',refresh)
+      document.removeEventListener('visibilitychange',onVisibility)
+    }
   }, [])
 
   const metrics = useMemo(() => {
@@ -168,10 +181,10 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
         <div>
           <span className="commercial-eyebrow">ÁREA COMERCIAL</span>
           <h2>Dashboard de Órdenes de Compra</h2>
-          <p>Consulta el estado de las guías de OC y la disponibilidad de sus refrendos.</p>
+          <p>Consulta el estado de las guías de OC y la disponibilidad de sus refrendos.{lastUpdated ? ` · Actualizado ${lastUpdated.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}` : ''}</p>
         </div>
         <div className="commercial-dashboard-actions">
-          <button className="secondary-button" onClick={() => void reload()}>
+          <button className="secondary-button" onClick={() => void reload({silent:true})}>
             <RefreshCw size={16}/> Actualizar
           </button>
           <button className="primary-button" onClick={onOpenOrders}>
