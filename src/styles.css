@@ -24713,3 +24713,52 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
   font-weight: 850;
   line-height: 1.25;
 }
+
+
+/* KOMTROL · EDICIÓN DIRECTA SC / UBICACIÓN 2026-09-25 */
+.material-inline-edit {
+  min-width: 118px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.material-inline-edit.location {
+  min-width: 145px;
+}
+
+.material-inline-edit input,
+.material-mobile-inline-input {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid #d8e1f6;
+  border-radius: 7px;
+  background: #fff;
+  color: #243b84;
+  padding: 4px 7px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.material-inline-edit input:hover,
+.material-mobile-inline-input:hover {
+  border-color: #b9c8ef;
+  background: #fbfcff;
+}
+
+.material-inline-edit input:focus,
+.material-mobile-inline-input:focus {
+  border-color: #4e67c8;
+  outline: 2px solid #e9eeff;
+}
+
+.material-inline-edit svg {
+  flex: 0 0 auto;
+  color: #4560b9;
+}
+
+.material-mobile-inline-input {
+  min-height: 36px;
+  margin-top: 4px;
+}
