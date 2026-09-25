@@ -419,19 +419,27 @@ function normalizeOcrIdentifierText(text: string) {
 function extractGuideNumber(text: string, fileName?: string) {
   const normalized = normalizeOcrIdentifierText(text)
 
-  const candidates = [
-    normalized.match(/(?:GU[IÍ]A(?:\s+DE\s+REMISI[ÓO]N)?[^A-Z0-9]{0,30}|N[°ºO]?\s*)?(T|I|1)\s*([0-9OQ]{3})\s*[- ]\s*([0-9OQ]{8})/i),
-    normalized.match(/\b(T|I|1)([0-9OQ]{3})[- ]?([0-9OQ]{8})\b/i),
-  ]
+  const normalizeMatch = (seriesRaw: string, numberRaw: string) => {
+    const series = seriesRaw.replace(/[OQ]/g, '0').replace(/[IL]/g, '1')
+    let number = numberRaw.replace(/[OQ]/g, '0').replace(/[IL]/g, '1')
+    if (!/^\d{3}$/.test(series) || !/^\d{7,8}$/.test(number)) return ''
+    if (number.length === 7) number = number.padStart(8, '0')
+    return `T${series}-${number}`
+  }
 
-  for (const match of candidates) {
-    if (!match) continue
-    const prefix = 'T'
-    const series = String(match[2] ?? '').replace(/[OQ]/g, '0')
-    const number = String(match[3] ?? '').replace(/[OQ]/g, '0')
-    if (/^\d{3}$/.test(series) && /^\d{8}$/.test(number)) {
-      return `${prefix}${series}-${number}`
-    }
+  // Con etiqueta: tolera T leído como 7/1/I y también que el OCR pierda la T.
+  const labelled = normalized.match(
+    /(?:GU[IÍ]A(?:\s+DE\s+REMISI[ÓO]N)?|N[°ºO]?)[^\n]{0,35}?([TI17])?\s*([0-9OQIL]{3})\s*[- ]?\s*([0-9OQIL]{7,8})/i
+  )
+  if (labelled) {
+    const value = normalizeMatch(String(labelled[2] ?? ''), String(labelled[3] ?? ''))
+    if (value) return value
+  }
+
+  const global = normalized.match(/\b[TI17]\s*([0-9OQIL]{3})\s*[- ]?\s*([0-9OQIL]{7,8})\b/i)
+  if (global) {
+    const value = normalizeMatch(String(global[1] ?? ''), String(global[2] ?? ''))
+    if (value) return value
   }
 
   return guideFromFileName(fileName)
@@ -923,7 +931,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       setSelectedBatch(items[0].id)
       setFile(items[0].file)
       setPreviewForFile(items[0].file)
-      setMessage(`Lote recibido: ${accepted.length} guía${accepted.length === 1 ? '' : 's'}. KOMTROL las procesará en segundo plano mientras validas las primeras.`)
+      setMessage(`Carga recibida: ${accepted.length} guía${accepted.length === 1 ? '' : 's'}. KOMTROL las procesará en segundo plano mientras validas las primeras.`)
     } else {
       setMessage(`${accepted.length} guía${accepted.length === 1 ? '' : 's'} agregada${accepted.length === 1 ? '' : 's'} a la cola.`)
     }
@@ -941,7 +949,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     updateBatchItems(() => [])
     setSelectedBatch(null)
     resetForm()
-    setMessage('Lote limpiado. Puedes iniciar una nueva carga.')
+    setMessage('Carga limpiada. Puedes iniciar una nueva carga.')
   }
 
   function advanceToNextBatch(afterId: string) {
@@ -1617,7 +1625,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
             className="secondary-button scanner-clear"
             onClick={batchItems.length ? clearBatch : resetForm}
           >
-            <X size={16} /> {batchItems.length ? 'Limpiar lote' : 'Limpiar'}
+            <X size={16} /> {batchItems.length ? 'Limpiar carga' : 'Limpiar'}
           </button>
         </div>
 
