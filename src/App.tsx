@@ -220,8 +220,18 @@ function App() {
 function Login() {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [firstAccess, setFirstAccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+
+  function switchMode(next: boolean) {
+    setFirstAccess(next)
+    setPassword('')
+    setConfirmPassword('')
+    setMessage('')
+    if (next) setIdentifier((value) => value.replace(/\D/g, '').slice(0, 8))
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -260,8 +270,6 @@ function Login() {
       password: password.trim(),
     })
 
-    // Compatibilidad con cuentas antiguas de KOMTROL que usan el PIN
-    // transformado como contraseña en Supabase.
     if (
       error?.message?.toLowerCase().includes('invalid login credentials') &&
       /^\d{4,8}$/.test(password)
@@ -291,6 +299,79 @@ function Login() {
     }
   }
 
+  async function createFirstAccess(event: FormEvent) {
+    event.preventDefault()
+    setMessage('')
+
+    const dni = identifier.replace(/\D/g, '').slice(0, 8)
+    const pin = password.replace(/\D/g, '').slice(0, 8)
+
+    if (!/^\d{8}$/.test(dni)) {
+      setMessage('Ingresa tu DNI de 8 dígitos.')
+      return
+    }
+    if (!/^\d{6,8}$/.test(pin)) {
+      setMessage('Crea una clave de 6 a 8 dígitos.')
+      return
+    }
+    if (pin !== confirmPassword) {
+      setMessage('Las claves no coinciden.')
+      return
+    }
+
+    setLoading(true)
+    const email = loginEmail(dni)
+
+    // 1) Nuevos usuarios preautorizados: crean su propia cuenta desde el padrón.
+    const signUpAttempt = await supabase.auth.signUp({
+      email,
+      password: pin,
+      options: {
+        data: {
+          self_first_access: true,
+          dni,
+        },
+      },
+    })
+
+    if (signUpAttempt.data.session) {
+      setLoading(false)
+      return
+    }
+
+    // El trigger de Supabase confirma las cuentas internas aprobadas.
+    const directLogin = await supabase.auth.signInWithPassword({ email, password: pin })
+    if (!directLogin.error) {
+      setLoading(false)
+      return
+    }
+
+    // 2) Compatibilidad con usuarios que el Administrador precreó sin PIN.
+    const activation = await supabase.functions.invoke('activate-first-access', {
+      body: { dni, pin },
+    })
+
+    if (!activation.error && activation.data?.ok) {
+      const finalLogin = await supabase.auth.signInWithPassword({ email, password: pin })
+      setLoading(false)
+      if (!finalLogin.error) return
+      setMessage('La clave fue creada, pero no se pudo iniciar sesión. Intenta ingresar nuevamente.')
+      return
+    }
+
+    setLoading(false)
+
+    const signUpText = signUpAttempt.error?.message?.toLowerCase() ?? ''
+    const activationMessage = activation.data?.error || ''
+    if (/already|registered|exists/.test(signUpText) || activationMessage.includes('ya tiene')) {
+      setMessage('Este DNI ya tiene una clave registrada. Usa la opción Ingresar.')
+    } else if (activationMessage.includes('no está habilitado')) {
+      setMessage('Tu DNI no está habilitado para ingresar a KOMTROL.')
+    } else {
+      setMessage('No se pudo crear la clave. Verifica que tu DNI esté habilitado por el Administrador.')
+    }
+  }
+
   return (
     <main className="login-page">
       <section className="login-brand">
@@ -311,38 +392,72 @@ function Login() {
       </section>
 
       <section className="login-card-wrap">
-        <form className="login-card" onSubmit={submit}>
+        <form className="login-card" onSubmit={firstAccess ? createFirstAccess : submit}>
           <div className="mini-logo">K</div>
-          <h2>Bienvenido a KOMTROL</h2>
-          <p>Ingresa con tu DNI, usuario corporativo o correo.</p>
+          <h2>{firstAccess ? 'Crea tu clave' : 'Bienvenido a KOMTROL'}</h2>
+          <p>
+            {firstAccess
+              ? 'Si es tu primera vez, ingresa tu DNI y crea una clave personal.'
+              : 'Ingresa con tu DNI, usuario corporativo o correo.'}
+          </p>
 
           <label>
-            DNI, usuario o correo
+            {firstAccess ? 'DNI' : 'DNI, usuario o correo'}
             <input
               type="text"
+              inputMode={firstAccess ? 'numeric' : undefined}
               autoComplete="username"
-              placeholder="12345678 o richar.solar"
+              maxLength={firstAccess ? 8 : undefined}
+              placeholder={firstAccess ? '12345678' : '12345678 o richar.solar'}
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(e) => setIdentifier(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
             />
           </label>
 
           <label>
-            PIN o contraseña
+            {firstAccess ? 'Nueva clave (6 a 8 dígitos)' : 'PIN o contraseña'}
             <input
               type="password"
-              autoComplete="current-password"
+              inputMode={firstAccess ? 'numeric' : undefined}
+              autoComplete={firstAccess ? 'new-password' : 'current-password'}
+              maxLength={firstAccess ? 8 : undefined}
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
             />
           </label>
+
+          {firstAccess && (
+            <label>
+              Confirmar clave
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                maxLength={8}
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              />
+            </label>
+          )}
 
           {message && <div className="form-alert">{message}</div>}
 
           <button className="primary-button full" disabled={loading}>
             {loading ? <RefreshCw className="spin" size={18} /> : <ShieldCheck size={18} />}
-            {loading ? 'Validando…' : 'Ingresar'}
+            {loading
+              ? (firstAccess ? 'Creando clave…' : 'Validando…')
+              : (firstAccess ? 'Crear clave e ingresar' : 'Ingresar')}
+          </button>
+
+          <button
+            type="button"
+            className="secondary-button full"
+            disabled={loading}
+            onClick={() => switchMode(!firstAccess)}
+          >
+            {firstAccess ? 'Volver a Ingresar' : 'Primera vez: crear mi clave'}
           </button>
 
           <small>Acceso exclusivo para personal autorizado.</small>
