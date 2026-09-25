@@ -1224,6 +1224,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     if (pdfRef.current) pdfRef.current.value = ''
     setScanProgress(0)
     setDuplicateGuide(null)
+    setSelectedBatch(null)
     setCameraPageNo(1)
     setCameraBodyCaptures([])
     setForm({
