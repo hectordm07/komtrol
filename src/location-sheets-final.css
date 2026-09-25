@@ -372,3 +372,392 @@
     background: #fff !important;
   }
 }
+
+
+/* =========================================================
+   Encabezado profesional · Responsable · NI FIORI
+   ========================================================= */
+.location-sheet-header {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 12px;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid rgba(64, 88, 170, .18);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.location-sheet-header-main {
+  min-width: 0;
+  padding: 15px 18px;
+  background:
+    linear-gradient(135deg, rgba(244,247,255,.98), rgba(255,255,255,.98));
+}
+
+.location-sheet-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: #73809a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.location-sheet-header-main h2 {
+  margin: 0 0 11px !important;
+  color: #263f91 !important;
+  font-size: 18px !important;
+  line-height: 1.1 !important;
+}
+
+.location-sheet-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.location-sheet-meta-grid > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid rgba(76, 96, 160, .12);
+  border-radius: 10px;
+  background: rgba(255,255,255,.78);
+}
+
+.location-sheet-meta-grid small {
+  color: #8893a9;
+  font-size: 7.5px;
+  font-weight: 900;
+  letter-spacing: .05em;
+}
+
+.location-sheet-meta-grid b {
+  min-width: 0;
+  color: #26375f;
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-sheet-meta-grid .responsible-meta b {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #263f91;
+}
+
+.location-sheet-header .ingress-report-number {
+  min-width: 132px;
+  display: grid;
+  place-content: center;
+  gap: 3px;
+  padding: 14px 10px;
+  border: 0 !important;
+  border-left: 1px solid rgba(64, 88, 170, .14) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #eef2ff, #e8edff) !important;
+  text-align: center;
+}
+
+.location-sheet-header .ingress-report-number span {
+  color: #6d7895;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.location-sheet-header .ingress-report-number b {
+  color: #263f91;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.location-sheet-header .ingress-report-number small {
+  margin-top: 3px;
+  color: #18804d;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ingress-number-button {
+  min-width: 58px;
+  min-height: 34px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #edf2ff;
+  color: #28439a;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ingress-number-button:hover {
+  border-color: rgba(40, 67, 154, .25);
+  background: #e3eaff;
+}
+
+.ingress-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ingress-delete-button {
+  color: #b4232f !important;
+  border-color: rgba(180, 35, 47, .16) !important;
+  background: #fff6f7 !important;
+}
+
+.ingress-delete-button:hover {
+  background: #ffe9eb !important;
+}
+
+.ingress-fiori-panel {
+  min-height: 290px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 12px;
+  padding: 24px;
+  border: 1px solid rgba(52, 79, 177, .16);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 0 0, rgba(75, 99, 196, .10), transparent 35%),
+    linear-gradient(180deg, #fff, #f7f9ff);
+}
+
+.fiori-panel-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  background: linear-gradient(145deg, #304aa8, #4764cf);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(48, 74, 168, .18);
+}
+
+.fiori-panel-copy {
+  max-width: 700px;
+  display: grid;
+  gap: 8px;
+}
+
+.fiori-panel-copy > span {
+  color: #6d7894;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.fiori-panel-copy h3 {
+  margin: 0;
+  color: #22366f;
+  font-size: 18px;
+}
+
+.fiori-panel-copy p {
+  max-width: 640px;
+  margin: 0;
+  color: #68758e;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.fiori-ni-field {
+  max-width: 420px;
+  display: grid;
+  gap: 5px;
+  margin-top: 7px;
+  color: #26375f;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.fiori-ni-field input {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #cad3ea;
+  border-radius: 11px;
+  background: #fff;
+  color: #1f326b;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.fiori-ni-field small {
+  color: #8791a5;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.fiori-status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 3px 0 6px;
+}
+
+.fiori-status-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 31px;
+  padding: 5px 9px;
+  border: 1px solid #e0e5f2;
+  border-radius: 999px;
+  background: #fff;
+  color: #53627e;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.fiori-save-button {
+  width: fit-content;
+  min-width: 220px;
+  justify-content: center;
+}
+
+.guide-replenishment-detail .sap-validation-fields {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+@media (max-width: 760px) {
+  .location-sheet-header {
+    grid-template-columns: minmax(0, 1fr) 86px;
+    border-radius: 13px;
+  }
+
+  .location-sheet-header-main {
+    padding: 11px;
+  }
+
+  .location-sheet-header-main h2 {
+    margin-bottom: 8px !important;
+    font-size: 14px !important;
+  }
+
+  .location-sheet-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .location-sheet-meta-grid > span {
+    padding: 6px;
+  }
+
+  .location-sheet-meta-grid b {
+    font-size: 9px;
+  }
+
+  .location-sheet-header .ingress-report-number {
+    min-width: 86px;
+    padding: 10px 5px;
+  }
+
+  .location-sheet-header .ingress-report-number b {
+    font-size: 22px;
+  }
+
+  .ingress-row-actions {
+    min-width: 220px;
+  }
+
+  .ingress-fiori-panel {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .fiori-panel-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+  }
+
+  .fiori-panel-copy h3 {
+    font-size: 15px;
+  }
+
+  .fiori-ni-field {
+    max-width: none;
+  }
+
+  .fiori-save-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .guide-replenishment-detail .sap-validation-fields {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Encabezado de impresión más limpio y compacto. */
+@media print {
+  body:has(.location-print-mode) .location-sheet-header {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 28mm !important;
+    margin-bottom: 3mm !important;
+    border: .25mm solid #cfd7ef !important;
+    border-radius: 0 !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-header-main {
+    padding: 3mm !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-kicker {
+    font-size: 6pt !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-header-main h2 {
+    margin: 0 0 2mm !important;
+    font-size: 11pt !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-meta-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 1mm !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-meta-grid > span {
+    padding: 1mm !important;
+    border: .2mm solid #e0e5f1 !important;
+    border-radius: 0 !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-meta-grid small {
+    font-size: 4.8pt !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-meta-grid b {
+    font-size: 6.2pt !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-header .ingress-report-number {
+    min-width: 28mm !important;
+    padding: 2mm !important;
+    border-left: .25mm solid #cfd7ef !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-header .ingress-report-number span {
+    font-size: 5pt !important;
+  }
+
+  body:has(.location-print-mode) .location-sheet-header .ingress-report-number b {
+    font-size: 15pt !important;
+  }
+}
