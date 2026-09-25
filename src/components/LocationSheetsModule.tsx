@@ -10,6 +10,10 @@ import {
   Truck,
   Camera,
   Mail,
+  Printer,
+  AlertTriangle,
+  Edit3,
+  CheckCircle2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { jsPDF } from 'jspdf'
@@ -181,11 +185,11 @@ function verificationWorkbook(rows: FlatLine[], received: number, target: FlatLi
     const actual = row.id === target.id ? received : receivedQuantity(row)
     return [project, row.partNo, row.description, row.quantity ?? '', actual ?? '',
       actual == null || row.quantity == null ? '' : Number(actual) - Number(row.quantity),
-      row.guideNo, row.deliveryDate || '', reporter]
+      row.guideNo, row.reference || '', reporter]
   })
   const sheet = XLSX.utils.aoa_to_sheet([
     ['VERIFICACIÓN DE INVENTARIO · REPOSICIÓN', project],
-    ['Centro / Proyecto', 'Código', 'Descripción', 'Cant. pedida', 'Cant. recibida', 'Diferencia', 'Guía de remisión', 'Entrega', 'Reportado por'],
+    ['Centro / Proyecto', 'Código', 'Descripción', 'Cant.', 'Cant. recibida', 'Diferencia', 'Guía de remisión', 'Referencia', 'Reportado por'],
     ...body,
   ])
   sheet['!cols'] = [22, 23, 46, 17, 18, 16, 24, 18, 31].map((wch) => ({ wch }))
@@ -200,7 +204,8 @@ function verificationWorkbook(rows: FlatLine[], received: number, target: FlatLi
 async function exportIngressExcel(
   ingress: Ingress,
   rows: FlatLine[],
-  sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS'
+  sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS',
+  responsible: string,
 ) {
   const moduleUrl = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/+esm'
   const XLSX: any = await import(/* @vite-ignore */ moduleUrl)
@@ -210,41 +215,41 @@ async function exportIngressExcel(
     sapFilter === 'INGRESADO' ? 'INGRESADOS SAP' :
     'TODOS'
 
+  // Formato de revisión manual: no incluye Stock Code ni Cant. recibida.
+  // Stock Mina queda en blanco hasta contar con una fuente de stock confiable.
   const aoa: any[][] = [
-    ['HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS', '', '', '', '', '', '', 'N°', ingress.ingress_no],
-    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', '', ''],
-    ['N°', 'NÚMERO DE PARTE', 'STOCK CODE', 'DESCRIPCIÓN', 'CANT. PEDIDA', 'CANT. RECIBIDA', 'UBICACIÓN', 'GUÍA DE REMISIÓN', 'ENTREGA'],
+    ['HOJA DE UBICACIÓN - REVISIÓN MANUAL', '', '', '', '', '', 'N°', ingress.ingress_no],
+    [`${ingress.supplier} · ${fmtDate(ingress.ingress_date)} · ${statusLabel}${ingress.warehouse ? ' · ' + ingress.warehouse : ''}`, '', '', '', '', '', '', ''],
+    ['NÚMERO DE PARTE', 'DESCRIPCIÓN', 'STOCK MINA', 'GUÍA DE REMISIÓN', 'CANT.', 'UBICACIÓN', 'RESPONSABLE', 'OBSERVACIÓN'],
     ...rows.map((row) => [
-      row.rowNo,
       row.partNo,
-      row.stockCode || 'SIN SC',
       row.description,
-      row.quantity ?? '',
-      receivedQuantity(row) ?? '',
-      row.location || '-',
+      '',
       row.guideNo,
-      row.deliveryDate ? excelDate(row.deliveryDate) : '',
+      row.quantity ?? '',
+      row.location || '',
+      responsible,
+      '',
     ]),
   ]
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
   ]
   ws['!cols'] = [
-    { wch: 7 },
-    { wch: 22 },
-    { wch: 17 },
-    { wch: 50 },
-    { wch: 12 },
-    { wch: 16 },
-    { wch: 18 },
     { wch: 21 },
+    { wch: 46 },
     { wch: 15 },
+    { wch: 21 },
+    { wch: 11 },
+    { wch: 18 },
+    { wch: 29 },
+    { wch: 34 },
   ]
   ws['!rows'] = [{ hpt: 27 }, { hpt: 18 }, { hpt: 32 }]
-  ws['!autofilter'] = { ref: `A3:I${rows.length + 3}` }
+  ws['!autofilter'] = { ref: `A3:H${rows.length + 3}` }
 
   const thinBorder = {
     top: { style: 'thin', color: { rgb: 'B8C0CC' } },
@@ -257,11 +262,7 @@ async function exportIngressExcel(
     ws['A1'].s = {
       font: { name: 'Arial', sz: 14, bold: true, color: { rgb: '263F91' } },
       alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        top: { style: 'thin', color: { rgb: 'D7E1FF' } },
-        bottom: { style: 'thin', color: { rgb: 'D7E1FF' } },
-        left: { style: 'thin', color: { rgb: 'D7E1FF' } },
-      },
+      border: thinBorder,
     }
   }
 
@@ -269,47 +270,22 @@ async function exportIngressExcel(
     ws['A2'].s = {
       font: { name: 'Arial', sz: 9, color: { rgb: '536174' } },
       alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        bottom: { style: 'medium', color: { rgb: '111111' } },
-        left: { style: 'medium', color: { rgb: '111111' } },
-      },
+      border: thinBorder,
     }
   }
 
-  for (const address of ['H1', 'I1']) {
+  for (const address of ['G1', 'H1']) {
     const cell = ws[address]
     if (!cell) continue
     cell.s = {
       fill: { fgColor: { rgb: 'EEF2FF' } },
-      font: {
-        name: 'Arial',
-        sz: address === 'I1' ? 18 : 13,
-        bold: true,
-        color: { rgb: '263F91' },
-      },
+      font: { name: 'Arial', sz: address === 'H1' ? 18 : 13, bold: true, color: { rgb: '263F91' } },
       alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        top: { style: 'medium', color: { rgb: '111111' } },
-        bottom: { style: 'medium', color: { rgb: '111111' } },
-        left: { style: 'medium', color: { rgb: '111111' } },
-        right: { style: 'medium', color: { rgb: '111111' } },
-      },
+      border: thinBorder,
     }
   }
 
-  for (const address of ['H2', 'I2']) {
-    if (!ws[address]) ws[address] = { t: 's', v: '' }
-    ws[address].s = {
-      fill: { fgColor: { rgb: 'EEF2FF' } },
-      border: {
-        bottom: { style: 'medium', color: { rgb: '111111' } },
-        left: { style: 'medium', color: { rgb: '111111' } },
-        right: { style: 'medium', color: { rgb: '111111' } },
-      },
-    }
-  }
-
-  for (let col = 0; col < 9; col++) {
+  for (let col = 0; col < 8; col++) {
     const address = XLSX.utils.encode_cell({ r: 2, c: col })
     const cell = ws[address]
     if (!cell) continue
@@ -317,39 +293,29 @@ async function exportIngressExcel(
       fill: { fgColor: { rgb: '263F91' } },
       font: { name: 'Arial', sz: 9, bold: true, color: { rgb: 'FFFFFF' } },
       alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border: {
-        top: { style: 'medium', color: { rgb: '111111' } },
-        bottom: { style: 'medium', color: { rgb: '111111' } },
-        left: { style: 'thin', color: { rgb: 'FFFFFF' } },
-        right: { style: 'thin', color: { rgb: 'FFFFFF' } },
-      },
+      border: thinBorder,
     }
   }
 
   for (let row = 3; row < rows.length + 3; row++) {
-    for (let col = 0; col < 9; col++) {
+    ws['!rows'][row] = { hpt: 31 }
+    for (let col = 0; col < 8; col++) {
       const address = XLSX.utils.encode_cell({ r: row, c: col })
+      if (!ws[address]) ws[address] = { t: 's', v: '' }
       const cell = ws[address]
-      if (!cell) continue
       cell.s = {
-        font: {
-          name: 'Arial',
-          sz: 9,
-          bold: col === 1,
-          color: { rgb: col === 1 ? '111827' : '334155' },
-        },
+        font: { name: 'Arial', sz: 9, bold: col === 0, color: { rgb: '334155' } },
         alignment: {
-          horizontal: [0, 4, 5].includes(col) ? 'center' : 'left',
+          horizontal: [2, 4].includes(col) ? 'center' : 'left',
           vertical: 'center',
-          wrapText: col === 3,
+          wrapText: [1, 6, 7].includes(col),
         },
         border: thinBorder,
       }
-      if ([4, 5].includes(col) && typeof cell.v === 'number') {
+      if (col === 4 && typeof cell.v === 'number') {
         const decimals = String(cell.v).split('.')[1]?.length ?? 0
         cell.z = decimals ? `#,##0.${'0'.repeat(Math.min(decimals, 3))}` : '#,##0'
       }
-      if (col === 8 && cell.v instanceof Date) cell.z = 'dd/mm/yyyy'
     }
   }
 
@@ -357,21 +323,22 @@ async function exportIngressExcel(
   XLSX.utils.book_append_sheet(wb, ws, `Ingreso ${ingress.ingress_no}`)
   XLSX.writeFile(
     wb,
-    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${sapFilter}_${ingress.ingress_date}.xlsx`
+    `KOMTROL_Revision_Manual_${ingress.ingress_no}_${sapFilter}_${ingress.ingress_date}.xlsx`
   )
 }
 
 function exportIngressPdf(
   ingress: Ingress,
   rows: FlatLine[],
-  sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS'
+  sapFilter: 'PENDIENTE' | 'INGRESADO' | 'TODOS',
+  responsible: string,
 ) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const left = 7
   const right = 7
-  const numberBoxWidth = 40
+  const numberBoxWidth = 42
   const headerHeight = 19
   const reportWidth = pageWidth - left - right
   const statusLabel =
@@ -387,9 +354,9 @@ function exportIngressPdf(
 
     doc.setTextColor(38, 63, 145)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10.5)
+    doc.setFontSize(11)
     doc.text(
-      'HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS',
+      'HOJA DE UBICACIÓN - REVISIÓN MANUAL',
       left + (reportWidth - numberBoxWidth) / 2,
       14,
       { align: 'center' }
@@ -407,14 +374,13 @@ function exportIngressPdf(
 
     const boxX = left + reportWidth - numberBoxWidth
     doc.setFillColor(238, 242, 255)
-    doc.setDrawColor(215, 225, 255)
     doc.rect(boxX, 7, numberBoxWidth, headerHeight, 'FD')
     doc.setTextColor(38, 63, 145)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.text('N°', boxX + 11, 18, { align: 'center' })
+    doc.setFontSize(10)
+    doc.text('N°', boxX + 10, 18, { align: 'center' })
     doc.setFontSize(15)
-    doc.text(String(ingress.ingress_no), boxX + 27, 18.5, { align: 'center' })
+    doc.text(String(ingress.ingress_no), boxX + 28, 18.5, { align: 'center' })
   }
 
   drawReportHeader()
@@ -423,54 +389,52 @@ function exportIngressPdf(
     startY: 31,
     margin: { left, right, top: 31, bottom: 12 },
     head: [[
-      'N°',
       'NÚMERO DE PARTE',
-      'STOCK CODE',
       'DESCRIPCIÓN',
-      'CANT. PEDIDA',
-      'CANT. RECIBIDA',
-      'UBICACIÓN',
+      'STOCK MINA',
       'GUÍA DE REMISIÓN',
-      'ENTREGA',
+      'CANT.',
+      'UBICACIÓN',
+      'RESPONSABLE',
+      'OBSERVACIÓN',
     ]],
     body: rows.map((row) => [
-      row.rowNo,
       row.partNo,
-      row.stockCode || 'SIN SC',
       row.description,
-      row.quantity == null ? '' : formatQuantity(Number(row.quantity)),
-      receivedQuantity(row) == null ? '' : formatQuantity(Number(receivedQuantity(row))),
-      row.location || '-',
+      '',
       row.guideNo,
-      row.deliveryDate ? fmtDate(row.deliveryDate) : '',
+      row.quantity == null ? '' : formatQuantity(Number(row.quantity)),
+      row.location || '',
+      responsible,
+      '',
     ]),
     styles: {
       font: 'helvetica',
-      fontSize: 5.3,
-      cellPadding: 1.05,
-      lineColor: [213, 220, 227],
-      lineWidth: 0.15,
+      fontSize: 6.2,
+      cellPadding: 1.5,
+      lineColor: [190, 198, 210],
+      lineWidth: 0.18,
       textColor: [51, 65, 85],
       valign: 'middle',
+      minCellHeight: 11,
     },
     headStyles: {
       fillColor: [38, 63, 145],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center',
-      fontSize: 5.2,
+      fontSize: 6,
       minCellHeight: 10,
     },
     columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 23, fontStyle: 'bold' },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 45 },
-      4: { cellWidth: 13, halign: 'center' },
-      5: { cellWidth: 16, halign: 'center' },
-      6: { cellWidth: 20 },
-      7: { cellWidth: 28 },
-      8: { cellWidth: 16, halign: 'center' },
+      0: { cellWidth: 29, fontStyle: 'bold' },
+      1: { cellWidth: 62 },
+      2: { cellWidth: 21, halign: 'center' },
+      3: { cellWidth: 31 },
+      4: { cellWidth: 17, halign: 'center' },
+      5: { cellWidth: 24 },
+      6: { cellWidth: 42 },
+      7: { cellWidth: 48 },
     },
     didDrawPage: (data: any) => {
       if (data.pageNumber > 1) drawReportHeader()
@@ -478,7 +442,7 @@ function exportIngressPdf(
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(6.5)
       doc.text(
-        `Ingreso ${ingress.ingress_no} · ${statusLabel} · Página ${data.pageNumber}`,
+        `Ingreso ${ingress.ingress_no} · Revisión manual · Página ${data.pageNumber}`,
         pageWidth - right,
         pageHeight - 5,
         { align: 'right' }
@@ -488,7 +452,7 @@ function exportIngressPdf(
 
   savePdfBlob(
     doc,
-    `KOMTROL_Hoja_Ubicacion_${ingress.ingress_no}_${sapFilter}_${ingress.ingress_date}.pdf`
+    `KOMTROL_Revision_Manual_${ingress.ingress_no}_${sapFilter}_${ingress.ingress_date}.pdf`
   )
 }
 
@@ -512,6 +476,8 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
   const [dateSearch, setDateSearch] = useState('')
   const [supplier, setSupplier] = useState('TODOS')
   const [sapFilter, setSapFilter] = useState<'PENDIENTE' | 'INGRESADO' | 'TODOS'>('PENDIENTE')
+  const [detailMode, setDetailMode] = useState<'PRINT' | 'VERIFY'>('PRINT')
+  const [editingVerificationLineId, setEditingVerificationLineId] = useState<string | null>(null)
   const [receivedDrafts, setReceivedDrafts] = useState<Record<string, string>>({})
   const [deliveryDrafts, setDeliveryDrafts] = useState<Record<string, string>>({})
   const [guideFiles, setGuideFiles] = useState<Record<string, File>>({})
@@ -697,7 +663,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
   const matchingSelectedRows = useMemo(() => {
     const query = receivedSearch.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE')
     if (!query) return selectedRows
-    return selectedRows.filter((row) => [row.partNo, row.stockCode, row.description, row.guideNo]
+    return selectedRows.filter((row) => [row.partNo, row.description, row.guideNo, row.reference]
       .some((field) => field.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE').includes(query)))
   }, [selectedRows, receivedSearch])
 
@@ -797,7 +763,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
       material_no: row.partNo, stock_code: row.stockCode || null,
       description: row.description || null, location: row.location || null,
       qty_expected: expected, qty_received: received,
-      notes: `Verificación de reposición · Ingreso ${selected?.ingress_no || '—'} · Entrega: ${deliveryDate || 'sin fecha'} · Reportado por ${profile?.full_name || 'usuario'} (${profile?.role || 'perfil'}).`,
+      notes: `Verificación de reposición · Ingreso ${selected?.ingress_no || '—'} · Referencia: ${row.reference || 'sin referencia'} · Reportado por ${profile?.full_name || 'usuario'} (${profile?.role || 'perfil'}).`,
       warehouse, project: profile?.project || null, group_name: profile?.group_name || null,
       shift_name: profile?.shift_name || null, operation_area: 'GENERAL',
       verification_email_subject: subject, auto_email_status: 'PENDIENTE',
@@ -844,6 +810,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
       setMessage(`Incidencia ${incidentNo} registrada. El correo quedó pendiente: ${error instanceof Error ? error.message : 'revisa los adjuntos'}.`)
     } finally {
       setSavingLine(null)
+      setEditingVerificationLineId(null)
     }
   }
 
@@ -905,7 +872,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     setExporting('excel')
     setMessage('')
     try {
-      await exportIngressExcel(selected, selectedRows, sapFilter)
+      await exportIngressExcel(selected, selectedRows, sapFilter, profile?.full_name || 'Responsable')
     } catch (error) {
       setMessage(
         `No se pudo generar el Excel: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -920,7 +887,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     setExporting('pdf')
     setMessage('')
     try {
-      await exportIngressPdf(selected, selectedRows, sapFilter)
+      await exportIngressPdf(selected, selectedRows, sapFilter, profile?.full_name || 'Responsable')
     } catch (error) {
       setMessage(
         `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'error desconocido'}`
@@ -1053,7 +1020,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                     <td><b>{guideCount(row)}</b></td>
                     <td><b>{lineCount(row)}</b></td>
                     <td>
-                      <button className="secondary-button small-report" onClick={() => { setSelected(row); setReceivedSearch('') }}>
+                      <button className="secondary-button small-report" onClick={() => { setSelected(row); setReceivedSearch(''); setDetailMode('PRINT'); setEditingVerificationLineId(null) }}>
                         <FileText size={14} /> Ver ingreso
                       </button>
                     </td>
@@ -1074,7 +1041,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
       </section>
 
       {selected && (
-        <section className="panel ingress-detail-report">
+        <section className={`panel ingress-detail-report ${detailMode === 'PRINT' ? 'location-print-mode' : 'location-verify-mode'}`}>
           <div className="ingress-report-title">
             <div>
               <h2>HOJA DE UBICACIÓN - RECEPCIÓN DE REPUESTOS</h2>
@@ -1098,144 +1065,258 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
                 {sapFilter === 'PENDIENTE' ? 'Pendientes SAP' : sapFilter === 'INGRESADO' ? 'Ingresados SAP' : 'Todos'}
               </span>
             </div>
-            <div className="button-row">
-              <button className="secondary-button" onClick={() => { setSelected(null); setReceivedSearch('') }}>
+            <div className="button-row ingress-mode-actions">
+              <button className="secondary-button" onClick={() => { setSelected(null); setReceivedSearch(''); setDetailMode('PRINT'); setEditingVerificationLineId(null) }}>
                 Cerrar detalle
               </button>
-              <button className="secondary-button" disabled={Boolean(exporting) || !selectedRows.length} onClick={exportSelectedPdf}>
-                {exporting === 'pdf' ? <RefreshCw className="spin" size={16} /> : <FileText size={16} />}
-                {exporting === 'pdf' ? 'Generando PDF…' : 'Generar PDF'}
+              <button
+                className={detailMode === 'PRINT' ? 'primary-button' : 'secondary-button'}
+                onClick={() => { setDetailMode('PRINT'); setEditingVerificationLineId(null); setReceivedSearch('') }}
+              >
+                <Printer size={16} /> Revisión manual
               </button>
-              <button className="primary-button" disabled={Boolean(exporting) || !selectedRows.length} onClick={exportSelectedExcel}>
-                {exporting === 'excel' ? <RefreshCw className="spin" size={16} /> : <FileSpreadsheet size={16} />}
-                {exporting === 'excel' ? 'Generando Excel…' : 'Exportar Excel'}
-              </button>
+              {profile?.role !== 'SUPERVISOR' && (
+                <button
+                  className={detailMode === 'VERIFY' ? 'primary-button' : 'secondary-button'}
+                  onClick={() => { setDetailMode('VERIFY'); setEditingVerificationLineId(null) }}
+                >
+                  <AlertTriangle size={16} /> Verificación inventario
+                </button>
+              )}
+              {detailMode === 'PRINT' && <>
+                <button className="secondary-button" disabled={!selectedRows.length} onClick={() => window.print()}>
+                  <Printer size={16} /> Imprimir
+                </button>
+                <button className="secondary-button" disabled={Boolean(exporting) || !selectedRows.length} onClick={exportSelectedPdf}>
+                  {exporting === 'pdf' ? <RefreshCw className="spin" size={16} /> : <FileText size={16} />}
+                  {exporting === 'pdf' ? 'Generando PDF…' : 'PDF'}
+                </button>
+                <button className="secondary-button" disabled={Boolean(exporting) || !selectedRows.length} onClick={exportSelectedExcel}>
+                  {exporting === 'excel' ? <RefreshCw className="spin" size={16} /> : <FileSpreadsheet size={16} />}
+                  {exporting === 'excel' ? 'Generando Excel…' : 'Excel'}
+                </button>
+              </>}
             </div>
           </div>
 
-          {profile?.role !== 'SUPERVISOR' && <div className="verification-import">
-            <label className="secondary-button"><FileSpreadsheet size={15} /> Cargar cantidades desde Excel
-              <input type="file" accept=".xlsx,.xls" onChange={(event) => {
-                void importVerificationExcel(event.target.files?.[0])
-                event.target.value = ''
-              }} />
-            </label>
-            <small>Compara código y guía con esta hoja. Revisa las cantidades antes de enviar incidencias.</small>
-          </div>}
+          {detailMode === 'PRINT' ? (
+            <div className="manual-review-view">
+              <div className="manual-review-note">
+                <Printer size={17} />
+                <div>
+                  <b>Formato para revisión manual</b>
+                  <span>Imprime esta hoja y valida físicamente el material. Stock Mina se deja en blanco mientras no exista una fuente de stock confiable.</span>
+                </div>
+              </div>
 
-          <div className="verification-search">
-            <label htmlFor="verification-material-search">Buscar material para corregir cantidad recibida</label>
-            <div className="search">
-              <Search size={16} />
-              <input id="verification-material-search" type="search" value={receivedSearch}
-                onChange={(event) => setReceivedSearch(event.target.value)}
-                placeholder="Número de parte, stock code, descripción o guía…" />
+              <div className="table-wrap ingress-detail-table manual-review-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>NÚMERO DE PARTE</th>
+                      <th>DESCRIPCIÓN</th>
+                      <th>STOCK MINA</th>
+                      <th>GUÍA DE REMISIÓN</th>
+                      <th>CANT.</th>
+                      <th>UBICACIÓN</th>
+                      <th>RESPONSABLE</th>
+                      <th>OBSERVACIÓN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedRows.map((row) => (
+                      <tr key={`print-${row.id}`}>
+                        <td><b>{row.partNo || '—'}</b></td>
+                        <td>{row.description || '—'}</td>
+                        <td className="manual-empty-cell">&nbsp;</td>
+                        <td>{row.guideNo || '—'}</td>
+                        <td className="manual-qty">{row.quantity == null ? '' : formatQuantity(Number(row.quantity))}</td>
+                        <td>{row.location || ''}</td>
+                        <td>{profile?.full_name || '—'}</td>
+                        <td className="manual-observation-cell">&nbsp;</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!selectedRows.length && (
+                  <div className="empty-work">
+                    <FileText size={28} />
+                    <b>Este ingreso aún no tiene líneas</b>
+                  </div>
+                )}
+              </div>
             </div>
-            <small>{receivedSearch ? `${matchingSelectedRows.length} de ${selectedRows.length} líneas` : 'Cantidades precargadas con lo pedido. Busca y modifica solo las diferencias antes de verificar.'}</small>
-          </div>
+          ) : (
+            <div className="inventory-verification-view">
+              {profile?.role !== 'SUPERVISOR' && <div className="verification-import">
+                <label className="secondary-button"><FileSpreadsheet size={15} /> Cargar cantidades desde Excel
+                  <input type="file" accept=".xlsx,.xls" onChange={(event) => {
+                    void importVerificationExcel(event.target.files?.[0])
+                    event.target.value = ''
+                  }} />
+                </label>
+                <small>Opcional. También puedes buscar un material y habilitar solo su cantidad recibida para reportar una diferencia.</small>
+              </div>}
 
-          <div className="table-wrap ingress-detail-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>N°</th>
-                  <th>NÚMERO DE PARTE</th>
-                  <th>Stock code</th>
-                  <th>Descripción</th>
-                  <th>Cant. pedida</th>
-                  <th>Cant. recibida</th>
-                  <th>Ubicación</th>
-                  <th>Guía de remisión</th>
-                  <th>Entrega</th>
-                  <th>Verificación</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matchingSelectedRows.map((row) => (
-                  <tr key={`${row.rowNo}-${row.guideNo}-${row.partNo}`}>
-                    <td>{row.rowNo}</td>
-                    <td><b>{row.partNo || '—'}</b></td>
-                    <td>{row.stockCode || 'SIN SC'}</td>
-                    <td>{row.description || '—'}</td>
-                    <td>{row.quantity == null ? '—' : formatQuantity(Number(row.quantity))}</td>
-                    <td>
-                      <input className="verification-count" type="number" min="0" step="0.001"
-                        value={receivedDrafts[row.id] ?? (receivedQuantity(row) == null ? '' : String(receivedQuantity(row)))}
-                        onChange={(event) => setReceivedDrafts((previous) => ({ ...previous, [row.id]: event.target.value }))}
-                        disabled={profile?.role === 'SUPERVISOR' || Boolean(row.verificationIncidentId) || Boolean(savingLine)}
-                        aria-label={`Cantidad recibida de ${row.partNo}`} placeholder="0" />
-                      {(() => {
-                        const draft = receivedDrafts[row.id] ?? (receivedQuantity(row) == null ? '' : String(receivedQuantity(row)))
-                        if (draft === '' || row.quantity == null) return null
-                        const delta = Number(draft) - Number(row.quantity)
-                        return <small className={delta < 0 ? 'verification-short' : delta > 0 ? 'verification-over' : 'verification-ok'}>
-                          {delta < 0 ? `Faltan ${formatQuantity(Math.abs(delta))}` : delta > 0 ? `Sobran ${formatQuantity(delta)}` : 'Coincide'}
-                        </small>
-                      })()}
-                    </td>
-                    <td>{row.location || '-'}</td>
-                    <td>{row.guideNo || '—'}</td>
-                    <td><input className="verification-delivery" type="date"
-                      value={deliveryDrafts[row.id] ?? row.deliveryDate ?? ''}
-                      onChange={(event) => setDeliveryDrafts({ ...deliveryDrafts, [row.id]: event.target.value })}
-                      disabled={profile?.role === 'SUPERVISOR' || Boolean(row.verificationIncidentId) || Boolean(savingLine)}
-                      aria-label={`Fecha de entrega de ${row.partNo}`} /></td>
-                    <td>
-                      {row.verificationIncidentId ? <div className="verification-actions">
-                        <span className={incidentMailStatus[row.verificationIncidentId] === 'ENVIADO' ? 'status-pill success' : 'status-pill warning'}>
-                          {incidentMailStatus[row.verificationIncidentId] === 'ENVIADO' ? 'Correo enviado' : 'Incidencia · correo pendiente'}
-                        </span>
-                        {profile?.role !== 'SUPERVISOR' && incidentMailStatus[row.verificationIncidentId] !== 'ENVIADO' && <>
-                          {!row.guideFile?.file_path && <label className="verification-file">Guía PDF
-                            <input type="file" accept="application/pdf,.pdf" onChange={(event) => {
-                              const file = event.target.files?.[0]
-                              if (file) setGuideFiles({ ...guideFiles, [row.receiptId]: file })
-                            }} />
-                          </label>}
-                          <button className="secondary-button" disabled={Boolean(savingLine)} onClick={() => retryVerification(row)}>
-                            <Mail size={13} /> Reintentar correo
-                          </button>
-                        </>}
-                      </div> : profile?.role === 'SUPERVISOR' ? 'Solo lectura' : <div className="verification-actions">
-                        {!row.guideFile?.file_path || !/\.pdf$/i.test(row.guideFile.file_name || row.guideFile.file_path) ?
-                          <label className="verification-file">Guía PDF
-                            <input type="file" accept="application/pdf,.pdf" onChange={(event) => {
-                              const file = event.target.files?.[0]
-                              if (file) setGuideFiles({ ...guideFiles, [row.receiptId]: file })
-                            }} />
-                            {guideFiles[row.receiptId]?.name && <small>{guideFiles[row.receiptId].name}</small>}
-                          </label> : <small>PDF vinculado</small>}
-                        <label className="verification-file"><Camera size={13} /> Fotos opcionales
-                          <input type="file" accept="image/*" multiple onChange={(event) => {
-                            const files = Array.from(event.target.files || [])
-                            if (files.length) setPhotos({ ...photos, [row.id]: files })
-                          }} />
-                          {photos[row.id]?.length ? <small>{photos[row.id].length} foto(s)</small> : null}
-                        </label>
-                        <button className="secondary-button" disabled={Boolean(savingLine)} onClick={() => saveVerification(row)}>
-                          {savingLine === row.id ? <RefreshCw className="spin" size={13} /> : <Mail size={13} />}
-                          {savingLine === row.id ? 'Guardando…' : 'Verificar'}
-                        </button>
-                      </div>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              <div className="verification-search">
+                <label htmlFor="verification-material-search">Buscar material para reportar faltante o sobrante</label>
+                <div className="search">
+                  <Search size={16} />
+                  <input id="verification-material-search" type="search" value={receivedSearch}
+                    onChange={(event) => setReceivedSearch(event.target.value)}
+                    placeholder="Número de parte, descripción, guía o referencia…" />
+                </div>
+                <small>{receivedSearch ? `${matchingSelectedRows.length} de ${selectedRows.length} líneas` : 'Selecciona Reportar diferencia para habilitar únicamente la cantidad recibida de esa línea.'}</small>
+              </div>
 
-            {!selectedRows.length && (
-              <div className="empty-work">
-                <FileText size={28} />
-                <b>Este ingreso aún no tiene líneas</b>
+              <div className="table-wrap ingress-detail-table verification-mode-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>NÚMERO DE PARTE</th>
+                      <th>DESCRIPCIÓN</th>
+                      <th>GUÍA DE REMISIÓN</th>
+                      <th>REFERENCIA</th>
+                      <th>CANT.</th>
+                      <th>UBICACIÓN</th>
+                      <th>CANT. RECIBIDA</th>
+                      <th>EVIDENCIA</th>
+                      <th>ACCIÓN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matchingSelectedRows.map((row) => {
+                      const isEditing = editingVerificationLineId === row.id
+                      const draft = receivedDrafts[row.id] ?? (receivedQuantity(row) == null ? '' : String(receivedQuantity(row)))
+                      const received = draft === '' ? NaN : Number(draft)
+                      const expected = row.quantity == null ? NaN : Number(row.quantity)
+                      const delta = Number.isFinite(received) && Number.isFinite(expected) ? received - expected : 0
+                      const hasDifference = Number.isFinite(received) && Number.isFinite(expected) && delta !== 0
+
+                      return (
+                        <tr key={`verify-${row.id}`} className={isEditing ? 'verification-row-editing' : ''}>
+                          <td><b>{row.partNo || '—'}</b></td>
+                          <td>{row.description || '—'}</td>
+                          <td>{row.guideNo || '—'}</td>
+                          <td><b>{row.reference || '—'}</b></td>
+                          <td>{row.quantity == null ? '—' : formatQuantity(Number(row.quantity))}</td>
+                          <td>{row.location || '—'}</td>
+                          <td>
+                            {row.verificationIncidentId ? (
+                              <span className="verification-locked-value">{row.quantityReceived == null ? '—' : formatQuantity(Number(row.quantityReceived))}</span>
+                            ) : isEditing ? (
+                              <div className="verification-count-editor">
+                                <input className="verification-count" type="number" min="0" step="0.001"
+                                  value={draft}
+                                  onChange={(event) => setReceivedDrafts((previous) => ({ ...previous, [row.id]: event.target.value }))}
+                                  disabled={Boolean(savingLine)}
+                                  autoFocus
+                                  aria-label={`Cantidad recibida de ${row.partNo}`}
+                                  placeholder="0"
+                                />
+                                {Number.isFinite(received) && Number.isFinite(expected) && (
+                                  <small className={delta < 0 ? 'verification-short' : delta > 0 ? 'verification-over' : 'verification-ok'}>
+                                    {delta < 0 ? `Faltan ${formatQuantity(Math.abs(delta))}` : delta > 0 ? `Sobran ${formatQuantity(delta)}` : 'Sin diferencia'}
+                                  </small>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="verification-locked-value">{row.quantity == null ? '—' : formatQuantity(Number(row.quantity))}</span>
+                            )}
+                          </td>
+                          <td>
+                            {row.verificationIncidentId ? (
+                              <small>Incidencia registrada</small>
+                            ) : isEditing ? (
+                              <div className="verification-evidence-stack">
+                                {!row.guideFile?.file_path || !/\.pdf$/i.test(row.guideFile.file_name || row.guideFile.file_path) ? (
+                                  <label className="verification-file">Guía PDF
+                                    <input type="file" accept="application/pdf,.pdf" onChange={(event) => {
+                                      const next = event.target.files?.[0]
+                                      if (next) setGuideFiles({ ...guideFiles, [row.receiptId]: next })
+                                    }} />
+                                    {guideFiles[row.receiptId]?.name && <small>{guideFiles[row.receiptId].name}</small>}
+                                  </label>
+                                ) : <small><CheckCircle2 size={13} /> PDF vinculado</small>}
+                                <label className="verification-file"><Camera size={13} /> Foto opcional
+                                  <input type="file" accept="image/*" multiple onChange={(event) => {
+                                    const next = Array.from(event.target.files || [])
+                                    if (next.length) setPhotos({ ...photos, [row.id]: next })
+                                  }} />
+                                  {photos[row.id]?.length ? <small>{photos[row.id].length} foto(s)</small> : null}
+                                </label>
+                              </div>
+                            ) : <small>Se habilita al reportar</small>}
+                          </td>
+                          <td>
+                            {row.verificationIncidentId ? (
+                              <div className="verification-actions">
+                                <span className={incidentMailStatus[row.verificationIncidentId] === 'ENVIADO' ? 'status-pill success' : 'status-pill warning'}>
+                                  {incidentMailStatus[row.verificationIncidentId] === 'ENVIADO' ? 'Correo enviado' : 'Correo pendiente'}
+                                </span>
+                                {profile?.role !== 'SUPERVISOR' && incidentMailStatus[row.verificationIncidentId] !== 'ENVIADO' && (
+                                  <button className="secondary-button" disabled={Boolean(savingLine)} onClick={() => retryVerification(row)}>
+                                    <Mail size={13} /> Reintentar
+                                  </button>
+                                )}
+                              </div>
+                            ) : profile?.role === 'SUPERVISOR' ? 'Solo lectura' : isEditing ? (
+                              <div className="verification-actions">
+                                <button className="secondary-button" disabled={Boolean(savingLine)} onClick={() => {
+                                  setEditingVerificationLineId(null)
+                                  setReceivedDrafts((previous) => {
+                                    const next = { ...previous }
+                                    delete next[row.id]
+                                    return next
+                                  })
+                                }}>
+                                  Cancelar
+                                </button>
+                                <button
+                                  className="primary-button"
+                                  disabled={Boolean(savingLine) || !hasDifference}
+                                  onClick={() => void saveVerification(row)}
+                                  title={!hasDifference ? 'Modifica la cantidad para registrar un faltante o sobrante' : 'Registrar incidencia y enviar correo'}
+                                >
+                                  {savingLine === row.id ? <RefreshCw className="spin" size={13} /> : <Mail size={13} />}
+                                  {savingLine === row.id ? 'Enviando…' : 'Registrar y enviar'}
+                                </button>
+                              </div>
+                            ) : (
+                              <button className="secondary-button verification-enable-button" onClick={() => {
+                                setEditingVerificationLineId(row.id)
+                                setReceivedDrafts((previous) => ({
+                                  ...previous,
+                                  [row.id]: previous[row.id] ?? (row.quantity == null ? '' : String(row.quantity)),
+                                }))
+                              }}>
+                                <Edit3 size={14} /> Reportar diferencia
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+
+                {!selectedRows.length && (
+                  <div className="empty-work">
+                    <FileText size={28} />
+                    <b>Este ingreso aún no tiene líneas</b>
+                  </div>
+                )}
+                {Boolean(selectedRows.length) && !matchingSelectedRows.length && (
+                  <div className="empty-work">
+                    <Search size={28} />
+                    <b>No se encontró ese material</b>
+                    <p>Prueba con número de parte, descripción, guía o referencia.</p>
+                  </div>
+                )}
               </div>
-            )}
-            {Boolean(selectedRows.length) && !matchingSelectedRows.length && (
-              <div className="empty-work">
-                <Search size={28} />
-                <b>No se encontró ese material</b>
-                <p>Prueba con el número de parte, stock code, descripción o guía.</p>
-              </div>
-            )}
+            </div>
+          )}
+
           </div>
         </section>
       )}
