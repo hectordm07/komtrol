@@ -1787,8 +1787,14 @@ function TaskList({ tasks, profiles, labels, order, activeCategory, activePriori
       : dueTime(a) - dueTime(b) || priorityRank[a.priority] - priorityRank[b.priority] || a.title.localeCompare(b.title)
   })
 
+  const onlyClosed = tasks.length > 0 && tasks.every((task) => task.status === 'CERRADO' || task.progress >= 100)
+  const visibleSections = sections.filter((section) =>
+    section.items.length > 0 ||
+    (!onlyClosed && section.title !== 'Cerradas / completadas')
+  )
+
   return <div className="task-agenda">
-    {sections.map((section) => <section className="task-agenda-section" key={section.title}>
+    {visibleSections.map((section) => <section className={section.title === 'Cerradas / completadas' ? 'task-agenda-section closed-section' : 'task-agenda-section'} key={section.title}>
       <div className="task-agenda-heading"><div><h3>{section.title}</h3><p>{section.detail}</p></div><span>{section.items.length}</span></div>
       {section.items.length ? <div className="task-agenda-table-wrap"><table className="task-agenda-table">
         <thead><tr><th>Nombre de tarea</th><th>Responsable</th><th>Categoría</th><th>Prioridad</th><th>Fecha de término</th><th>Acciones</th></tr></thead>
