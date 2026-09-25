@@ -664,7 +664,7 @@ export function LocationSheetsModule({ userId, profile }: { userId: string; prof
     const query = receivedSearch.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE')
     if (!query) return selectedRows
     return selectedRows.filter((row) => [row.partNo, row.description, row.guideNo, row.reference]
-      .some((field) => field.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE').includes(query)))
+      .some((field) => String(field ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE').includes(query)))
   }, [selectedRows, receivedSearch])
 
   function matchingReceipts(row: Ingress) {
