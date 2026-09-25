@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   BarChart3,
    ChevronRight,
-  Eye,
   FileText,
   RefreshCw,
   ShoppingCart,
@@ -58,18 +57,6 @@ function normalizeFollowup(value: CommercialGuide['oc_cargo_followups']) {
   if (!value) return null
   if (Array.isArray(value)) return value[0] ?? null
   return value
-}
-
-function fmtDate(value?: string | null) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('es-PE', { dateStyle: 'short' }).format(date)
-}
-
-function statusLabel(value?: string | null) {
-  return String(value || 'PENDIENTE').replaceAll('_', ' ')
 }
 
 export function CommercialDashboardModule({ onOpenOrders }: Props) {
@@ -256,59 +243,6 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
         </div>
       </section>
 
-      <section className="panel commercial-recent-panel">
-        <div className="panel-title">
-          <div>
-            <h3>Órdenes de Compra recientes</h3>
-            <p>Vista resumida del estado de guía y refrendo.</p>
-          </div>
-          <button className="secondary-button" onClick={()=>onOpenOrders('TODOS')}><Eye size={15}/> Ver todas</button>
-        </div>
-
-        {loading ? (
-          <div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando Órdenes de Compra…</p></div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Guía</th>
-                  <th>OC / Referencia</th>
-                  <th>Almacén</th>
-                  <th>Recepción</th>
-                  <th>Estado guía</th>
-                  <th>Refrendo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {guides.slice(0, 10).map((guide) => {
-                  const followup = normalizeFollowup(guide.oc_cargo_followups)
-                  const hasRefrendo = Boolean(guide.guide_refrendos?.length)
-                  return (
-                    <tr key={guide.id}>
-                      <td><b>{guide.guide_no}</b></td>
-                      <td>{guide.reference}</td>
-                      <td>{guide.warehouse || '—'}</td>
-                      <td>{fmtDate(guide.reception_at)}</td>
-                      <td>
-                        <span className={followup?.final_status === 'OBSERVADO' ? 'status-pill danger' : 'status-pill'}>
-                          {statusLabel(followup?.final_status)}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={hasRefrendo ? 'status-pill' : 'status-pill warning'}>
-                          {hasRefrendo ? 'DISPONIBLE' : 'PENDIENTE'}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            {!guides.length && <div className="empty-work"><ShoppingCart size={28}/><b>Sin Órdenes de Compra</b></div>}
-          </div>
-        )}
-      </section>
     </div>
   )
 }
