@@ -54,6 +54,8 @@ type Tab = string
 
 type AccessView =
   | 'ACTUAL'
+  | 'MI_PERFIL_OPERATIVO'
+  | 'USUARIO'
   | 'SUPERVISOR_CALLAO'
   | 'SUPERVISOR_PROYECTO_MINERO'
   | 'COORDINADOR_PROYECTO_MINERO'
@@ -498,6 +500,8 @@ function Workspace({ session }: { session: Session }) {
   const [mobileMenu, setMobileMenu] = useState(false)
   const [openSections, setOpenSections] = useState<string[]>(['INICIO'])
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [accessProfiles,setAccessProfiles]=useState<Profile[]>([])
+  const [selectedAccessUserId,setSelectedAccessUserId]=useState<string|null>(null)
   const [warehouseCatalog, setWarehouseCatalog] = useState<WarehouseMeta[]>([])
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -557,10 +561,46 @@ function Workspace({ session }: { session: Session }) {
   const user = session.user
   const actualRole = profile?.role ?? (user.app_metadata?.role as Profile['role'] | undefined) ?? 'TRABAJADOR'
   const canPreviewSystemViews = actualRole === 'ADMINISTRADOR'
+  const selectedAccessUser=selectedAccessUserId
+    ? accessProfiles.find((item)=>item.user_id===selectedAccessUserId) || null
+    : null
+  const warehouseMetaFor=(warehouse?:string|null)=>warehouseCatalog.find((item)=>
+    item.name.toUpperCase()===String(warehouse||'').toUpperCase() ||
+    item.code.toUpperCase()===String(warehouse||'').toUpperCase()
+  )
+  const profileWarehouseMeta=warehouseMetaFor(profile?.warehouse)
+  const selectedWarehouseMeta=warehouseMetaFor(selectedAccessUser?.warehouse)
 
-  const previewAccess: PreviewAccessConfig | null = accessView === 'ACTUAL'
-    ? null
-    : ({
+  const previewAccess: PreviewAccessConfig | null =
+    accessView === 'ACTUAL'
+      ? null
+      : accessView === 'MI_PERFIL_OPERATIVO'
+        ? {
+            label: 'Mi perfil operativo',
+            shortLabel: 'Almacenero Proyecto Minero',
+            role: 'TRABAJADOR',
+            warehouse: profile?.warehouse || 'ANTAMINA',
+            project: profile?.project || 'PROYECTO MINERO',
+            position: profile?.warehouse?.toUpperCase()==='CALLAO' ? 'ALMACENERO CALLAO' : 'ALMACENERO DE PROYECTO MINERO',
+            warehouse_scope: profileWarehouseMeta?.warehouse_scope || (profile?.warehouse?.toUpperCase()==='CALLAO' ? 'CENTRAL' : 'REMOTO'),
+            remote_group: profileWarehouseMeta?.remote_group || (profile?.warehouse?.toUpperCase()==='CALLAO' ? null : 'PROYECTO_MINERO'),
+            group_name: profile?.group_name || null,
+            oc_cargo_access_level: null,
+          }
+        : accessView === 'USUARIO' && selectedAccessUser
+          ? {
+              label: selectedAccessUser.full_name,
+              shortLabel: selectedAccessUser.full_name.split(' ').slice(0,2).join(' '),
+              role: selectedAccessUser.role,
+              warehouse: selectedAccessUser.warehouse || 'SIN ALMACÉN',
+              project: selectedAccessUser.project || selectedAccessUser.warehouse || 'SIN PROYECTO',
+              position: selectedAccessUser.position || selectedAccessUser.role,
+              warehouse_scope: selectedWarehouseMeta?.warehouse_scope || (selectedAccessUser.warehouse?.toUpperCase()==='CALLAO' ? 'CENTRAL' : 'REMOTO'),
+              remote_group: selectedWarehouseMeta?.remote_group || (selectedAccessUser.warehouse?.toUpperCase()==='CALLAO' ? null : 'PROYECTO_MINERO'),
+              group_name: selectedAccessUser.group_name || null,
+              oc_cargo_access_level: selectedAccessUser.oc_cargo_access_level || null,
+            }
+          : ({
         SUPERVISOR_CALLAO: {
           label: 'Supervisor Almacén Callao',
           shortLabel: 'Supervisor Callao',
@@ -643,7 +683,7 @@ function Workspace({ session }: { session: Session }) {
           group_name: 'COMERCIAL',
           oc_cargo_access_level: 'COMERCIAL',
         },
-      } as Record<Exclude<AccessView, 'ACTUAL'>, PreviewAccessConfig>)[accessView]
+      } as Record<Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>, PreviewAccessConfig>)[accessView as Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>]
 
   const isAccessPreview = Boolean(previewAccess)
   const role: Profile['role'] = previewAccess?.role ?? actualRole
@@ -662,8 +702,9 @@ function Workspace({ session }: { session: Session }) {
 
   async function reload() {
     setLoading(true)
-    const [profileRes, warehouseRes, incidentsRes, notificationsRes, appNotificationRes] = await Promise.all([
+    const [profileRes, accessProfilesRes, warehouseRes, incidentsRes, notificationsRes, appNotificationRes] = await Promise.all([
       supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('user_profiles').select('*').eq('active',true).order('full_name'),
       supabase.from('warehouses').select('name,code,warehouse_scope,remote_group').eq('active',true).order('name'),
       supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('email_notifications').select('*').order('created_at', { ascending: false }).limit(100),
@@ -671,6 +712,7 @@ function Workspace({ session }: { session: Session }) {
     ])
 
     if (profileRes.data) setProfile(profileRes.data as Profile)
+    setAccessProfiles((accessProfilesRes.data ?? []) as Profile[])
     setWarehouseCatalog((warehouseRes.data ?? []) as WarehouseMeta[])
     setIncidents((incidentsRes.data ?? []) as Incident[])
     setNotifications((notificationsRes.data ?? []) as Notification[])
@@ -693,6 +735,7 @@ function Workspace({ session }: { session: Session }) {
 
   function changeAccessView(next: AccessView) {
     if (next !== 'ACTUAL' && !canPreviewSystemViews) return
+    if(next!=='USUARIO') setSelectedAccessUserId(null)
     setAccessView(next)
     setTab('inicio')
     setOpenSections(['INICIO'])
@@ -703,7 +746,11 @@ function Workspace({ session }: { session: Session }) {
     setCommercialOrderFilter('TODOS')
     const nextLabel = next === 'ACTUAL'
       ? 'Administrador'
-      : ({
+      : next === 'MI_PERFIL_OPERATIVO'
+        ? 'Mi perfil operativo · Almacenero Proyecto Minero'
+        : next === 'USUARIO'
+          ? (selectedAccessUser?.full_name || 'Usuario')
+          : ({
           SUPERVISOR_CALLAO: 'Supervisor Almacén Callao',
           SUPERVISOR_PROYECTO_MINERO: 'Supervisor Almacén Proyecto Minero',
           COORDINADOR_PROYECTO_MINERO: 'Coordinador de Almacén Proyecto Minero',
@@ -712,11 +759,32 @@ function Workspace({ session }: { session: Session }) {
           ALMACENERO_SUCURSAL: 'Almacenero de Sucursales',
           ALMACENERO_CALLAO: 'Almacenero Callao',
           COMERCIAL: 'Área Comercial',
-        } as Record<Exclude<AccessView, 'ACTUAL'>, string>)[next]
+        } as Record<Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>, string>)[next as Exclude<AccessView, 'ACTUAL' | 'MI_PERFIL_OPERATIVO' | 'USUARIO'>]
     setToast(next === 'ACTUAL'
       ? 'Vista Administrador restaurada.'
       : 'Vista ' + nextLabel + ' activada. Tu rol real sigue siendo Administrador.')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function changeAccessSelection(value:string){
+    if(value.startsWith('USER:')){
+      const userId=value.slice(5)
+      const target=accessProfiles.find((item)=>item.user_id===userId)
+      if(!target) return
+      setSelectedAccessUserId(userId)
+      setAccessView('USUARIO')
+      setTab('inicio')
+      setOpenSections(['INICIO'])
+      setMobileMenu(false)
+      setNotificationOpen(false)
+      setTaskToOpen(null)
+      setDashboardTaskStatus(null)
+      setCommercialOrderFilter('TODOS')
+      setToast(`Vista de ${target.full_name} activada. Solo simula permisos y alcance; no abre sus tareas personales privadas.`)
+      window.scrollTo({top:0,behavior:'smooth'})
+      return
+    }
+    changeAccessView(value as AccessView)
   }
 
   useEffect(() => {
@@ -992,7 +1060,7 @@ function Workspace({ session }: { session: Session }) {
         { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
       ],
     },
-    ...((profile?.oc_cargo_access_level === 'COMERCIAL' || accessView === 'COMERCIAL' || role === 'ADMINISTRADOR')
+    ...((effectiveProfile?.oc_cargo_access_level === 'COMERCIAL' || accessView === 'COMERCIAL' || role === 'ADMINISTRADOR')
       ? [{
           section: 'COMERCIAL',
           collapsible: true,
@@ -1080,10 +1148,10 @@ function Workspace({ session }: { session: Session }) {
   const isCallaoCoordinator = role === 'COORDINADOR' && effectiveProfile?.warehouse === 'CALLAO'
   const isCallaoSupervisor = role === 'SUPERVISOR' && effectiveProfile?.warehouse === 'CALLAO'
   const isCallaoWorker = role === 'TRABAJADOR' && effectiveProfile?.warehouse === 'CALLAO'
-  const hasOcCargoSpecialAccess = Boolean(profile?.oc_cargo_access_level)
+  const hasOcCargoSpecialAccess = Boolean(effectiveProfile?.oc_cargo_access_level)
   const isCommercialArea =
     accessView === 'COMERCIAL' ||
-    (profile?.oc_cargo_access_level === 'COMERCIAL' && !isAccessPreview)
+    (effectiveProfile?.oc_cargo_access_level === 'COMERCIAL' && role !== 'ADMINISTRADOR')
 
   const universalSections = ['INICIO', 'ÁREA DE TRABAJO', 'VENCIMIENTOS']
 
@@ -1185,7 +1253,7 @@ function Workspace({ session }: { session: Session }) {
     if (allowed.includes(tab)) return
 
     setTab('inicio')
-  }, [tab, role, effectiveProfile?.warehouse, profile?.oc_cargo_access_level])
+  }, [tab, role, effectiveProfile?.warehouse, effectiveProfile?.oc_cargo_access_level, selectedAccessUserId])
 
   useEffect(() => {
     if (!currentNav?.section) return
@@ -1314,24 +1382,50 @@ function Workspace({ session }: { session: Session }) {
                 <ShieldCheck size={14} />
                 <select
                   aria-label="Seleccionar vista del sistema"
-                  value={accessView}
-                  onChange={(event)=>changeAccessView(event.target.value as AccessView)}
+                  value={accessView==='USUARIO'&&selectedAccessUserId ? `USER:${selectedAccessUserId}` : accessView}
+                  onChange={(event)=>changeAccessSelection(event.target.value)}
                 >
-                  <option value="ACTUAL">Administrador</option>
-                  <optgroup label="Callao">
+                  <optgroup label="MIS ACCESOS">
+                    <option value="ACTUAL">Administrador · acceso completo</option>
+                    {profile?.worker_access&&<option value="MI_PERFIL_OPERATIVO">Mi perfil operativo · Almacenero Proyecto Minero</option>}
+                  </optgroup>
+
+                  {accessProfiles.some((item)=>item.user_id!==user.id&&item.warehouse?.toUpperCase()!=='CALLAO'&&item.oc_cargo_access_level!=='COMERCIAL')&&(
+                    <optgroup label="USUARIOS · PROYECTO MINERO">
+                      {accessProfiles
+                        .filter((item)=>item.user_id!==user.id&&item.warehouse?.toUpperCase()!=='CALLAO'&&item.oc_cargo_access_level!=='COMERCIAL')
+                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · {item.role}</option>)}
+                    </optgroup>
+                  )}
+
+                  {accessProfiles.some((item)=>item.user_id!==user.id&&item.warehouse?.toUpperCase()==='CALLAO')&&(
+                    <optgroup label="USUARIOS · CALLAO">
+                      {accessProfiles
+                        .filter((item)=>item.user_id!==user.id&&item.warehouse?.toUpperCase()==='CALLAO')
+                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · {item.role}</option>)}
+                    </optgroup>
+                  )}
+
+                  {accessProfiles.some((item)=>item.user_id!==user.id&&item.oc_cargo_access_level==='COMERCIAL')&&(
+                    <optgroup label="USUARIOS · COMERCIAL">
+                      {accessProfiles
+                        .filter((item)=>item.user_id!==user.id&&item.oc_cargo_access_level==='COMERCIAL')
+                        .map((item)=><option key={item.user_id} value={`USER:${item.user_id}`}>{item.full_name} · Comercial</option>)}
+                    </optgroup>
+                  )}
+
+                  <optgroup label="VISTAS DE REFERENCIA · CALLAO">
                     <option value="SUPERVISOR_CALLAO">Supervisor Almacén Callao</option>
                     <option value="COORDINADOR_CALLAO">Coordinador de Almacén Callao</option>
                     <option value="ALMACENERO_CALLAO">Almacenero Callao</option>
                   </optgroup>
-                  <optgroup label="Proyecto Minero">
+                  <optgroup label="VISTAS DE REFERENCIA · PROYECTO MINERO">
                     <option value="SUPERVISOR_PROYECTO_MINERO">Supervisor Almacén Proyecto Minero</option>
                     <option value="COORDINADOR_PROYECTO_MINERO">Coordinador de Almacén Proyecto Minero</option>
                     <option value="ALMACENERO_PROYECTO_MINERO">Almacenero de Proyecto Minero</option>
                   </optgroup>
-                  <optgroup label="Sucursales">
+                  <optgroup label="VISTAS DE REFERENCIA · OTROS">
                     <option value="ALMACENERO_SUCURSAL">Almacenero de Sucursales</option>
-                  </optgroup>
-                  <optgroup label="Áreas especiales">
                     <option value="COMERCIAL">Área Comercial</option>
                   </optgroup>
                 </select>
@@ -1347,9 +1441,18 @@ function Workspace({ session }: { session: Session }) {
                   <small>{previewAccess
                     ? (accessView === 'COMERCIAL'
                         ? 'Dashboard · Área de Trabajo · Órdenes de Compra'
-                        : previewAccess.warehouse + ' · ' + previewAccess.role)
+                        : accessView === 'MI_PERFIL_OPERATIVO'
+                          ? `${previewAccess.warehouse} · ${profile?.group_name || 'OPERACIÓN'} · ${profile?.shift_name || 'SIN GUARDIA'}`
+                          : accessView === 'USUARIO'
+                            ? `Vista de usuario · ${previewAccess.role} · ${previewAccess.warehouse}`
+                            : previewAccess.warehouse + ' · ' + previewAccess.role)
                     : 'Acceso completo del sistema'}</small>
                 </div>
+              </div>
+
+              <div className="access-org-path">
+                <small>ORGANIGRAMA DE ACCESO</small>
+                <span>Administrador <ChevronRight size={10}/> {previewAccess?.warehouse || 'Sistema'} <ChevronRight size={10}/> {previewAccess?.role || 'Administrador'}{accessView==='USUARIO'&&selectedAccessUser ? <><ChevronRight size={10}/>{selectedAccessUser.full_name.split(' ').slice(0,2).join(' ')}</> : null}</span>
               </div>
 
               {isAccessPreview && (
