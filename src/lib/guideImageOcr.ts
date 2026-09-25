@@ -374,8 +374,26 @@ export async function recognizeGuideImage(
       slotIndex,
       detailCanvas,
       '6',
-      (progress) => onProgress?.(62 + Math.round(progress * 0.37), 'Reconociendo detalle…'),
+      (progress) => onProgress?.(62 + Math.round(progress * 0.27), 'Reconociendo detalle…'),
     )
+
+    let materialFocusedText = ''
+    let materialFocusedConfidence = 0
+
+    // Las líneas de tabla se pueden perder por las divisiones verticales.
+    // Si no aparece una fila clara, hacemos un segundo pase más abierto sobre
+    // la zona exacta de materiales, útil para N° parte + cantidad (ej. 58E9800720 / 2 UND).
+    if (!likelyHasMaterialRow(detail.text)) {
+      onProgress?.(90, 'Afinando N° de parte y cantidad…')
+      const materialZone = prepareRegionCanvas(image, {
+        left: 0.00, top: 0.27, right: 1.00, bottom: 0.53, maxWidth: 2400, minWidth: 1300,
+      })
+      const materialFocused = await recognizeCanvas(worker, slotIndex, materialZone, '11')
+      materialFocusedText = materialFocused.text
+      materialFocusedConfidence = materialFocused.confidence
+      materialZone.width = 1
+      materialZone.height = 1
+    }
 
     headerCanvas.width = 1
     headerCanvas.height = 1
@@ -384,12 +402,16 @@ export async function recognizeGuideImage(
     onProgress?.(100, 'Lectura completada')
 
     const headerConfidence = Math.max(header.confidence, focusedConfidence)
-    const confidence = headerConfidence > 0 && detail.confidence > 0
-      ? (headerConfidence * 0.58) + (detail.confidence * 0.42)
-      : Math.max(headerConfidence, detail.confidence)
+    const detailConfidence = Math.max(detail.confidence, materialFocusedConfidence)
+    const confidence = headerConfidence > 0 && detailConfidence > 0
+      ? (headerConfidence * 0.55) + (detailConfidence * 0.45)
+      : Math.max(headerConfidence, detailConfidence)
 
     return {
-      text: headerText + '\n--- DETALLE TABLA ---\n' + detail.text,
+      text:
+        headerText +
+        '\n--- DETALLE TABLA ---\n' + detail.text +
+        (materialFocusedText ? '\n--- ZONA MATERIAL Y CANTIDAD ---\n' + materialFocusedText : ''),
       confidence,
       method: 'HEADER_PLUS_DETAIL',
       barcodes,
