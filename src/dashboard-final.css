@@ -11279,3 +11279,36 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* ---------- Administrador · pendientes por área ---------- */
+.admin-global-control .admin-area-kpis {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+}
+
+.admin-global-control .admin-area-kpis > button {
+  min-height: 92px;
+}
+
+.admin-global-control .admin-area-kpis > button span:nth-child(2) em {
+  white-space: normal;
+  line-height: 1.15;
+}
+
+@media (max-width: 1600px) {
+  .admin-global-control .admin-area-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 1000px) {
+  .admin-global-control .admin-area-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-global-control .admin-area-kpis {
+    grid-template-columns: 1fr !important;
+  }
+}
