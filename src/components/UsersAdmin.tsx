@@ -20,6 +20,24 @@ type ProfileRow = {
   position: string | null
   corporate_email: string | null
   oc_cargo_access_level: 'COMERCIAL' | 'DOCUMENTARIO' | null
+  first_access_pending: boolean
+  created_at: string
+}
+
+type RosterRow = {
+  id: string
+  dni: string
+  full_name: string
+  role: Role
+  active: boolean
+  warehouse: string | null
+  project: string | null
+  group_name: string | null
+  shift_name: string | null
+  position: string | null
+  corporate_email: string | null
+  claimed_user_id: string | null
+  claimed_at: string | null
   created_at: string
 }
 
@@ -50,6 +68,7 @@ type ImportResult = ImportUser & {
   status: string
   error?: string
   generated_pin?: boolean
+  first_access_pending?: boolean
 }
 
 const ROLES: Role[] = ['TRABAJADOR', 'COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR']
@@ -174,6 +193,7 @@ function downloadCsv(filename: string, rows: string[][]) {
 
 export function UsersAdmin() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
+  const [roster, setRoster] = useState<RosterRow[]>([])
   const [warehouseOptions, setWarehouseOptions] = useState<WarehouseOption[]>([])
   const [loading, setLoading] = useState(true)
   const [importText, setImportText] = useState('')
@@ -183,6 +203,7 @@ export function UsersAdmin() {
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [editingProfile, setEditingProfile] = useState<ProfileRow | null>(null)
+  const [editingRoster, setEditingRoster] = useState<RosterRow | null>(null)
   const [editForm, setEditForm] = useState({
     full_name: '',
     position: '',
@@ -203,7 +224,7 @@ export function UsersAdmin() {
     const valid = parsed.filter((row) =>
       /^\d{8}$/.test(row.dni) &&
       Boolean(row.full_name) &&
-      (!row.pin || /^\d{4,8}$/.test(row.pin)) &&
+      (!row.pin || /^\d{6,8}$/.test(row.pin)) &&
       validOptionalEmail(row.corporate_email)
     )
     return {
@@ -215,10 +236,14 @@ export function UsersAdmin() {
 
   async function loadProfiles() {
     setLoading(true)
-    const [profileRes,warehouseRes] = await Promise.all([
+    const [profileRes,rosterRes,warehouseRes] = await Promise.all([
       supabase
         .from('user_profiles')
-        .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,oc_cargo_access_level,created_at')
+        .select('user_id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,oc_cargo_access_level,first_access_pending,created_at')
+        .order('full_name'),
+      supabase
+        .from('initial_user_roster')
+        .select('id,dni,full_name,role,active,warehouse,project,group_name,shift_name,position,corporate_email,claimed_user_id,claimed_at,created_at')
         .order('full_name'),
       supabase
         .from('warehouses')
@@ -227,8 +252,9 @@ export function UsersAdmin() {
         .order('remote_group')
         .order('name'),
     ])
-    if (profileRes.error || warehouseRes.error) setMessage(profileRes.error?.message || warehouseRes.error?.message || 'No se pudo cargar la configuración.')
+    if (profileRes.error || rosterRes.error || warehouseRes.error) setMessage(profileRes.error?.message || rosterRes.error?.message || warehouseRes.error?.message || 'No se pudo cargar la configuración.')
     setProfiles((profileRes.data ?? []) as ProfileRow[])
+    setRoster((rosterRes.data ?? []) as RosterRow[])
     setWarehouseOptions((warehouseRes.data ?? []) as WarehouseOption[])
     setLoading(false)
   }
@@ -322,7 +348,7 @@ export function UsersAdmin() {
         .eq('dni', row.dni)
     }
 
-    setMessage('Usuarios de prueba Callao procesados. Descarga las credenciales generadas antes de salir de esta pantalla.')
+    setMessage('Usuarios de prueba Callao procesados. Si no se indicó PIN, crearán su clave en el primer acceso.')
     await loadProfiles()
   }
 
@@ -394,12 +420,12 @@ export function UsersAdmin() {
         {DNI:'12345678',NOMBRE:'NOMBRE APELLIDO',ROL:'TRABAJADOR',ALMACEN:'ANTAMINA',PROYECTO:'ALMACEN ANTAMINA',GRUPO:'PALAS',GUARDIA:'GUARDIA A',CARGO:'ALMACENERO',CORREO:'nombre@empresa.com',PIN:''},
         {DNI:'87654321',NOMBRE:'NOMBRE APELLIDO',ROL:'COORDINADOR',ALMACEN:'CALLAO',PROYECTO:'INBOUND CALLAO',GRUPO:'INBOUND',GUARDIA:'GUARDIA A',CARGO:'COORDINADOR',CORREO:'coordinador@empresa.com',PIN:''},
       ],
-      [['Uso','Completa los datos sin cambiar los encabezados.']]
+      [['Uso','Completa los datos sin cambiar los encabezados. Si PIN queda vacío, el usuario creará su propia clave en el primer acceso.']]
     )
   }
 
   function downloadCredentials() {
-    const created = results.filter((r) => r.status === 'CREADO')
+    const created = results.filter((r) => r.status === 'CREADO' && Boolean(r.pin))
     if (!created.length) return
     const rows=created.map((r)=>({
       dni:r.dni,
@@ -494,6 +520,78 @@ export function UsersAdmin() {
     await loadProfiles()
   }
 
+  function openRosterEditor(row: RosterRow) {
+    setEditingRoster(row)
+    setEditingProfile(null)
+    setEditForm({
+      full_name: row.full_name || '',
+      position: row.position || '',
+      role: row.role,
+      warehouse: row.warehouse || '',
+      project: row.project || '',
+      group_name: row.group_name || '',
+      shift_name: row.shift_name || '',
+      corporate_email: row.corporate_email || '',
+      oc_cargo_access_level: '',
+      active: row.active,
+    })
+    setMessage('')
+  }
+
+  async function saveRosterChanges() {
+    if (!editingRoster) return
+    const fullName = editForm.full_name.trim()
+    const email = editForm.corporate_email.trim().toLowerCase()
+
+    if (!fullName) {
+      setMessage('El nombre completo es obligatorio.')
+      return
+    }
+    if (!validOptionalEmail(email)) {
+      setMessage('El correo corporativo no tiene un formato válido.')
+      return
+    }
+
+    setSavingProfile(true)
+    setMessage('')
+
+    const { error } = await supabase
+      .from('initial_user_roster')
+      .update({
+        full_name: fullName,
+        position: editForm.position.trim() || null,
+        role: editForm.role,
+        warehouse: editForm.warehouse.trim() || null,
+        project: editForm.project.trim() || null,
+        group_name: editForm.group_name.trim() || null,
+        shift_name: editForm.shift_name.trim() || null,
+        corporate_email: email || null,
+        active: editForm.active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', editingRoster.id)
+      .is('claimed_user_id', null)
+
+    setSavingProfile(false)
+
+    if (error) {
+      setMessage(`No se pudo actualizar el usuario pendiente: ${error.message}`)
+      return
+    }
+
+    setMessage(`Datos iniciales de ${fullName} actualizados.`)
+    setEditingRoster(null)
+    await loadProfiles()
+  }
+
+  const pendingRoster = roster.filter((row) => !row.claimed_user_id)
+  const visiblePendingRoster = pendingRoster.filter((row) => {
+    const q = search.toLowerCase().trim()
+    if (!q) return true
+    return [row.dni,row.full_name,row.position,row.role,row.warehouse,row.project,row.group_name,row.shift_name,row.corporate_email]
+      .some((value) => String(value ?? '').toLowerCase().includes(q))
+  })
+
   const visibleProfiles = profiles.filter((p) => {
     const q = search.toLowerCase().trim()
     if (!q) return true
@@ -507,7 +605,7 @@ export function UsersAdmin() {
         <div className="panel-title users-title">
           <div>
             <h3>Usuarios y accesos</h3>
-            <p>Crea personal masivamente con DNI + PIN y asigna rol, almacén, proyecto y grupo.</p>
+            <p>Habilita personal por DNI. Si el PIN queda vacío, cada usuario crea su propia clave en el primer acceso.</p>
           </div>
           <div className="button-row">
             <button className="secondary-button" disabled={importing} onClick={createCallaoTestUsers}><Users size={17} /> Crear pruebas Callao</button>
@@ -531,7 +629,7 @@ export function UsersAdmin() {
               onChange={(e) => { setImportText(e.target.value); setResults([]); setMessage('') }}
               placeholder={'DNI\tNOMBRE\tROL\tALMACEN\tPROYECTO\tGRUPO\tGUARDIA\tCARGO\tCORREO\tPIN\n12345678\tNOMBRE APELLIDO\tTRABAJADOR\tANTAMINA\tALMACEN ANTAMINA\tPALAS\tGUARDIA A\tALMACENERO\tnombre@empresa.com\t'}
             />
-            <small className="muted">Si PIN queda vacío, KOMTROL genera automáticamente un PIN de 6 dígitos y lo muestra una sola vez en el resultado.</small>
+            <small className="muted">Si PIN queda vacío, el usuario creará una clave personal de 6 a 8 dígitos la primera vez que ingrese.</small>
           </div>
 
           <div className="bulk-summary-card">
@@ -545,7 +643,7 @@ export function UsersAdmin() {
               <p><CheckCircle2 size={16} /> DNI de 8 dígitos</p>
               <p><CheckCircle2 size={16} /> Nombre obligatorio</p>
               <p><CheckCircle2 size={16} /> Roles KOMTROL válidos</p>
-              <p><CheckCircle2 size={16} /> PIN 4–8 dígitos o autogenerado</p>
+              <p><CheckCircle2 size={16} /> PIN 6–8 dígitos o primer acceso sin PIN</p>
             </div>
             <button className="primary-button full" disabled={importing || !parsed.length || validation.errors > 0} onClick={createUsers}>
               {importing ? <RefreshCw size={17} className="spin" /> : <Upload size={17} />}
@@ -562,7 +660,7 @@ export function UsersAdmin() {
               <thead><tr><th>DNI</th><th>Nombre</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Correo</th><th>PIN</th><th>Validación</th></tr></thead>
               <tbody>
                 {parsed.slice(0, 30).map((row, index) => {
-                  const ok = /^\d{8}$/.test(row.dni) && Boolean(row.full_name) && (!row.pin || /^\d{4,8}$/.test(row.pin)) && validOptionalEmail(row.corporate_email)
+                  const ok = /^\d{8}$/.test(row.dni) && Boolean(row.full_name) && (!row.pin || /^\d{6,8}$/.test(row.pin)) && validOptionalEmail(row.corporate_email)
                   return (
                     <tr key={index}>
                       <td><b>{row.dni || '—'}</b></td>
@@ -573,7 +671,7 @@ export function UsersAdmin() {
                       <td>{row.group_name || '—'}</td>
                       <td>{row.shift_name || '—'}</td>
                       <td>{row.corporate_email || '—'}</td>
-                      <td>{row.pin ? 'Definido' : 'Auto'}</td>
+                      <td>{row.pin ? 'Definido' : 'Primer acceso'}</td>
                       <td>{ok ? <span className="ok-text"><CheckCircle2 size={15} /> Válido</span> : <span className="error-text"><XCircle size={15} /> Revisar</span>}</td>
                     </tr>
                   )
@@ -587,7 +685,7 @@ export function UsersAdmin() {
         {results.length > 0 && (
           <div className="results-block">
             <div className="panel-title">
-              <div><h3>Resultado de la importación</h3><p>Los PIN generados se muestran para entrega al usuario y no se guardan como texto en la base.</p></div>
+              <div><h3>Resultado de la importación</h3><p>Cuando no se indicó PIN, el usuario queda pendiente para crear su propia clave en el primer acceso.</p></div>
               <button className="secondary-button" onClick={downloadCredentials}><Download size={17} /> Descargar credenciales</button>
             </div>
             <div className="table-wrap">
@@ -600,13 +698,50 @@ export function UsersAdmin() {
                       <td><b>{r.dni}</b></td>
                       <td>{r.full_name}</td>
                       <td>{r.role || '—'}</td>
-                      <td>{r.status === 'CREADO' ? r.pin : '—'}</td>
-                      <td>{r.error || (r.generated_pin ? 'PIN autogenerado' : 'Creado correctamente')}</td>
+                      <td>{r.status === 'CREADO' && r.pin ? r.pin : '—'}</td>
+                      <td>{r.error || (r.first_access_pending ? 'Pendiente de crear clave' : 'Creado correctamente')}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <h3>Primer acceso pendiente</h3>
+            <p>{pendingRoster.length} personas habilitadas. Ellos ingresan con su DNI y crean su propia clave la primera vez.</p>
+          </div>
+          <div className="search users-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar DNI, nombre, proyecto, grupo…" /></div>
+        </div>
+
+        {loading ? (
+          <div className="screen-center compact"><RefreshCw className="spin" size={22} /><p>Cargando padrón…</p></div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Estado</th><th>DNI</th><th>Nombre</th><th>Puesto / Cargo</th><th>Rol</th><th>Almacén</th><th>Proyecto</th><th>Grupo</th><th>Guardia</th><th>Acción</th></tr></thead>
+              <tbody>
+                {visiblePendingRoster.map((row) => (
+                  <tr key={row.id}>
+                    <td><span className={row.active ? 'status-pill warning' : 'status-pill danger'}>{row.active ? 'PENDIENTE CLAVE' : 'INACTIVO'}</span></td>
+                    <td><b>{row.dni}</b></td>
+                    <td><div className="user-name-cell"><b>{row.full_name}</b><small>Primer acceso</small></div></td>
+                    <td><b>{row.position || '—'}</b></td>
+                    <td><span className="role-chip"><ShieldCheck size={13} /> {row.role}</span></td>
+                    <td>{row.warehouse || '—'}</td>
+                    <td>{row.project || '—'}</td>
+                    <td>{row.group_name || '—'}</td>
+                    <td>{row.shift_name || '—'}</td>
+                    <td><button className="secondary-button user-edit-button" onClick={() => openRosterEditor(row)}><Pencil size={14}/> Editar carga</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!visiblePendingRoster.length && <div className="empty-table"><CheckCircle2 size={28} /><p>No hay usuarios pendientes de primer acceso.</p></div>}
           </div>
         )}
       </section>
@@ -625,7 +760,7 @@ export function UsersAdmin() {
               <tbody>
                 {visibleProfiles.map((p) => (
                   <tr key={p.user_id}>
-                    <td><span className={p.active ? 'status-pill' : 'status-pill danger'}>{p.active ? 'ACTIVO' : 'INACTIVO'}</span></td>
+                    <td><span className={!p.active ? 'status-pill danger' : p.first_access_pending ? 'status-pill warning' : 'status-pill'}>{!p.active ? 'INACTIVO' : p.first_access_pending ? 'PENDIENTE CLAVE' : 'ACTIVO'}</span></td>
                     <td><b>{p.dni || '—'}</b></td>
                     <td><div className="user-name-cell"><b>{p.full_name}</b><small>{p.role === 'TRABAJADOR' ? (p.position || 'ALMACENERO') : p.role}</small></div></td>
                     <td><b>{p.position || '—'}</b></td>
@@ -645,6 +780,84 @@ export function UsersAdmin() {
           </div>
         )}
       </section>
+
+      {editingRoster && (
+        <div className="modal-backdrop users-edit-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !savingProfile) setEditingRoster(null) }}>
+          <section className="modal-card user-profile-editor" role="dialog" aria-modal="true" aria-label="Editar usuario pendiente">
+            <div className="modal-head">
+              <div>
+                <h3>Editar carga inicial</h3>
+                <p>{editingRoster.dni} · antes del primer acceso</p>
+              </div>
+              <button className="icon-button" onClick={() => !savingProfile && setEditingRoster(null)} title="Cerrar"><X size={18}/></button>
+            </div>
+
+            <div className="user-profile-editor-grid">
+              <label className="span-2">Nombre completo *
+                <input value={editForm.full_name} onChange={(e)=>setEditForm({...editForm,full_name:e.target.value})} />
+              </label>
+
+              <label>Puesto / Cargo
+                <input value={editForm.position} onChange={(e)=>setEditForm({...editForm,position:e.target.value})} placeholder="Ej. ALMACENERO" />
+              </label>
+
+              <label>Rol de acceso
+                <select value={editForm.role} onChange={(e)=>setEditForm({...editForm,role:e.target.value as Role})}>
+                  {ROLES.map((role)=><option key={role} value={role}>{role}</option>)}
+                </select>
+              </label>
+
+              <label>Almacén / Equipo
+                <SearchableSelect
+                  value={editForm.warehouse}
+                  onChange={(value)=>setEditForm({...editForm,warehouse:value})}
+                  options={warehouseOptions.map((item)=>({
+                    value:item.name,
+                    label:item.name,
+                    keywords:[item.code,item.remote_group,item.warehouse_scope].filter(Boolean).join(' '),
+                  }))}
+                  placeholder="Buscar almacén…"
+                  noResultsText="Almacén no encontrado"
+                  ariaLabel="Almacén inicial del usuario"
+                />
+              </label>
+
+              <label>Proyecto
+                <input value={editForm.project} onChange={(e)=>setEditForm({...editForm,project:e.target.value})} placeholder="ALMACEN ANTAMINA" />
+              </label>
+
+              <label>Grupo / Área
+                <input value={editForm.group_name} onChange={(e)=>setEditForm({...editForm,group_name:e.target.value})} placeholder="PALAS / CAMIONES / ACEROS…" />
+              </label>
+
+              <label>Guardia
+                <select value={editForm.shift_name} onChange={(e)=>setEditForm({...editForm,shift_name:e.target.value})}>
+                  <option value="">Sin guardia</option>
+                  <option value="GUARDIA A">GUARDIA A</option>
+                  <option value="GUARDIA B">GUARDIA B</option>
+                </select>
+              </label>
+
+              <label className="span-2">Correo corporativo
+                <input type="email" value={editForm.corporate_email} onChange={(e)=>setEditForm({...editForm,corporate_email:e.target.value})} placeholder="usuario@kmmp.com.pe" />
+              </label>
+
+              <label className="user-active-toggle span-2">
+                <input type="checkbox" checked={editForm.active} onChange={(e)=>setEditForm({...editForm,active:e.target.checked})}/>
+                <span><b>Habilitado para primer acceso</b><small>Al desactivar, este DNI no podrá crear su cuenta.</small></span>
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button className="secondary-button" disabled={savingProfile} onClick={()=>setEditingRoster(null)}><X size={16}/> Cancelar</button>
+              <button className="primary-button" disabled={savingProfile || !editForm.full_name.trim()} onClick={saveRosterChanges}>
+                {savingProfile ? <RefreshCw size={16} className="spin"/> : <Save size={16}/>}
+                {savingProfile ? 'Guardando…' : 'Guardar carga'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {editingProfile && (
         <div className="modal-backdrop users-edit-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !savingProfile) setEditingProfile(null) }}>
