@@ -1406,7 +1406,8 @@ function Workspace({ session }: { session: Session }) {
           <button className="icon-button mobile-only" onClick={() => setMobileMenu(false)}><X size={20} /></button>
         </div>
 
-        <nav className="sidebar-nav">
+        <div className="sidebar-scroll-area">
+          <nav className="sidebar-nav">
           {navSections.map((group) => {
             const open = openSections.includes(group.section)
             const hasActiveItem = group.items.some((item) => item.id === tab)
@@ -1571,6 +1572,7 @@ function Workspace({ session }: { session: Session }) {
             <KeyRound size={17} /> Cambiar clave
           </button>
           <button className="logout-button" onClick={logout}><LogOut size={17} /> Salir</button>
+        </div>
         </div>
       </aside>
 
