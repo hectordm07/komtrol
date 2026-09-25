@@ -62,6 +62,14 @@ type GuideLine = {
   description: string
   quantity: string
   unit: string
+  description_source?: 'OCR' | 'MASTER'
+}
+
+type MasterMaterialLookup = {
+  material_no: string
+  material_no_key: string
+  description: string
+  warehouse: string | null
 }
 
 type Mode = 'scanner' | 'seguimiento' | 'oc-cargos' | 'reposicion'
@@ -103,7 +111,34 @@ type CameraBodyCapture = {
   highestLine: number
 }
 
-const emptyLine = (): GuideLine => ({ line_no: 1, part_no: '', description: '', quantity: '', unit: 'UND' })
+const emptyLine = (): GuideLine => ({ line_no: 1, part_no: '', description: '', quantity: '', unit: 'UND', description_source: 'OCR' })
+
+function normalizeDetectedPartNumber(value: string | null | undefined) {
+  return String(value ?? '')
+    .toUpperCase()
+    .trim()
+    .replace(/[-–—−\s]+/g, '')
+}
+
+function materialLookupKey(value: string | null | undefined) {
+  return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+function descriptionNeedsMasterFallback(value: string | null | undefined) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return true
+
+  const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+  if (['N/A', 'NA', '#N/A', 'SIN DESCRIPCION', 'NO LEGIBLE', 'ILEGIBLE', '-'].includes(normalized)) return true
+
+  const letters = normalized.replace(/[^A-Z]/g, '')
+  if (letters.length < 4) return true
+
+  // OCR truncado típico: "... - a", "... – B", etc.
+  if (/[-–—−]\s*[A-Z]$/i.test(raw)) return true
+
+  return false
+}
 
 function cleanText(value: string) {
   return value.replace(/\s+/g, ' ').trim()
@@ -212,10 +247,11 @@ function parseReplenishmentLines(text: string): GuideLine[] {
 
     byLine.set(lineNo, {
       line_no: lineNo,
-      part_no: match[2].trim(),
+      part_no: normalizeDetectedPartNumber(match[2]),
       description: cleanMaterialDescription(match[3]),
       quantity: normalizeIntegerQuantity(match[4]),
       unit: match[5].toUpperCase(),
+      description_source: 'OCR',
     })
   }
 
@@ -273,14 +309,15 @@ function parseReplenishmentLines(text: string): GuideLine[] {
       cursor++
     }
 
-    if (!quantity || !unit || !descriptionParts.length) continue
+    if (!quantity || !unit) continue
 
     byLine.set(lineNo, {
       line_no: lineNo,
-      part_no: partNo,
+      part_no: normalizeDetectedPartNumber(partNo),
       description: cleanMaterialDescription(descriptionParts.join(' ')),
       quantity,
       unit,
+      description_source: 'OCR',
     })
   }
 
@@ -292,7 +329,7 @@ function parseReplenishmentLines(text: string): GuideLine[] {
     )
     if (!match) continue
 
-    const partNo = match[1].trim().toUpperCase().replace(/\s+/g, '')
+    const partNo = normalizeDetectedPartNumber(match[1])
     if (/^(DESCRIPCION|DESCRIPCIÓN|CANTIDAD|REFERENCIA|DOCUMENTO|TRANSPORTE)/i.test(partNo)) continue
 
     const comparable = partNo.replace(/[^A-Z0-9]/gi, '')
@@ -304,10 +341,51 @@ function parseReplenishmentLines(text: string): GuideLine[] {
       description: cleanMaterialDescription(match[2]),
       quantity: normalizeIntegerQuantity(match[3]),
       unit: match[4].toUpperCase(),
+      description_source: 'OCR',
+    })
+  }
+
+  // Respaldo cuando OCR conserva N° parte + cantidad + UM pero pierde la descripción.
+  for (const row of rows) {
+    const numberedNoDescription = row.match(
+      /^(\d{1,3})\s+([A-Z0-9][A-Z0-9._/-]{3,})\s+(\d+(?:[.,]\d+)?)\s+(UND|EA|PC|PZ|PIE|FT|M|MT)\b/i
+    )
+    if (numberedNoDescription) {
+      const lineNo = Number(numberedNoDescription[1])
+      if (lineNo >= 1 && lineNo <= 999 && !byLine.has(lineNo)) {
+        byLine.set(lineNo, {
+          line_no: lineNo,
+          part_no: normalizeDetectedPartNumber(numberedNoDescription[2]),
+          description: '',
+          quantity: normalizeIntegerQuantity(numberedNoDescription[3]),
+          unit: numberedNoDescription[4].toUpperCase(),
+          description_source: 'OCR',
+        })
+      }
+      continue
+    }
+
+    const noDescription = row.match(
+      /(?:^|\s)([A-Z0-9][A-Z0-9._/-]{7,})\s+(\d+(?:[.,]\d+)?)\s*(UND|EA|PC|PZ|PIE|FT|M|MT)\b/i
+    )
+    if (!noDescription) continue
+
+    const partNo = normalizeDetectedPartNumber(noDescription[1])
+    const comparable = materialLookupKey(partNo)
+    if ([...byLine.values()].some((line) => materialLookupKey(line.part_no) === comparable)) continue
+
+    byLine.set(byLine.size + 1, {
+      line_no: byLine.size + 1,
+      part_no: partNo,
+      description: '',
+      quantity: normalizeIntegerQuantity(noDescription[2]),
+      unit: noDescription[3].toUpperCase(),
+      description_source: 'OCR',
     })
   }
 
   return [...byLine.values()]
+    .map((line) => ({ ...line, part_no: normalizeDetectedPartNumber(line.part_no) }))
     .sort((a, b) => a.line_no - b.line_no)
     .slice(0, 999)
 }
@@ -392,10 +470,11 @@ function parseLines(text: string): GuideLine[] {
 
     output.push({
       line_no: safeLine,
-      part_no: partNo,
+      part_no: normalizeDetectedPartNumber(partNo),
       description,
       quantity,
       unit,
+      description_source: 'OCR',
     })
 
     if (output.length >= 999) break
@@ -672,6 +751,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   const batchRunningRef = useRef(false)
   const batchGenerationRef = useRef(0)
   const selectedBatchIdRef = useRef<string | null>(null)
+  const lineEnrichmentTokenRef = useRef(0)
 
   const [form, setForm] = useState({
     guide_no: '',
@@ -701,6 +781,61 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   } | null>(null)
 
   const profileWarehouse = String(profile?.warehouse || '').trim().toUpperCase()
+
+  async function enrichLinesFromMaster(sourceLines: GuideLine[]) {
+    const normalizedLines = sourceLines.map((line) => ({
+      ...line,
+      part_no: normalizeDetectedPartNumber(line.part_no),
+    }))
+    const keys = Array.from(new Set(
+      normalizedLines.map((line) => materialLookupKey(line.part_no)).filter(Boolean)
+    ))
+
+    if (!keys.length) return { lines: normalizedLines, filled: 0 }
+
+    const { data, error } = await supabase
+      .from('materials')
+      .select('material_no,material_no_key,description,warehouse')
+      .in('material_no_key', keys)
+      .limit(Math.max(keys.length * 8, 50))
+
+    if (error || !data?.length) return { lines: normalizedLines, filled: 0 }
+
+    const candidates = (data as MasterMaterialLookup[]).sort((a, b) => {
+      const aMatch = profileWarehouse && String(a.warehouse || '').trim().toUpperCase() === profileWarehouse ? 0 : 1
+      const bMatch = profileWarehouse && String(b.warehouse || '').trim().toUpperCase() === profileWarehouse ? 0 : 1
+      return aMatch - bMatch
+    })
+    const byKey = new Map<string, MasterMaterialLookup>()
+    for (const material of candidates) {
+      const key = String(material.material_no_key || materialLookupKey(material.material_no))
+      if (key && !byKey.has(key)) byKey.set(key, material)
+    }
+
+    let filled = 0
+    const next = normalizedLines.map((line) => {
+      if (!descriptionNeedsMasterFallback(line.description)) return line
+      const match = byKey.get(materialLookupKey(line.part_no))
+      const masterDescription = String(match?.description || '').trim()
+      if (!masterDescription) return line
+      filled += 1
+      return {
+        ...line,
+        description: masterDescription,
+        description_source: 'MASTER' as const,
+      }
+    })
+
+    return { lines: next, filled }
+  }
+
+  async function refreshLineDescriptionsFromMaster() {
+    const result = await enrichLinesFromMaster(lines)
+    setLines(result.lines)
+    if (result.filled) {
+      setMessage(`${result.filled} descripción${result.filled === 1 ? '' : 'es'} completada${result.filled === 1 ? '' : 's'} desde el Master de Materiales.`)
+    }
+  }
 
   async function reload() {
     setLoading(true)
@@ -1314,7 +1449,20 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       ocr_text: text,
       ocr_confidence: confidence > 0 ? confidence.toFixed(1) : '',
     }))
+    const enrichmentToken = ++lineEnrichmentTokenRef.current
     setLines(parsedLines)
+
+    if (parsed.guide_type === 'REPOSICION' && parsed.lines.length) {
+      void enrichLinesFromMaster(parsedLines).then((result) => {
+        if (lineEnrichmentTokenRef.current !== enrichmentToken) return
+        setLines(result.lines)
+        if (result.filled) {
+          setMessage((current) =>
+            `${current} ${result.filled} descripción${result.filled === 1 ? '' : 'es'} recuperada${result.filled === 1 ? '' : 's'} del Master.`
+          )
+        }
+      })
+    }
 
     const detected = [
       parsed.guide_no || fallbackGuide ? 'guía' : '',
@@ -1524,7 +1672,13 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   }
 
   function updateLine(index: number, changes: Partial<GuideLine>) {
-    setLines((prev) => prev.map((line, i) => i === index ? { ...line, ...changes } : line))
+    setLines((prev) => prev.map((line, i) => {
+      if (i !== index) return line
+      const next = { ...line, ...changes }
+      if (changes.part_no !== undefined) next.part_no = normalizeDetectedPartNumber(changes.part_no)
+      if (changes.description !== undefined) next.description_source = 'OCR'
+      return next
+    }))
   }
 
   function removeLine(index: number) {
@@ -1563,8 +1717,19 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       return
     }
 
+    let sourceLines = lines.map((line) => ({
+      ...line,
+      part_no: normalizeDetectedPartNumber(line.part_no),
+    }))
+
+    if (form.guide_type === 'REPOSICION') {
+      const enriched = await enrichLinesFromMaster(sourceLines)
+      sourceLines = enriched.lines
+      setLines(sourceLines)
+    }
+
     const replenishmentLines = form.guide_type === 'REPOSICION'
-      ? lines.filter((line) =>
+      ? sourceLines.filter((line) =>
           line.part_no.trim() ||
           line.description.trim() ||
           line.quantity.trim() ||
@@ -1690,7 +1855,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       const validLines = replenishmentLines.map((line, index) => ({
         guide_id: created.id,
         line_no: line.line_no || index + 1,
-        part_no: line.part_no.trim(),
+        part_no: normalizeDetectedPartNumber(line.part_no),
         description: line.description.trim(),
         quantity: Number(normalizeIntegerQuantity(line.quantity)),
         unit: line.unit.trim().toUpperCase(),
@@ -2397,8 +2562,19 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
                   {lines.map((line, index) => (
                     <tr key={index}>
                       <td>{index + 1}</td>
-                      <td><input value={line.part_no} onChange={(e) => updateLine(index, { part_no: e.target.value })} /></td>
-                      <td><input value={line.description} onChange={(e) => updateLine(index, { description: e.target.value })} /></td>
+                      <td>
+                        <input
+                          value={line.part_no}
+                          onChange={(e) => updateLine(index, { part_no: e.target.value })}
+                          onBlur={() => void refreshLineDescriptionsFromMaster()}
+                        />
+                      </td>
+                      <td>
+                        <div className="guide-description-cell">
+                          <input value={line.description} onChange={(e) => updateLine(index, { description: e.target.value })} />
+                          {line.description_source === 'MASTER' && <small>Descripción desde Master</small>}
+                        </div>
+                      </td>
                       <td><input
                         className="integer-quantity-input"
                         type="number"
