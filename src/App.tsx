@@ -20,6 +20,8 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  ShoppingCart,
+  BriefcaseBusiness,
   Upload,
   Users,
   X,
@@ -45,6 +47,7 @@ import { IncidentEmailSettings } from './components/IncidentEmailSettings'
 import { SurplusKardexModule } from './components/SurplusKardexModule'
 import { ExpirationsModule } from './components/ExpirationsModule'
 import { UniversalDashboardModule } from './components/UniversalDashboardModule'
+import { CommercialDashboardModule } from './components/CommercialDashboardModule'
 
 type Tab = string
 
@@ -956,13 +959,23 @@ function Workspace({ session }: { session: Session }) {
         { id: 'scanner-guias' as Tab, label: 'Scanner de Guías', icon: PackageCheck },
         { id: 'seguimiento-guias' as Tab, label: 'Seguimiento de Guías', icon: Search },
         { id: 'ingresos-reposicion' as Tab, label: 'Ingresos de Reposición', icon: PackageCheck },
-        { id: 'oc-cargos' as Tab, label: 'OC / Cargos Directos', icon: ClipboardList },
+        { id: 'ordenes-compra' as Tab, label: 'Órdenes de Compra', icon: ShoppingCart },
+        { id: 'cargos-directos' as Tab, label: 'Cargos Directos', icon: ClipboardList },
         { id: 'os-prestamos' as Tab, label: 'OS / Préstamos', icon: Boxes },
         { id: 'outbound' as Tab, label: 'Consumos / Outbound', icon: Send },
         { id: 'hoja-ubicacion' as Tab, label: 'Hojas de Ubicación', icon: ClipboardList },
         { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
       ],
     },
+    ...(profile?.oc_cargo_access_level === 'COMERCIAL'
+      ? [{
+          section: 'COMERCIAL',
+          collapsible: true,
+          items: [
+            { id: 'comercial-ordenes-compra' as Tab, label: 'Órdenes de Compra', icon: BriefcaseBusiness },
+          ],
+        }]
+      : []),
     {
       section: 'CONTROL',
       items: [
@@ -1040,11 +1053,19 @@ function Workspace({ session }: { session: Session }) {
   const isCallaoSupervisor = role === 'SUPERVISOR' && effectiveProfile?.warehouse === 'CALLAO'
   const isCallaoWorker = role === 'TRABAJADOR' && effectiveProfile?.warehouse === 'CALLAO'
   const hasOcCargoSpecialAccess = Boolean(profile?.oc_cargo_access_level)
+  const isCommercialArea = profile?.oc_cargo_access_level === 'COMERCIAL' && !isAccessPreview
 
   const universalSections = ['INICIO', 'ÁREA DE TRABAJO', 'VENCIMIENTOS']
 
   const navSections = !profile
     ? []
+    : isCommercialArea
+      ? allNavSections
+        .filter((group) => ['INICIO', 'ÁREA DE TRABAJO', 'COMERCIAL'].includes(group.section))
+        .map((group) => {
+          if (group.section !== 'INICIO') return group
+          return { ...group, items: group.items.filter((item) => item.id === 'inicio') }
+        })
     : isCallaoUser
       ? allNavSections
         .filter((group) => universalSections.includes(group.section) || group.section === 'INBOUND · CALLAO' || (hasOcCargoSpecialAccess && group.section === 'OPERACIONES'))
@@ -1052,7 +1073,7 @@ function Workspace({ session }: { session: Session }) {
           if (group.section === 'OPERACIONES' && hasOcCargoSpecialAccess) {
             return {
               ...group,
-              items: group.items.filter((item) => item.id === 'oc-cargos'),
+              items: group.items.filter((item) => ['ordenes-compra', 'cargos-directos'].includes(item.id)),
             }
           }
           if (group.section !== 'INBOUND · CALLAO') return group
@@ -1101,7 +1122,11 @@ function Workspace({ session }: { session: Session }) {
   const guideMode =
     tab === 'scanner-guias' ? 'scanner' :
     'seguimiento'
-  const isOcCargoTab = tab === 'oc-cargos'
+  const operationalOcTabs = ['ordenes-compra', 'cargos-directos'] as const
+  const isOcCargoTab = operationalOcTabs.includes(tab as typeof operationalOcTabs[number])
+  const operationalOcType =
+    tab === 'cargos-directos' ? 'CARGO_DIRECTO' as const : 'ORDEN_COMPRA' as const
+  const isCommercialOrdersTab = tab === 'comercial-ordenes-compra'
   const isReplenishmentTab = tab === 'ingresos-reposicion'
   const isLocationSheetTab = tab === 'hoja-ubicacion'
   const materialTabs = ['materiales', 'master-materiales'] as const
@@ -1129,7 +1154,7 @@ function Workspace({ session }: { session: Session }) {
     if (allowed.includes(tab)) return
 
     setTab('inicio')
-  }, [tab, role, effectiveProfile?.warehouse])
+  }, [tab, role, effectiveProfile?.warehouse, profile?.oc_cargo_access_level])
 
   useEffect(() => {
     if (!currentNav?.section) return
@@ -1394,27 +1419,38 @@ function Workspace({ session }: { session: Session }) {
           ) : (
             <>
               {tab === 'inicio' && (
-                <UniversalDashboardModule
-                  key={accessView}
-                  userId={user.id}
-                  profile={effectiveProfile!}
-                  previewMode={isAccessPreview}
-                  onNavigate={(targetTab) => {
-                    const target = flatNav.find((item) => item.id === targetTab)
-                    if (!target) {
-                      setToast('Este indicador no está disponible para tu perfil.')
-                      return
-                    }
-                    setTab(targetTab)
-                    setOpenSections((current) =>
-                      current.includes(target.section)
-                        ? current
-                        : [...current, target.section]
-                    )
-                    setMobileMenu(false)
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
-                />
+                isCommercialArea ? (
+                  <CommercialDashboardModule
+                    onOpenOrders={() => {
+                      setTab('comercial-ordenes-compra')
+                      setOpenSections((current) => current.includes('COMERCIAL') ? current : [...current, 'COMERCIAL'])
+                      setMobileMenu(false)
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                  />
+                ) : (
+                  <UniversalDashboardModule
+                    key={accessView}
+                    userId={user.id}
+                    profile={effectiveProfile!}
+                    previewMode={isAccessPreview}
+                    onNavigate={(targetTab) => {
+                      const target = flatNav.find((item) => item.id === targetTab)
+                      if (!target) {
+                        setToast('Este indicador no está disponible para tu perfil.')
+                        return
+                      }
+                      setTab(targetTab)
+                      setOpenSections((current) =>
+                        current.includes(target.section)
+                          ? current
+                          : [...current, target.section]
+                      )
+                      setMobileMenu(false)
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                  />
+                )
               )}
 
               {tab === 'incidencias' && (
@@ -1534,6 +1570,16 @@ function Workspace({ session }: { session: Session }) {
                 <OcCargoTrackingModule
                   userId={user.id}
                   profile={effectiveProfile!}
+                  fixedType={operationalOcType}
+                />
+              )}
+
+              {isCommercialOrdersTab && isCommercialArea && (
+                <OcCargoTrackingModule
+                  userId={user.id}
+                  profile={effectiveProfile!}
+                  fixedType="ORDEN_COMPRA"
+                  commercialView
                 />
               )}
 
@@ -1592,7 +1638,7 @@ function Workspace({ session }: { session: Session }) {
                 <UsersAdmin />
               )}
 
-              {!isTaskTab && !isExpirationTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !isKardexTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
+              {!isTaskTab && !isExpirationTab && !isInboundTab && !isGuideTab && !isOcCargoTab && !isCommercialOrdersTab && !isReplenishmentTab && !isLocationSheetTab && !isMaterialTab && !isOperationsControlTab && !isDashboardTab && !isAdminModuleTab && !isKardexTab && !['inicio', 'alertas', 'incidencias', 'correos', 'usuarios', 'configuracion'].includes(tab) && currentNav && (
                 <ModulePlaceholder
                   title={currentNav.label}
                   section={currentNav.section}
