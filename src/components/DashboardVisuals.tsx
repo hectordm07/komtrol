@@ -68,10 +68,12 @@ export function ProfessionalDonutChart({
   title,
   subtitle,
   segments,
+  onSelect,
 }:{
   title:string
   subtitle?:string
-  segments:{label:string;value:number;className?:string}[]
+  segments:{key?:string;label:string;value:number;className?:string}[]
+  onSelect?:(key:string)=>void
 }) {
   const [activeIndex,setActiveIndex]=useState<number|null>(null)
   const total=segments.reduce((sum,row)=>sum+Math.max(0,row.value),0)
@@ -104,10 +106,19 @@ export function ProfessionalDonutChart({
         <div className="pro-donut-legend">
           {segments.map((row,index)=>(
             <div
-              key={row.label}
+              key={row.key || row.label}
               className={activeIndex===index?'active':''}
               title={`${row.label}: ${row.value}`}
               tabIndex={0}
+              role={onSelect ? 'button' : undefined}
+              onClick={()=>onSelect?.(row.key || row.label)}
+              onKeyDown={(event)=>{
+                if(!onSelect) return
+                if(event.key==='Enter' || event.key===' '){
+                  event.preventDefault()
+                  onSelect(row.key || row.label)
+                }
+              }}
               onMouseEnter={()=>setActiveIndex(index)}
               onMouseLeave={()=>setActiveIndex(null)}
               onFocus={()=>setActiveIndex(index)}
