@@ -503,6 +503,7 @@ function Workspace({ session }: { session: Session }) {
   const [appNotifications, setAppNotifications] = useState<AppNotification[]>([])
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [taskToOpen, setTaskToOpen] = useState<string | null>(null)
+  const [dashboardTaskStatus, setDashboardTaskStatus] = useState<'TODOS'|'PENDIENTE'|'EN_PROCESO'|'BLOQUEADO'|'CERRADO'|'VENCIDA'|null>(null)
   const [commentToOpen, setCommentToOpen] = useState<string | null>(null)
   const [popNotification, setPopNotification] = useState<AppNotification | null>(null)
   const knownNotificationIds = useRef(new Set<string>())
@@ -817,6 +818,7 @@ function Workspace({ session }: { session: Session }) {
         setToast('La tarea de esta notificación ya no está disponible.')
         return
       }
+      setDashboardTaskStatus(null)
       setTaskToOpen(item.task_id)
       setCommentToOpen(typeof item.metadata?.comment_id === 'string' ? item.metadata.comment_id : null)
       setTab(task.work_type === 'RELEVO' ? 'relevos' : task.work_type === 'PERSONAL' ? 'mi-trabajo' : 'tareas')
@@ -945,6 +947,9 @@ function Workspace({ session }: { session: Session }) {
       section: 'ÁREA DE TRABAJO',
       items: [
         { id: 'mi-trabajo' as Tab, label: 'Mis trabajos', icon: ClipboardList },
+        ...(role === 'ADMINISTRADOR'
+          ? [{ id: 'tareas-globales' as Tab, label: 'Tareas globales', icon: BarChart3 }]
+          : []),
         { id: 'tareas' as Tab, label: 'Tareas grupales', icon: Users },
         { id: 'relevos' as Tab, label: 'Relevos', icon: RefreshCw },
       ],
@@ -1128,7 +1133,7 @@ function Workspace({ session }: { session: Session }) {
     : flatNav.some((item) => item.id === 'incidencias')
       ? 'incidencias'
       : null
-  const taskTabs = ['mi-trabajo', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
+  const taskTabs = ['mi-trabajo', 'tareas-globales', 'tareas', 'relevos', 'area-personal', 'lista', 'tablero', 'calendario'] as const
   const expirationTabs = ['vencimientos-emoa', 'vencimientos-cursos', 'vencimientos-licencias'] as const
   const isExpirationTab = expirationTabs.includes(tab as typeof expirationTabs[number])
   const expirationType =
@@ -1275,7 +1280,7 @@ function Workspace({ session }: { session: Session }) {
                       <button
                         key={id}
                         className={tab === id ? 'active' : ''}
-                        onClick={() => { setTab(id); setMobileMenu(false) }}
+                        onClick={() => { setDashboardTaskStatus(null); setTab(id); setMobileMenu(false) }}
                       >
                         <Icon size={18} />
                         {label}
@@ -1463,12 +1468,13 @@ function Workspace({ session }: { session: Session }) {
                     userId={user.id}
                     profile={effectiveProfile!}
                     previewMode={isAccessPreview}
-                    onNavigate={(targetTab) => {
+                    onNavigate={(targetTab, options) => {
                       const target = flatNav.find((item) => item.id === targetTab)
                       if (!target) {
                         setToast('Este indicador no está disponible para tu perfil.')
                         return
                       }
+                      setDashboardTaskStatus(targetTab === 'tareas-globales' ? (options?.taskStatus || 'TODOS') : null)
                       setTab(targetTab)
                       setOpenSections((current) =>
                         current.includes(target.section)
@@ -1561,13 +1567,14 @@ function Workspace({ session }: { session: Session }) {
 
               {isTaskTab && (
                 <TasksModule
-                  key={`${accessView}-${tab}`}
-                  mode={tab as typeof taskTabs[number]}
+                  key={`${accessView}-${tab}-${tab === 'tareas-globales' ? (dashboardTaskStatus || 'TODOS') : 'default'}`}
+                  mode={(tab === 'tareas-globales' ? 'global-admin' : tab) as typeof taskTabs[number] | 'global-admin'}
                   userId={user.id}
                   profile={effectiveProfile!}
                   previewMode={isAccessPreview}
                   scopeWarehouse={isAccessPreview ? previewAccess?.warehouse : undefined}
                   scopeProject={isAccessPreview ? previewAccess?.project : undefined}
+                  initialStatusFilter={tab === 'tareas-globales' ? (dashboardTaskStatus || 'TODOS') : 'TODOS'}
                   initialTaskId={taskToOpen}
                   initialCommentId={commentToOpen}
                   onInitialTaskOpened={() => setTaskToOpen(null)}
