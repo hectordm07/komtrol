@@ -1,0 +1,200 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  FileText,
+  RefreshCw,
+  ShoppingCart,
+} from 'lucide-react'
+import { supabase } from '../lib/supabase'
+
+type Followup = {
+  final_status: string | null
+  billing_status: string | null
+  updated_at: string | null
+}
+
+type Refrendo = {
+  id: string
+}
+
+type CommercialGuide = {
+  id: string
+  guide_no: string
+  reference: string
+  document_no: string | null
+  warehouse: string | null
+  reception_at: string
+  load_status: 'VALIDADO' | 'OBSERVADO'
+  oc_cargo_followups?: Followup[] | Followup | null
+  guide_refrendos?: Refrendo[] | null
+}
+
+type Props = {
+  onOpenOrders: () => void
+}
+
+function normalizeFollowup(value: CommercialGuide['oc_cargo_followups']) {
+  if (!value) return null
+  if (Array.isArray(value)) return value[0] ?? null
+  return value
+}
+
+function fmtDate(value?: string | null) {
+  if (!value) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('es-PE', { dateStyle: 'short' }).format(date)
+}
+
+function statusLabel(value?: string | null) {
+  return String(value || 'PENDIENTE').replaceAll('_', ' ')
+}
+
+export function CommercialDashboardModule({ onOpenOrders }: Props) {
+  const [guides, setGuides] = useState<CommercialGuide[]>([])
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+
+  async function reload() {
+    setLoading(true)
+    setMessage('')
+
+    const { data, error } = await supabase
+      .from('guides')
+      .select(`
+        id,
+        guide_no,
+        reference,
+        document_no,
+        warehouse,
+        reception_at,
+        load_status,
+        oc_cargo_followups (final_status,billing_status,updated_at),
+        guide_refrendos (id)
+      `)
+      .eq('guide_type', 'ORDEN_COMPRA')
+      .order('created_at', { ascending: false })
+      .limit(1000)
+
+    if (error) {
+      setMessage(error.message)
+      setGuides([])
+    } else {
+      setGuides((data ?? []) as CommercialGuide[])
+    }
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [])
+
+  const metrics = useMemo(() => {
+    const total = guides.length
+    const pending = guides.filter((guide) => {
+      const status = normalizeFollowup(guide.oc_cargo_followups)?.final_status || 'PENDIENTE'
+      return ['PENDIENTE', 'EN_SEGUIMIENTO'].includes(status)
+    }).length
+    const observed = guides.filter((guide) =>
+      normalizeFollowup(guide.oc_cargo_followups)?.final_status === 'OBSERVADO'
+    ).length
+    const closed = guides.filter((guide) =>
+      ['REFRENDADO', 'CERRADO'].includes(normalizeFollowup(guide.oc_cargo_followups)?.final_status || '')
+    ).length
+    const withRefrendo = guides.filter((guide) => (guide.guide_refrendos?.length || 0) > 0).length
+    const withoutRefrendo = total - withRefrendo
+
+    return { total, pending, observed, closed, withRefrendo, withoutRefrendo }
+  }, [guides])
+
+  return (
+    <div className="commercial-dashboard">
+      <section className="panel commercial-dashboard-hero">
+        <div>
+          <span className="commercial-eyebrow">ÁREA COMERCIAL</span>
+          <h2>Dashboard de Órdenes de Compra</h2>
+          <p>Consulta el estado de las guías de OC y la disponibilidad de sus refrendos.</p>
+        </div>
+        <div className="commercial-dashboard-actions">
+          <button className="secondary-button" onClick={() => void reload()}>
+            <RefreshCw size={16}/> Actualizar
+          </button>
+          <button className="primary-button" onClick={onOpenOrders}>
+            <ShoppingCart size={16}/> Ver Órdenes de Compra
+          </button>
+        </div>
+      </section>
+
+      {message && <div className="inline-message">{message}</div>}
+
+      <section className="commercial-kpis">
+        <article><ShoppingCart size={20}/><span><b>{metrics.total}</b><small>Total OC</small></span></article>
+        <article><Clock3 size={20}/><span><b>{metrics.pending}</b><small>Pendientes</small></span></article>
+        <article><AlertTriangle size={20}/><span><b>{metrics.observed}</b><small>Observadas</small></span></article>
+        <article><CheckCircle2 size={20}/><span><b>{metrics.closed}</b><small>Refrendadas / cerradas</small></span></article>
+        <article><FileText size={20}/><span><b>{metrics.withRefrendo}</b><small>Con refrendo</small></span></article>
+        <article><BarChart3 size={20}/><span><b>{metrics.withoutRefrendo}</b><small>Sin refrendo</small></span></article>
+      </section>
+
+      <section className="panel commercial-recent-panel">
+        <div className="panel-title">
+          <div>
+            <h3>Órdenes de Compra recientes</h3>
+            <p>Vista resumida del estado de guía y refrendo.</p>
+          </div>
+          <button className="secondary-button" onClick={onOpenOrders}><Eye size={15}/> Ver todas</button>
+        </div>
+
+        {loading ? (
+          <div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando Órdenes de Compra…</p></div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Guía</th>
+                  <th>OC / Referencia</th>
+                  <th>Almacén</th>
+                  <th>Recepción</th>
+                  <th>Estado guía</th>
+                  <th>Refrendo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {guides.slice(0, 10).map((guide) => {
+                  const followup = normalizeFollowup(guide.oc_cargo_followups)
+                  const hasRefrendo = Boolean(guide.guide_refrendos?.length)
+                  return (
+                    <tr key={guide.id}>
+                      <td><b>{guide.guide_no}</b></td>
+                      <td>{guide.reference}</td>
+                      <td>{guide.warehouse || '—'}</td>
+                      <td>{fmtDate(guide.reception_at)}</td>
+                      <td>
+                        <span className={followup?.final_status === 'OBSERVADO' ? 'status-pill danger' : 'status-pill'}>
+                          {statusLabel(followup?.final_status)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={hasRefrendo ? 'status-pill' : 'status-pill warning'}>
+                          {hasRefrendo ? 'DISPONIBLE' : 'PENDIENTE'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {!guides.length && <div className="empty-work"><ShoppingCart size={28}/><b>Sin Órdenes de Compra</b></div>}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
