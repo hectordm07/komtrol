@@ -1479,6 +1479,7 @@ function Workspace({ session }: { session: Session }) {
                     previewMode={isAccessPreview}
                     availableTabs={flatNav.map((item)=>item.id)}
                     adminValidationMode={canPreviewSystemViews && isAccessPreview}
+                    adminProfile={canPreviewSystemViews ? profile : null}
                     onNavigate={(targetTab, options) => {
                       const target = flatNav.find((item) => item.id === targetTab)
                       if (!target) {
