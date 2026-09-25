@@ -24694,3 +24694,22 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
     min-width: 1260px;
   }
 }
+
+
+/* KOMTROL · DESCRIPCIÓN MASTER EN OCR 2026-09-25 */
+.guide-description-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.guide-description-cell > small {
+  width: fit-content;
+  padding: 2px 6px;
+  border: 1px solid #cfe2ff;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #315a9e;
+  font-size: 8px;
+  font-weight: 850;
+  line-height: 1.25;
+}
