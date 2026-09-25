@@ -141,6 +141,54 @@ function regionFor(mode: 'header' | 'detail') {
     : { left: 0.00, top: 0.20, right: 1.00, bottom: 0.93, maxWidth: 2800, minWidth: 1500 }
 }
 
+function enhanceScannerPixels(data: Uint8ClampedArray, width: number, height: number) {
+  const low = percentile(data, 0.02)
+  const high = percentile(data, 0.985)
+  const span = Math.max(24, high - low)
+
+  // 1) Normaliza iluminación, elimina dominante de color y aumenta contraste.
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
+    let normalized = ((gray - low) / span) * 255
+    normalized = Math.max(0, Math.min(255, normalized))
+
+    // Gamma suave + contraste para recuperar texto gris de fotos de celular.
+    normalized = 255 * Math.pow(normalized / 255, 0.92)
+    normalized = (normalized - 128) * 1.34 + 128
+
+    if (normalized > 242) normalized = 255
+    else if (normalized < 72) normalized *= 0.66
+
+    const value = Math.max(0, Math.min(255, Math.round(normalized)))
+    data[i] = value
+    data[i + 1] = value
+    data[i + 2] = value
+  }
+
+  // 2) Enfoque tipo "unsharp mask" ligero. Mejora bordes de letras y números
+  // sin binarizar agresivamente la imagen ni borrar sellos o caracteres finos.
+  const source = new Uint8ClampedArray(data)
+  const row = width * 4
+  const strength = width * height > 6_000_000 ? 0.38 : 0.52
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const i = (y * width + x) * 4
+      const center = source[i]
+      const around = (
+        source[i - 4] +
+        source[i + 4] +
+        source[i - row] +
+        source[i + row]
+      ) / 4
+      const sharpened = Math.max(0, Math.min(255, center + (center - around) * strength))
+      data[i] = sharpened
+      data[i + 1] = sharpened
+      data[i + 2] = sharpened
+    }
+  }
+}
+
 function prepareRegionCanvas(image: HTMLImageElement, region: CropRegion) {
   const sourceWidth = image.naturalWidth || image.width
   const sourceHeight = image.naturalHeight || image.height
@@ -153,7 +201,8 @@ function prepareRegionCanvas(image: HTMLImageElement, region: CropRegion) {
   const cropWidth = Math.max(1, cropRight - cropX)
   const cropHeight = Math.max(1, cropBottom - cropY)
 
-  const scale = Math.min(2.6, region.maxWidth / cropWidth)
+  // Mantiene suficiente resolución para OCR sin disparar memoria en móviles.
+  const scale = Math.min(3.1, region.maxWidth / cropWidth)
   const targetWidth = Math.max(region.minWidth ?? 700, Math.round(cropWidth * scale))
   const targetHeight = Math.max(1, Math.round(cropHeight * (targetWidth / cropWidth)))
 
@@ -178,27 +227,9 @@ function prepareRegionCanvas(image: HTMLImageElement, region: CropRegion) {
   )
 
   const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight)
-  const data = imageData.data
-  const low = percentile(data, 0.03)
-  const high = percentile(data, 0.98)
-  const span = Math.max(30, high - low)
-
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
-    let normalized = ((gray - low) / span) * 255
-    normalized = Math.max(0, Math.min(255, normalized))
-    normalized = Math.max(0, Math.min(255, (normalized - 128) * 1.28 + 128))
-
-    if (normalized > 236) normalized = 255
-    else if (normalized < 105) normalized *= 0.76
-
-    const value = Math.round(normalized)
-    data[i] = value
-    data[i + 1] = value
-    data[i + 2] = value
-  }
-
+  enhanceScannerPixels(imageData.data, targetWidth, targetHeight)
   ctx.putImageData(imageData, 0, 0)
+
   return canvas
 }
 

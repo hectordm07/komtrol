@@ -2288,6 +2288,22 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
               }}
             />
           </div>
+
+          <div className="scanner-enhancement-banner" aria-label="Mejora automática de imagen para OCR">
+            <div className="scanner-enhancement-main">
+              <span className="scanner-enhancement-icon"><ScanLine size={22} /></span>
+              <div>
+                <b>Mejora automática para OCR</b>
+                <span>La foto se optimiza antes de leerla: más contraste, bordes definidos y nitidez tipo escáner.</span>
+              </div>
+            </div>
+            <div className="scanner-enhancement-chips">
+              <span><CheckCircle2 size={13} /> Mejora de imagen</span>
+              <span><CheckCircle2 size={13} /> Nitidez escáner</span>
+              <span><CheckCircle2 size={13} /> OCR más preciso</span>
+            </div>
+          </div>
+
           <button
             className="secondary-button scanner-clear"
             onClick={batchItems.length ? clearBatch : resetForm}
