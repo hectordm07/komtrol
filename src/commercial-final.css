@@ -1,0 +1,168 @@
+/* =========================================================
+   KOMTROL · Área Comercial
+   Dashboard + Órdenes de Compra de solo lectura.
+   ========================================================= */
+
+.commercial-dashboard {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+
+.commercial-dashboard-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(67, 91, 193, .14), transparent 28%),
+    linear-gradient(135deg, #ffffff, #f6f8ff);
+}
+
+.commercial-dashboard-hero > div:first-child {
+  min-width: 0;
+}
+
+.commercial-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: #67759a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.commercial-dashboard-hero h2 {
+  margin: 0;
+  color: #233a87;
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.commercial-dashboard-hero p {
+  margin: 5px 0 0;
+  color: #6e7890;
+  font-size: 11px;
+}
+
+.commercial-dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.commercial-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.commercial-kpis article {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(54, 79, 173, .12);
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(34, 52, 111, .055);
+}
+
+.commercial-kpis article > svg {
+  flex: 0 0 auto;
+  color: #3652b0;
+}
+
+.commercial-kpis article span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.commercial-kpis article b {
+  color: #21356f;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.commercial-kpis article small {
+  color: #7a8499;
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.commercial-recent-panel .table-wrap {
+  max-height: 430px;
+}
+
+.refrendo-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.refrendo-download-button {
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .commercial-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .commercial-dashboard {
+    gap: 9px;
+  }
+
+  .commercial-dashboard-hero {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 11px;
+    padding: 13px;
+  }
+
+  .commercial-dashboard-hero h2 {
+    font-size: 17px;
+  }
+
+  .commercial-dashboard-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .commercial-dashboard-actions button {
+    min-width: 0;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .commercial-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .commercial-kpis article {
+    padding: 9px;
+    gap: 7px;
+  }
+
+  .commercial-kpis article b {
+    font-size: 17px;
+  }
+
+  .commercial-kpis article small {
+    font-size: 8px;
+  }
+
+  .refrendo-action-group {
+    flex-wrap: wrap;
+  }
+}
