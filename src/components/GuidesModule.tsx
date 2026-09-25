@@ -411,7 +411,9 @@ function parseGuideOcr(text: string, fileName?: string, visualOcr = false) {
   const emission = findDateNear(normalized, ['FECHA\\s*(?:DE\\s*)?EMISI[ÓO]N', 'EMISI[ÓO]N'])
   const transferStart = findDateNear(normalized, ['FECHA\\s*(?:DE\\s*)?INICIO\\s*(?:DE\\s*)?TRASLADO', 'INICIO\\s*(?:DE\\s*)?TRASLADO'])
   const dateSource = emission ? 'DOCUMENTO' : transferStart ? 'INICIO_TRASLADO' : 'FECHA_CARGA'
-  const emissionDate = emission || transferStart || new Date().toISOString().slice(0, 10)
+  // No inventar una fecha de emisión. Si OCR no la encuentra, el usuario debe validarla.
+  // La fecha de carga ya se registra por separado en reception_at.
+  const emissionDate = emission || transferStart || ''
 
   const explicitLines =
     normalized.match(/(?:CANTIDAD\s*(?:DE\s*)?L[IÍ]NEAS|N[°ºO]?\s*(?:DE\s*)?L[IÍ]NEAS|TOTAL\s*(?:DE\s*)?L[IÍ]NEAS|L[IÍ]NEAS)\s*[:#-]?\s*(\d{1,3})/i)
@@ -636,7 +638,12 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
           if (item.generation !== batchGenerationRef.current) continue
 
           const parsed = parseGuideOcr(ocr.text, item.file.name, true)
-          const ready = Boolean(parsed.guide_no && parsed.reference)
+          const ready = Boolean(
+            parsed.guide_no &&
+            parsed.reference &&
+            parsed.emission_date &&
+            (parsed.guide_type !== 'REPOSICION' || parsed.lines.length > 0)
+          )
           const result: BatchScanResult = {
             text: ocr.text,
             confidence: ocr.confidence,
@@ -843,7 +850,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       parsed.reference ? 'referencia' : '',
       parsed.document_no ? 'N° documento' : '',
       parsed.emission_date ? 'fecha' : '',
-      parsed.line_count ? `${parsed.line_count} líneas` : '',
+      parsed.lines.length ? `${parsed.lines.length} línea${parsed.lines.length === 1 ? '' : 's'}` : '',
       parsed.observations ? 'observaciones' : '',
     ].filter(Boolean)
 
