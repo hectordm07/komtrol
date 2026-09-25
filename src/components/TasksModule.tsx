@@ -377,7 +377,7 @@ export function TasksModule({
     let data = [...tasks]
 
     if (scopeWarehouse) data = data.filter((t) => t.warehouse === scopeWarehouse)
-    if (scopeProject) data = data.filter((t) => t.project === scopeProject)
+    if (scopeProject) data = data.filter((t) => !t.project || t.project === scopeProject)
     if (scopeGroup) data = data.filter((t) => t.group_name === scopeGroup)
     if (scopeShift) data = data.filter((t) => t.shift_name === scopeShift)
 
@@ -407,11 +407,11 @@ export function TasksModule({
           if (profile.group_name && t.group_name !== profile.group_name) return false
           return true
         })
-      } else if (profile?.role === 'COORDINADOR') {
+      } else if (profile?.role === 'COORDINADOR' || profile?.role === 'SUPERVISOR') {
         data = data.filter((t) => {
           if (!previewMode && t.assignment_type === 'PERSONA' && t.assigned_user_id === userId) return true
           if (profile.warehouse && t.warehouse !== profile.warehouse) return false
-          if (profile.project && t.project !== profile.project) return false
+          if (profile.project && t.project && t.project !== profile.project) return false
           return true
         })
       }
@@ -430,9 +430,9 @@ export function TasksModule({
             (!t.relevo_from_shift && !t.relevo_to_shift && t.shift_name === profile.shift_name)
           )
         }
-      } else if (profile?.role === 'COORDINADOR') {
+      } else if (profile?.role === 'COORDINADOR' || profile?.role === 'SUPERVISOR') {
         if (profile.warehouse) data = data.filter((t) => t.warehouse === profile.warehouse)
-        if (profile.project) data = data.filter((t) => t.project === profile.project)
+        if (profile.project) data = data.filter((t) => !t.project || t.project === profile.project)
       }
     }
 
@@ -506,6 +506,10 @@ export function TasksModule({
       }
 
       if (!sameOperationalScope(task)) return false
+
+      if (profile?.role === 'COORDINADOR' || profile?.role === 'SUPERVISOR') {
+        return true
+      }
 
       if (task.assignment_type === 'GRUPO' && profile?.group_name) {
         return task.assigned_group === profile.group_name || task.group_name === profile.group_name
