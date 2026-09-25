@@ -60,6 +60,7 @@ type AccessView =
   | 'ALMACENERO_PROYECTO_MINERO'
   | 'ALMACENERO_SUCURSAL'
   | 'ALMACENERO_CALLAO'
+  | 'COMERCIAL'
 
 type PreviewAccessConfig = {
   label: string
@@ -71,6 +72,7 @@ type PreviewAccessConfig = {
   warehouse_scope: 'REMOTO' | 'CENTRAL'
   remote_group: 'PROYECTO_MINERO' | 'SUCURSAL' | 'TIENDA' | null
   group_name?: string | null
+  oc_cargo_access_level?: 'COMERCIAL' | 'DOCUMENTARIO' | null
 }
 
 type WarehouseMeta = {
@@ -626,6 +628,18 @@ function Workspace({ session }: { session: Session }) {
           warehouse_scope: 'CENTRAL',
           remote_group: null,
         },
+        COMERCIAL: {
+          label: 'Área Comercial',
+          shortLabel: 'Comercial',
+          role: 'TRABAJADOR',
+          warehouse: 'COMERCIAL',
+          project: 'COMERCIAL',
+          position: 'ÁREA COMERCIAL',
+          warehouse_scope: 'REMOTO',
+          remote_group: null,
+          group_name: 'COMERCIAL',
+          oc_cargo_access_level: 'COMERCIAL',
+        },
       } as Record<Exclude<AccessView, 'ACTUAL'>, PreviewAccessConfig>)[accessView]
 
   const isAccessPreview = Boolean(previewAccess)
@@ -638,6 +652,7 @@ function Workspace({ session }: { session: Session }) {
         project: previewAccess?.project ?? profile.project,
         position: previewAccess?.position ?? profile.position,
         group_name: previewAccess?.group_name ?? profile.group_name,
+        oc_cargo_access_level: previewAccess?.oc_cargo_access_level ?? profile.oc_cargo_access_level,
       }
     : null
   const displayName = profile?.full_name ?? user.user_metadata?.full_name ?? 'Usuario KOMTROL'
@@ -691,6 +706,7 @@ function Workspace({ session }: { session: Session }) {
           ALMACENERO_PROYECTO_MINERO: 'Almacenero de Proyecto Minero',
           ALMACENERO_SUCURSAL: 'Almacenero de Sucursales',
           ALMACENERO_CALLAO: 'Almacenero Callao',
+          COMERCIAL: 'Área Comercial',
         } as Record<Exclude<AccessView, 'ACTUAL'>, string>)[next]
     setToast(next === 'ACTUAL'
       ? 'Vista Administrador restaurada.'
@@ -967,7 +983,7 @@ function Workspace({ session }: { session: Session }) {
         { id: 'incidencias' as Tab, label: 'Incidencias', icon: AlertTriangle },
       ],
     },
-    ...(profile?.oc_cargo_access_level === 'COMERCIAL'
+    ...((profile?.oc_cargo_access_level === 'COMERCIAL' || accessView === 'COMERCIAL')
       ? [{
           section: 'COMERCIAL',
           collapsible: true,
@@ -1053,7 +1069,9 @@ function Workspace({ session }: { session: Session }) {
   const isCallaoSupervisor = role === 'SUPERVISOR' && effectiveProfile?.warehouse === 'CALLAO'
   const isCallaoWorker = role === 'TRABAJADOR' && effectiveProfile?.warehouse === 'CALLAO'
   const hasOcCargoSpecialAccess = Boolean(profile?.oc_cargo_access_level)
-  const isCommercialArea = profile?.oc_cargo_access_level === 'COMERCIAL' && !isAccessPreview
+  const isCommercialArea =
+    accessView === 'COMERCIAL' ||
+    (profile?.oc_cargo_access_level === 'COMERCIAL' && !isAccessPreview)
 
   const universalSections = ['INICIO', 'ÁREA DE TRABAJO', 'VENCIMIENTOS']
 
@@ -1295,6 +1313,9 @@ function Workspace({ session }: { session: Session }) {
                   <optgroup label="Sucursales">
                     <option value="ALMACENERO_SUCURSAL">Almacenero de Sucursales</option>
                   </optgroup>
+                  <optgroup label="Áreas especiales">
+                    <option value="COMERCIAL">Área Comercial</option>
+                  </optgroup>
                 </select>
                 <ChevronDown size={13} />
               </div>
@@ -1305,7 +1326,11 @@ function Workspace({ session }: { session: Session }) {
                 </span>
                 <div>
                   <b>{previewAccess?.shortLabel || 'Administrador'}</b>
-                  <small>{previewAccess ? previewAccess.warehouse + ' · ' + previewAccess.role : 'Acceso completo del sistema'}</small>
+                  <small>{previewAccess
+                    ? (accessView === 'COMERCIAL'
+                        ? 'Dashboard · Área de Trabajo · Órdenes de Compra'
+                        : previewAccess.warehouse + ' · ' + previewAccess.role)
+                    : 'Acceso completo del sistema'}</small>
                 </div>
               </div>
 
