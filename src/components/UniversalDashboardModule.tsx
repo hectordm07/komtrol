@@ -587,7 +587,14 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
     const days=daysUntil(row.due_date)
     return days!==null&&days<=30
   }).length
-  const globalPendingTotal=openPersonal.length+openIncidents.length+urgentExpirations+pendingPurchaseOrders.length+pendingDirectCharges.length
+  const globalPendingTotal=
+    openPersonal.length+
+    openIncidents.length+
+    urgentExpirations+
+    pendingPurchaseOrders.length+
+    pendingDirectDelivery.length+
+    pendingSapKmmp.length+
+    pendingFioriIngresses.length
 
   if(loading){
     return <div className="screen-center compact"><RefreshCw className="spin" size={22}/><p>Cargando dashboard…</p></div>
