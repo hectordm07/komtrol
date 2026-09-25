@@ -25,6 +25,7 @@ type Profile = {
   full_name: string
   role: Role
   warehouse?: string | null
+  group_name?: string | null
 }
 
 type GuideType = 'REPOSICION' | 'ORDEN_COMPRA' | 'CARGO_DIRECTO' | 'OTRO'
@@ -41,6 +42,8 @@ type Guide = {
   line_count: number
   guide_type: GuideType
   warehouse: string | null
+  group_name: string | null
+  created_by: string
   responsible_user_id: string
   status: string
   load_status: 'VALIDADO' | 'OBSERVADO'
@@ -93,6 +96,16 @@ const emptyLine = (): GuideLine => ({ line_no: 1, part_no: '', description: '', 
 
 function cleanText(value: string) {
   return value.replace(/\s+/g, ' ').trim()
+}
+
+function groupMatches(userGroup?: string | null, rowGroup?: string | null) {
+  const normalize = (value?: string | null) => String(value || '').trim().toUpperCase().replace(/\s+/g, '')
+  const left = normalize(userGroup)
+  const right = normalize(rowGroup)
+  if (!left || !right) return false
+  if (left === right) return true
+  const split = (value: string) => value.split(/[/,;|]+/).filter(Boolean)
+  return split(right).includes(left) || split(left).includes(right)
 }
 
 function normalizeIntegerQuantity(value: string | number | null | undefined) {
@@ -596,7 +609,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     setLoading(true)
     const [guideRes, profileRes] = await Promise.all([
       supabase.from('guides').select('*').order('created_at', { ascending: false }).limit(300),
-      supabase.from('user_profiles').select('user_id,full_name,role,warehouse').eq('active', true).order('full_name'),
+      supabase.from('user_profiles').select('user_id,full_name,role,warehouse,group_name').eq('active', true).order('full_name'),
     ])
     if (guideRes.error) setMessage(guideRes.error.message)
     setGuides((guideRes.data ?? []) as Guide[])
@@ -1535,17 +1548,28 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
 
   const visible = useMemo(() => {
     let rows = [...guides]
+
+    if (profile && profile.role !== 'ADMINISTRADOR') {
+      const warehouse = String(profile.warehouse || '').trim().toUpperCase()
+      rows = rows.filter((guide) => {
+        if (warehouse && String(guide.warehouse || '').trim().toUpperCase() !== warehouse) return false
+        if (profile.role === 'COORDINADOR' || profile.role === 'SUPERVISOR') return true
+        if (guide.created_by === profile.user_id || guide.responsible_user_id === profile.user_id) return true
+        return groupMatches(profile.group_name, guide.group_name)
+      })
+    }
+
     if (mode === 'oc-cargos') rows = rows.filter((g) => ['ORDEN_COMPRA', 'CARGO_DIRECTO'].includes(g.guide_type))
     if (mode === 'reposicion') rows = rows.filter((g) => g.guide_type === 'REPOSICION')
     const q = search.trim().toLowerCase()
     if (q) {
       rows = rows.filter((g) =>
-        [g.guide_no, g.reference, g.document_no, g.warehouse, g.guide_type, g.load_status]
+        [g.guide_no, g.reference, g.document_no, g.warehouse, g.group_name, g.guide_type, g.load_status]
           .some((value) => String(value ?? '').toLowerCase().includes(q))
       )
     }
     return rows
-  }, [guides, mode, search])
+  }, [guides, mode, search, profile])
 
   const responsibleName = (id: string) => profiles.find((p) => p.user_id === id)?.full_name ?? 'Usuario KOMTROL'
   const ocrConfidence = Number(form.ocr_confidence || 0)
