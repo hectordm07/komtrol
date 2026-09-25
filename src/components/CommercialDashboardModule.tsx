@@ -4,12 +4,18 @@ import {
   BarChart3,
   CheckCircle2,
   Clock3,
+  ChevronRight,
   Eye,
   FileText,
   RefreshCw,
   ShoppingCart,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import {
+  ProfessionalBarChart,
+  ProfessionalDonutChart,
+  ProfessionalTrendChart,
+} from './DashboardVisuals'
 
 type Followup = {
   final_status: string | null
@@ -28,6 +34,7 @@ type CommercialGuide = {
   document_no: string | null
   warehouse: string | null
   reception_at: string
+  created_at: string
   load_status: 'VALIDADO' | 'OBSERVADO'
   oc_cargo_followups?: Followup[] | Followup | null
   guide_refrendos?: Refrendo[] | null
@@ -73,6 +80,7 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
         document_no,
         warehouse,
         reception_at,
+        created_at,
         load_status,
         oc_cargo_followups (final_status,billing_status,updated_at),
         guide_refrendos (id)
@@ -113,6 +121,47 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
     return { total, pending, observed, closed, withRefrendo, withoutRefrendo }
   }, [guides])
 
+  const statusSegments = useMemo(() => {
+    const delivered = guides.filter((guide) =>
+      normalizeFollowup(guide.oc_cargo_followups)?.final_status === 'ENTREGADO_CLIENTE'
+    ).length
+    const other = Math.max(0, metrics.total - metrics.pending - metrics.observed - metrics.closed - delivered)
+
+    return [
+      { label: 'Pendientes', value: metrics.pending },
+      { label: 'Observadas', value: metrics.observed },
+      { label: 'Entregadas', value: delivered },
+      { label: 'Refrendadas / cerradas', value: metrics.closed },
+      { label: 'Otros', value: other },
+    ]
+  }, [guides, metrics])
+
+  const refrendoData = [
+    { key: 'CON', label: 'Con refrendo', value: metrics.withRefrendo, detail: 'Órdenes de Compra con refrendo disponible para visualizar o descargar.' },
+    { key: 'SIN', label: 'Sin refrendo', value: metrics.withoutRefrendo, detail: 'Órdenes de Compra que todavía no cuentan con refrendo.' },
+  ]
+
+  const monthlyTrend = useMemo(() => {
+    const now = new Date()
+    const labels: { year: number; month: number; label: string }[] = []
+    for (let offset = 5; offset >= 0; offset--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - offset, 1)
+      labels.push({
+        year: date.getFullYear(),
+        month: date.getMonth(),
+        label: new Intl.DateTimeFormat('es-PE', { month: 'short' }).format(date).replace('.', ''),
+      })
+    }
+
+    return labels.map((item) => ({
+      label: item.label,
+      value: guides.filter((guide) => {
+        const date = new Date(guide.created_at)
+        return date.getFullYear() === item.year && date.getMonth() === item.month
+      }).length,
+    }))
+  }, [guides])
+
   return (
     <div className="commercial-dashboard">
       <section className="panel commercial-dashboard-hero">
@@ -134,12 +183,40 @@ export function CommercialDashboardModule({ onOpenOrders }: Props) {
       {message && <div className="inline-message">{message}</div>}
 
       <section className="commercial-kpis">
-        <article><ShoppingCart size={20}/><span><b>{metrics.total}</b><small>Total OC</small></span></article>
-        <article><Clock3 size={20}/><span><b>{metrics.pending}</b><small>Pendientes</small></span></article>
-        <article><AlertTriangle size={20}/><span><b>{metrics.observed}</b><small>Observadas</small></span></article>
-        <article><CheckCircle2 size={20}/><span><b>{metrics.closed}</b><small>Refrendadas / cerradas</small></span></article>
-        <article><FileText size={20}/><span><b>{metrics.withRefrendo}</b><small>Con refrendo</small></span></article>
-        <article><BarChart3 size={20}/><span><b>{metrics.withoutRefrendo}</b><small>Sin refrendo</small></span></article>
+        <button type="button" onClick={onOpenOrders}><ShoppingCart size={20}/><span><b>{metrics.total}</b><small>Total OC</small><em>Ver todas</em></span><ChevronRight size={15}/></button>
+        <button type="button" onClick={onOpenOrders}><Clock3 size={20}/><span><b>{metrics.pending}</b><small>Pendientes</small><em>Requieren seguimiento</em></span><ChevronRight size={15}/></button>
+        <button type="button" className={metrics.observed ? 'attention' : ''} onClick={onOpenOrders}><AlertTriangle size={20}/><span><b>{metrics.observed}</b><small>Observadas</small><em>Revisar tratamiento</em></span><ChevronRight size={15}/></button>
+        <button type="button" onClick={onOpenOrders}><CheckCircle2 size={20}/><span><b>{metrics.closed}</b><small>Refrendadas / cerradas</small><em>Proceso concluido</em></span><ChevronRight size={15}/></button>
+        <button type="button" onClick={onOpenOrders}><FileText size={20}/><span><b>{metrics.withRefrendo}</b><small>Con refrendo</small><em>Disponible para descarga</em></span><ChevronRight size={15}/></button>
+        <button type="button" className={metrics.withoutRefrendo ? 'attention' : ''} onClick={onOpenOrders}><BarChart3 size={20}/><span><b>{metrics.withoutRefrendo}</b><small>Sin refrendo</small><em>Pendiente documental</em></span><ChevronRight size={15}/></button>
+      </section>
+
+      <section className="commercial-dashboard-charts">
+        <div className="commercial-chart-link" role="button" tabIndex={0} onClick={onOpenOrders} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders()}}>
+          <ProfessionalDonutChart
+            title="Estado de Órdenes de Compra"
+            subtitle="Distribución actual del seguimiento comercial"
+            segments={statusSegments}
+          />
+          <span>Ver reporte de Órdenes de Compra <ChevronRight size={14}/></span>
+        </div>
+        <div className="commercial-chart-link" role="button" tabIndex={0} onClick={onOpenOrders} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders()}}>
+          <ProfessionalBarChart
+            title="Cobertura de refrendos"
+            subtitle="Disponibilidad documental de las OC"
+            data={refrendoData}
+            onSelect={()=>onOpenOrders()}
+          />
+          <span>Revisar refrendos <ChevronRight size={14}/></span>
+        </div>
+        <div className="commercial-chart-link commercial-trend-card" role="button" tabIndex={0} onClick={onOpenOrders} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onOpenOrders()}}>
+          <ProfessionalTrendChart
+            title="Órdenes registradas"
+            subtitle="Últimos 6 meses"
+            points={monthlyTrend}
+          />
+          <span>Ver evolución y detalle <ChevronRight size={14}/></span>
+        </div>
       </section>
 
       <section className="panel commercial-recent-panel">
