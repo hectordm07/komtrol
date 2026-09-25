@@ -923,13 +923,13 @@ export function UsersAdmin() {
                 <input type="email" value={editForm.corporate_email} onChange={(e)=>setEditForm({...editForm,corporate_email:e.target.value})} placeholder="usuario@kmmp.com.pe"/>
               </label>
 
-              <label className="span-2">Acceso especial OC / Cargos Directos
+              <label className="span-2">Área / acceso documental
                 <select value={editForm.oc_cargo_access_level} onChange={(e)=>setEditForm({...editForm,oc_cargo_access_level:e.target.value as '' | 'COMERCIAL' | 'DOCUMENTARIO'})}>
                   <option value="">Sin acceso especial</option>
-                  <option value="COMERCIAL">COMERCIAL · consulta y refrendos</option>
-                  <option value="DOCUMENTARIO">DOCUMENTARIO · consulta y carga de refrendos</option>
+                  <option value="COMERCIAL">ÁREA COMERCIAL · solo Órdenes de Compra</option>
+                  <option value="DOCUMENTARIO">DOCUMENTARIO · Órdenes de Compra y Cargos Directos</option>
                 </select>
-                <small>Este acceso agrega el reporte OC / Cargos Directos sin cambiar el rol principal del usuario.</small>
+                <small>COMERCIAL habilita Dashboard + Área de Trabajo + Comercial → Órdenes de Compra en modo consulta, con visualización y descarga de refrendos.</small>
               </label>
 
               <label className="user-active-toggle span-2">
