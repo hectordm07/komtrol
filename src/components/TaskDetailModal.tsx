@@ -199,6 +199,20 @@ function safeFileName(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
+function taskStatusLabel(status: TaskDetailTask['status']) {
+  return ({
+    PENDIENTE: 'Pendiente',
+    EN_PROCESO: 'En proceso',
+    BLOQUEADO: 'Bloqueado',
+    CERRADO: 'Completado',
+    VENCIDA: 'Vencida',
+  } as Record<TaskDetailTask['status'], string>)[status]
+}
+
+function taskStatusTone(status: TaskDetailTask['status']) {
+  return `task-state-${status.toLowerCase()}`
+}
+
 export function TaskDetailModal({ task: initialTask, userId, profiles, focusCommentId, labelColors = {}, onClose, onTaskUpdated }: Props) {
   const [task, setTask] = useState<TaskDetailTask>(initialTask)
   const [comments, setComments] = useState<TaskComment[]>([])
@@ -623,7 +637,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
     }
 
     if (progress === 100 && task.status !== 'CERRADO') {
-      setMessage('Todas las subtareas están completas. La tarea principal está al 100% y ya puede cerrarse.')
+      setMessage('Todas las subtareas están completas. La tarea principal tiene todas sus subtareas listas y ya puede marcarse como Completado.')
     }
   }
 
@@ -923,7 +937,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
           <div className="task-detail-chips">
             {task.category && <span className="detail-chip">{task.category}</span>}
             <span className={`priority-chip p-${task.priority.toLowerCase()}`}>{task.priority}</span>
-            <span className="detail-chip">{task.status.replaceAll('_', ' ')}</span>
+            <span className={`detail-chip task-state-chip ${taskStatusTone(task.status)}`}>{taskStatusLabel(task.status)}</span>
             {(task.tags || []).map((tag) => {
               const color = labelColors[tag] || '#5570D8'
               return <span className="detail-chip tag" style={{color,borderColor:`${color}55`,background:`${color}14`}} key={tag}><Tag size={12} /> {tag}</span>
@@ -949,7 +963,6 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
             <div><span>Responsable de gestión</span><b>{profileName(task.responsible_id || task.created_by)}</b></div>
             <div><span>Asignado a</span><b>{taskAssignmentLabel()}</b><small>{task.assignment_type}</small></div>
             <div><span>Fecha de término</span><b>{fmtDateOnly(task.due_at)}</b></div>
-            <div><span>Avance</span><b>{task.progress}%</b></div>
           </div>
 
           <div className="task-detail-actions">
@@ -959,11 +972,11 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
             {canEdit && <button className="secondary-button" onClick={() => setEditOpen((value) => !value)}><Edit3 size={16} /> Editar</button>}
             <button className="secondary-button" onClick={notifyResponsible}><Bell size={16} /> Avisar</button>
             {canEdit && (
-              <select className="task-detail-status-select" value={task.status} onChange={(event) => setTaskStatus(event.target.value as TaskDetailTask['status'])}>
+              <select className={`task-detail-status-select ${taskStatusTone(task.status)}`} value={task.status} onChange={(event) => setTaskStatus(event.target.value as TaskDetailTask['status'])}>
                 <option value="PENDIENTE">Pendiente</option>
                 <option value="EN_PROCESO">En proceso</option>
                 <option value="BLOQUEADO">Bloqueado</option>
-                <option value="CERRADO">Cerrado</option>
+                <option value="CERRADO">Completado</option>
               </select>
             )}
           </div>
