@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel, exportRowsToPdfPortrait } from '../lib/exportUtils'
+import { recognizeGuideImage } from '../lib/guideImageOcr'
 
 type Role = 'TRABAJADOR' | 'COORDINADOR' | 'SUPERVISOR' | 'ADMINISTRADOR'
 
@@ -321,19 +322,67 @@ function extractObservations(text: string) {
     .trim()
 }
 
-function parseGuideOcr(text: string, fileName?: string) {
-  const normalized = text.toUpperCase().replace(/[–—]/g, '-')
-  const guide =
-    normalized.match(/\b[A-Z]\d{3}-\d{8}\b/)?.[0] ||
-    normalized.match(/\bT\d{3}\s*-\s*\d{8}\b/)?.[0]?.replace(/\s/g, '') ||
-    guideFromFileName(fileName) ||
-    ''
+function normalizeOcrIdentifierText(text: string) {
+  return text
+    .toUpperCase()
+    .replace(/[–—−]/g, '-')
+    .replace(/(?<=\d)[OQ](?=\d)/g, '0')
+    .replace(/(?<=\d)[IL](?=\d)/g, '1')
+}
 
-  const referenceCandidates = [...normalized.matchAll(/\b8\d{9}\b/g)].map((m) => m[0])
-  const reference = referenceCandidates.find((x) => x.startsWith('89')) ||
-    referenceCandidates.find((x) => x.startsWith('80')) ||
-    referenceCandidates[0] ||
+function extractGuideNumber(text: string, fileName?: string) {
+  const normalized = normalizeOcrIdentifierText(text)
+
+  const candidates = [
+    normalized.match(/(?:GU[IÍ]A(?:\s+DE\s+REMISI[ÓO]N)?[^A-Z0-9]{0,30}|N[°ºO]?\s*)?(T|I|1)\s*([0-9OQ]{3})\s*[- ]\s*([0-9OQ]{8})/i),
+    normalized.match(/\b(T|I|1)([0-9OQ]{3})[- ]?([0-9OQ]{8})\b/i),
+  ]
+
+  for (const match of candidates) {
+    if (!match) continue
+    const prefix = 'T'
+    const series = String(match[2] ?? '').replace(/[OQ]/g, '0')
+    const number = String(match[3] ?? '').replace(/[OQ]/g, '0')
+    if (/^\d{3}$/.test(series) && /^\d{8}$/.test(number)) {
+      return `${prefix}${series}-${number}`
+    }
+  }
+
+  return guideFromFileName(fileName)
+}
+
+function extractReferenceValue(text: string) {
+  const normalized = normalizeOcrIdentifierText(text)
+
+  // Prioriza el campo rotulado "Referencia" para no confundir RUC, peso o códigos internos.
+  const labelled = normalized.match(
+    /REFEREN(?:CIA)?\s*[:#-]?\s*([8B][0-9OQ\s./-]{7,32})/i
+  )
+  if (labelled?.[1]) {
+    const cleaned = labelled[1]
+      .replace(/[OQ]/g, '0')
+      .replace(/^B/, '8')
+      .replace(/\s+/g, '')
+      .replace(/[^0-9./-]/g, '')
+      .replace(/[.-]+$/g, '')
+    const digits = cleaned.replace(/\D/g, '')
+    if (digits.startsWith('8') && digits.length >= 8) return cleaned
+  }
+
+  const globalCandidates = [...normalized.matchAll(/\b[8B][0-9OQ]{7,17}\b/g)]
+    .map((match) => match[0].replace(/^B/, '8').replace(/[OQ]/g, '0'))
+    .filter((value) => /^8\d{7,17}$/.test(value))
+
+  return globalCandidates.find((value) => value.startsWith('89')) ||
+    globalCandidates.find((value) => value.startsWith('80')) ||
+    globalCandidates[0] ||
     ''
+}
+
+function parseGuideOcr(text: string, fileName?: string, visualOcr = false) {
+  const normalized = normalizeOcrIdentifierText(text)
+  const guide = extractGuideNumber(text, fileName)
+  const reference = extractReferenceValue(text)
 
   const docMatch =
     normalized.match(/(?:N[°ºO]?\s*(?:DE\s*)?DOCUMENTO|DOCUMENTO)\s*[:#-]?\s*([A-Z0-9-]{4,})/i) ||
@@ -357,9 +406,11 @@ function parseGuideOcr(text: string, fileName?: string) {
   const highestParsedLine = parsedLines.reduce((max, line) => Math.max(max, line.line_no), 0)
   const lineCount = explicitLines
     ? Number(explicitLines[1])
-    : replenishment
-      ? Math.max(highestParsedLine, numberedLineCount, parsedLines.length, 1)
-      : numberedLineCount || Math.max(parsedLines.length, 1)
+    : visualOcr
+      ? (highestParsedLine || parsedLines.length || 1)
+      : replenishment
+        ? Math.max(highestParsedLine, numberedLineCount, parsedLines.length, 1)
+        : numberedLineCount || Math.max(parsedLines.length, 1)
   const observations = extractObservations(text)
 
   return {
@@ -514,8 +565,8 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     }
   }
 
-  function applyOcrResult(text: string, confidence: number, sourceFile: File, sourceLabel: string) {
-    const parsed = parseGuideOcr(text, sourceFile.name)
+  function applyOcrResult(text: string, confidence: number, sourceFile: File, sourceLabel: string, visualOcr = false) {
+    const parsed = parseGuideOcr(text, sourceFile.name, visualOcr)
     const parsedLines = parsed.lines.length ? parsed.lines : [emptyLine()]
     const fallbackGuide = guideFromFileName(sourceFile.name)
 
@@ -554,20 +605,19 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
   async function runImageOcr(imageFile: File) {
     setScanning(true)
     setScanProgress(2)
-    setMessage('Analizando imagen con OCR gratuito…')
+    setMessage('Preparando lectura rápida de la guía…')
     try {
-      const moduleUrl = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm'
-      const tesseract: any = await import(/* @vite-ignore */ moduleUrl)
-      const result = await tesseract.recognize(imageFile, 'spa', {
-        logger: (event: any) => {
-          if (event?.status === 'recognizing text' && typeof event.progress === 'number') {
-            setScanProgress(Math.max(2, Math.round(event.progress * 100)))
-          }
-        },
+      const result = await recognizeGuideImage(imageFile, (progress, status) => {
+        setScanProgress(progress)
+        if (status) setMessage(status)
       })
-      const text = String(result?.data?.text ?? '')
-      const confidence = Number(result?.data?.confidence ?? 0)
-      applyOcrResult(text, confidence, imageFile, 'Imagen')
+      applyOcrResult(
+        result.text,
+        result.confidence,
+        imageFile,
+        result.method === 'HEADER_FAST' ? 'Imagen · lectura rápida' : 'Imagen · lectura completa',
+        true,
+      )
     } catch (error) {
       setMessage(`No se pudo completar el OCR de la imagen: ${error instanceof Error ? error.message : 'error desconocido'}.`)
     } finally {
@@ -707,7 +757,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
       }
 
       const averageConfidence = confidencePages ? confidenceTotal / confidencePages : 0
-      applyOcrResult(ocrText, averageConfidence, pdfFile, `PDF OCR (${pageLimit} página${pageLimit > 1 ? 's' : ''})`)
+      applyOcrResult(ocrText, averageConfidence, pdfFile, `PDF OCR (${pageLimit} página${pageLimit > 1 ? 's' : ''})`, true)
     } catch (error) {
       const fallbackGuide = guideFromFileName(pdfFile.name)
       if (fallbackGuide) {
