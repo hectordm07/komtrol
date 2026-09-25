@@ -5,6 +5,7 @@ import './styles.css'
 import './dashboard-final.css'
 import './mobile-final.css'
 import './scanner-batch.css'
+import './location-sheets-final.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
