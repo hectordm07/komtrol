@@ -543,9 +543,9 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       <div className="universal-dashboard-kpis">
         <DashboardKpi
           icon={<ClipboardList/>}
-          label="Mis trabajos"
-          value={openPersonal.length}
-          detail={`${personalTasks.filter((t)=>t.status==='EN_PROCESO').length} en proceso`}
+          label={isAdminDashboard?'Pendientes globales':'Mis trabajos'}
+          value={isAdminDashboard?globalPendingTotal:openPersonal.length}
+          detail={isAdminDashboard?`${openPersonal.length} tareas · ${openIncidents.length} incidencias`:`${personalTasks.filter((t)=>t.status==='EN_PROCESO').length} en proceso`}
           tone="personal"
           onClick={()=>onNavigate('mi-trabajo')}
         />
@@ -567,7 +567,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         />
         <DashboardKpi
           icon={<AlertTriangle/>}
-          label="Mis vencidas"
+          label={isAdminDashboard?'Vencidas globales':'Mis vencidas'}
           value={overduePersonal.length}
           detail={overduePersonal.length?'Requieren atención':'Sin retrasos'}
           critical={overduePersonal.length>0}
@@ -577,7 +577,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           icon={<CalendarClock/>}
           label="Próximos 7 días"
           value={due7.length}
-          detail="Mis trabajos por vencer"
+          detail={isAdminDashboard?'Pendientes globales por vencer':'Mis trabajos por vencer'}
           onClick={()=>onNavigate('mi-trabajo')}
         />
         <DashboardKpi
@@ -628,7 +628,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         <div className="universal-report-heading">
           <div>
             <b>Reportes operativos</b>
-            <span>{[profile.warehouse, profile.project].filter(Boolean).join(' · ') || 'Almacenes autorizados'}</span>
+            <span>{isAdminDashboard?'Vista global · todos los almacenes y proyectos':[profile.warehouse, profile.project].filter(Boolean).join(' · ') || 'Almacenes autorizados'}</span>
           </div>
         </div>
 
@@ -659,7 +659,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
           <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate(incidentRoute)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate(incidentRoute)}}>
             <ProfessionalDonutChart
               title="Incidencias por tipo"
-              subtitle={profile.warehouse ? `Almacén ${profile.warehouse}` : 'Almacenes autorizados'}
+              subtitle={isAdminDashboard?'Todos los almacenes':profile.warehouse ? `Almacén ${profile.warehouse}` : 'Almacenes autorizados'}
               segments={incidentSegments}
             />
             <span className="dashboard-chart-access">Ver incidencias <ChevronRight size={14}/></span>
@@ -675,11 +675,46 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         </div>
       </section>
 
+      {isAdminDashboard&&(
+        <section className="universal-operational-reports admin-global-control">
+          <div className="universal-report-heading">
+            <div>
+              <b>Control global del Administrador</b>
+              <span>Todos los pendientes operativos, comerciales y documentarios de KOMTROL.</span>
+            </div>
+            <span className="status-pill">{globalPendingTotal.toLocaleString('es-PE')} pendientes</span>
+          </div>
+
+          <div className="universal-operational-kpis">
+            <button type="button" onClick={()=>onNavigate('comercial-ordenes-compra')}>
+              <span className="operational-report-icon"><ShoppingCart size={19}/></span>
+              <span><small>ÓRDENES DE COMPRA</small><b>{pendingPurchaseOrders.length}</b><em>{purchaseOrdersWithoutRefrendo.length} sin refrendo</em></span>
+              <ChevronRight size={16}/>
+            </button>
+            <button type="button" onClick={()=>onNavigate('cargos-directos')}>
+              <span className="operational-report-icon"><FileCheck2 size={19}/></span>
+              <span><small>CARGOS DIRECTOS</small><b>{pendingDirectCharges.length}</b><em>Pendientes de cierre o refrendo</em></span>
+              <ChevronRight size={16}/>
+            </button>
+            <button type="button" onClick={()=>onNavigate('seguimiento-guias')}>
+              <span className="operational-report-icon"><PackageSearch size={19}/></span>
+              <span><small>GUÍAS OBSERVADAS</small><b>{observedLoads.length}</b><em>Observadas desde la carga inicial</em></span>
+              <ChevronRight size={16}/>
+            </button>
+            <button type="button" className={incidentEmailsError?'operational-report-missing':''} onClick={()=>onNavigate(incidentRoute)}>
+              <span className="operational-report-icon"><MailCheck size={19}/></span>
+              <span><small>CORREOS / ALERTAS</small><b>{incidentEmailsPending+incidentEmailsError}</b><em>{incidentEmailsError} con error</em></span>
+              <ChevronRight size={16}/>
+            </button>
+          </div>
+        </section>
+      )}
+
       <div className="universal-dashboard-charts">
         <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('mi-trabajo')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('mi-trabajo')}}>
           <ProfessionalDonutChart
-            title="Mis trabajos por estado"
-            subtitle="Distribución de trabajo personal"
+            title={isAdminDashboard?'Tareas globales por estado':'Mis trabajos por estado'}
+            subtitle={isAdminDashboard?'Toda la operación registrada':'Distribución de trabajo personal'}
             segments={taskStatusSegments}
           />
           <span className="dashboard-chart-access">Ver Área de trabajo <ChevronRight size={14}/></span>
@@ -697,7 +732,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
         <div className="dashboard-chart-link" role="button" tabIndex={0} onClick={()=>onNavigate('vencimientos-emoa')} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ')onNavigate('vencimientos-emoa')}}>
           <ProfessionalDonutChart
             title="Estado de vigencias"
-            subtitle="Nivel de urgencia de tus vencimientos"
+            subtitle={isAdminDashboard?'Urgencia global de vigencias':'Nivel de urgencia de tus vencimientos'}
             segments={expiryUrgency}
           />
           <span className="dashboard-chart-access">Revisar vigencias <ChevronRight size={14}/></span>
@@ -716,8 +751,8 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
       <section className="panel universal-upcoming">
         <div className="panel-title">
           <div>
-            <h3>Próximos compromisos</h3>
-            <p>Tareas y vencimientos ordenados por fecha.</p>
+            <h3>{isAdminDashboard?'Próximos pendientes globales':'Próximos compromisos'}</h3>
+            <p>{isAdminDashboard?'Tareas y vencimientos de toda la operación, ordenados por fecha.':'Tareas y vencimientos ordenados por fecha.'}</p>
           </div>
           <span className="status-pill">{upcoming.length} próximos</span>
         </div>
@@ -740,7 +775,7 @@ export function UniversalDashboardModule({userId,profile,previewMode=false,onNav
             <div className="empty-work">
               <CheckCircle2 size={28}/>
               <b>Sin compromisos próximos</b>
-              <p>No tienes tareas o vencimientos pendientes con fecha registrada.</p>
+              <p>{isAdminDashboard?'No existen pendientes globales con fecha registrada.':'No tienes tareas o vencimientos pendientes con fecha registrada.'}</p>
             </div>
           )}
         </div>
