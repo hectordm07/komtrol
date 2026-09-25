@@ -741,7 +741,13 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
   async function saveEdit(event: FormEvent) {
     event.preventDefault()
 
-    const nextWorkType = editForm.work_type
+    const specificPersonBecomesPersonal =
+      editForm.work_type === 'TAREA' &&
+      editForm.assignment_type === 'PERSONA'
+
+    const nextWorkType: TaskDetailTask['work_type'] =
+      specificPersonBecomesPersonal ? 'PERSONAL' : editForm.work_type
+
     if (nextWorkType === 'RELEVO') {
       if (!editForm.relevo_from_shift || !editForm.relevo_to_shift) {
         setMessage('Selecciona la guardia que entrega y la guardia que recibe el relevo.')
@@ -757,10 +763,14 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
       nextWorkType === 'PERSONAL' ? 'PERSONAL' : editForm.assignment_type
 
     const personalOwner =
-      editForm.assigned_user_id ||
-      task.assigned_user_id ||
-      task.responsible_id ||
-      task.created_by
+      specificPersonBecomesPersonal
+        ? editForm.assigned_user_id
+        : (
+            editForm.assigned_user_id ||
+            task.assigned_user_id ||
+            task.responsible_id ||
+            task.created_by
+          )
 
     if (resolvedAssignmentType === 'PERSONA' && !editForm.assigned_user_id) {
       setMessage('Selecciona la persona asignada.')
@@ -1036,7 +1046,7 @@ export function TaskDetailModal({ task: initialTask, userId, profiles, focusComm
                 <>
                   <label>Asignar a
                     <select value={editForm.assignment_type} onChange={(event) => setEditForm({ ...editForm, assignment_type: event.target.value as SubtaskAssignmentType })}>
-                      <option value="PERSONA">Una persona específica</option>
+                      <option value="PERSONA">Una persona específica · pasa a Mis trabajos</option>
                       <option value="GRUPO">Grupo de almacén</option>
                       <option value="GUARDIA">Una guardia del almacén</option>
                     </select>
