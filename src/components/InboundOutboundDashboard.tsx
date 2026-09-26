@@ -90,6 +90,32 @@ function rowSiteKey(row:Row){
   return `${String(row.warehouse||'').trim().toUpperCase()}::${String(row.site_name||'').trim().toUpperCase()}`
 }
 
+function siteChannel(name:string){
+  const upper=String(name||'').toUpperCase()
+  const hasDcp=upper.includes('DCP')
+  const hasKmmp=upper.includes('KMMP')
+  if(hasDcp&&hasKmmp) return 'COMBINED'
+  if(hasDcp) return 'DCP'
+  if(hasKmmp) return 'KMMP'
+  return 'BASE'
+}
+
+function sameSiteAcrossHistory(selected:Row,candidate:Row){
+  const selectedWarehouse=String(selected.warehouse||'').trim().toUpperCase()
+  const candidateWarehouse=String(candidate.warehouse||'').trim().toUpperCase()
+  if(!selectedWarehouse||selectedWarehouse!==candidateWarehouse) return false
+
+  const selectedChannel=siteChannel(selected.site_name)
+  const candidateChannel=siteChannel(candidate.site_name)
+
+  // Cuando una sede actual consolida KMMP + DCP, el histórico puede haber
+  // estado separado en dos filas. Se recuperan ambas para no perder meses.
+  if(selectedChannel==='COMBINED') return true
+  if(selectedChannel==='DCP') return candidateChannel==='DCP'||candidateChannel==='COMBINED'
+  if(selectedChannel==='KMMP') return candidateChannel==='KMMP'||candidateChannel==='BASE'||candidateChannel==='COMBINED'
+  return candidateChannel==='BASE'||candidateChannel==='KMMP'||candidateChannel==='COMBINED'
+}
+
 function withoutConsolidated(rows:Row[]){
   return rows.filter((row)=>
     row.warehouse!=='GLOBAL' &&
@@ -488,11 +514,16 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
     }
   },[selectedSiteKey,rows,year,month])
 
-  const current=selectedSiteKey
-    ? baseCurrent.filter((row)=>rowSiteKey(row)===selectedSiteKey)
-    : baseCurrent
-  const history=selectedSiteKey
-    ? baseHistory.filter((row)=>rowSiteKey(row)===selectedSiteKey)
+  const selectedCurrentRow=selectedSiteKey
+    ? baseCurrent.find((row)=>rowSiteKey(row)===selectedSiteKey) || null
+    : null
+  const selectedIsCombined=selectedCurrentRow
+    ? siteChannel(selectedCurrentRow.site_name)==='COMBINED'
+    : false
+
+  const current=selectedCurrentRow ? [selectedCurrentRow] : baseCurrent
+  const history=selectedCurrentRow
+    ? baseHistory.filter((row)=>sameSiteAcrossHistory(selectedCurrentRow,row))
     : baseHistory
 
   const avgHours=avg(current.map((row)=>num(row.data.hours)))
@@ -521,8 +552,16 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
 
   const labels=trendPeriods.map((item)=>item.label)
   const periodKeys=trendPeriods.map((item)=>item.key)
-  const inboundTrend=trendPeriods.map((item)=>avg(item.rows.map((row)=>num(row.data.inbound))))
-  const outboundTrend=trendPeriods.map((item)=>avg(item.rows.map((row)=>num(row.data.outbound))))
+  const periodVolume=(periodRows:Row[],key:'inbound'|'outbound')=>{
+    const values=periodRows.map((row)=>num(row.data[key])).filter((value)=>Number.isFinite(value))
+    if(!values.length) return 0
+    return selectedIsCombined
+      ? values.reduce((sum,value)=>sum+value,0)
+      : avg(values)
+  }
+
+  const inboundTrend=trendPeriods.map((item)=>periodVolume(item.rows,'inbound'))
+  const outboundTrend=trendPeriods.map((item)=>periodVolume(item.rows,'outbound'))
   const selectedKey=periodKey(year,month)
 
   const prevDate=new Date(year,month-2,1)
@@ -531,8 +570,8 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
 
   const previousHours=avg(previousRows.map((row)=>num(row.data.hours)))
   const previousPeople=avg(previousRows.map((row)=>num(row.data.person_day)))
-  const previousInbound=avg(previousRows.map((row)=>num(row.data.inbound)))
-  const previousOutbound=avg(previousRows.map((row)=>num(row.data.outbound)))
+  const previousInbound=periodVolume(previousRows,'inbound')
+  const previousOutbound=periodVolume(previousRows,'outbound')
   const hoursChange=pctChange(avgHours,previousHours)
   const peopleChange=pctChange(avgPeople,previousPeople)
   const inboundChange=pctChange(avgInbound,previousInbound)

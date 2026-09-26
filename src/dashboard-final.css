@@ -13419,3 +13419,125 @@
     opacity:.48 !important;
   }
 }
+
+
+/* =========================================================
+   DRAFT REPORT 01-02 · HISTORY CONTINUITY + ERI VIEW V40
+   Preparado sin desplegar:
+   - ERI header centrado con leyenda a la derecha.
+   - etiquetas de valor ancladas a cada barra real.
+   - 100.00% cabe y queda centrado dentro del donut.
+   ========================================================= */
+@media (min-width:821px){
+  .eri-dashboard-reference .eri-bars-head{
+    position:relative !important;
+    display:grid !important;
+    grid-template-columns:1fr auto 1fr !important;
+    align-items:center !important;
+    gap:8px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-head > div:first-child{
+    grid-column:2 !important;
+    justify-self:center !important;
+    min-width:0 !important;
+    text-align:center !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-head > div:first-child b{
+    text-align:center !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-legend{
+    grid-column:3 !important;
+    justify-self:end !important;
+    margin:0 !important;
+  }
+}
+
+.eri-dashboard-reference .eri-bar-col{
+  --eri-bar-height:0%;
+}
+
+.eri-dashboard-reference .eri-bar-top{
+  bottom:calc(var(--eri-bar-height) + 3px) !important;
+  top:auto !important;
+  z-index:7 !important;
+}
+
+.eri-dashboard-reference .eri-bars-plot{
+  overflow:visible !important;
+}
+
+.eri-dashboard-reference .eri-bars-chart{
+  overflow:visible !important;
+}
+
+.eri-dashboard-reference .eri-ring-wrap{
+  display:grid !important;
+  place-items:center !important;
+}
+
+.eri-dashboard-reference .eri-ring-wrap .eri-ring,
+.eri-dashboard-reference .eri-ring-wrap strong{
+  grid-area:1 / 1 !important;
+}
+
+.eri-dashboard-reference .eri-ring-wrap strong{
+  position:static !important;
+  inset:auto !important;
+  transform:none !important;
+  width:70% !important;
+  max-width:78px !important;
+  margin:0 !important;
+  font-size:clamp(14px,1.08vw,17px) !important;
+  line-height:1 !important;
+  letter-spacing:-.045em !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
+  z-index:3 !important;
+}
+
+.eri-dashboard-reference .eri-bar-group::after{
+  min-width:175px !important;
+  max-width:230px !important;
+  white-space:pre-line !important;
+  text-align:left !important;
+  line-height:1.35 !important;
+  font-size:7.8px !important;
+}
+
+@media (min-width:1200px) and (max-width:1700px){
+  .eri-dashboard-reference .eri-bars-head{
+    grid-template-columns:minmax(120px,1fr) auto minmax(270px,1fr) !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-head b{
+    font-size:9px !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-legend{
+    gap:7px !important;
+    font-size:6.8px !important;
+  }
+}
+
+@media (max-width:820px){
+  .eri-dashboard-reference .eri-bars-head{
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+  }
+
+  .eri-dashboard-reference .eri-bars-legend{
+    justify-content:center !important;
+  }
+
+  .eri-dashboard-reference .eri-ring-wrap strong{
+    max-width:72px !important;
+    font-size:15px !important;
+  }
+}

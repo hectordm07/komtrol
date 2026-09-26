@@ -75,6 +75,29 @@ function rowSiteKey(row:Row){
   return `${String(row.warehouse||'').trim().toUpperCase()}::${String(row.site_name||'').trim().toUpperCase()}`
 }
 
+function eriSiteChannel(name:string){
+  const upper=String(name||'').toUpperCase()
+  const hasDcp=upper.includes('DCP')
+  const hasKmmp=upper.includes('KMMP')
+  if(hasDcp&&hasKmmp) return 'COMBINED'
+  if(hasDcp) return 'DCP'
+  if(hasKmmp) return 'KMMP'
+  return 'BASE'
+}
+
+function sameEriSiteAcrossHistory(selected:Row,candidate:Row){
+  const selectedWarehouse=String(selected.warehouse||'').trim().toUpperCase()
+  const candidateWarehouse=String(candidate.warehouse||'').trim().toUpperCase()
+  if(!selectedWarehouse||selectedWarehouse!==candidateWarehouse) return false
+
+  const selectedChannel=eriSiteChannel(selected.site_name)
+  const candidateChannel=eriSiteChannel(candidate.site_name)
+  if(selectedChannel==='COMBINED') return true
+  if(selectedChannel==='DCP') return candidateChannel==='DCP'||candidateChannel==='COMBINED'
+  if(selectedChannel==='KMMP') return candidateChannel==='KMMP'||candidateChannel==='BASE'||candidateChannel==='COMBINED'
+  return candidateChannel==='BASE'||candidateChannel==='KMMP'||candidateChannel==='COMBINED'
+}
+
 function pctVariation(current:number,previous:number){
   if(previous>0) return current/previous-1
   return current>0?1:0
@@ -288,16 +311,22 @@ function ComparisonBars({
                     onSelectSite(item.key)
                   }
                 }}
-                data-tooltip={`${item.name} · IL ${fmtPct(item.items)} (Δ ${fmtVariation(item.itemsVariation)}) · $ ${fmtPct(item.value)} (Δ ${fmtVariation(item.valueVariation)}) · Meta 99.50% · ${selected?'Clic para quitar filtro':'Clic para filtrar sede'}`}
+                data-tooltip={`${item.name}\nIL ${fmtPct(item.items)} · Δ ${fmtVariation(item.itemsVariation)}\n$ ${fmtPct(item.value)} · Δ ${fmtVariation(item.valueVariation)}\nMeta 99.50% · ${selected?'Clic para quitar filtro':'Clic para filtrar sede'}`}
               >
                 <div className="eri-bars-pair">
-                  <div className="eri-bar-col">
+                  <div
+                    className="eri-bar-col"
+                    style={{'--eri-bar-height':`${heightPct(item.items)}%`} as CSSProperties}
+                  >
                     <span className="eri-bar-top navy">{fmtPct(item.items)}</span>
-                    <div className="eri-bar navy" style={{height:`${heightPct(item.items)}%`}}/>
+                    <div className="eri-bar navy" style={{height:'var(--eri-bar-height)'}}/>
                   </div>
-                  <div className="eri-bar-col">
+                  <div
+                    className="eri-bar-col"
+                    style={{'--eri-bar-height':`${heightPct(item.value)}%`} as CSSProperties}
+                  >
                     <span className="eri-bar-top green">{fmtPct(item.value)}</span>
-                    <div className="eri-bar green" style={{height:`${heightPct(item.value)}%`}}/>
+                    <div className="eri-bar green" style={{height:'var(--eri-bar-height)'}}/>
                   </div>
                 </div>
                 <span className="eri-site-label" title={item.name}>{item.name}</span>
@@ -329,11 +358,13 @@ export function ERIDashboard({
     }
   },[selectedSiteKey,rows,year,month,centerGroup])
 
-  const dashboardRows=selectedSiteKey
-    ? rows.filter((row)=>rowSiteKey(row)===selectedSiteKey)
-    : rows
-  const dashboardHistorical=selectedSiteKey
-    ? historical.filter((row)=>rowSiteKey(row)===selectedSiteKey)
+  const selectedCurrentRow=selectedSiteKey
+    ? rows.find((row)=>rowSiteKey(row)===selectedSiteKey) || null
+    : null
+
+  const dashboardRows=selectedCurrentRow ? [selectedCurrentRow] : rows
+  const dashboardHistorical=selectedCurrentRow
+    ? historical.filter((row)=>sameEriSiteAcrossHistory(selectedCurrentRow,row))
     : historical
 
   const current=dashboardRows.filter((row)=>!noPresented(row))
