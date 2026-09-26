@@ -1513,3 +1513,88 @@
   padding-top:5px !important;
   overflow:visible !important;
 }
+
+
+/* =========================================================
+   REPORT 04 · EVOLUTION SITE LABELS V51
+   Guarantees warehouse/site names remain visible inside the
+   Report 04 EVOLUCIÓN $ chart without changing Report 03.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-evolution-body{
+  padding-bottom:12px !important;
+  overflow:hidden !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bars{
+  height:100% !important;
+  align-items:stretch !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+  position:relative !important;
+  display:grid !important;
+  grid-template-rows:24px minmax(0,1fr) !important;
+  align-items:end !important;
+  padding-bottom:46px !important;
+  box-sizing:border-box !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+  position:absolute !important;
+  left:2px !important;
+  right:2px !important;
+  bottom:0 !important;
+  width:auto !important;
+  height:42px !important;
+  min-height:42px !important;
+  padding:6px 2px 0 !important;
+  box-sizing:border-box !important;
+  display:-webkit-box !important;
+  -webkit-box-orient:vertical !important;
+  -webkit-line-clamp:3 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:normal !important;
+  color:#17336f !important;
+  font-size:8px !important;
+  line-height:1.08 !important;
+  font-weight:850 !important;
+  text-align:center !important;
+  z-index:3 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-track{
+  min-height:0 !important;
+  height:100% !important;
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+    padding-bottom:44px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+    height:40px !important;
+    min-height:40px !important;
+    font-size:7.8px !important;
+  }
+}
+
+@media (max-width:1199px){
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-evolution-body{
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+    padding-bottom:56px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+    height:52px !important;
+    min-height:52px !important;
+    font-size:8.5px !important;
+    -webkit-line-clamp:3 !important;
+  }
+}
