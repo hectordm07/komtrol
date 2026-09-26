@@ -602,22 +602,47 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     return ''
   },[warehouseFilter,warehouseCatalog,warehouseCenters])
 
+  const scorecardSiteKey=(row:ScorecardRow)=>
+    `${String(row.warehouse||'').trim().toUpperCase()}::${String(row.site_name||'').trim().toUpperCase()}`
+
+  const explicitGroups=new Set(['PROYECTO','PROYECTO_MINERO','SUCURSAL','TIENDA'])
+
+  // La clasificación elegida en el mes visible debe aplicarse también a su
+  // histórico. Así, si Julio se reclasifica como SUCURSAL/TIENDA, Junio y los
+  // meses anteriores no desaparecen de las tendencias por conservar etiquetas
+  // legacy como "PM & S & T - AARR".
+  const currentGroupBySite=useMemo(()=>{
+    const map=new Map<string,string>()
+    rows
+      .filter((row)=>row.year===year&&row.month===month)
+      .forEach((row)=>{
+        const group=String(row.site_group||'').trim().toUpperCase()
+        if(explicitGroups.has(group)) map.set(scorecardSiteKey(row),group)
+      })
+    return map
+  },[rows,year,month])
+
   const matchesScorecardScope=(row:ScorecardRow)=>{
     if(warehouseFilter.startsWith('GRUPO:')){
       const requested=warehouseFilter.slice(6).trim().toUpperCase()
       const actual=String(row.site_group||'').trim().toUpperCase()
-      const explicitGroups=new Set(['PROYECTO','PROYECTO_MINERO','SUCURSAL','TIENDA'])
 
-      // Si el registro ya fue reclasificado manualmente, esa clasificación manda.
-      if(explicitGroups.has(actual)){
-        if(requested==='PROYECTO_MINERO') return actual==='PROYECTO'||actual==='PROYECTO_MINERO'
-        if(requested==='SUCURSAL') return actual==='SUCURSAL'
-        if(requested==='TIENDA') return actual==='TIENDA'
-        return actual===requested
+      const matchesGroup=(group:string)=>{
+        if(requested==='PROYECTO_MINERO') return group==='PROYECTO'||group==='PROYECTO_MINERO'
+        if(requested==='SUCURSAL') return group==='SUCURSAL'
+        if(requested==='TIENDA') return group==='TIENDA'
+        return group===requested
       }
 
-      // Históricos todavía conservan etiquetas legacy. No se modifican ni borran:
-      // para esos registros se usa la clasificación maestra del almacén.
+      // Si el propio registro ya está clasificado, esa clasificación manda.
+      if(explicitGroups.has(actual)) return matchesGroup(actual)
+
+      // Para históricos con clasificación legacy, heredar la clasificación del
+      // mismo almacén/sede en el mes actualmente seleccionado.
+      const currentGroup=currentGroupBySite.get(scorecardSiteKey(row))
+      if(currentGroup&&explicitGroups.has(currentGroup)) return matchesGroup(currentGroup)
+
+      // Último respaldo: clasificación maestra del almacén.
       return matchesDashboardHierarchy(
         warehouseFilter,
         row.warehouse,
@@ -638,10 +663,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
   const scopedRows=useMemo(()=>rows.filter((row)=>
     row.year===year&&row.month===month&&matchesScorecardScope(row)
-  ),[rows,year,month,warehouseFilter,warehouseCatalog,warehouseCenters,mode])
+  ),[rows,year,month,warehouseFilter,warehouseCatalog,warehouseCenters,mode,currentGroupBySite])
 
   const visibleHistorical=useMemo(()=>rows.filter((row)=>matchesScorecardScope(row)),
-    [rows,warehouseFilter,warehouseCatalog,warehouseCenters,mode])
+    [rows,year,month,warehouseFilter,warehouseCatalog,warehouseCenters,mode,currentGroupBySite])
 
   const fieldMap=useMemo(()=>new Map((report?.fields||[]).map((field)=>[field.key,field])),[report])
 
