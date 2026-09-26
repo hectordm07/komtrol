@@ -1187,3 +1187,104 @@
     flex-basis:44px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 03 · MONTHLY VARIATION ALWAYS VISIBLE V48
+   Monthly variation is intentionally placed immediately
+   below the main amount, so it cannot be clipped by the rail.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global){
+  min-height:148px !important;
+  height:auto !important;
+  overflow:hidden !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body{
+  display:grid !important;
+  grid-template-rows:auto auto 38px auto auto !important;
+  align-content:start !important;
+  justify-items:center !important;
+  gap:3px !important;
+  padding:7px 9px 8px !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>b{
+  font-size:11px !important;
+  line-height:1.05 !important;
+  margin:0 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>strong{
+  font-size:29px !important;
+  line-height:.94 !important;
+  margin:0 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation{
+  order:0 !important;
+  width:min(100%,190px) !important;
+  min-width:0 !important;
+  min-height:38px !important;
+  max-height:38px !important;
+  height:38px !important;
+  margin:1px 0 !important;
+  padding:4px 8px !important;
+  border-radius:12px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:7px !important;
+  box-sizing:border-box !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation-icon{
+  width:26px !important;
+  height:26px !important;
+  min-width:26px !important;
+  border-radius:8px !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div>b{
+  font-size:14px !important;
+  line-height:1 !important;
+  font-weight:950 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div>small{
+  font-size:6.2px !important;
+  line-height:1 !important;
+  font-weight:850 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>small{
+  font-size:6.8px !important;
+  line-height:1 !important;
+  margin:0 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>em{
+  font-size:6.3px !important;
+  line-height:1 !important;
+  padding:3px 8px !important;
+  margin:0 !important;
+}
+
+/* Sparkline remains removed from this compact card. */
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-spark{
+  display:none !important;
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-left{
+    grid-template-rows:auto auto auto auto minmax(148px,1fr) !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global){
+    min-height:148px !important;
+  }
+}

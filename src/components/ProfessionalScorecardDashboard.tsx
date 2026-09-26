@@ -597,11 +597,7 @@ function Report3GlobalHighlight({
     <div className="sf3-highlight-body">
       <b>{top?.name||'Sin diferencias'}</b>
       <strong>{compactMoney(top?.value||0)}</strong>
-      <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
-      <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
-      <div className="sf3-highlight-spark">
-        <Sparkline points={topHistory?.length?topHistory:[0,0,0,0,0,0]} tone={status==='SOBRANTE'?'green':'red'}/>
-      </div>
+
       <div className={"sf3-highlight-variation "+(
         topVariation===null||topVariation===undefined||topVariation===0
           ? 'neutral'
@@ -616,8 +612,15 @@ function Report3GlobalHighlight({
           <b>{topVariation===null||topVariation===undefined
             ? '—'
             : `${topVariation>0?'+':''}${(topVariation*100).toFixed(1)}%`}</b>
-          <small>vs. mes anterior</small>
+          <small>Variación mensual</small>
         </div>
+      </div>
+
+      <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
+      <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
+
+      <div className="sf3-highlight-spark" aria-hidden="true">
+        <Sparkline points={topHistory?.length?topHistory:[0,0,0,0,0,0]} tone={status==='SOBRANTE'?'green':'red'}/>
       </div>
     </div>
   </article>
