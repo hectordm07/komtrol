@@ -497,7 +497,7 @@ function TopSitesPanel({
 }
 
 function Report3Filters({
-  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus
+  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus,top,topVariation,topHistory
 }:{
   rows:Row[]
   year:number
@@ -508,6 +508,9 @@ function Report3Filters({
   setSegment:(segment:string)=>void
   status:string
   setStatus:(status:string)=>void
+  top?:{name:string;value:number;skus:number;units:number}
+  topVariation?:number|null
+  topHistory?:number[]
 }){
   const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
   const months=useMemo(()=>Array.from(new Set(
@@ -572,6 +575,12 @@ function Report3Filters({
       </div>
     </section>
 
+    <Report3GlobalHighlight
+      status={status}
+      top={top}
+      topVariation={topVariation}
+      topHistory={topHistory}
+    />
   </aside>
 }
 
@@ -583,7 +592,7 @@ function Report3GlobalHighlight({
   topVariation?:number|null
   topHistory?:number[]
 }){
-  return <article className={"sf3-highlight sf3-highlight-global kom-unified-card "+(status==='SOBRANTE'?'green':'red')}>
+  return <article className={"sf3-highlight kom-unified-card "+(status==='SOBRANTE'?'green':'red')}>
     <div className="sf3-highlight-title">PROYECTO CON MAYOR DIFERENCIA</div>
     <div className="sf3-highlight-body">
       <b>{top?.name||'Sin diferencias'}</b>
@@ -889,6 +898,9 @@ function SobrantesFaltantesDashboard({
         setExtra(value)
         setSelectedSiteKey(null)
       }}
+      top={top}
+      topVariation={topVariation}
+      topHistory={topHistory}
     />
 
     <div className="sf3-kpis">
@@ -936,12 +948,6 @@ function SobrantesFaltantesDashboard({
       onSelectSite={(key)=>setSelectedSiteKey((currentKey)=>currentKey===key?null:key)}
     />
 
-    <Report3GlobalHighlight
-      status={extra}
-      top={top}
-      topVariation={topVariation}
-      topHistory={topHistory}
-    />
   </section>
 }
 
