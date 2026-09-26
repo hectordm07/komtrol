@@ -624,15 +624,16 @@ function Report3Trend({
   const area=`${x(0)},44 ${line} ${x(clean.length-1)},44`
   const active=hovered===null?null:{value:clean[hovered],label:labels[hovered]}
 
-  return <div className={"sf3-trend "+tone}>
+  return <div className={"sf3-trend sf3-trend-io "+tone}>
     <div className="sf3-yaxis">
       <span>{formatter(max)}</span>
       <span>{formatter(max/2)}</span>
       <span>0</span>
     </div>
+
     <svg viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true">
       <line x1="6" y1="8" x2="96" y2="8" className="grid"/>
-      <line x1="6" y1="25" x2="96" y2="25" className="grid"/>
+      <line x1="6" y1="26" x2="96" y2="26" className="grid"/>
       <line x1="6" y1="44" x2="96" y2="44" className="base"/>
       <polygon points={area} className="area"/>
       <polyline points={line} className="line"/>
@@ -641,13 +642,15 @@ function Report3Trend({
         onMouseEnter={()=>setHovered(index)}
         onMouseLeave={()=>setHovered(null)}
       >
-        <circle cx={x(index)} cy={y(value)} r={hovered===index?2.3:1.55} className="dot"/>
+        <circle cx={x(index)} cy={y(value)} r={hovered===index?2.4:1.7} className="dot"/>
         <rect x={x(index)-6} y="4" width="12" height="42" className="hit"/>
       </g>)}
     </svg>
+
     <div className="sf3-trend-months">
-      {labels.map((label)=><span key={label}>{label}</span>)}
+      {labels.map((label,index)=><span key={label+'-'+index}>{label}</span>)}
     </div>
+
     {active&&<div className="sf3-trend-tooltip" style={{left:`${Math.max(12,Math.min(88,x(hovered??0)))}%`}}>
       <b>{active.label}</b>
       <span>{formatter(active.value)}</span>
@@ -678,7 +681,6 @@ function Report3Kpi({
       <div className="sf3-kpi-copy">
         <small>{title}</small>
         <strong>{value}</strong>
-        {selectionLabel&&<em title={selectionLabel}>{selectionLabel}</em>}
       </div>
       <div className="sf3-kpi-variations">
         <div className={monthTone}>

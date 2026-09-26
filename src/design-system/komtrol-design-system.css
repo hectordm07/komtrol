@@ -329,3 +329,143 @@
     font-size:7px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 03 · IO HISTORY MATCH + FIXED KPI GEOMETRY V43
+   Reporte 03: historial visual igual al patrón Inbound/Outbound,
+   azul corporativo, puntos suaves y geometría fija al seleccionar.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern{
+  grid-template-rows:82px minmax(0,1fr) !important;
+  min-height:0 !important;
+  height:100% !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-summary{
+  height:82px !important;
+  min-height:82px !important;
+  max-height:82px !important;
+  box-sizing:border-box !important;
+  align-items:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-copy{
+  min-height:54px !important;
+  align-content:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-copy em{
+  display:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io{
+  position:relative !important;
+  min-height:0 !important;
+  height:100% !important;
+  padding:8px 10px 7px 40px !important;
+  display:grid !important;
+  grid-template-rows:minmax(0,1fr) 16px !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io svg{
+  width:100% !important;
+  height:100% !important;
+  min-height:48px !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-yaxis{
+  position:absolute !important;
+  top:8px !important;
+  bottom:23px !important;
+  left:6px !important;
+  width:31px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:space-between !important;
+  color:#50638a !important;
+  font-size:6.5px !important;
+  line-height:1 !important;
+  font-weight:750 !important;
+  pointer-events:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .grid{
+  stroke:#e4eaf4 !important;
+  stroke-width:.55 !important;
+  stroke-dasharray:0 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .base{
+  stroke:#dfe6f2 !important;
+  stroke-width:.7 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .area{
+  fill:rgba(22,69,143,.22) !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .line{
+  fill:none !important;
+  stroke:#16458f !important;
+  stroke-width:1.65 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .dot{
+  fill:#16458f !important;
+  stroke:#fff !important;
+  stroke-width:.75 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .hit{
+  fill:transparent !important;
+  pointer-events:all !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-months{
+  display:grid !important;
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  align-items:end !important;
+  color:#344d80 !important;
+  font-size:6.6px !important;
+  line-height:1 !important;
+  font-weight:850 !important;
+  text-align:center !important;
+  padding:0 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-tooltip{
+  z-index:40 !important;
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern{
+    grid-template-rows:76px minmax(0,1fr) !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-summary{
+    height:76px !important;
+    min-height:76px !important;
+    max-height:76px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-trend-io{
+    padding:6px 9px 6px 37px !important;
+  }
+}
+
+@media (max-width:1199px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern{
+    grid-template-rows:88px minmax(0,1fr) !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-summary{
+    height:88px !important;
+    min-height:88px !important;
+    max-height:88px !important;
+  }
+}
