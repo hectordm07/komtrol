@@ -193,6 +193,33 @@ const TEMPLATE_FIELD_HEADERS:Record<string,string> = {
   driving:'CONDUCCION',
 }
 
+function normalizeTargetOperator(value:unknown){
+  const raw=String(value??'').trim().toUpperCase()
+  if(raw==='LTE'||raw==='<='||raw==='=<'||raw==='≤') return 'LTE'
+  if(raw==='EQ'||raw==='=') return 'EQ'
+  return 'GTE'
+}
+
+function targetOperatorSymbol(value:unknown){
+  const operator=normalizeTargetOperator(value)
+  return operator==='LTE'?'≤':operator==='EQ'?'=':'≥'
+}
+
+function parseTargetExpression(value:string){
+  const raw=String(value||'').trim().replace(/\s+/g,'').replace(',','.')
+  const match=raw.match(/^(<=|=<|≤|>=|=>|≥|=)?(-?\d+(?:\.\d+)?)$/)
+  if(!match) return null
+  const token=match[1]||'>='
+  const target=Number(match[2])
+  if(!Number.isFinite(target)) return null
+  const operator=token==='<='||token==='=<'||token==='≤'
+    ? 'LTE'
+    : token==='='
+      ? 'EQ'
+      : 'GTE'
+  return {operator,target}
+}
+
 function templateHeader(field:FieldDef){
   return TEMPLATE_FIELD_HEADERS[field.key] || field.label.toUpperCase().replace(/[^A-Z0-9ÁÉÍÓÚÜÑ]+/g,'_')
 }
@@ -728,6 +755,25 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     setMessage('Registro actualizado correctamente, incluida su clasificación de centro.')
   }
 
+  function editTargetExpression(row:ScorecardRow,value:string) {
+    const parsed=parseTargetExpression(value)
+    if(!parsed) return
+    setEditingRows((current)=>{
+      const base=current[row.id]||row
+      return {
+        ...current,
+        [row.id]:{
+          ...base,
+          data:{
+            ...base.data,
+            target:parsed.target,
+            target_operator:parsed.operator,
+          },
+        },
+      }
+    })
+  }
+
   function editRowMeta(row:ScorecardRow,key:'site_group',value:string) {
     setEditingRows((current)=>{
       const base=current[row.id]||row
@@ -770,6 +816,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     const targetMonth=Number(newRecordMonth || month)
     const rowKey=`manual:${targetYear}:${targetMonth}:${targetWarehouse}:${Date.now()}`
     const emptyData=Object.fromEntries(report.fields.map((field)=>[field.key,field.type==='text'?'':null]))
+    if(report.code==='inbound-outbound') emptyData.target_operator='GTE'
 
     const {data,error}=await supabase.from('scorecard_rows').insert({
       report_code:report.code,
@@ -1324,6 +1371,29 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
                     {report.fields.map((field)=>{
                       const value=edited.data?.[field.key]
                       const editable=editing&&canEdit&&(isAdmin||!field.auto)
+
+                      if(report.code==='inbound-outbound'&&field.key==='target'){
+                        const expression=`${targetOperatorSymbol(edited.data?.target_operator)}${value===null||value===undefined?'':String(value)}`
+                        return <td key={field.key}>
+                          {editable
+                            ? <input
+                                key={`${row.id}-objective-${expression}`}
+                                className="scorecard-objective-expression"
+                                defaultValue={expression}
+                                placeholder="Ej.: <=45"
+                                inputMode="decimal"
+                                onChange={(event)=>editTargetExpression(row,event.target.value)}
+                                onBlur={(event)=>{
+                                  const parsed=parseTargetExpression(event.target.value)
+                                  if(parsed) event.currentTarget.value=`${parsed.operator==='LTE'?'≤':parsed.operator==='EQ'?'=':'≥'}${parsed.target}`
+                                }}
+                                aria-label={`Objetivo de ${row.site_name}. Usa <=45, >=45 o =45`}
+                                title="Puedes escribir <=45, =<45, >=45 o =45"
+                              />
+                            : <span>{expression}</span>}
+                        </td>
+                      }
+
                       return <td key={field.key}>{editable
                         ? <input
                             value={value===null||value===undefined?'':String(value)}
