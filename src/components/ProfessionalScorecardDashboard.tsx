@@ -349,6 +349,10 @@ function matchesExtra(row:Row,extra:string){
   return norm(row.row_status||row.detail)===norm(extra)
 }
 
+function report3SiteKey(row:Row){
+  return `${norm(row.warehouse)}::${norm(row.site_name)}`
+}
+
 function SixMonthEvolution({
   rows,year,month,segment,extra
 }:{rows:Row[];year:number;month:number;segment:string;extra:string}){
@@ -652,7 +656,7 @@ function Report3Trend({
 }
 
 function Report3Kpi({
-  title,value,icon,variation,sixMonthVariation,history,labels,tone,formatter
+  title,value,icon,variation,sixMonthVariation,history,labels,tone,formatter,selectionLabel
 }:{
   title:string
   value:string
@@ -663,21 +667,34 @@ function Report3Kpi({
   labels:string[]
   tone:'red'|'green'|'navy'
   formatter:(value:number)=>string
+  selectionLabel?:string|null
 }){
-  return <article className="sf3-kpi">
-    <div className="sf3-kpi-head">{title}</div>
-    <div className="sf3-kpi-value-row">
+  const monthTone=variation>0?'up':variation<0?'down':'neutral'
+  const sixTone=sixMonthVariation===null||sixMonthVariation===0?'neutral':sixMonthVariation>0?'up':'down'
+
+  return <article className={"sf3-kpi sf3-kpi-modern "+tone}>
+    <div className="sf3-kpi-summary">
       <span className="sf3-kpi-icon">{icon}</span>
-      <strong>{value}</strong>
+      <div className="sf3-kpi-copy">
+        <small>{title}</small>
+        <strong>{value}</strong>
+        {selectionLabel&&<em title={selectionLabel}>{selectionLabel}</em>}
+      </div>
       <div className="sf3-kpi-variations">
-        <div className={variation>=0?'up':'down'}>
-          <b>{variation>=0?'▲':'▼'} {Math.abs(variation*100).toFixed(2)}%</b>
+        <div className={monthTone}>
+          <b>
+            {variation>0?<TrendingUp size={11}/>:variation<0?<TrendingDown size={11}/>:<span>—</span>}
+            {variation>0?'+':''}{(variation*100).toFixed(1)}%
+          </b>
           <span>vs. mes anterior</span>
         </div>
-        <div className={(sixMonthVariation??0)>=0?'up':'down'}>
+        <div className={sixTone}>
           {sixMonthVariation===null
-            ? <><b>—</b><span>vs. hace 6 meses</span></>
-            : <><b>{sixMonthVariation>=0?'▲':'▼'} {Math.abs(sixMonthVariation*100).toFixed(2)}%</b><span>vs. hace 6 meses</span></>}
+            ? <><b><span>—</span></b><span>vs. hace 6 meses</span></>
+            : <><b>
+                {sixMonthVariation>0?<TrendingUp size={11}/>:sixMonthVariation<0?<TrendingDown size={11}/>:<span>—</span>}
+                {sixMonthVariation>0?'+':''}{(sixMonthVariation*100).toFixed(1)}%
+              </b><span>vs. hace 6 meses</span></>}
         </div>
       </div>
     </div>
@@ -686,34 +703,48 @@ function Report3Kpi({
 }
 
 function Report3Evolution({
-  rows,tone
+  rows,tone,selectedSiteKey,onSelectSite
 }:{
-  rows:Array<{name:string;value:number;skus:number;units:number}>
+  rows:Array<{key:string;name:string;value:number;skus:number;units:number}>
   tone:'red'|'green'|'navy'
+  selectedSiteKey:string|null
+  onSelectSite:(key:string)=>void
 }){
-  const visible=rows.slice(0,12)
+  const visible=rows.slice(0,18)
   const max=Math.max(...visible.map((row)=>row.value),1)
-  const axis=[max,max*.75,max*.5,max*.25,0]
 
-  return <article className={"sf3-evolution "+tone}>
-    <div className="sf3-evolution-head">EVOLUCIÓN $</div>
+  return <article className={"sf3-evolution sf3-evolution-clean "+tone}>
+    <div className="sf3-evolution-head">
+      <span>EVOLUCIÓN $</span>
+      {selectedSiteKey&&<small>Selección activa · clic nuevamente para volver al total</small>}
+    </div>
     <div className="sf3-evolution-body">
-      <div className="sf3-evolution-axis">
-        {axis.map((value,index)=><span key={index}>{compactMoney(value)}</span>)}
-      </div>
-      <div className="sf3-evolution-grid">
-        <i/><i/><i/><i/><i/>
-      </div>
-      <div className="sf3-bars" style={{'--sf3-count':Math.max(visible.length,1)} as CSSProperties}>
-        {visible.map((row)=><div
-          className="sf3-bar-item"
-          key={row.name}
-          data-tooltip={`${row.name} · ${compactMoney(row.value)} · ${numberText(row.skus)} SKU · ${numberText(row.units)} UND`}
-        >
-          <span>{compactMoney(row.value)}</span>
-          <div className="sf3-bar-track"><i style={{height:`${Math.max(2,row.value/max*100)}%`}}/></div>
-          <b>{row.name}</b>
-        </div>)}
+      <div
+        className={selectedSiteKey?'sf3-bars has-selection':'sf3-bars'}
+        style={{'--sf3-count':Math.max(visible.length,1)} as CSSProperties}
+      >
+        {visible.map((row)=>{
+          const selected=selectedSiteKey===row.key
+          return <div
+            className={selected?'sf3-bar-item selected':'sf3-bar-item'}
+            key={row.key}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            data-tooltip={`${row.name} · ${compactMoney(row.value)} · ${numberText(row.skus)} SKU · ${numberText(row.units)} UND · ${selected?'Clic para quitar filtro':'Clic para filtrar esta sede'}`}
+            onClick={()=>onSelectSite(row.key)}
+            onKeyDown={(event)=>{
+              if(event.key==='Enter'||event.key===' '){
+                event.preventDefault()
+                onSelectSite(row.key)
+              }
+            }}
+          >
+            <span>{compactMoney(row.value)}</span>
+            <div className="sf3-bar-track"><i style={{height:`${Math.max(2,row.value/max*100)}%`}}/></div>
+            <b>{row.name}</b>
+          </div>
+        })}
         {!visible.length&&<div className="sf3-empty">Sin datos para el filtro seleccionado.</div>}
       </div>
     </div>
@@ -725,48 +756,90 @@ function SobrantesFaltantesDashboard({
 }:Props){
   const [segment,setSegment]=useState('TODOS')
   const [extra,setExtra]=useState('FALTANTE')
+  const [selectedSiteKey,setSelectedSiteKey]=useState<string|null>(null)
 
-  const current=useReportFilter(rows,year,month,segment,extra)
+  const currentBase=useReportFilter(rows,year,month,segment,extra)
+
+  useEffect(()=>{
+    if(selectedSiteKey&&!currentBase.some((row)=>report3SiteKey(row)===selectedSiteKey)){
+      setSelectedSiteKey(null)
+    }
+  },[selectedSiteKey,currentBase,year,month,segment,extra])
+
+  const current=selectedSiteKey
+    ? currentBase.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+    : currentBase
+
   const totalUsd=sum(current,'usd')
   const totalSkus=sum(current,'skus')
   const totalUnits=sum(current,'units')
 
   const prev=previousPeriod(year,month)
-  const prevRows=useReportFilter(rows,prev.year,prev.month,segment,extra)
+  const prevBase=useReportFilter(rows,prev.year,prev.month,segment,extra)
+  const prevRows=selectedSiteKey
+    ? prevBase.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+    : prevBase
   const variation=changeRate(totalUsd,sum(prevRows,'usd'))
   const skuVariation=changeRate(totalSkus,sum(prevRows,'skus'))
   const unitVariation=changeRate(totalUnits,sum(prevRows,'units'))
 
   const sixMonthsBackDate=new Date(year,month-7,1)
-  const sixMonthsBackRows=useReportFilter(rows,sixMonthsBackDate.getFullYear(),sixMonthsBackDate.getMonth()+1,segment,extra)
+  const sixMonthsBase=useReportFilter(
+    rows,
+    sixMonthsBackDate.getFullYear(),
+    sixMonthsBackDate.getMonth()+1,
+    segment,
+    extra
+  )
+  const sixMonthsBackRows=selectedSiteKey
+    ? sixMonthsBase.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+    : sixMonthsBase
   const sixMonthUsdVariation=sixMonthsBackRows.length?changeRate(totalUsd,sum(sixMonthsBackRows,'usd')):null
   const sixMonthSkuVariation=sixMonthsBackRows.length?changeRate(totalSkus,sum(sixMonthsBackRows,'skus')):null
   const sixMonthUnitVariation=sixMonthsBackRows.length?changeRate(totalUnits,sum(sixMonthsBackRows,'units')):null
 
   const periods=lastSixPeriods(year,month)
-  const periodSets=periods.map((period)=>rows.filter((row)=>
-    row.year===period.year&&row.month===period.month&&matchesSegment(row,segment)&&matchesExtra(row,extra)
-  ))
+  const periodSets=periods.map((period)=>{
+    const set=rows.filter((row)=>
+      row.year===period.year&&
+      row.month===period.month&&
+      matchesSegment(row,segment)&&
+      matchesExtra(row,extra)
+    )
+    return selectedSiteKey
+      ? set.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+      : set
+  })
   const labels=periods.map((period)=>period.label+' '+String(period.year).slice(-2))
   const usdHistory=periodSets.map((set)=>sum(set,'usd'))
   const skuHistory=periodSets.map((set)=>sum(set,'skus'))
   const unitHistory=periodSets.map((set)=>sum(set,'units'))
 
-  const bySite=Array.from(new Set(current.map((row)=>row.site_name))).map((name)=>{
-    const set=current.filter((row)=>row.site_name===name)
-    return {name,value:sum(set,'usd'),skus:sum(set,'skus'),units:sum(set,'units')}
+  const siteKeys=Array.from(new Set(currentBase.map(report3SiteKey)))
+  const bySite=siteKeys.map((key)=>{
+    const set=currentBase.filter((row)=>report3SiteKey(row)===key)
+    return {
+      key,
+      name:set[0]?.site_name||key,
+      value:sum(set,'usd'),
+      skus:sum(set,'skus'),
+      units:sum(set,'units'),
+    }
   }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
 
-  const top=bySite[0]
+  const selectedSite=selectedSiteKey
+    ? bySite.find((item)=>item.key===selectedSiteKey)
+    : null
+  const top=selectedSite||bySite[0]
 
-  const previousBySite=Array.from(new Set(prevRows.map((row)=>row.site_name))).map((name)=>{
-    const set=prevRows.filter((row)=>row.site_name===name)
-    return {name,value:sum(set,'usd')}
+  const previousBySite=Array.from(new Set(prevBase.map(report3SiteKey))).map((key)=>{
+    const set=prevBase.filter((row)=>report3SiteKey(row)===key)
+    return {key,name:set[0]?.site_name||key,value:sum(set,'usd')}
   }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
-  const previousTop=previousBySite[0]
+  const previousTop=selectedSiteKey
+    ? previousBySite.find((item)=>item.key===selectedSiteKey)
+    : previousBySite[0]
 
-  // Compare the monthly KPI "largest difference" against the previous month's
-  // largest difference, even when the leading project changes between months.
   const topVariation=top&&previousTop
     ? changeRate(top.value,previousTop.value)
     : null
@@ -778,12 +851,20 @@ function SobrantesFaltantesDashboard({
       matchesSegment(row,segment)&&
       matchesExtra(row,extra)
     )
-    const periodBySite=Array.from(new Set(periodRows.map((row)=>row.site_name))).map((name)=>
-      sum(periodRows.filter((row)=>row.site_name===name),'usd')
+
+    if(selectedSiteKey){
+      return sum(periodRows.filter((row)=>report3SiteKey(row)===selectedSiteKey),'usd')
+    }
+
+    const periodKeys=Array.from(new Set(periodRows.map(report3SiteKey)))
+    return Math.max(
+      0,
+      ...periodKeys.map((key)=>sum(periodRows.filter((row)=>report3SiteKey(row)===key),'usd'))
     )
-    return Math.max(0,...periodBySite)
   })
+
   const tone: 'red'|'green'|'navy' = extra==='SOBRANTE'?'green':extra==='FALTANTE'?'red':'navy'
+  const selectionLabel=selectedSite?.name||null
 
   return <section className="sf3-dashboard">
     <Report3Filters
@@ -793,9 +874,15 @@ function SobrantesFaltantesDashboard({
       onYearChange={onYearChange}
       onMonthChange={onMonthChange}
       segment={segment}
-      setSegment={setSegment}
+      setSegment={(value)=>{
+        setSegment(value)
+        setSelectedSiteKey(null)
+      }}
       status={extra}
-      setStatus={setExtra}
+      setStatus={(value)=>{
+        setExtra(value)
+        setSelectedSiteKey(null)
+      }}
       top={top}
       topVariation={topVariation}
       topHistory={topHistory}
@@ -803,41 +890,49 @@ function SobrantesFaltantesDashboard({
 
     <div className="sf3-kpis">
       <Report3Kpi
-        title="TOTAL $"
+        title="PROMEDIO $"
         value={compactMoney(totalUsd)}
-        icon={<Database size={31}/>}
+        icon={<Database size={24}/>}
         variation={variation}
         sixMonthVariation={sixMonthUsdVariation}
         history={usdHistory}
         labels={labels}
         tone={tone}
         formatter={compactMoney}
+        selectionLabel={selectionLabel}
       />
       <Report3Kpi
-        title="TOTAL SKUs"
+        title="PROMEDIO SKUs"
         value={numberText(totalSkus)}
-        icon={<FileText size={31}/>}
+        icon={<FileText size={24}/>}
         variation={skuVariation}
         sixMonthVariation={sixMonthSkuVariation}
         history={skuHistory}
         labels={labels}
         tone={tone}
         formatter={numberText}
+        selectionLabel={selectionLabel}
       />
       <Report3Kpi
-        title="TOTAL UNIDADES"
+        title="PROMEDIO UNIDADES"
         value={numberText(totalUnits)}
-        icon={<Database size={31}/>}
+        icon={<Database size={24}/>}
         variation={unitVariation}
         sixMonthVariation={sixMonthUnitVariation}
         history={unitHistory}
         labels={labels}
         tone="navy"
         formatter={numberText}
+        selectionLabel={selectionLabel}
       />
     </div>
 
-    <Report3Evolution rows={bySite} tone={tone}/>
+    <Report3Evolution
+      rows={bySite}
+      tone={tone}
+      selectedSiteKey={selectedSiteKey}
+      onSelectSite={(key)=>setSelectedSiteKey((currentKey)=>currentKey===key?null:key)}
+    />
   </section>
 }
 
