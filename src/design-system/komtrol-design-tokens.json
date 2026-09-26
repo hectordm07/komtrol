@@ -1,0 +1,89 @@
+{
+  "name": "KOMTROL Scorecard Design System",
+  "version": "1.0.0",
+  "scope": "12 scorecard reports",
+  "colors": {
+    "corporate": {
+      "primary": "#17336F",
+      "primaryDark": "#0F2B66",
+      "chartBlue": "#16458F",
+      "chartBlueSoft": "rgba(22,69,143,.17)"
+    },
+    "semantic": {
+      "success": "#0AA855",
+      "successSoft": "#E8F7EF",
+      "danger": "#EF3D36",
+      "dangerSoft": "#FFEDED",
+      "warning": "#FF8A2A",
+      "warningSoft": "#FFF1E4",
+      "neutral": "#8794AD"
+    },
+    "surface": {
+      "app": "#F6F8FC",
+      "card": "#FFFFFF",
+      "border": "#DCE4F1",
+      "divider": "#EDF1F6"
+    },
+    "text": {
+      "primary": "#102A67",
+      "secondary": "#64759A",
+      "muted": "#8794AD",
+      "inverse": "#FFFFFF"
+    }
+  },
+  "typography": {
+    "family": "Inter, \"Segoe UI\", Arial, sans-serif",
+    "cardTitle": {
+      "size": "9px",
+      "weight": 900,
+      "lineHeight": 1.08,
+      "letterSpacing": "0.015em"
+    },
+    "metricValue": {
+      "size": "38px",
+      "weight": 950,
+      "lineHeight": 0.95
+    },
+    "chartLabel": {
+      "size": "8px",
+      "weight": 800,
+      "lineHeight": 1.08
+    },
+    "helper": {
+      "size": "7px",
+      "weight": 700,
+      "lineHeight": 1.1
+    }
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "xl": "20px"
+  },
+  "radius": {
+    "card": "16px",
+    "control": "10px",
+    "icon": "12px",
+    "badge": "999px"
+  },
+  "shadow": {
+    "card": "0 6px 18px rgba(28,45,94,.055)"
+  },
+  "card": {
+    "headerHeight": "36px",
+    "iconSize": "44px"
+  },
+  "variation": {
+    "positive": "success",
+    "negative": "danger",
+    "neutral": "neutral"
+  },
+  "history": {
+    "line": "#16458F",
+    "fill": "rgba(22,69,143,.17)",
+    "point": "#16458F",
+    "monthFormat": "MMM"
+  }
+}

@@ -9,6 +9,7 @@ import './location-sheets-final.css'
 import './guide-logic-final.css'
 import './commercial-final.css'
 import './oc-observation-email.css'
+import './design-system/komtrol-design-system.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
