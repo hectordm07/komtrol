@@ -228,7 +228,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
   const [withdrawReason, setWithdrawReason] = useState('')
   const [newLocation, setNewLocation] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
-  const [quickSaving, setQuickSaving] = useState<Record<string, 'stock_code' | 'location'>>({})
+  const [quickSaving, setQuickSaving] = useState<Record<string, 'stock_code' | 'center' | 'warehouse' | 'location' | 'price'>>({})
 
   async function reload() {
     setLoading(true)
@@ -308,22 +308,36 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
 
   async function quickUpdateMaterial(
     material: Material,
-    field: 'stock_code' | 'location',
+    field: 'stock_code' | 'center' | 'warehouse' | 'location' | 'price',
     rawValue: string,
   ) {
     if (!isAdmin || mode !== 'master') return
 
-    const normalizedValue = field === 'location'
-      ? rawValue.trim().toUpperCase()
-      : rawValue.trim()
-    const previousValue = String(material[field] ?? '')
-    if (normalizedValue === previousValue) return
+    let normalizedValue: string | number | null
+    if (field === 'price') {
+      const normalizedPrice = rawValue.trim().replace(',', '.')
+      normalizedValue = normalizedPrice ? Number(normalizedPrice) : null
+      if (normalizedValue !== null && (!Number.isFinite(normalizedValue) || normalizedValue < 0)) {
+        setMessage('Ingresa un precio válido mayor o igual a 0.')
+        return
+      }
+    } else if (field === 'center' || field === 'warehouse' || field === 'location') {
+      normalizedValue = rawValue.trim().toUpperCase() || null
+    } else {
+      normalizedValue = rawValue.trim() || null
+    }
+
+    const previousValue = material[field] ?? null
+    const unchanged = field === 'price'
+      ? Number(previousValue ?? 0) === Number(normalizedValue ?? 0) && (previousValue == null) === (normalizedValue == null)
+      : String(previousValue ?? '') === String(normalizedValue ?? '')
+    if (unchanged) return
 
     setQuickSaving((current) => ({ ...current, [material.id]: field }))
     setMessage('')
 
     const payload = {
-      [field]: normalizedValue || null,
+      [field]: normalizedValue,
       updated_by: userId,
       updated_at: new Date().toISOString(),
     }
@@ -345,11 +359,19 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       return
     }
 
+    const actionByField = {
+      stock_code: 'SC_ACTUALIZADO_DIRECTO',
+      center: 'CENTRO_ACTUALIZADO_DIRECTO',
+      warehouse: 'ALMACEN_ACTUALIZADO_DIRECTO',
+      location: 'UBICACION_ACTUALIZADA_DIRECTA',
+      price: 'PRECIO_ACTUALIZADO_DIRECTO',
+    } as const
+
     await supabase.from('material_history').insert({
       material_id: material.id,
-      action: field === 'location' ? 'UBICACION_ACTUALIZADA_DIRECTA' : 'SC_ACTUALIZADO_DIRECTO',
-      old_values: { [field]: material[field] },
-      new_values: { [field]: normalizedValue || null },
+      action: actionByField[field],
+      old_values: { [field]: previousValue },
+      new_values: { [field]: normalizedValue },
       changed_by: userId,
     })
 
@@ -359,10 +381,19 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
       delete next[material.id]
       return next
     })
+
+    const fieldLabel = {
+      stock_code: 'Stock Code',
+      center: 'Centro',
+      warehouse: 'Almacén',
+      location: 'Ubicación',
+      price: 'Precio',
+    }[field]
+
     setMessage(
       field === 'location'
-        ? `Ubicación de ${material.material_no} actualizada. Hojas de Ubicación vinculadas se sincronizan automáticamente.`
-        : `Stock Code de ${material.material_no} actualizado. Hojas de Ubicación vinculadas se sincronizan automáticamente.`
+        ? `Ubicación de ${material.material_no} actualizada. “Último cambio” se actualizó automáticamente y las Hojas de Ubicación vinculadas se sincronizan.`
+        : `${fieldLabel} de ${material.material_no} actualizado correctamente.`
     )
   }
 
@@ -825,8 +856,48 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                       ) : material.stock_code || '—'}
                     </td>
                     <td>{material.description}</td>
-                    <td>{material.center || '—'}</td>
-                    <td>{material.warehouse || '—'}</td>
+                    <td>
+                      {mode === 'master' && isAdmin ? (
+                        <div className="material-inline-edit">
+                          <input
+                            defaultValue={material.center || ''}
+                            placeholder="Sin centro"
+                            disabled={Boolean(quickSaving[material.id])}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.currentTarget.blur()
+                              if (event.key === 'Escape') {
+                                event.currentTarget.value = material.center || ''
+                                event.currentTarget.blur()
+                              }
+                            }}
+                            onBlur={(event) => void quickUpdateMaterial(material, 'center', event.currentTarget.value)}
+                            aria-label={`Centro de ${material.material_no}`}
+                          />
+                          {quickSaving[material.id] === 'center' && <RefreshCw className="spin" size={13}/>}
+                        </div>
+                      ) : material.center || '—'}
+                    </td>
+                    <td>
+                      {mode === 'master' && isAdmin ? (
+                        <div className="material-inline-edit">
+                          <input
+                            defaultValue={material.warehouse || ''}
+                            placeholder="Sin almacén"
+                            disabled={Boolean(quickSaving[material.id])}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.currentTarget.blur()
+                              if (event.key === 'Escape') {
+                                event.currentTarget.value = material.warehouse || ''
+                                event.currentTarget.blur()
+                              }
+                            }}
+                            onBlur={(event) => void quickUpdateMaterial(material, 'warehouse', event.currentTarget.value)}
+                            aria-label={`Almacén de ${material.material_no}`}
+                          />
+                          {quickSaving[material.id] === 'warehouse' && <RefreshCw className="spin" size={13}/>}
+                        </div>
+                      ) : material.warehouse || '—'}
+                    </td>
                     <td>
                       {mode === 'master' && isAdmin ? (
                         <div className="material-inline-edit location">
@@ -850,7 +921,31 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                     </td>
                     <td>{material.previous_location || '—'}</td>
                     <td><span className="material-change-date"><Clock3 size={13} /> {formatDateTime(material.location_changed_at)}</span></td>
-                    <td>{material.price == null ? '—' : formatUsd(material.price)}</td>
+                    <td>
+                      {mode === 'master' && isAdmin ? (
+                        <div className="material-inline-edit price">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputMode="decimal"
+                            defaultValue={material.price == null ? '' : String(material.price)}
+                            placeholder="0.00"
+                            disabled={Boolean(quickSaving[material.id])}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.currentTarget.blur()
+                              if (event.key === 'Escape') {
+                                event.currentTarget.value = material.price == null ? '' : String(material.price)
+                                event.currentTarget.blur()
+                              }
+                            }}
+                            onBlur={(event) => void quickUpdateMaterial(material, 'price', event.currentTarget.value)}
+                            aria-label={`Precio USD de ${material.material_no}`}
+                          />
+                          {quickSaving[material.id] === 'price' && <RefreshCw className="spin" size={13}/>}
+                        </div>
+                      ) : material.price == null ? '—' : formatUsd(material.price)}
+                    </td>
                     <td><span className={material.status === 'ACTIVO' ? 'status-pill' : material.status === 'OBSERVADO' ? 'status-pill warning' : 'status-pill danger'}>{material.status}</span></td>
                     <td><button className="icon-button material-more-button" onClick={() => openActions(material)} title="Acciones"><MoreHorizontal size={17} /></button></td>
                     {mode === 'master' && isAdmin && <td><button className="icon-button small-icon" onClick={() => openEdit(material)}><Edit3 size={15} /></button></td>}
@@ -893,8 +988,32 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                       />
                     ) : <b>{material.stock_code || '—'}</b>}
                   </div>
-                  <div><span>Centro</span><b>{material.center || '—'}</b></div>
-                  <div><span>Almacén</span><b>{material.warehouse || '—'}</b></div>
+                  <div>
+                    <span>Centro</span>
+                    {mode === 'master' && isAdmin ? (
+                      <input
+                        className="material-mobile-inline-input"
+                        defaultValue={material.center || ''}
+                        placeholder="Sin centro"
+                        disabled={Boolean(quickSaving[material.id])}
+                        onBlur={(event) => void quickUpdateMaterial(material, 'center', event.currentTarget.value)}
+                        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                      />
+                    ) : <b>{material.center || '—'}</b>}
+                  </div>
+                  <div>
+                    <span>Almacén</span>
+                    {mode === 'master' && isAdmin ? (
+                      <input
+                        className="material-mobile-inline-input"
+                        defaultValue={material.warehouse || ''}
+                        placeholder="Sin almacén"
+                        disabled={Boolean(quickSaving[material.id])}
+                        onBlur={(event) => void quickUpdateMaterial(material, 'warehouse', event.currentTarget.value)}
+                        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                      />
+                    ) : <b>{material.warehouse || '—'}</b>}
+                  </div>
                   <div>
                     <span>Ubicación</span>
                     {mode === 'master' && isAdmin ? (
@@ -909,7 +1028,23 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                     ) : <b>{material.location || '—'}</b>}
                   </div>
                   <div><span>Ubicación anterior</span><b>{material.previous_location || '—'}</b></div>
-                  <div><span>Precio USD</span><b>{formatUsd(material.price)}</b></div>
+                  <div>
+                    <span>Precio USD</span>
+                    {mode === 'master' && isAdmin ? (
+                      <input
+                        className="material-mobile-inline-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        defaultValue={material.price == null ? '' : String(material.price)}
+                        placeholder="0.00"
+                        disabled={Boolean(quickSaving[material.id])}
+                        onBlur={(event) => void quickUpdateMaterial(material, 'price', event.currentTarget.value)}
+                        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                      />
+                    ) : <b>{formatUsd(material.price)}</b>}
+                  </div>
                 </div>
 
                 <div className="material-mobile-change">
@@ -963,6 +1098,16 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
                   <MoveHorizontal size={21} />
                   <span><b>Mover</b><small>Cambiar ubicación</small></span>
                 </button>
+                {mode === 'master' && isAdmin && (
+                  <button onClick={() => {
+                    const selected = actionMaterial
+                    setActionMaterial(null)
+                    openEdit(selected)
+                  }}>
+                    <Edit3 size={21} />
+                    <span><b>Editar datos</b><small>Centro, almacén, ubicación y precio</small></span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -1027,7 +1172,7 @@ export function MaterialsModule({ mode, userId, isAdmin }: Props) {
         <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowForm(false)}>
           <form className="modal" onSubmit={saveMaterial}>
             <div className="modal-head">
-              <div><h2>{editing ? 'Editar material' : 'Nuevo material'}</h2><p>Al cambiar la ubicación, KOMTROL conserva la ubicación anterior y registra automáticamente la fecha del cambio.</p></div>
+              <div><h2>{editing ? 'Editar material' : 'Nuevo material'}</h2><p>Puedes cambiar Centro, Almacén, Ubicación y Precio. Si cambia la ubicación, KOMTROL conserva la anterior y actualiza automáticamente “Último cambio”.</p></div>
               <button type="button" className="icon-button" onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
             <div className="form-grid">
