@@ -19,6 +19,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { exportRowsToExcel } from '../lib/exportUtils'
 import * as XLSX from 'xlsx'
+import { DashboardEditor } from './DashboardEditor'
 
 type Mode =
   | 'proyectos'
@@ -26,6 +27,7 @@ type Mode =
   | 'almacenes'
   | 'categorias'
   | 'metas-kpi'
+  | 'dashboard-editor'
   | 'periodos'
   | 'auditoria'
 
@@ -218,6 +220,9 @@ export function AdministrationModule({ mode, userId, isAdmin }: Props) {
   }
   if (mode === 'metas-kpi') {
     return <KpiAdmin userId={userId} />
+  }
+  if (mode === 'dashboard-editor') {
+    return <DashboardEditor userId={userId} isAdmin={isAdmin} />
   }
   if (mode === 'periodos') {
     return <PeriodsAdmin userId={userId} />

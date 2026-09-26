@@ -1180,6 +1180,7 @@ function Workspace({ session }: { session: Session }) {
             { id: 'usuarios' as Tab, label: 'Usuarios', icon: ShieldCheck },
             { id: 'almacenes' as Tab, label: 'Almacenes', icon: Boxes },
             { id: 'categorias' as Tab, label: 'Categorías', icon: ClipboardList },
+            { id: 'dashboard-editor' as Tab, label: 'Editor Dashboards', icon: Settings },
             { id: 'metas-kpi' as Tab, label: 'Metas / KPI', icon: BarChart3 },
             { id: 'periodos' as Tab, label: 'Periodos', icon: RefreshCw },
             { id: 'auditoria' as Tab, label: 'Auditoría', icon: ShieldCheck },
@@ -1312,7 +1313,7 @@ function Workspace({ session }: { session: Session }) {
     'activos'
   const dashboardTabs = ['scorecard-carga', 'inbound-outbound', 'eri', 'sobrantes-faltantes', 'diferencias-inventario', 'danados-scorecard', 'dashboard-transitos', 'activos-inactivos', 'uca', 'ahorros', 'perfect-ship-outbound', 'perfect-ship-inbound', 'safe'] as const
   const isDashboardTab = dashboardTabs.includes(tab as typeof dashboardTabs[number])
-  const adminTabs = ['proyectos', 'cargas-masivas', 'almacenes', 'categorias', 'metas-kpi', 'periodos', 'auditoria'] as const
+  const adminTabs = ['proyectos', 'cargas-masivas', 'almacenes', 'categorias', 'dashboard-editor', 'metas-kpi', 'periodos', 'auditoria'] as const
   const isAdminModuleTab = adminTabs.includes(tab as typeof adminTabs[number])
   const isKardexTab = tab === 'kardex-sobrantes' || tab === 'inbound-kardex'
 

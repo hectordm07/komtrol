@@ -27,6 +27,13 @@ import { InboundOutboundDashboard, InboundOutboundSidebarProductivityCard } from
 import { ERIDashboard } from './ERIDashboard'
 import { ProfessionalScorecardDashboard, type ProfessionalScorecardCode } from './ProfessionalScorecardDashboard'
 import { ScorecardClickFilters } from './ScorecardClickFilters'
+import {
+  buildDashboardLayoutCss,
+  dashboardViewportForWidth,
+  normalizeDashboardLayoutConfig,
+  type DashboardLayoutRow,
+  type DashboardViewport,
+} from '../lib/dashboardLayout'
 
 export type ScorecardMode =
   | 'scorecard-carga'
@@ -437,6 +444,10 @@ function MiniTrendChart({
 
 export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const now=new Date()
+  const [layoutRows,setLayoutRows]=useState<DashboardLayoutRow[]>([])
+  const [layoutViewport,setLayoutViewport]=useState<DashboardViewport>(()=>
+    dashboardViewportForWidth(typeof window==='undefined'?1440:window.innerWidth)
+  )
   const [definitions,setDefinitions]=useState<ReportDef[]>([])
   const [warehouseCatalog,setWarehouseCatalog]=useState<WarehouseMeta[]>([])
   const [warehouseCenters,setWarehouseCenters]=useState<DashboardCenter[]>([])
@@ -457,6 +468,29 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const [uploading,setUploading]=useState(false)
 
   useEffect(()=>{
+    const onResize=()=>setLayoutViewport(dashboardViewportForWidth(window.innerWidth))
+    window.addEventListener('resize',onResize)
+    return ()=>window.removeEventListener('resize',onResize)
+  },[])
+
+  useEffect(()=>{
+    if(!REPORT_CODES.includes(mode)){
+      setLayoutRows([])
+      return
+    }
+    let active=true
+    supabase
+      .from('dashboard_layout_configs')
+      .select('viewport,config')
+      .eq('report_code',mode)
+      .eq('active',true)
+      .then(({data})=>{
+        if(active) setLayoutRows((data??[]) as DashboardLayoutRow[])
+      })
+    return ()=>{active=false}
+  },[mode])
+
+  useEffect(()=>{
     setSourceDataOpen(false)
     setNewRecordOpen(false)
   },[mode,year,month,warehouseFilter])
@@ -467,6 +501,10 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const periodInitializedRef=useRef<string>('')
 
   const report=definitions.find((item)=>item.code===mode)
+  const activeLayout=normalizeDashboardLayoutConfig(
+    layoutRows.find((row)=>row.viewport===layoutViewport)?.config
+  )
+  const dashboardLayoutCss=report?buildDashboardLayoutCss(report.code,layoutRows):''
   const ownWarehouseMeta=warehouseCatalog.find((item)=>
     item.name.toUpperCase()===normalizeProfileWarehouse(profile).toUpperCase() ||
     item.code.toUpperCase()===normalizeProfileWarehouse(profile).toUpperCase()
@@ -1208,10 +1246,14 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
   return (
     <div className="scorecard-module">
+      {dashboardLayoutCss&&<style>{dashboardLayoutCss}</style>}
       <section className="panel scorecard-toolbar">
         <div className="scorecard-report-context">
           <span>{String(report.ordinal).padStart(2,'0')}</span>
-          <div><b>{report.name}</b><small>{report.description}</small></div>
+          <div>
+            <b>{activeLayout.reportTitle.trim()||report.name}</b>
+            <small>{activeLayout.reportDescription.trim()||report.description}</small>
+          </div>
           <em className={`source-${report.source_mode.toLowerCase()}`}><ReportIcon mode={report.source_mode}/>{sourceBadge(report.source_mode)}</em>
         </div>
         <div className="scorecard-filters scorecard-actions-only">
@@ -1237,6 +1279,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         className={`scorecard-dashboard-export scorecard-monitor-fit report-${report.code} ${report.code==='inbound-outbound'?'scorecard-layout-io':report.code==='eri'?'scorecard-layout-eri':'scorecard-layout-professional'}`}
         data-report-code={report.code}
         data-design-system="komtrol-scorecard-v1"
+        data-layout-viewport={layoutViewport}
       >
         {report.code==='inbound-outbound' ? (
           <div className="io-click-layout">

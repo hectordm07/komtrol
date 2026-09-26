@@ -10,6 +10,7 @@ import './guide-logic-final.css'
 import './commercial-final.css'
 import './oc-observation-email.css'
 import './design-system/komtrol-design-system.css'
+import './dashboard-editor.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
