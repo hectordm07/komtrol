@@ -1598,3 +1598,97 @@
     -webkit-line-clamp:3 !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 04 · SOURCE ORDER + VISIBLE SITE LABELS V52
+   Report 04 follows the source spreadsheet/report order and
+   reserves a real grid row for the warehouse/site names.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-evolution-body{
+  padding:12px 14px 8px !important;
+  overflow:hidden !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bars{
+  height:100% !important;
+  min-height:0 !important;
+  align-items:stretch !important;
+  transform:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+  position:relative !important;
+  display:grid !important;
+  grid-template-rows:24px minmax(0,1fr) 54px !important;
+  align-items:end !important;
+  justify-items:center !important;
+  padding-bottom:0 !important;
+  box-sizing:border-box !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-track{
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  grid-row:2 !important;
+  display:flex !important;
+  align-items:flex-end !important;
+  justify-content:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+  position:static !important;
+  grid-row:3 !important;
+  align-self:start !important;
+  width:100% !important;
+  height:54px !important;
+  min-height:54px !important;
+  margin:0 !important;
+  padding:7px 3px 0 !important;
+  box-sizing:border-box !important;
+  display:-webkit-box !important;
+  -webkit-box-orient:vertical !important;
+  -webkit-line-clamp:3 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:normal !important;
+  color:#17336f !important;
+  font-size:8px !important;
+  line-height:1.08 !important;
+  font-weight:850 !important;
+  text-align:center !important;
+  z-index:3 !important;
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+    grid-template-rows:22px minmax(0,1fr) 48px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+    height:48px !important;
+    min-height:48px !important;
+    font-size:7.8px !important;
+    padding-top:6px !important;
+  }
+}
+
+@media (max-width:1199px){
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-evolution-body{
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+    grid-template-rows:22px minmax(0,1fr) 58px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+    height:58px !important;
+    min-height:58px !important;
+    font-size:8.5px !important;
+    -webkit-line-clamp:3 !important;
+  }
+}

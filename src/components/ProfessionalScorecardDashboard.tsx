@@ -1130,17 +1130,23 @@ function InventoryDifferencesDashboard({
   const siteKeys=Array.from(new Set(currentBase.map(report3SiteKey)))
   const bySite=siteKeys.map((key)=>{
     const set=currentBase.filter((row)=>report3SiteKey(row)===key)
+    const sourceOrder=Math.min(
+      ...set.map((row)=>row.source_row??Number.MAX_SAFE_INTEGER)
+    )
     return {
       key,
       name:set[0]?.site_name||key,
       value:sum(set,'usd'),
       skus:sum(set,'skus'),
       units:sum(set,'units'),
+      sourceOrder,
     }
-  }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
+  })
+    .filter((item)=>item.value>0)
+    .sort((a,b)=>a.sourceOrder-b.sourceOrder||a.name.localeCompare(b.name,'es'))
 
-  // Global summary: intentionally independent from the Power BI site selection.
-  const top=bySite[0]
+  // The chart follows the source report order; the summary still shows the largest difference.
+  const top=[...bySite].sort((a,b)=>b.value-a.value)[0]
 
   const previousBySite=Array.from(new Set(prevBase.map(report3SiteKey))).map((key)=>{
     const set=prevBase.filter((row)=>report3SiteKey(row)===key)
