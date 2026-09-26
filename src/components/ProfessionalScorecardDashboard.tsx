@@ -598,6 +598,11 @@ function Report3GlobalHighlight({
       <b>{top?.name||'Sin diferencias'}</b>
       <strong>{compactMoney(top?.value||0)}</strong>
 
+      <div className="sf3-highlight-meta">
+        <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
+        <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
+      </div>
+
       <div className={"sf3-highlight-variation "+(
         topVariation===null||topVariation===undefined||topVariation===0
           ? 'neutral'
@@ -615,9 +620,6 @@ function Report3GlobalHighlight({
           <small>Variación mensual</small>
         </div>
       </div>
-
-      <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
-      <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
 
       <div className="sf3-highlight-spark" aria-hidden="true">
         <Sparkline points={topHistory?.length?topHistory:[0,0,0,0,0,0]} tone={status==='SOBRANTE'?'green':'red'}/>

@@ -1288,3 +1288,189 @@
     min-height:148px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 03 · CENTERED TOP DIFFERENCE CARD V49
+   Fixed-size, centered and read-only presentation for the
+   "PROYECTO CON MAYOR DIFERENCIA" card.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global){
+  min-height:166px !important;
+  height:166px !important;
+  max-height:166px !important;
+  overflow:hidden !important;
+  border-radius:16px !important;
+  display:grid !important;
+  grid-template-rows:34px minmax(0,1fr) !important;
+  background:#fff !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-title{
+  min-height:34px !important;
+  height:34px !important;
+  padding:0 8px !important;
+  display:grid !important;
+  place-items:center !important;
+  text-align:center !important;
+  background:#0f3d86 !important;
+  color:#fff !important;
+  font-family:var(--kds-font) !important;
+  font-size:9px !important;
+  line-height:1.05 !important;
+  font-weight:900 !important;
+  letter-spacing:.01em !important;
+  text-transform:uppercase !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body{
+  min-height:0 !important;
+  height:132px !important;
+  padding:8px 10px 9px !important;
+  box-sizing:border-box !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:4px !important;
+  text-align:center !important;
+  overflow:hidden !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>b{
+  width:100% !important;
+  margin:0 !important;
+  color:#17336f !important;
+  font-size:11px !important;
+  line-height:1.08 !important;
+  font-weight:900 !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>strong{
+  width:100% !important;
+  margin:0 !important;
+  color:#ef3d36 !important;
+  font-size:31px !important;
+  line-height:.95 !important;
+  font-weight:950 !important;
+  letter-spacing:-.03em !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global).green .sf3-highlight-body>strong{
+  color:#0aa855 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-meta{
+  width:100% !important;
+  min-height:22px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:7px !important;
+  flex-wrap:wrap !important;
+  text-align:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-meta small{
+  color:#64759a !important;
+  font-size:6.8px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-meta em{
+  margin:0 !important;
+  padding:3px 8px !important;
+  border-radius:999px !important;
+  font-size:6.2px !important;
+  line-height:1 !important;
+  font-weight:850 !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation{
+  width:min(100%,190px) !important;
+  min-width:0 !important;
+  min-height:42px !important;
+  height:42px !important;
+  max-height:42px !important;
+  margin-top:auto !important;
+  padding:5px 8px !important;
+  box-sizing:border-box !important;
+  border-radius:13px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  flex:0 0 42px !important;
+  overflow:hidden !important;
+  text-align:left !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation-icon{
+  width:28px !important;
+  height:28px !important;
+  min-width:28px !important;
+  border-radius:9px !important;
+  display:grid !important;
+  place-items:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div{
+  min-width:0 !important;
+  display:grid !important;
+  gap:1px !important;
+  align-content:center !important;
+  text-align:left !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div>b{
+  color:currentColor !important;
+  font-size:14px !important;
+  line-height:1 !important;
+  font-weight:950 !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div>small{
+  color:#64759a !important;
+  font-size:6px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-spark{
+  display:none !important;
+}
+
+/* Fixed location in the left rail; no resizing/reordering by selected warehouse. */
+@media (min-width:1200px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-left{
+    grid-template-rows:auto auto auto auto 166px !important;
+    align-content:start !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global){
+    align-self:start !important;
+    justify-self:stretch !important;
+  }
+}
+
+@media (max-width:1199px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global){
+    min-height:166px !important;
+    height:166px !important;
+    max-height:166px !important;
+  }
+}
