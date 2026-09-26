@@ -128,12 +128,11 @@ function periodKey(year:number,month:number){
   return `${year}-${String(month).padStart(2,'0')}`
 }
 
-function ChangePill({value,inverse=false}:{value:number;inverse?:boolean}){
+function ChangePill({value}:{value:number}){
   const rounded=Math.round(value)
   const isZero=rounded===0
   const positive=rounded>0
-  const good=inverse?!positive:positive
-  const tone=isZero?'neutral':good?'good':'bad'
+  const tone=isZero?'neutral':positive?'good':'bad'
   return (
     <span className={`io-change-pill ${tone}`}>
       {isZero?<Minus size={12}/>:positive?<TrendingUp size={12}/>:<TrendingDown size={12}/>}
@@ -318,7 +317,7 @@ function TrendCard({
           <div><small>{title}</small><strong>{fmtInt(value)}</strong></div>
         </div>
         <div className="io-card-change">
-          <ChangePill value={change} inverse={tone==='outbound'}/>
+          <ChangePill value={change}/>
           <span>vs. mes anterior</span>
         </div>
       </div>
@@ -386,7 +385,9 @@ function ProductivityBars({
           </div>
           {items.map((item,index)=>{
             const height=Math.max(item.value?4:0,(item.value/max)*100)
-            const meetsGoal=objectiveMet(item.value,item.target,item.operator)
+            const displayedValue=Math.round(item.value)
+            const displayedTarget=Math.round(item.target)
+            const meetsGoal=objectiveMet(displayedValue,displayedTarget,item.operator)
             const selected=selectedSiteKey===item.key
             const itemStyle={
               '--io-bar-height':`${height}%`,
@@ -399,7 +400,7 @@ function ProductivityBars({
                 role="button"
                 tabIndex={0}
                 aria-pressed={selected}
-                aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Objetivo ${objectiveSymbol(item.operator)} ${fmtInt(item.target)}. Clic para filtrar el dashboard.`}
+                aria-label={`${item.name}. Productividad ${fmtInt(displayedValue)}. Objetivo ${objectiveSymbol(item.operator)} ${fmtInt(displayedTarget)}. Clic para filtrar el dashboard.`}
                 onClick={()=>onSelectSite(item.key)}
                 onKeyDown={(event)=>{
                   if(event.key==='Enter'||event.key===' '){
@@ -410,12 +411,12 @@ function ProductivityBars({
               >
                 <span className="io-bar-tooltip" role="tooltip">
                   <b>{item.name}</b>
-                  <small>Productividad {fmtInt(item.value)} · Objetivo {objectiveSymbol(item.operator)} {fmtInt(item.target)}</small>
-                  <small>Diferencia {item.value>=item.target?'+':''}{fmtInt(item.value-item.target)}</small>
+                  <small>Productividad {fmtInt(displayedValue)} · Objetivo {objectiveSymbol(item.operator)} {fmtInt(displayedTarget)}</small>
+                  <small>Diferencia {displayedValue>=displayedTarget?'+':''}{fmtInt(displayedValue-displayedTarget)}</small>
                   <small>{selected?'Clic para quitar filtro':'Clic para filtrar esta sede'}</small>
                 </span>
                 <div className="io-bar-plot">
-                  <div className={meetsGoal?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
+                  <div className={meetsGoal?'io-bar-value alert':'io-bar-value'}>{fmtInt(displayedValue)}</div>
                   <div className={meetsGoal?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
                 </div>
                 <div className="io-bar-label">{item.shortName}</div>
