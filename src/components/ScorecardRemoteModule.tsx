@@ -695,14 +695,27 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     const editableData={...row.data}
     const {data,error}=await supabase
       .from('scorecard_rows')
-      .update({data:editableData,updated_by:userId,updated_at:new Date().toISOString(),source:row.source==='AUTO'?'AUTO':'MANUAL'})
+      .update({
+        data:editableData,
+        site_group:row.site_group || null,
+        updated_by:userId,
+        updated_at:new Date().toISOString(),
+        source:row.source==='AUTO'?'AUTO':'MANUAL',
+      })
       .eq('id',row.id)
       .select('*')
       .single()
     if(error||!data){setMessage(error?.message||'No se pudo guardar el registro.');return}
     setRows((current)=>current.map((item)=>item.id===row.id?data as ScorecardRow:item))
     setEditingRows((current)=>{const next={...current};delete next[row.id];return next})
-    setMessage('Dato actualizado correctamente.')
+    setMessage('Registro actualizado correctamente, incluida su clasificación de centro.')
+  }
+
+  function editRowMeta(row:ScorecardRow,key:'site_group',value:string) {
+    setEditingRows((current)=>{
+      const base=current[row.id]||row
+      return {...current,[row.id]:{...base,[key]:value||null}}
+    })
   }
 
   function editValue(row:ScorecardRow,key:string,value:string,field:FieldDef) {
@@ -1261,12 +1274,35 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
 
           <div className="table-wrap scorecard-edit-table">
             <table>
-              <thead><tr><th>Proyecto / Sede</th>{report.status_field&&<th>Estado / Detalle</th>}{report.fields.map((field)=><th key={field.key}>{field.label}</th>)}{editing&&<th></th>}</tr></thead>
+              <thead><tr><th>Proyecto / Sede</th><th>Tipo centro</th>{report.status_field&&<th>Estado / Detalle</th>}{report.fields.map((field)=><th key={field.key}>{field.label}</th>)}{editing&&<th></th>}</tr></thead>
               <tbody>
                 {scopedRows.slice(0,400).map((row)=>{
                   const edited=editingRows[row.id]||row
                   return <tr key={row.id}>
                     <td><b>{row.site_name}</b><small>{row.warehouse}</small></td>
+                    <td>
+                      {editing&&canEdit
+                        ? <select
+                            className="scorecard-site-group-select"
+                            value={edited.site_group||''}
+                            onChange={(event)=>editRowMeta(row,'site_group',event.target.value)}
+                            aria-label={`Tipo de centro de ${row.site_name}`}
+                          >
+                            <option value="">Sin clasificar</option>
+                            <option value="PROYECTO_MINERO">Proyecto</option>
+                            <option value="SUCURSAL">Sucursal</option>
+                            <option value="TIENDA">Tienda</option>
+                          </select>
+                        : <span className="scorecard-site-group-badge">
+                            {edited.site_group==='PROYECTO_MINERO'||edited.site_group==='PROYECTO'
+                              ? 'Proyecto'
+                              : edited.site_group==='SUCURSAL'
+                                ? 'Sucursal'
+                                : edited.site_group==='TIENDA'
+                                  ? 'Tienda'
+                                  : 'Sin clasificar'}
+                          </span>}
+                    </td>
                     {report.status_field&&<td>{row.row_status||row.detail||'—'}</td>}
                     {report.fields.map((field)=>{
                       const value=edited.data?.[field.key]
