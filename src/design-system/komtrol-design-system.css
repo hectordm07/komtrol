@@ -469,3 +469,280 @@
     max-height:88px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 03 · EXACT KOMTROL TREND KPI CARD V44
+   PROMEDIO $, PROMEDIO SKUs y PROMEDIO UNIDADES:
+   estructura exacta tipo PROMEDIO INBOUND, sin cuadrícula.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern{
+  background:#fff !important;
+  border:1px solid #dce4f1 !important;
+  border-radius:16px !important;
+  box-shadow:0 6px 18px rgba(28,45,94,.055) !important;
+  overflow:hidden !important;
+  display:grid !important;
+  grid-template-rows:78px minmax(0,1fr) !important;
+  height:100% !important;
+  min-height:220px !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-summary{
+  height:78px !important;
+  min-height:78px !important;
+  max-height:78px !important;
+  padding:10px 14px 8px !important;
+  box-sizing:border-box !important;
+  display:grid !important;
+  grid-template-columns:48px minmax(0,1fr) auto !important;
+  align-items:center !important;
+  gap:10px !important;
+  border-bottom:1px solid #e8edf5 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-icon{
+  width:48px !important;
+  height:48px !important;
+  min-width:48px !important;
+  min-height:48px !important;
+  border-radius:14px !important;
+  background:#eef3fb !important;
+  color:#60759e !important;
+  display:grid !important;
+  place-items:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-copy{
+  min-width:0 !important;
+  min-height:0 !important;
+  display:grid !important;
+  align-content:center !important;
+  gap:2px !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-copy small{
+  color:#17336f !important;
+  font-size:11px !important;
+  font-weight:900 !important;
+  line-height:1.05 !important;
+  letter-spacing:.01em !important;
+  text-transform:uppercase !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-copy strong{
+  font-size:44px !important;
+  font-weight:950 !important;
+  line-height:.95 !important;
+  letter-spacing:-.03em !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern.red .sf3-kpi-copy strong{
+  color:#ef3d36 !important;
+}
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern.navy .sf3-kpi-copy strong{
+  color:#123b83 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-variations{
+  min-width:92px !important;
+  display:grid !important;
+  gap:4px !important;
+  align-content:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-variations>div{
+  min-height:27px !important;
+  padding:3px 9px !important;
+  border-radius:999px !important;
+  box-sizing:border-box !important;
+  display:grid !important;
+  place-items:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-variations>div.up{
+  background:#e8f7ef !important;
+  color:#078a46 !important;
+}
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-variations>div.down{
+  background:#ffeded !important;
+  color:#df2924 !important;
+}
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-variations>div.neutral{
+  background:#f1f4f9 !important;
+  color:#78869f !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-variations b{
+  font-size:8px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+}
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-variations span{
+  font-size:5px !important;
+  line-height:1 !important;
+  font-weight:750 !important;
+}
+
+/* Chart geometry remains fixed when a warehouse is selected. */
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io{
+  position:relative !important;
+  height:100% !important;
+  min-height:0 !important;
+  padding:8px 18px 8px 42px !important;
+  box-sizing:border-box !important;
+  display:grid !important;
+  grid-template-rows:minmax(0,1fr) 24px !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io svg{
+  width:100% !important;
+  height:100% !important;
+  min-height:90px !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .grid,
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .base{
+  display:none !important;
+  stroke:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .area{
+  fill:rgba(22,69,143,.22) !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .line{
+  fill:none !important;
+  stroke:#16458f !important;
+  stroke-width:2 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .dot{
+  fill:#16458f !important;
+  stroke:#fff !important;
+  stroke-width:1.5 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .current-ring{
+  fill:#fff !important;
+  stroke:#ff9500 !important;
+  stroke-width:1.6 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .current-dot{
+  fill:#ff9500 !important;
+  stroke:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .hit{
+  fill:transparent !important;
+  pointer-events:all !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-yaxis{
+  position:absolute !important;
+  top:8px !important;
+  bottom:32px !important;
+  left:7px !important;
+  width:31px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:space-between !important;
+  color:#50638a !important;
+  font-size:8px !important;
+  line-height:1 !important;
+  font-weight:700 !important;
+  pointer-events:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-months{
+  height:24px !important;
+  display:grid !important;
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  align-items:end !important;
+  color:#344d80 !important;
+  font-size:8px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+  text-align:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-months .current{
+  color:#ff8a00 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-tooltip{
+  position:absolute !important;
+  z-index:50 !important;
+  min-width:68px !important;
+  padding:8px 10px !important;
+  border-radius:8px !important;
+  background:#102a67 !important;
+  color:#fff !important;
+  box-shadow:0 10px 24px rgba(15,38,91,.22) !important;
+  pointer-events:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-tooltip b,
+[data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-tooltip span{
+  display:block !important;
+  color:#fff !important;
+  font-size:9px !important;
+  line-height:1.25 !important;
+  font-weight:800 !important;
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern{
+    grid-template-rows:74px minmax(0,1fr) !important;
+    min-height:210px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-summary{
+    height:74px !important;
+    min-height:74px !important;
+    max-height:74px !important;
+    grid-template-columns:44px minmax(0,1fr) auto !important;
+    gap:8px !important;
+    padding:8px 10px 6px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-icon{
+    width:44px !important;
+    height:44px !important;
+    min-width:44px !important;
+    min-height:44px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-copy small{
+    font-size:10px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern .sf3-kpi-copy strong{
+    font-size:40px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-trend-io{
+    padding:7px 14px 7px 39px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-yaxis{
+    font-size:7.5px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-trend-io .sf3-trend-months{
+    font-size:7.5px !important;
+  }
+}
+
+@media (max-width:1199px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-kpi-modern{
+    min-height:220px !important;
+  }
+}

@@ -632,23 +632,29 @@ function Report3Trend({
     </div>
 
     <svg viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true">
-      <line x1="6" y1="8" x2="96" y2="8" className="grid"/>
-      <line x1="6" y1="26" x2="96" y2="26" className="grid"/>
-      <line x1="6" y1="44" x2="96" y2="44" className="base"/>
       <polygon points={area} className="area"/>
       <polyline points={line} className="line"/>
-      {clean.map((value,index)=><g
-        key={index}
-        onMouseEnter={()=>setHovered(index)}
-        onMouseLeave={()=>setHovered(null)}
-      >
-        <circle cx={x(index)} cy={y(value)} r={hovered===index?2.4:1.7} className="dot"/>
-        <rect x={x(index)-6} y="4" width="12" height="42" className="hit"/>
-      </g>)}
+      {clean.map((value,index)=>{
+        const current=index===clean.length-1
+        return <g
+          key={index}
+          onMouseEnter={()=>setHovered(index)}
+          onMouseLeave={()=>setHovered(null)}
+        >
+          {current
+            ? <>
+                <circle cx={x(index)} cy={y(value)} r="3.2" className="current-ring"/>
+                <circle cx={x(index)} cy={y(value)} r="1.8" className="current-dot"/>
+              </>
+            : <circle cx={x(index)} cy={y(value)} r={hovered===index?2.35:1.7} className="dot"/>
+          }
+          <rect x={x(index)-6} y="4" width="12" height="42" className="hit"/>
+        </g>
+      })}
     </svg>
 
     <div className="sf3-trend-months">
-      {labels.map((label,index)=><span key={label+'-'+index}>{label}</span>)}
+      {labels.map((label,index)=><span className={index===labels.length-1?'current':''} key={label+'-'+index}>{label}</span>)}
     </div>
 
     {active&&<div className="sf3-trend-tooltip" style={{left:`${Math.max(12,Math.min(88,x(hovered??0)))}%`}}>
@@ -899,7 +905,7 @@ function SobrantesFaltantesDashboard({
         sixMonthVariation={sixMonthUsdVariation}
         history={usdHistory}
         labels={labels}
-        tone={tone}
+        tone="red"
         formatter={compactMoney}
         selectionLabel={selectionLabel}
       />
@@ -911,7 +917,7 @@ function SobrantesFaltantesDashboard({
         sixMonthVariation={sixMonthSkuVariation}
         history={skuHistory}
         labels={labels}
-        tone={tone}
+        tone="navy"
         formatter={numberText}
         selectionLabel={selectionLabel}
       />
