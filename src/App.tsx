@@ -247,44 +247,29 @@ function Login() {
     setMessage('')
 
     const value = identifier.trim().toLowerCase()
-    const isDni = /^\d{8}$/.test(value)
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-    const isUsername = /^[a-z0-9._-]{3,80}$/i.test(value)
+    const isUsername = /^[a-z0-9]+(?:[._-][a-z0-9]+)+$/i.test(value)
 
-    if (!isDni && !isEmail && !isUsername) {
-      setMessage('Ingresa un DNI, usuario o correo válido.')
+    if (!isUsername) {
+      setMessage('Ingresa tu usuario KOMTROL en formato nombre.apellido.')
       return
     }
 
     if (!password.trim()) {
-      setMessage(isDni ? 'Ingresa tu PIN.' : 'Ingresa tu contraseña.')
-      return
-    }
-
-    if (isDni && !/^\d{4,8}$/.test(password)) {
-      setMessage('El PIN debe tener de 4 a 8 dígitos.')
+      setMessage('Ingresa tu clave KOMTROL.')
       return
     }
 
     setLoading(true)
 
-    let email = value
-    if (!isEmail) {
-      const resolved = await supabase.functions.invoke('resolve-login-identifier', {
-        body: { identifier: value },
-      })
+    const resolved = await supabase.functions.invoke('resolve-login-identifier', {
+      body: { identifier: value },
+    })
 
-      const resolvedEmail = String(resolved.data?.email ?? '').trim().toLowerCase()
-      if (resolved.error || !resolvedEmail) {
-        setLoading(false)
-        setMessage(
-          isDni
-            ? 'DNI o PIN incorrecto. Verifica los datos e intenta nuevamente.'
-            : 'Usuario o contraseña incorrectos. Verifica los datos e intenta nuevamente.'
-        )
-        return
-      }
-      email = resolvedEmail
+    const email = String(resolved.data?.email ?? '').trim().toLowerCase()
+    if (resolved.error || !email) {
+      setLoading(false)
+      setMessage('Usuario o clave incorrectos. Verifica los datos e intenta nuevamente.')
+      return
     }
 
     let { error } = await supabase.auth.signInWithPassword({
@@ -308,13 +293,9 @@ function Login() {
     if (error) {
       const messageText = error.message?.toLowerCase() ?? ''
       if (messageText.includes('email not confirmed')) {
-        setMessage('El usuario existe, pero su correo aún no está confirmado.')
+        setMessage('El usuario existe, pero su cuenta aún no está confirmada.')
       } else if (messageText.includes('invalid login credentials')) {
-        setMessage(
-          isDni
-            ? 'DNI o PIN incorrecto. Verifica los datos e intenta nuevamente.'
-            : 'Usuario/correo o contraseña incorrectos. Verifica los datos e intenta nuevamente.'
-        )
+        setMessage('Usuario o clave incorrectos. Verifica los datos e intenta nuevamente.')
       } else {
         setMessage(`No se pudo validar el acceso: ${error.message}`)
       }
@@ -450,7 +431,7 @@ function Login() {
 
           <div className="login-form-fields">
             <label>
-              {firstAccess ? 'DNI' : 'Usuario KOMTROL'}
+              {firstAccess ? 'DNI' : 'Usuario KOMTROL (nombre.apellido)'}
               <input
                 type="text"
                 inputMode={firstAccess ? 'numeric' : undefined}
