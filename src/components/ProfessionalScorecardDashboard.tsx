@@ -956,6 +956,286 @@ function SobrantesFaltantesDashboard({
   </section>
 }
 
+function Report4Filters({
+  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus,statusOptions,top,topVariation,topHistory
+}:{
+  rows:Row[]
+  year:number
+  month:number
+  onYearChange:(year:number)=>void
+  onMonthChange:(month:number)=>void
+  segment:string
+  setSegment:(segment:string)=>void
+  status:string
+  setStatus:(status:string)=>void
+  statusOptions:string[]
+  top?:{name:string;value:number;skus:number;units:number}
+  topVariation?:number|null
+  topHistory?:number[]
+}){
+  const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
+  const months=useMemo(()=>Array.from(new Set(
+    rows.filter((row)=>row.year===year).map((row)=>row.month)
+  )).sort((a,b)=>a-b),[rows,year])
+
+  useEffect(()=>{
+    if(months.length&&!months.includes(month)){
+      onMonthChange(months[months.length-1])
+    }
+  },[months.join(','),month,onMonthChange])
+
+  const centers=['TODOS','PROYECTO','SUCURSAL','TIENDA']
+  const statuses=['TODOS',...statusOptions.filter((item)=>norm(item)!=='TODOS')]
+
+  return <aside className="sf3-left">
+    <section className="sf3-filter-card">
+      <b>AÑO</b>
+      <div className="sf3-grid sf3-years">
+        {years.map((item)=><button
+          type="button"
+          key={item}
+          className={year===item?'active':''}
+          onClick={()=>onYearChange(item)}
+        >{item}</button>)}
+      </div>
+    </section>
+
+    <section className="sf3-filter-card">
+      <b>CENTRO</b>
+      <div className="sf3-grid sf3-centers">
+        {centers.map((item)=><button
+          type="button"
+          key={item}
+          className={segment===item?'active':''}
+          onClick={()=>setSegment(item)}
+        >{item}</button>)}
+      </div>
+    </section>
+
+    <section className="sf3-filter-card">
+      <b>STATUS</b>
+      <div className="sf3-grid sf3-status">
+        {statuses.map((item)=><button
+          type="button"
+          key={item}
+          className={norm(status)===norm(item)?'active':''}
+          onClick={()=>setStatus(item)}
+        >{item}</button>)}
+      </div>
+    </section>
+
+    <section className="sf3-filter-card">
+      <b>MES</b>
+      <div className="sf3-grid sf3-months">
+        {months.map((item)=><button
+          type="button"
+          key={item}
+          className={month===item?'active':''}
+          onClick={()=>onMonthChange(item)}
+        >{MONTHS[item-1]}</button>)}
+      </div>
+    </section>
+
+    <Report3GlobalHighlight
+      status={status}
+      top={top}
+      topVariation={topVariation}
+      topHistory={topHistory}
+    />
+  </aside>
+}
+
+function InventoryDifferencesDashboard({
+  rows,year,month,onYearChange,onMonthChange
+}:Props){
+  const [segment,setSegment]=useState('TODOS')
+  const [extra,setExtra]=useState('TODOS')
+  const [selectedSiteKey,setSelectedSiteKey]=useState<string|null>(null)
+
+  const statusOptions=useMemo(()=>Array.from(new Set(
+    rows
+      .map((row)=>String(row.row_status||row.detail||'').trim())
+      .filter(Boolean)
+  )).sort((a,b)=>a.localeCompare(b,'es')),[rows])
+
+  useEffect(()=>{
+    if(extra!=='TODOS'&&!statusOptions.some((item)=>norm(item)===norm(extra))){
+      setExtra('TODOS')
+    }
+  },[extra,statusOptions.join('|')])
+
+  const currentBase=useReportFilter(rows,year,month,segment,extra)
+
+  useEffect(()=>{
+    if(selectedSiteKey&&!currentBase.some((row)=>report3SiteKey(row)===selectedSiteKey)){
+      setSelectedSiteKey(null)
+    }
+  },[selectedSiteKey,currentBase,year,month,segment,extra])
+
+  const current=selectedSiteKey
+    ? currentBase.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+    : currentBase
+
+  const totalUsd=sum(current,'usd')
+  const totalSkus=sum(current,'skus')
+  const totalUnits=sum(current,'units')
+
+  const prev=previousPeriod(year,month)
+  const prevBase=useReportFilter(rows,prev.year,prev.month,segment,extra)
+  const prevRows=selectedSiteKey
+    ? prevBase.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+    : prevBase
+  const variation=changeRate(totalUsd,sum(prevRows,'usd'))
+  const skuVariation=changeRate(totalSkus,sum(prevRows,'skus'))
+  const unitVariation=changeRate(totalUnits,sum(prevRows,'units'))
+
+  const sixMonthsBackDate=new Date(year,month-7,1)
+  const sixMonthsBase=useReportFilter(
+    rows,
+    sixMonthsBackDate.getFullYear(),
+    sixMonthsBackDate.getMonth()+1,
+    segment,
+    extra
+  )
+  const sixMonthsBackRows=selectedSiteKey
+    ? sixMonthsBase.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+    : sixMonthsBase
+  const sixMonthUsdVariation=sixMonthsBackRows.length
+    ? changeRate(totalUsd,sum(sixMonthsBackRows,'usd'))
+    : null
+  const sixMonthSkuVariation=sixMonthsBackRows.length
+    ? changeRate(totalSkus,sum(sixMonthsBackRows,'skus'))
+    : null
+  const sixMonthUnitVariation=sixMonthsBackRows.length
+    ? changeRate(totalUnits,sum(sixMonthsBackRows,'units'))
+    : null
+
+  const periods=lastSixPeriods(year,month)
+  const periodSets=periods.map((period)=>{
+    const set=rows.filter((row)=>
+      row.year===period.year&&
+      row.month===period.month&&
+      matchesSegment(row,segment)&&
+      matchesExtra(row,extra)
+    )
+    return selectedSiteKey
+      ? set.filter((row)=>report3SiteKey(row)===selectedSiteKey)
+      : set
+  })
+  const labels=periods.map((period)=>period.label)
+  const usdHistory=periodSets.map((set)=>sum(set,'usd'))
+  const skuHistory=periodSets.map((set)=>sum(set,'skus'))
+  const unitHistory=periodSets.map((set)=>sum(set,'units'))
+
+  const siteKeys=Array.from(new Set(currentBase.map(report3SiteKey)))
+  const bySite=siteKeys.map((key)=>{
+    const set=currentBase.filter((row)=>report3SiteKey(row)===key)
+    return {
+      key,
+      name:set[0]?.site_name||key,
+      value:sum(set,'usd'),
+      skus:sum(set,'skus'),
+      units:sum(set,'units'),
+    }
+  }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
+
+  // Global summary: intentionally independent from the Power BI site selection.
+  const top=bySite[0]
+
+  const previousBySite=Array.from(new Set(prevBase.map(report3SiteKey))).map((key)=>{
+    const set=prevBase.filter((row)=>report3SiteKey(row)===key)
+    return {key,name:set[0]?.site_name||key,value:sum(set,'usd')}
+  }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
+  const previousTop=previousBySite[0]
+  const topVariation=top&&previousTop
+    ? changeRate(top.value,previousTop.value)
+    : null
+
+  const topHistory=periods.map((period)=>{
+    const periodRows=rows.filter((row)=>
+      row.year===period.year&&
+      row.month===period.month&&
+      matchesSegment(row,segment)&&
+      matchesExtra(row,extra)
+    )
+    const periodKeys=Array.from(new Set(periodRows.map(report3SiteKey)))
+    return Math.max(
+      0,
+      ...periodKeys.map((key)=>sum(periodRows.filter((row)=>report3SiteKey(row)===key),'usd'))
+    )
+  })
+
+  return <section className="sf3-dashboard sf4-dashboard">
+    <Report4Filters
+      rows={rows}
+      year={year}
+      month={month}
+      onYearChange={onYearChange}
+      onMonthChange={onMonthChange}
+      segment={segment}
+      setSegment={(value)=>{
+        setSegment(value)
+        setSelectedSiteKey(null)
+      }}
+      status={extra}
+      statusOptions={statusOptions}
+      setStatus={(value)=>{
+        setExtra(value)
+        setSelectedSiteKey(null)
+      }}
+      top={top}
+      topVariation={topVariation}
+      topHistory={topHistory}
+    />
+
+    <div className="sf3-kpis">
+      <Report3Kpi
+        title="TOTAL $"
+        value={compactMoney(totalUsd)}
+        icon={<Database size={24}/>}
+        variation={variation}
+        sixMonthVariation={sixMonthUsdVariation}
+        history={usdHistory}
+        labels={labels}
+        tone="red"
+        formatter={compactMoney}
+      />
+      <Report3Kpi
+        title="TOTAL SKU"
+        value={numberText(totalSkus)}
+        icon={<FileText size={24}/>}
+        variation={skuVariation}
+        sixMonthVariation={sixMonthSkuVariation}
+        history={skuHistory}
+        labels={labels}
+        tone="navy"
+        formatter={numberText}
+        showVariations={false}
+      />
+      <Report3Kpi
+        title="TOTAL UNIDADES"
+        value={numberText(totalUnits)}
+        icon={<Database size={24}/>}
+        variation={unitVariation}
+        sixMonthVariation={sixMonthUnitVariation}
+        history={unitHistory}
+        labels={labels}
+        tone="navy"
+        formatter={numberText}
+        showVariations={false}
+      />
+    </div>
+
+    <Report3Evolution
+      rows={bySite}
+      tone="red"
+      selectedSiteKey={selectedSiteKey}
+      onSelectSite={(key)=>setSelectedSiteKey((currentKey)=>currentKey===key?null:key)}
+    />
+  </section>
+}
+
+
 function DifferenceLike({
   reportCode:code,rows,year,month,onYearChange,onMonthChange
 }:Props){
@@ -1183,7 +1463,8 @@ function AssetsDashboard(props:Props){
 
 export function ProfessionalScorecardDashboard(props:Props){
   if(props.reportCode==='sobrantes-faltantes') return <SobrantesFaltantesDashboard {...props}/>
-  if(props.reportCode==='diferencias-inventario'||props.reportCode==='danados-scorecard') return <DifferenceLike {...props}/>
+  if(props.reportCode==='diferencias-inventario') return <InventoryDifferencesDashboard {...props}/>
+  if(props.reportCode==='danados-scorecard') return <DifferenceLike {...props}/>
   if(props.reportCode==='dashboard-transitos') return <TransitDashboard {...props}/>
   if(props.reportCode==='activos-inactivos') return <AssetsDashboard {...props}/>
   if(props.reportCode==='uca') return <UcaDashboard {...props}/>
