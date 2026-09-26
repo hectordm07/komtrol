@@ -232,7 +232,6 @@ function Login() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [firstAccess, setFirstAccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [microsoftLoading, setMicrosoftLoading] = useState(false)
   const [message, setMessage] = useState('')
 
   function switchMode(next: boolean) {
@@ -319,32 +318,6 @@ function Login() {
       } else {
         setMessage(`No se pudo validar el acceso: ${error.message}`)
       }
-    }
-  }
-
-  async function signInWithMicrosoft() {
-    setMessage('')
-    setMicrosoftLoading(true)
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'azure',
-      options: {
-        scopes: 'openid profile email',
-        redirectTo: window.location.origin,
-        queryParams: {
-          prompt: 'select_account',
-        },
-      },
-    })
-
-    if (error) {
-      setMicrosoftLoading(false)
-      const text = error.message?.toLowerCase() ?? ''
-      setMessage(
-        text.includes('provider') || text.includes('azure')
-          ? 'El acceso con Microsoft está preparado en KOMTROL, pero falta habilitar el proveedor Microsoft Entra en Supabase.'
-          : `No se pudo iniciar el acceso con Microsoft: ${error.message}`
-      )
     }
   }
 
@@ -471,19 +444,19 @@ function Login() {
             <p>
               {firstAccess
                 ? 'Ingresa tu DNI y crea una clave de 6 a 8 dígitos para activar tu acceso.'
-                : 'Ingresa con tu usuario KOMTROL o continúa de forma segura con tu cuenta corporativa de Microsoft.'}
+                : 'Ingresa con tu usuario KOMTROL en formato primerNombre.primerApellido.'}
             </p>
           </div>
 
           <div className="login-form-fields">
             <label>
-              {firstAccess ? 'DNI' : 'Usuario, DNI o correo'}
+              {firstAccess ? 'DNI' : 'Usuario KOMTROL'}
               <input
                 type="text"
                 inputMode={firstAccess ? 'numeric' : undefined}
                 autoComplete="username"
                 maxLength={firstAccess ? 8 : undefined}
-                placeholder={firstAccess ? 'Ej.: 12345678' : 'Ej.: hector.delgado o correo@kmmp.com.pe'}
+                placeholder={firstAccess ? 'Ej.: 12345678' : 'Ej.: hector.delgado'}
                 value={identifier}
                 onChange={(e) => setIdentifier(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
               />
@@ -521,24 +494,7 @@ function Login() {
           {message && <div className="form-alert login-form-alert">{message}</div>}
 
           <div className="login-actions">
-            {!firstAccess && (
-              <>
-                <button
-                  type="button"
-                  className="microsoft-login-button"
-                  disabled={loading || microsoftLoading}
-                  onClick={() => void signInWithMicrosoft()}
-                >
-                  <span className="microsoft-mark" aria-hidden="true">
-                    <i /><i /><i /><i />
-                  </span>
-                  <span>{microsoftLoading ? 'Abriendo Microsoft…' : 'Continuar con Microsoft'}</span>
-                </button>
-                <div className="login-divider"><span>o ingresa con tu usuario KOMTROL</span></div>
-              </>
-            )}
-
-            <button className="primary-button full login-primary-button" disabled={loading || microsoftLoading}>
+            <button className="primary-button full login-primary-button" disabled={loading}>
               {loading ? <RefreshCw className="spin" size={18} /> : <ShieldCheck size={18} />}
               {loading
                 ? (firstAccess ? 'Creando clave…' : 'Validando…')
@@ -548,7 +504,7 @@ function Login() {
             <button
               type="button"
               className="secondary-button full login-secondary-button"
-              disabled={loading || microsoftLoading}
+              disabled={loading}
               onClick={() => switchMode(!firstAccess)}
             >
               {firstAccess ? 'Volver a ingresar' : 'Primera vez: crear mi clave'}
