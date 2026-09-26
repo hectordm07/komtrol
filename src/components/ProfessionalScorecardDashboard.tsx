@@ -497,7 +497,7 @@ function TopSitesPanel({
 }
 
 function Report3Filters({
-  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus,top,topVariation,topHistory
+  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,setStatus
 }:{
   rows:Row[]
   year:number
@@ -508,9 +508,6 @@ function Report3Filters({
   setSegment:(segment:string)=>void
   status:string
   setStatus:(status:string)=>void
-  top?:{name:string;value:number;skus:number;units:number}
-  topVariation?:number|null
-  topHistory?:number[]
 }){
   const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
   const months=useMemo(()=>Array.from(new Set(
@@ -575,36 +572,46 @@ function Report3Filters({
       </div>
     </section>
 
-    <article className={"sf3-highlight kom-unified-card "+(status==='SOBRANTE'?'green':'red')}>
-      <div className="sf3-highlight-title">PROYECTO CON MAYOR DIFERENCIA</div>
-      <div className="sf3-highlight-body">
-        <b>{top?.name||'Sin diferencias'}</b>
-        <strong>{compactMoney(top?.value||0)}</strong>
-        <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
-        <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
-        <div className="sf3-highlight-spark">
-          <Sparkline points={topHistory?.length?topHistory:[0,0,0,0,0,0]} tone={status==='SOBRANTE'?'green':'red'}/>
-        </div>
-        <div className={"sf3-highlight-variation "+(
-          topVariation===null||topVariation===undefined||topVariation===0
-            ? 'neutral'
-            : topVariation>0?'up':'down'
-        )}>
-          <span className="sf3-highlight-variation-icon">
-            {topVariation===null||topVariation===undefined||topVariation===0
-              ? <span className="sf3-neutral-mark">—</span>
-              : topVariation>0?<TrendingUp size={17}/>:<TrendingDown size={17}/>}
-          </span>
-          <div>
-            <b>{topVariation===null||topVariation===undefined
-              ? '—'
-              : `${topVariation>0?'+':''}${(topVariation*100).toFixed(1)}%`}</b>
-            <small>vs. mes anterior</small>
-          </div>
+  </aside>
+}
+
+function Report3GlobalHighlight({
+  status,top,topVariation,topHistory
+}:{
+  status:string
+  top?:{name:string;value:number;skus:number;units:number}
+  topVariation?:number|null
+  topHistory?:number[]
+}){
+  return <article className={"sf3-highlight sf3-highlight-global kom-unified-card "+(status==='SOBRANTE'?'green':'red')}>
+    <div className="sf3-highlight-title">PROYECTO CON MAYOR DIFERENCIA</div>
+    <div className="sf3-highlight-body">
+      <b>{top?.name||'Sin diferencias'}</b>
+      <strong>{compactMoney(top?.value||0)}</strong>
+      <small>{top?numberText(top.skus)+' SKU · '+numberText(top.units)+' UND':'Sin datos'}</small>
+      <em>{status==='TODOS'?'Todos':status.charAt(0)+status.slice(1).toLowerCase()}</em>
+      <div className="sf3-highlight-spark">
+        <Sparkline points={topHistory?.length?topHistory:[0,0,0,0,0,0]} tone={status==='SOBRANTE'?'green':'red'}/>
+      </div>
+      <div className={"sf3-highlight-variation "+(
+        topVariation===null||topVariation===undefined||topVariation===0
+          ? 'neutral'
+          : topVariation>0?'up':'down'
+      )}>
+        <span className="sf3-highlight-variation-icon">
+          {topVariation===null||topVariation===undefined||topVariation===0
+            ? <span className="sf3-neutral-mark">—</span>
+            : topVariation>0?<TrendingUp size={17}/>:<TrendingDown size={17}/>}
+        </span>
+        <div>
+          <b>{topVariation===null||topVariation===undefined
+            ? '—'
+            : `${topVariation>0?'+':''}${(topVariation*100).toFixed(1)}%`}</b>
+          <small>vs. mes anterior</small>
         </div>
       </div>
-    </article>
-  </aside>
+    </div>
+  </article>
 }
 
 function Report3Trend({
@@ -665,7 +672,7 @@ function Report3Trend({
 }
 
 function Report3Kpi({
-  title,value,icon,variation,sixMonthVariation,history,labels,tone,formatter,selectionLabel
+  title,value,icon,variation,sixMonthVariation,history,labels,tone,formatter,showVariations=true
 }:{
   title:string
   value:string
@@ -676,7 +683,7 @@ function Report3Kpi({
   labels:string[]
   tone:'red'|'green'|'navy'
   formatter:(value:number)=>string
-  selectionLabel?:string|null
+  showVariations?:boolean
 }){
   const monthTone=variation>0?'up':variation<0?'down':'neutral'
   const sixTone=sixMonthVariation===null||sixMonthVariation===0?'neutral':sixMonthVariation>0?'up':'down'
@@ -688,23 +695,25 @@ function Report3Kpi({
         <small>{title}</small>
         <strong>{value}</strong>
       </div>
-      <div className="sf3-kpi-variations">
-        <div className={monthTone}>
-          <b>
-            {variation>0?<TrendingUp size={11}/>:variation<0?<TrendingDown size={11}/>:<span>—</span>}
-            {variation>0?'+':''}{(variation*100).toFixed(1)}%
-          </b>
-          <span>vs. mes anterior</span>
-        </div>
-        <div className={sixTone}>
-          {sixMonthVariation===null
-            ? <><b><span>—</span></b><span>vs. hace 6 meses</span></>
-            : <><b>
-                {sixMonthVariation>0?<TrendingUp size={11}/>:sixMonthVariation<0?<TrendingDown size={11}/>:<span>—</span>}
-                {sixMonthVariation>0?'+':''}{(sixMonthVariation*100).toFixed(1)}%
-              </b><span>vs. hace 6 meses</span></>}
-        </div>
-      </div>
+      {showVariations
+        ? <div className="sf3-kpi-variations">
+            <div className={monthTone}>
+              <b>
+                {variation>0?<TrendingUp size={11}/>:variation<0?<TrendingDown size={11}/>:<span>—</span>}
+                {variation>0?'+':''}{(variation*100).toFixed(1)}%
+              </b>
+              <span>vs. mes anterior</span>
+            </div>
+            <div className={sixTone}>
+              {sixMonthVariation===null
+                ? <><b><span>—</span></b><span>vs. hace 6 meses</span></>
+                : <><b>
+                    {sixMonthVariation>0?<TrendingUp size={11}/>:sixMonthVariation<0?<TrendingDown size={11}/>:<span>—</span>}
+                    {sixMonthVariation>0?'+':''}{(sixMonthVariation*100).toFixed(1)}%
+                  </b><span>vs. hace 6 meses</span></>}
+            </div>
+          </div>
+        : <div className="sf3-kpi-variations sf3-kpi-variations-placeholder" aria-hidden="true"/>}
     </div>
     <Report3Trend points={history} labels={labels} tone={tone} formatter={formatter}/>
   </article>
@@ -835,18 +844,13 @@ function SobrantesFaltantesDashboard({
     }
   }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
 
-  const selectedSite=selectedSiteKey
-    ? bySite.find((item)=>item.key===selectedSiteKey)
-    : null
-  const top=selectedSite||bySite[0]
+  const top=bySite[0]
 
   const previousBySite=Array.from(new Set(prevBase.map(report3SiteKey))).map((key)=>{
     const set=prevBase.filter((row)=>report3SiteKey(row)===key)
     return {key,name:set[0]?.site_name||key,value:sum(set,'usd')}
   }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
-  const previousTop=selectedSiteKey
-    ? previousBySite.find((item)=>item.key===selectedSiteKey)
-    : previousBySite[0]
+  const previousTop=previousBySite[0]
 
   const topVariation=top&&previousTop
     ? changeRate(top.value,previousTop.value)
@@ -860,10 +864,6 @@ function SobrantesFaltantesDashboard({
       matchesExtra(row,extra)
     )
 
-    if(selectedSiteKey){
-      return sum(periodRows.filter((row)=>report3SiteKey(row)===selectedSiteKey),'usd')
-    }
-
     const periodKeys=Array.from(new Set(periodRows.map(report3SiteKey)))
     return Math.max(
       0,
@@ -872,8 +872,6 @@ function SobrantesFaltantesDashboard({
   })
 
   const tone: 'red'|'green'|'navy' = extra==='SOBRANTE'?'green':extra==='FALTANTE'?'red':'navy'
-  const selectionLabel=selectedSite?.name||null
-
   return <section className="sf3-dashboard">
     <Report3Filters
       rows={rows}
@@ -891,14 +889,11 @@ function SobrantesFaltantesDashboard({
         setExtra(value)
         setSelectedSiteKey(null)
       }}
-      top={top}
-      topVariation={topVariation}
-      topHistory={topHistory}
     />
 
     <div className="sf3-kpis">
       <Report3Kpi
-        title="PROMEDIO $"
+        title="TOTAL $"
         value={compactMoney(totalUsd)}
         icon={<Database size={24}/>}
         variation={variation}
@@ -907,10 +902,9 @@ function SobrantesFaltantesDashboard({
         labels={labels}
         tone="red"
         formatter={compactMoney}
-        selectionLabel={selectionLabel}
       />
       <Report3Kpi
-        title="PROMEDIO SKUs"
+        title="TOTAL SKU"
         value={numberText(totalSkus)}
         icon={<FileText size={24}/>}
         variation={skuVariation}
@@ -919,10 +913,10 @@ function SobrantesFaltantesDashboard({
         labels={labels}
         tone="navy"
         formatter={numberText}
-        selectionLabel={selectionLabel}
+        showVariations={false}
       />
       <Report3Kpi
-        title="PROMEDIO UNIDADES"
+        title="TOTAL UNIDADES"
         value={numberText(totalUnits)}
         icon={<Database size={24}/>}
         variation={unitVariation}
@@ -931,7 +925,7 @@ function SobrantesFaltantesDashboard({
         labels={labels}
         tone="navy"
         formatter={numberText}
-        selectionLabel={selectionLabel}
+        showVariations={false}
       />
     </div>
 
@@ -940,6 +934,13 @@ function SobrantesFaltantesDashboard({
       tone={tone}
       selectedSiteKey={selectedSiteKey}
       onSelectSite={(key)=>setSelectedSiteKey((currentKey)=>currentKey===key?null:key)}
+    />
+
+    <Report3GlobalHighlight
+      status={extra}
+      top={top}
+      topVariation={topVariation}
+      topHistory={topHistory}
     />
   </section>
 }

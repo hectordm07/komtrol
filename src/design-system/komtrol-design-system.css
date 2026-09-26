@@ -746,3 +746,161 @@
     min-height:220px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 03 · TOTAL KPI + FIXED GLOBAL DIFFERENCE V45
+   - TOTAL $, TOTAL SKU, TOTAL UNIDADES
+   - SKU/UNIDADES without variation badges
+   - Global top-difference card below EVOLUCIÓN $
+   - Global top-difference never changes with warehouse cross-filter
+   ========================================================= */
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-kpi-variations-placeholder{
+  visibility:hidden !important;
+  min-width:92px !important;
+  width:92px !important;
+  height:58px !important;
+}
+
+/* Desktop: add a compact third row below EVOLUCIÓN $. */
+@media (min-width:1200px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-dashboard{
+    height:auto !important;
+    min-height:100% !important;
+    grid-template-columns:220px minmax(0,1fr) !important;
+    grid-template-rows:190px minmax(430px,1fr) 164px !important;
+    overflow:visible !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-left{
+    grid-column:1 !important;
+    grid-row:1 / 4 !important;
+    grid-template-rows:auto auto auto auto !important;
+    align-content:start !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-evolution{
+    grid-column:2 !important;
+    grid-row:2 !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global{
+    grid-column:2 !important;
+    grid-row:3 !important;
+    width:100% !important;
+    min-width:0 !important;
+    height:154px !important;
+    min-height:154px !important;
+    align-self:start !important;
+    display:grid !important;
+    grid-template-rows:36px minmax(0,1fr) !important;
+    border-radius:16px !important;
+    overflow:hidden !important;
+  }
+}
+
+/* Same typography hierarchy as KPI card headings. */
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-title{
+  min-height:36px !important;
+  padding:0 12px !important;
+  background:#0f3d86 !important;
+  color:#fff !important;
+  font-family:var(--kds-font) !important;
+  font-size:11px !important;
+  line-height:1.05 !important;
+  font-weight:900 !important;
+  letter-spacing:.01em !important;
+  text-transform:uppercase !important;
+  display:grid !important;
+  place-items:center !important;
+  text-align:center !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-body{
+  min-height:0 !important;
+  height:100% !important;
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) auto auto auto minmax(160px,240px) !important;
+  align-items:center !important;
+  gap:14px !important;
+  padding:12px 18px !important;
+  text-align:left !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-body>b{
+  min-width:0 !important;
+  color:#17336f !important;
+  font-size:11px !important;
+  line-height:1.08 !important;
+  font-weight:900 !important;
+  white-space:normal !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-body>strong{
+  color:#ef3d36 !important;
+  font-size:34px !important;
+  line-height:.95 !important;
+  font-weight:950 !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global.green .sf3-highlight-body>strong{
+  color:#0aa855 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-body>small{
+  color:#64759a !important;
+  font-size:8px !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-body>em{
+  padding:4px 9px !important;
+  border-radius:999px !important;
+  font-size:7px !important;
+  font-weight:850 !important;
+  white-space:nowrap !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-spark{
+  display:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-variation{
+  min-width:190px !important;
+  min-height:54px !important;
+  margin:0 !important;
+}
+
+/* Mobile/tablet: global difference card comes after Evolution as a full-width card. */
+@media (max-width:1199px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-left{
+    grid-template-areas:
+      "year status"
+      "center center"
+      "month month" !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global{
+    grid-column:1 !important;
+    grid-row:auto !important;
+    min-height:150px !important;
+    height:auto !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-body{
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+    gap:6px !important;
+    padding:12px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight-global .sf3-highlight-variation{
+    min-width:min(240px,90%) !important;
+  }
+}
