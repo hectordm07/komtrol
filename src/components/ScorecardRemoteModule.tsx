@@ -576,12 +576,13 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   },[warehouseFilter,warehouseCatalog,warehouseCenters])
 
   const matchesScorecardScope=(row:ScorecardRow)=>{
-    if(mode==='eri'&&warehouseFilter.startsWith('GRUPO:')){
-      const requested=warehouseFilter.slice(6)
+    if(warehouseFilter.startsWith('GRUPO:')){
+      const requested=warehouseFilter.slice(6).trim().toUpperCase()
       const actual=String(row.site_group||'').trim().toUpperCase()
       if(requested==='PROYECTO_MINERO') return actual==='PROYECTO'||actual==='PROYECTO_MINERO'
       if(requested==='SUCURSAL') return actual==='SUCURSAL'
       if(requested==='TIENDA') return actual==='TIENDA'
+      return actual===requested
     }
     return matchesDashboardHierarchy(
       warehouseFilter,

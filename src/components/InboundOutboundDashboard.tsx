@@ -318,6 +318,7 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
       value:num(row.data.productivity),
       target:num(row.data.target)||target,
     }))
+    .filter((item)=>item.value>0)
 
   const max=Math.max(target*1.5,...items.map((item)=>item.value*1.13),1)
   const targetPct=Math.max(0,Math.min(100,(target/max)*100))
@@ -458,13 +459,10 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
   const previousPeople=avg(previousRows.map((row)=>num(row.data.person_day)))
   const previousInbound=avg(previousRows.map((row)=>num(row.data.inbound)))
   const previousOutbound=avg(previousRows.map((row)=>num(row.data.outbound)))
-  const previousProductivity=avg(previousRows.map((row)=>num(row.data.productivity)))
-
   const hoursChange=pctChange(avgHours,previousHours)
   const peopleChange=pctChange(avgPeople,previousPeople)
   const inboundChange=pctChange(avgInbound,previousInbound)
   const outboundChange=pctChange(avgOutbound,previousOutbound)
-  const productivityChange=pctChange(avgProductivity,previousProductivity)
 
   return (
     <section className="io-dashboard io-dashboard-v3">
@@ -501,14 +499,6 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
 
       <div className="io-dashboard-bottom io-dashboard-bottom-bars-only">
         <div className="io-productivity-area">
-          <div className={`io-variation ${productivityChange>0?'positive':productivityChange<0?'negative':'neutral'}`}>
-            <small>VARIACIÓN %</small>
-            <div>
-              {productivityChange>0?<TrendingUp size={15}/>:productivityChange<0?<TrendingDown size={15}/>:<Minus size={15}/>}
-              <b>{productivityChange>0?'+':''}{fmtInt(productivityChange)}%</b>
-            </div>
-            <span>vs. mes anterior</span>
-          </div>
           <ProductivityBars rows={current} target={avgTarget}/>
         </div>
       </div>
