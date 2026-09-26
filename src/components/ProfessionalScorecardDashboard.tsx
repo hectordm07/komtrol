@@ -765,6 +765,7 @@ function Report3Evolution({
           return <div
             className={selected?'sf3-bar-item selected':'sf3-bar-item'}
             key={row.key}
+            style={{'--sf3-bar-ratio':`${Math.max(2,row.value/max*100)}%`} as CSSProperties}
             role="button"
             tabIndex={0}
             aria-pressed={selected}
@@ -778,7 +779,7 @@ function Report3Evolution({
             }}
           >
             <span>{compactMoney(row.value)}</span>
-            <div className="sf3-bar-track"><i style={{height:`${Math.max(2,row.value/max*100)}%`}}/></div>
+            <div className="sf3-bar-track"><i style={{height:'var(--sf3-bar-ratio)'}}/></div>
             <b>{row.name}</b>
           </div>
         })}
@@ -1668,6 +1669,7 @@ function UnifiedEvolution({
           return <div
             className={selected?'sf3-bar-item selected':'sf3-bar-item'}
             key={row.key}
+            style={{'--sf3-bar-ratio':Math.max(2,Math.abs(row.value)/max*100)+'%'} as CSSProperties}
             role="button"
             tabIndex={0}
             aria-pressed={selected}
@@ -1681,7 +1683,7 @@ function UnifiedEvolution({
             }}
           >
             <span>{formatter(row.value)}</span>
-            <div className="sf3-bar-track"><i style={{height:Math.max(2,Math.abs(row.value)/max*100)+'%'}}/></div>
+            <div className="sf3-bar-track"><i style={{height:'var(--sf3-bar-ratio)'}}/></div>
             <b title={row.name}>{row.name}</b>
           </div>
         })}
