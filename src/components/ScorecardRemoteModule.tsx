@@ -579,11 +579,27 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     if(warehouseFilter.startsWith('GRUPO:')){
       const requested=warehouseFilter.slice(6).trim().toUpperCase()
       const actual=String(row.site_group||'').trim().toUpperCase()
-      if(requested==='PROYECTO_MINERO') return actual==='PROYECTO'||actual==='PROYECTO_MINERO'
-      if(requested==='SUCURSAL') return actual==='SUCURSAL'
-      if(requested==='TIENDA') return actual==='TIENDA'
-      return actual===requested
+      const explicitGroups=new Set(['PROYECTO','PROYECTO_MINERO','SUCURSAL','TIENDA'])
+
+      // Si el registro ya fue reclasificado manualmente, esa clasificación manda.
+      if(explicitGroups.has(actual)){
+        if(requested==='PROYECTO_MINERO') return actual==='PROYECTO'||actual==='PROYECTO_MINERO'
+        if(requested==='SUCURSAL') return actual==='SUCURSAL'
+        if(requested==='TIENDA') return actual==='TIENDA'
+        return actual===requested
+      }
+
+      // Históricos todavía conservan etiquetas legacy. No se modifican ni borran:
+      // para esos registros se usa la clasificación maestra del almacén.
+      return matchesDashboardHierarchy(
+        warehouseFilter,
+        row.warehouse,
+        row.site_name,
+        warehouseCatalog,
+        warehouseCenters
+      )
     }
+
     return matchesDashboardHierarchy(
       warehouseFilter,
       row.warehouse,
