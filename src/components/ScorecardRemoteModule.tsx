@@ -8,6 +8,7 @@ import {
   Edit3,
   FileSpreadsheet,
   FileText,
+  Plus,
   RefreshCw,
   Save,
   Trash2,
@@ -421,10 +422,16 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
   const [message,setMessage]=useState('')
   const [editing,setEditing]=useState(false)
   const [sourceDataOpen,setSourceDataOpen]=useState(false)
+  const [newRecordOpen,setNewRecordOpen]=useState(false)
+  const [newRecordYear,setNewRecordYear]=useState(now.getFullYear())
+  const [newRecordMonth,setNewRecordMonth]=useState(now.getMonth()+1)
+  const [newRecordWarehouse,setNewRecordWarehouse]=useState('')
+  const [newRecordSiteName,setNewRecordSiteName]=useState('')
   const [uploading,setUploading]=useState(false)
 
   useEffect(()=>{
     setSourceDataOpen(false)
+    setNewRecordOpen(false)
   },[mode,year,month,warehouseFilter])
   const [pdfExporting,setPdfExporting]=useState(false)
   const [editingRows,setEditingRows]=useState<Record<string,ScorecardRow>>({})
@@ -706,25 +713,62 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     })
   }
 
+  function openNewRecordForm() {
+    if(!isAdmin){setMessage('Solo el Administrador puede crear registros del Scorecard.');return}
+    const suggested=filterSingleTarget || normalizeProfileWarehouse(profile) || warehouseCatalog.find((item)=>item.warehouse_scope==='REMOTO')?.name || ''
+    const meta=warehouseCatalog.find((item)=>item.name===suggested || item.code===suggested)
+    setNewRecordYear(year)
+    setNewRecordMonth(month)
+    setNewRecordWarehouse(meta?.name || suggested)
+    setNewRecordSiteName(profile?.project || meta?.name || suggested)
+    setNewRecordOpen(true)
+  }
+
   async function addManualRow() {
     if(!isAdmin){setMessage('Solo el Administrador puede crear registros del Scorecard.');return}
     if(!report) return
-    const targetWarehouse=filterSingleTarget || normalizeProfileWarehouse(profile) || 'SIN_ASIGNAR'
-    const siteName=profile?.project || profile?.warehouse || targetWarehouse
-    const rowKey=`manual:${Date.now()}`
+
+    const targetWarehouse=(newRecordWarehouse || filterSingleTarget || normalizeProfileWarehouse(profile) || 'SIN_ASIGNAR').trim()
+    if(!targetWarehouse || targetWarehouse==='SIN_ASIGNAR'){
+      setMessage('Selecciona un almacén para crear el registro.')
+      return
+    }
+
+    const targetMeta=warehouseCatalog.find((item)=>item.name===targetWarehouse || item.code===targetWarehouse)
+    const targetSite=(newRecordSiteName || targetMeta?.name || targetWarehouse).trim()
+    const targetYear=Number(newRecordYear || year)
+    const targetMonth=Number(newRecordMonth || month)
+    const rowKey=`manual:${targetYear}:${targetMonth}:${targetWarehouse}:${Date.now()}`
     const emptyData=Object.fromEntries(report.fields.map((field)=>[field.key,field.type==='text'?'':null]))
+
     const {data,error}=await supabase.from('scorecard_rows').insert({
       report_code:report.code,
-      year,month,period_date:periodKey(year,month),
+      year:targetYear,
+      month:targetMonth,
+      period_date:periodKey(targetYear,targetMonth),
       warehouse:targetWarehouse,
-      site_name:siteName,
-      site_group:null,row_status:null,detail:null,row_key:rowKey,
-      data:emptyData,source:'MANUAL',editable:true,created_by:userId,updated_by:userId,
+      site_name:targetSite,
+      site_group:targetMeta?.remote_group || null,
+      row_status:null,
+      detail:null,
+      row_key:rowKey,
+      data:emptyData,
+      source:'MANUAL',
+      editable:true,
+      created_by:userId,
+      updated_by:userId,
     }).select('*').single()
+
     if(error||!data){setMessage(error?.message||'No se pudo crear el registro.');return}
+
     setRows((current)=>[...current,data as ScorecardRow])
+    setYear(targetYear)
+    setMonth(targetMonth)
+    setWarehouseFilter('TODOS')
     setEditing(true)
     setEditingRows((current)=>({...current,[data.id]:data as ScorecardRow}))
+    setNewRecordOpen(false)
+    setMessage(`Nuevo registro creado para ${MONTHS[targetMonth-1]} ${targetYear}. Completa los valores y guarda los cambios.`)
   }
 
   async function deleteRow(row:ScorecardRow) {
@@ -1162,10 +1206,58 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
               {['AUTO','HYBRID'].includes(report.source_mode)&&canManageReportData&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}
               {canManageReportData&&<label className="secondary-button scorecard-upload-button"><FileSpreadsheet size={16}/>{uploading?'Procesando…':'Cargar Excel'}<input type="file" accept=".xlsx,.xls" disabled={uploading} onChange={(event)=>onFileChange(event,false)}/></label>}
               {canManageReportData&&<button className="secondary-button" onClick={()=>setEditing((value)=>!value)}>{editing?<X size={16}/>:<Edit3 size={16}/>} {editing?'Cerrar edición':'Editar datos'}</button>}
-              {canManageReportData&&<button className="secondary-button" onClick={addManualRow}><Database size={16}/> Nuevo registro</button>}
+              {canManageReportData&&<button className="secondary-button" onClick={openNewRecordForm}><Database size={16}/> Nuevo registro</button>}
 
             </div>
           </div>
+
+          {canManageReportData && newRecordOpen && (
+            <div className="scorecard-new-record">
+              <div className="scorecard-new-record-title">
+                <div><b>Nuevo registro mensual</b><span>Selecciona el período y la sede. Puedes crear Agosto u otro mes aunque todavía no tenga datos.</span></div>
+                <button className="icon-button" type="button" onClick={()=>setNewRecordOpen(false)} title="Cancelar nuevo registro"><X size={15}/></button>
+              </div>
+              <div className="scorecard-new-record-grid">
+                <label>
+                  <span>Año</span>
+                  <select value={newRecordYear} onChange={(event)=>setNewRecordYear(Number(event.target.value))}>
+                    {Array.from({length:Math.max(4,now.getFullYear()-2024+2)},(_,index)=>2024+index).map((value)=><option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Mes</span>
+                  <select value={newRecordMonth} onChange={(event)=>setNewRecordMonth(Number(event.target.value))}>
+                    {MONTHS.map((label,index)=><option key={label} value={index+1}>{label}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Almacén</span>
+                  <select
+                    value={newRecordWarehouse}
+                    onChange={(event)=>{
+                      const value=event.target.value
+                      setNewRecordWarehouse(value)
+                      const selected=warehouseCatalog.find((item)=>item.name===value)
+                      if(selected) setNewRecordSiteName(selected.name)
+                    }}
+                  >
+                    <option value="">Seleccionar…</option>
+                    {warehouseCatalog
+                      .filter((item)=>item.warehouse_scope==='REMOTO')
+                      .map((item)=><option key={item.code} value={item.name}>{item.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Proyecto / sede</span>
+                  <input value={newRecordSiteName} onChange={(event)=>setNewRecordSiteName(event.target.value)} placeholder="Ej.: ANTAMINA" />
+                </label>
+              </div>
+              <div className="scorecard-new-record-actions">
+                <button type="button" className="secondary-button" onClick={()=>setNewRecordOpen(false)}>Cancelar</button>
+                <button type="button" className="primary-button" onClick={()=>void addManualRow()}><Plus size={16}/> Crear {MONTHS[newRecordMonth-1]} {newRecordYear}</button>
+              </div>
+            </div>
+          )}
 
           <div className="table-wrap scorecard-edit-table">
             <table>

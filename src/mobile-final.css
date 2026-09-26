@@ -1335,3 +1335,62 @@
     min-width:84px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 01 · EXACT PORTRAIT ALIGNMENT · V28
+   AÑO: 2 columnas, último botón ocupa fila completa.
+   CENTRO: botones a ancho completo.
+   MES: 3 columnas, último botón ocupa fila completa.
+   ========================================================= */
+@media (max-width:760px){
+  .scorecard-module .scorecard-click-filters > section{
+    width:100% !important;
+    padding:9px 10px 10px !important;
+    box-sizing:border-box !important;
+  }
+
+  .scorecard-module .scorecard-click-years{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:6px !important;
+  }
+
+  .scorecard-module .scorecard-click-years > button:last-child:nth-child(odd){
+    grid-column:1 / -1 !important;
+  }
+
+  .scorecard-module .scorecard-click-centers{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:6px !important;
+  }
+
+  .scorecard-module .scorecard-click-months{
+    display:grid !important;
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+    gap:6px !important;
+  }
+
+  .scorecard-module .scorecard-click-months > button:last-child:nth-child(3n+1){
+    grid-column:1 / -1 !important;
+  }
+
+  .scorecard-module .scorecard-click-years > button,
+  .scorecard-module .scorecard-click-centers > button,
+  .scorecard-module .scorecard-click-months > button{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+    flex:none !important;
+  }
+
+  .scorecard-module .scorecard-click-filters button.empty-period:not(.active),
+  .eri-dashboard button.empty-period:not(.active),
+  .psc-filter-rail button.empty-period:not(.active),
+  .sf3-left button.empty-period:not(.active){
+    background:#f7f9fc !important;
+    color:#7b879d !important;
+    border-style:dashed !important;
+  }
+}
