@@ -1779,3 +1779,31 @@
     padding-top:5px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 04 · TOOLTIP BELOW HEADER V54
+   Keep the selected/hover tooltip inside the visible chart
+   area, below the EVOLUCIÓN $ header instead of behind it.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item::after{
+  top:34px !important;
+  bottom:auto !important;
+  transform:translateX(-50%) translateY(0) !important;
+  z-index:120 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item:hover::after{
+  transform:translateX(-50%) translateY(0) !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item.selected::after{
+  top:34px !important;
+  bottom:auto !important;
+}
+
+/* Give the top of the plot a little more breathing room so
+   values and tooltip never touch the blue title band. */
+[data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-evolution-body{
+  padding-top:18px !important;
+}
