@@ -1397,207 +1397,76 @@
 
 
 /* =========================================================
-   REPORT 01 · EXACT TARGET SCALE V35
-   La zona de barras y la línea de objetivo comparten exactamente
-   el mismo alto. Las etiquetas quedan en una fila separada.
+   REPORT 01 · TARGET LINE ONLY FIX V36
+   Recupera el gráfico distribuido original. La única corrección
+   es que la línea de objetivo usa el mismo alto real que io-bar-plot.
    ========================================================= */
-.io-dashboard-v3 .io-productivity-chart{
-  min-height:0 !important;
-  overflow:visible !important;
-}
+@media (min-width:821px){
+  .io-dashboard-v3 .io-bars{
+    position:relative !important;
+    --io-objective-label-row:48px;
+  }
 
-.io-dashboard-v3 .io-bars{
-  --io-label-height:54px;
-  width:100% !important;
-  height:100% !important;
-  min-height:0 !important;
-  padding:0 !important;
-  display:grid !important;
-  grid-template-rows:minmax(0,1fr) var(--io-label-height) !important;
-  gap:0 !important;
-  overflow:visible !important;
-}
+  .io-dashboard-v3 .io-bars > .io-bars-plot-overlay{
+    display:block !important;
+    position:absolute !important;
+    z-index:4 !important;
+    top:0 !important;
+    left:18px !important;
+    right:12px !important;
+    bottom:var(--io-objective-label-row) !important;
+    width:auto !important;
+    height:auto !important;
+    pointer-events:none !important;
+  }
 
-.io-dashboard-v3 .io-bars-plot-zone{
-  position:relative !important;
-  width:100% !important;
-  height:100% !important;
-  min-height:0 !important;
-  padding:0 10px !important;
-  display:grid !important;
-  grid-template-columns:repeat(var(--io-bar-count),minmax(0,1fr)) !important;
-  column-gap:clamp(5px,.72vw,13px) !important;
-  align-items:stretch !important;
-  box-sizing:border-box !important;
-  overflow:visible !important;
-}
-
-.io-dashboard-v3 .io-bars-plot-zone > .io-bars-plot-overlay{
-  position:absolute !important;
-  z-index:4 !important;
-  inset:0 10px !important;
-  width:auto !important;
-  height:auto !important;
-  min-height:0 !important;
-  pointer-events:none !important;
-}
-
-.io-dashboard-v3 .io-bars-plot-zone .io-target-line{
-  position:absolute !important;
-  left:0 !important;
-  right:0 !important;
-  width:100% !important;
-  margin:0 !important;
-  transform:none !important;
-  z-index:4 !important;
-}
-
-.io-dashboard-v3 .io-bars-plot-zone > .io-bar-item{
-  position:relative !important;
-  width:100% !important;
-  height:100% !important;
-  min-height:0 !important;
-  display:block !important;
-  align-self:stretch !important;
-  padding:0 !important;
-  overflow:visible !important;
-}
-
-.io-dashboard-v3 .io-bars-plot-zone .io-bar-plot{
-  position:relative !important;
-  width:100% !important;
-  height:100% !important;
-  min-height:0 !important;
-  display:block !important;
-  overflow:visible !important;
-}
-
-.io-dashboard-v3 .io-bars-plot-zone .io-bar{
-  position:absolute !important;
-  left:50% !important;
-  bottom:0 !important;
-  width:clamp(16px,54%,34px) !important;
-  min-width:12px !important;
-  max-width:34px !important;
-  height:var(--io-bar-height) !important;
-  margin:0 !important;
-  transform:translateX(-50%) !important;
-}
-
-.io-dashboard-v3 .io-bars-plot-zone .io-bar-item:hover .io-bar{
-  transform:translateX(-50%) translateY(-2px) !important;
-}
-
-.io-dashboard-v3 .io-bars-plot-zone .io-bar-value{
-  position:absolute !important;
-  z-index:5 !important;
-  left:50% !important;
-  bottom:calc(var(--io-bar-height) + 5px) !important;
-  margin:0 !important;
-  transform:translateX(-50%) !important;
-  white-space:nowrap !important;
-}
-
-.io-dashboard-v3 .io-bar-label-zone{
-  width:100% !important;
-  height:var(--io-label-height) !important;
-  min-height:var(--io-label-height) !important;
-  padding:0 10px !important;
-  display:grid !important;
-  grid-template-columns:repeat(var(--io-bar-count),minmax(0,1fr)) !important;
-  column-gap:clamp(5px,.72vw,13px) !important;
-  box-sizing:border-box !important;
-  overflow:visible !important;
-}
-
-.io-dashboard-v3 .io-bar-label-zone .io-bar-label{
-  appearance:none !important;
-  position:static !important;
-  width:100% !important;
-  max-width:none !important;
-  min-width:0 !important;
-  height:var(--io-label-height) !important;
-  min-height:var(--io-label-height) !important;
-  margin:0 !important;
-  padding:6px 2px 0 !important;
-  border:0 !important;
-  background:transparent !important;
-  color:#17336f !important;
-  transform:none !important;
-  font:inherit !important;
-  font-size:8.8px !important;
-  font-weight:850 !important;
-  line-height:1.08 !important;
-  text-align:center !important;
-  white-space:normal !important;
-  overflow:visible !important;
-  cursor:pointer !important;
-}
-
-.io-dashboard-v3 .io-bar-label-zone .io-bar-label.selected{
-  color:#2547ad !important;
-  text-decoration:underline !important;
-  text-underline-offset:3px !important;
-}
-
-.scorecard-objective-expression{
-  width:100% !important;
-  min-width:92px !important;
-  min-height:38px !important;
-  box-sizing:border-box !important;
-  padding:7px 9px !important;
-  border:1px solid #d5deef !important;
-  border-radius:10px !important;
-  background:#fff !important;
-  color:#17336f !important;
-  font-size:10px !important;
-  font-weight:850 !important;
-  text-align:center !important;
-}
-
-.scorecard-objective-expression:focus{
-  outline:none !important;
-  border-color:#8095df !important;
-  box-shadow:0 0 0 3px rgba(94,116,206,.10) !important;
+  .io-dashboard-v3 .io-bars > .io-bars-plot-overlay .io-target-line{
+    position:absolute !important;
+    left:0 !important;
+    right:0 !important;
+    width:100% !important;
+    margin:0 !important;
+    transform:none !important;
+    z-index:4 !important;
+  }
 }
 
 @media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
   .io-dashboard-v3 .io-bars{
-    --io-label-height:50px;
-  }
-
-  .io-dashboard-v3 .io-bar-label-zone .io-bar-label{
-    font-size:8.2px !important;
+    --io-objective-label-row:46px;
   }
 }
 
 @media (min-width:1701px){
   .io-dashboard-v3 .io-bars{
-    --io-label-height:62px;
+    --io-objective-label-row:52px;
   }
 }
 
 @media (max-width:820px){
-  .io-dashboard-v3 .io-bars{
-    --io-label-height:58px;
-    width:max(100%,calc(var(--io-bar-count) * 82px)) !important;
-    min-width:calc(var(--io-bar-count) * 82px) !important;
+  .scorecard-module .io-dashboard-v3 .io-bars{
+    --io-objective-label-row:54px;
   }
 
-  .io-dashboard-v3 .io-bars-plot-zone,
-  .io-dashboard-v3 .io-bar-label-zone{
-    grid-template-columns:repeat(var(--io-bar-count),minmax(72px,1fr)) !important;
-    column-gap:8px !important;
-    padding-left:8px !important;
-    padding-right:8px !important;
+  .scorecard-module .io-dashboard-v3 .io-bars > .io-bars-plot-overlay{
+    display:block !important;
+    position:absolute !important;
+    z-index:6 !important;
+    top:0 !important;
+    left:2px !important;
+    right:2px !important;
+    bottom:var(--io-objective-label-row) !important;
+    width:auto !important;
+    height:auto !important;
+    pointer-events:none !important;
   }
 
-  .io-dashboard-v3 .io-bars-plot-zone > .io-bars-plot-overlay{
-    left:8px !important;
-    right:8px !important;
-  }
-
-  .io-dashboard-v3 .io-bar-label-zone .io-bar-label{
-    font-size:9px !important;
+  .scorecard-module .io-dashboard-v3 .io-bars > .io-bars-plot-overlay .io-target-line{
+    position:absolute !important;
+    left:0 !important;
+    right:0 !important;
+    width:100% !important;
+    margin:0 !important;
+    transform:none !important;
   }
 }

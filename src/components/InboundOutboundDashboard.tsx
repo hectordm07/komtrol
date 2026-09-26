@@ -379,73 +379,56 @@ function ProductivityBars({
 
       <div className="io-productivity-chart">
         <div className={selectedSiteKey?'io-bars has-selection':'io-bars'} style={barStyle}>
-          <div className="io-bars-plot-zone">
-            <div className="io-bars-plot-overlay" aria-hidden="true">
-              <div className="io-target-line" style={{bottom:`${targetPct}%`}}>
-                <span>{targetLabel}</span>
-              </div>
+          <div className="io-bars-plot-overlay" aria-hidden="true">
+            <div className="io-target-line" style={{bottom:`${targetPct}%`}}>
+              <span>{targetLabel}</span>
             </div>
-
-            {items.map((item,index)=>{
-              const height=Math.max(item.value?4:0,(item.value/max)*100)
-              const meetsGoal=objectiveMet(item.value,item.target,item.operator)
-              const selected=selectedSiteKey===item.key
-              const itemStyle={
-                '--io-bar-height':`${height}%`,
-              } as CSSProperties
-
-              return (
-                <div
-                  className={selected?'io-bar-item selected':'io-bar-item'}
-                  key={`${item.name}-${index}`}
-                  style={itemStyle}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selected}
-                  aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Objetivo ${objectiveSymbol(item.operator)} ${fmtInt(item.target)}. Clic para filtrar el dashboard.`}
-                  onClick={()=>onSelectSite(item.key)}
-                  onKeyDown={(event)=>{
-                    if(event.key==='Enter'||event.key===' '){
-                      event.preventDefault()
-                      onSelectSite(item.key)
-                    }
-                  }}
-                >
-                  <span className="io-bar-tooltip" role="tooltip">
-                    <b>{item.name}</b>
-                    <small>Productividad {fmtInt(item.value)} · Objetivo {objectiveSymbol(item.operator)} {fmtInt(item.target)}</small>
-                    <small>Diferencia {item.value>=item.target?'+':''}{fmtInt(item.value-item.target)}</small>
-                    <small>{selected?'Clic para quitar filtro':'Clic para filtrar esta sede'}</small>
-                  </span>
-                  <div className="io-bar-plot">
-                    <div className={meetsGoal?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
-                    <div className={meetsGoal?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
-                  </div>
-                </div>
-              )
-            })}
-
-            {!items.length&&<div className="io-bars-empty">Sin registros para el período seleccionado</div>}
           </div>
-
-          {items.length>0&&(
-            <div className="io-bar-label-zone">
-              {items.map((item,index)=>(
-                <button
-                  type="button"
-                  className={selectedSiteKey===item.key?'io-bar-label selected':'io-bar-label'}
-                  key={`${item.key}-label-${index}`}
-                  title={item.name}
-                  onClick={()=>onSelectSite(item.key)}
-                >{item.shortName}</button>
-              ))}
-            </div>
-          )}
+          {items.map((item,index)=>{
+            const height=Math.max(item.value?4:0,(item.value/max)*100)
+            const meetsGoal=objectiveMet(item.value,item.target,item.operator)
+            const selected=selectedSiteKey===item.key
+            const itemStyle={
+              '--io-bar-height':`${height}%`,
+            } as CSSProperties
+            return (
+              <div
+                className={selected?'io-bar-item selected':'io-bar-item'}
+                key={`${item.name}-${index}`}
+                style={itemStyle}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selected}
+                aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Objetivo ${objectiveSymbol(item.operator)} ${fmtInt(item.target)}. Clic para filtrar el dashboard.`}
+                onClick={()=>onSelectSite(item.key)}
+                onKeyDown={(event)=>{
+                  if(event.key==='Enter'||event.key===' '){
+                    event.preventDefault()
+                    onSelectSite(item.key)
+                  }
+                }}
+              >
+                <span className="io-bar-tooltip" role="tooltip">
+                  <b>{item.name}</b>
+                  <small>Productividad {fmtInt(item.value)} · Objetivo {objectiveSymbol(item.operator)} {fmtInt(item.target)}</small>
+                  <small>Diferencia {item.value>=item.target?'+':''}{fmtInt(item.value-item.target)}</small>
+                  <small>{selected?'Clic para quitar filtro':'Clic para filtrar esta sede'}</small>
+                </span>
+                <div className="io-bar-plot">
+                  <div className={meetsGoal?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
+                  <div className={meetsGoal?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
+                </div>
+                <div className="io-bar-label">{item.shortName}</div>
+              </div>
+            )
+          })}
+          {!items.length&&<div className="io-bars-empty">Sin registros para el período seleccionado</div>}
         </div>
       </div>
     </article>
   )
 }
+
 
 export function InboundOutboundSidebarProductivityCard({
   rows,
