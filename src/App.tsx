@@ -425,7 +425,7 @@ function Login() {
             <p>
               {firstAccess
                 ? 'Ingresa tu DNI y crea una clave de 6 a 8 dígitos para activar tu acceso.'
-                : 'Ingresa con tu usuario KOMTROL en formato primerNombre.primerApellido.'}
+                : 'Ingresa con tu usuario KOMTROL. Formato: nombre.apellido.'}
             </p>
           </div>
 

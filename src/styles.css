@@ -25615,3 +25615,295 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
     font-size: 8.5px;
   }
 }
+
+
+/* =========================================================
+   LOGIN FULL VIEWPORT · SIN SCROLL · V11
+   Mantiene el acceso completo dentro de una sola pantalla
+   en laptop/desktop y compacta progresivamente por altura.
+   ========================================================= */
+@media (min-width: 761px) {
+  .login-page-premium {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    grid-template-columns: minmax(0, 1.08fr) minmax(500px, .92fr) !important;
+  }
+
+  .login-brand-premium,
+  .login-card-wrap-premium {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .login-brand-premium {
+    padding:
+      clamp(28px, 4.2vh, 54px)
+      clamp(42px, 5.2vw, 86px) !important;
+    justify-content: center !important;
+    gap: clamp(14px, 2.2vh, 24px) !important;
+  }
+
+  .login-brand-lockup {
+    flex: 0 0 auto;
+    margin-bottom: clamp(8px, 1.5vh, 18px) !important;
+  }
+
+  .login-brand-message {
+    flex: 0 0 auto;
+    display: grid;
+    gap: clamp(10px, 1.5vh, 16px);
+  }
+
+  .login-brand-message h1 {
+    margin: 0 !important;
+    font-size: clamp(48px, 4.45vw, 76px) !important;
+    line-height: .94 !important;
+    letter-spacing: -.045em !important;
+  }
+
+  .login-brand-message p {
+    max-width: 650px !important;
+    font-size: clamp(13px, 1.05vw, 17px) !important;
+    line-height: 1.52 !important;
+  }
+
+  .login-feature-grid-premium {
+    flex: 0 0 auto;
+    margin-top: clamp(4px, 1vh, 12px) !important;
+    gap: clamp(8px, .8vw, 12px) !important;
+  }
+
+  .login-feature-grid-premium > div {
+    min-height: clamp(70px, 9vh, 88px) !important;
+    padding: clamp(10px, 1.25vh, 14px) !important;
+  }
+
+  .login-feature-icon {
+    width: 36px !important;
+    height: 36px !important;
+    flex-basis: 36px !important;
+    border-radius: 11px !important;
+  }
+
+  .login-feature-grid-premium b {
+    font-size: clamp(10px, .8vw, 12px) !important;
+  }
+
+  .login-feature-grid-premium small {
+    font-size: clamp(7.5px, .58vw, 9px) !important;
+  }
+
+  .login-brand-footer {
+    flex: 0 0 auto;
+    margin-top: clamp(6px, 1.3vh, 14px) !important;
+  }
+
+  .login-card-wrap-premium {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding:
+      clamp(18px, 3vh, 34px)
+      clamp(26px, 4vw, 58px) !important;
+  }
+
+  .login-card-premium {
+    width: min(100%, 560px) !important;
+    max-height: calc(100dvh - clamp(36px, 6vh, 68px)) !important;
+    padding:
+      clamp(24px, 3.2vh, 36px)
+      clamp(30px, 3.2vw, 44px)
+      clamp(20px, 2.7vh, 30px) !important;
+    border-radius: 26px !important;
+    overflow: hidden !important;
+    transform: translateY(clamp(-16px, -1.2vh, -8px));
+  }
+
+  .login-card-brand {
+    gap: 6px !important;
+    margin-bottom: clamp(12px, 1.6vh, 18px) !important;
+  }
+
+  .login-card-logo {
+    width: clamp(68px, 8.5vh, 86px) !important;
+    height: clamp(68px, 8.5vh, 86px) !important;
+    border-radius: 22px !important;
+  }
+
+  .login-card-brand > span {
+    font-size: clamp(11px, 1.4vh, 13px) !important;
+  }
+
+  .login-card-heading {
+    margin-bottom: clamp(14px, 2vh, 20px) !important;
+  }
+
+  .login-card-kicker {
+    margin-bottom: 6px !important;
+  }
+
+  .login-card-premium .login-card-heading h2 {
+    font-size: clamp(28px, 3.55vh, 38px) !important;
+    line-height: 1.03 !important;
+  }
+
+  .login-card-premium .login-card-heading p {
+    max-width: 370px !important;
+    margin-top: 7px !important;
+    font-size: clamp(10.5px, 1.35vh, 12.5px) !important;
+    line-height: 1.4 !important;
+  }
+
+  .login-form-fields {
+    gap: clamp(10px, 1.45vh, 14px) !important;
+  }
+
+  .login-card-premium label {
+    gap: 5px !important;
+    font-size: clamp(9.5px, 1.22vh, 11px) !important;
+  }
+
+  .login-card-premium input {
+    min-height: clamp(46px, 5.8vh, 52px) !important;
+    padding: 10px 14px !important;
+    font-size: 15px !important;
+  }
+
+  .login-actions {
+    gap: 8px !important;
+    margin-top: clamp(12px, 1.7vh, 17px) !important;
+  }
+
+  .login-card-premium .login-primary-button,
+  .login-card-premium .login-secondary-button {
+    min-height: clamp(46px, 5.8vh, 52px) !important;
+    border-radius: 13px !important;
+  }
+
+  .login-security-note {
+    margin-top: clamp(10px, 1.4vh, 14px) !important;
+    padding-top: clamp(9px, 1.2vh, 12px) !important;
+    font-size: 9px !important;
+  }
+}
+
+@media (min-width: 761px) and (max-height: 820px) {
+  .login-page-premium {
+    grid-template-columns: minmax(0, 1.04fr) minmax(470px, .96fr) !important;
+  }
+
+  .login-brand-premium {
+    padding-block: 24px !important;
+    gap: 13px !important;
+  }
+
+  .login-brand-message h1 {
+    font-size: clamp(44px, 4vw, 64px) !important;
+  }
+
+  .login-brand-message p {
+    line-height: 1.42 !important;
+  }
+
+  .login-feature-grid-premium > div {
+    min-height: 66px !important;
+    padding: 9px 11px !important;
+  }
+
+  .login-brand-footer {
+    display: none !important;
+  }
+
+  .login-card-wrap-premium {
+    padding-block: 16px !important;
+  }
+
+  .login-card-premium {
+    max-height: calc(100dvh - 28px) !important;
+    padding: 22px 34px 18px !important;
+    transform: translateY(-8px);
+  }
+
+  .login-card-logo {
+    width: 64px !important;
+    height: 64px !important;
+    border-radius: 18px !important;
+  }
+
+  .login-card-brand {
+    margin-bottom: 10px !important;
+  }
+
+  .login-card-heading {
+    margin-bottom: 12px !important;
+  }
+
+  .login-card-premium .login-card-heading h2 {
+    font-size: 28px !important;
+  }
+
+  .login-card-premium .login-card-heading p {
+    margin-top: 5px !important;
+    font-size: 10.5px !important;
+  }
+
+  .login-form-fields {
+    gap: 9px !important;
+  }
+
+  .login-card-premium input {
+    min-height: 44px !important;
+  }
+
+  .login-actions {
+    margin-top: 10px !important;
+    gap: 7px !important;
+  }
+
+  .login-card-premium .login-primary-button,
+  .login-card-premium .login-secondary-button {
+    min-height: 44px !important;
+  }
+
+  .login-security-note {
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+  }
+}
+
+@media (min-width: 761px) and (max-height: 700px) {
+  .login-feature-grid-premium {
+    display: none !important;
+  }
+
+  .login-brand-message h1 {
+    font-size: clamp(42px, 4vw, 58px) !important;
+  }
+
+  .login-card-premium {
+    padding-block: 18px !important;
+  }
+}
+
+/* En móvil sí se permite desplazamiento solo como respaldo para pantallas
+   extremadamente pequeñas; en teléfonos normales la tarjeta sigue centrada. */
+@media (max-width: 760px) {
+  .login-page-premium {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .login-card-wrap-premium {
+    min-height: 100% !important;
+  }
+}
