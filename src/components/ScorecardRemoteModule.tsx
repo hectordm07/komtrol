@@ -1251,8 +1251,8 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         <div className="scorecard-report-context">
           <span>{String(report.ordinal).padStart(2,'0')}</span>
           <div>
-            <b>{activeLayout.reportTitle.trim()||report.name}</b>
-            <small>{activeLayout.reportDescription.trim()||report.description}</small>
+            <b>{activeLayout.reportTitle.trim()||(report.code==='diferencias-inventario'?'Diferencias de Inventario':report.name)}</b>
+            <small>{activeLayout.reportDescription.trim()||(report.code==='diferencias-inventario'?'Diferencias de inventario por SKU, unidades y USD.':report.description)}</small>
           </div>
           <em className={`source-${report.source_mode.toLowerCase()}`}><ReportIcon mode={report.source_mode}/>{sourceBadge(report.source_mode)}</em>
         </div>

@@ -84,6 +84,12 @@ const SLOT_SELECTORS: Record<string,Record<DashboardSlotKey,string>> = {
     main: '.sf3-evolution',
     secondary: '.sf3-highlight',
   },
+  'diferencias-inventario': {
+    filters: '.sf3-left',
+    kpis: '.sf3-kpis',
+    main: '.sf3-evolution',
+    secondary: '.sf3-highlight',
+  },
 }
 
 const PROFESSIONAL_SELECTORS: Record<DashboardSlotKey,string> = {
