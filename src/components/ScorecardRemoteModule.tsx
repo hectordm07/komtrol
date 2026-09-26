@@ -1078,6 +1078,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
             onClick={()=>setSourceDataOpen((value)=>!value)}
             aria-expanded={sourceDataOpen}
             title={sourceDataOpen?'Ocultar datos del reporte':'Ver datos del reporte'}
+            aria-controls="scorecard-data-manager"
           ><Database size={16}/> Datos / Cargar <ChevronDown size={14}/></button>}
           <button className="icon-button" onClick={reload}><RefreshCw size={17}/></button>
         </div>
@@ -1153,9 +1154,9 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
         <div className="scorecard-data-overlay" role="presentation" onMouseDown={(event)=>{
           if(event.target===event.currentTarget) setSourceDataOpen(false)
         }}>
-          <section className="panel scorecard-data-panel" role="dialog" aria-modal="true" aria-label="Datos del reporte">
+          <section id="scorecard-data-manager" className="panel scorecard-data-panel" role="dialog" aria-modal="true" aria-label="Gestión de datos del reporte">
           <div className="scorecard-data-head">
-            <div><b>Datos del reporte</b><span>{year} · {MONTHS[month-1]} · {filterLabel} · Acceso Administrador</span></div>
+            <div><b>Gestión de datos</b><span>{year} · {MONTHS[month-1]} · {filterLabel} · Cargar, modificar o crear registros</span></div>
             <div className="button-row">
               <button className="icon-button scorecard-data-close" onClick={()=>setSourceDataOpen(false)} title="Cerrar datos"><X size={16}/></button>
               {['AUTO','HYBRID'].includes(report.source_mode)&&canManageReportData&&<button className="secondary-button" onClick={refreshAutomaticData}><RefreshCw size={16}/> Actualizar automáticos</button>}

@@ -1234,3 +1234,104 @@
     align-self: stretch !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 01 · PORTRAIT EVEN GRID · V27
+   Vista vertical uniforme: filas completas y botones parejos.
+   ========================================================= */
+@media (max-width:760px){
+  .scorecard-module:has(.report-inbound-outbound) .scorecard-data-toggle{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+  }
+
+  .scorecard-module .scorecard-click-filters{
+    gap:8px !important;
+  }
+
+  .scorecard-module .scorecard-click-filters > section{
+    padding:10px !important;
+    border-radius:15px !important;
+  }
+
+  .scorecard-module .scorecard-click-years,
+  .scorecard-module .scorecard-click-centers,
+  .scorecard-module .scorecard-click-months{
+    display:flex !important;
+    flex-wrap:wrap !important;
+    align-items:stretch !important;
+    gap:6px !important;
+  }
+
+  .scorecard-module .scorecard-click-years > button,
+  .scorecard-module .scorecard-click-months > button{
+    flex:1 1 calc(33.333% - 6px) !important;
+    width:auto !important;
+    min-width:58px !important;
+  }
+
+  .scorecard-module .scorecard-click-centers > button{
+    flex:1 1 calc(50% - 6px) !important;
+    width:auto !important;
+    min-width:88px !important;
+  }
+
+  .scorecard-module .scorecard-click-filters button{
+    min-height:38px !important;
+    height:38px !important;
+    border-radius:9px !important;
+    font-size:9px !important;
+  }
+
+  .scorecard-module .io-sidebar-productivity{
+    min-height:0 !important;
+    border-radius:16px !important;
+  }
+
+  .scorecard-module .io-sidebar-productivity-head{
+    min-height:50px !important;
+    padding:8px 10px !important;
+  }
+
+  .scorecard-module .io-sidebar-productivity .io-gauge-wrap{
+    padding:8px 10px 2px !important;
+  }
+
+  .scorecard-module .io-sidebar-productivity-variation{
+    width:calc(100% - 20px) !important;
+    margin:0 10px 10px !important;
+    box-sizing:border-box !important;
+  }
+
+  .scorecard-module .io-dashboard-v3 .io-mini-card,
+  .scorecard-module .io-dashboard-v3 .io-trend-card,
+  .scorecard-module .io-dashboard-v3 .io-productivity-panel{
+    border-radius:16px !important;
+  }
+
+  .scorecard-module .io-dashboard-v3 .io-trend-card{
+    min-height:210px !important;
+    height:210px !important;
+  }
+}
+
+@media (max-width:430px){
+  .scorecard-module .scorecard-click-years,
+  .scorecard-module .scorecard-click-centers,
+  .scorecard-module .scorecard-click-months{
+    display:flex !important;
+  }
+
+  .scorecard-module .scorecard-click-years > button,
+  .scorecard-module .scorecard-click-months > button{
+    flex:1 1 calc(33.333% - 6px) !important;
+    min-width:56px !important;
+  }
+
+  .scorecard-module .scorecard-click-centers > button{
+    flex:1 1 calc(50% - 6px) !important;
+    min-width:84px !important;
+  }
+}
