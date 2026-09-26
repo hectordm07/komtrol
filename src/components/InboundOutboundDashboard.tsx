@@ -333,14 +333,14 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
           <span className="io-section-icon"><BarChart3 size={15}/></span>
           <div><small>PRODUCTIVIDAD IL</small><b>Por sede / centro</b></div>
         </div>
-        <span className="io-target-badge"><Target size={12}/> Meta {fmtInt(target)}</span>
+        <span className="io-target-badge" title={`Objetivo: igual o mayor a ${fmtInt(target)}`}><Target size={12}/> Objetivo ≥ {fmtInt(target)}</span>
       </div>
 
       <div className="io-productivity-chart">
         <div className="io-bars" style={barStyle}>
           <div className="io-bars-plot-overlay" aria-hidden="true">
             <div className="io-target-line" style={{bottom:`${targetPct}%`}}>
-              <span>Meta {fmtInt(target)}</span>
+              <span>Objetivo ≥ {fmtInt(target)}</span>
             </div>
           </div>
           {items.map((item,index)=>{
@@ -350,8 +350,8 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
               <div
                 className="io-bar-item"
                 key={`${item.name}-${index}`}
-                title={`${item.name} · Productividad ${fmtInt(item.value)} · Meta ${fmtInt(item.target)} · Diferencia ${item.value>=item.target?'+':''}${fmtInt(item.value-item.target)}`}
-                aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Meta ${fmtInt(item.target)}.`}
+                title={`${item.name} · Productividad ${fmtInt(item.value)} · Objetivo ≥ ${fmtInt(item.target)} · Diferencia ${item.value>=item.target?'+':''}${fmtInt(item.value-item.target)}`}
+                aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Objetivo igual o mayor a ${fmtInt(item.target)}.`}
               >
                 <span className="io-bar-tooltip" role="tooltip">
                   <b>{item.name}</b>
