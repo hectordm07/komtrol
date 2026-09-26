@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -71,6 +71,20 @@ function avg(values:number[]){
   return clean.length?clean.reduce((sum,value)=>sum+value,0)/clean.length:0
 }
 
+function rowSiteKey(row:Row){
+  return `${String(row.warehouse||'').trim().toUpperCase()}::${String(row.site_name||'').trim().toUpperCase()}`
+}
+
+function pctVariation(current:number,previous:number){
+  if(previous>0) return current/previous-1
+  return current>0?1:0
+}
+
+function fmtVariation(value:number){
+  const sign=value>0?'+':value<0?'-':''
+  return `${sign}${Math.abs(value*100).toFixed(2)}%`
+}
+
 function statusText(row:Row){
   return String(row.row_status||row.detail||'').toUpperCase()
 }
@@ -94,7 +108,10 @@ function MetricRing({
   const progress=Math.max(0,Math.min(1,value))
   const dash=progress*circumference
   return (
-    <article className={"eri-ring-card "+tone}>
+    <article
+      className={"eri-ring-card "+tone}
+      data-tooltip={`${title} ${fmtPct(value)} · Variación ${fmtVariation(variation)} vs. mes anterior`}
+    >
       <div className="eri-card-title">
         <span>{icon}</span>
         <b>{title}</b>
@@ -130,20 +147,29 @@ function TrendPanel({historical,year,month}:{historical:Row[];year:number;month:
     const date=new Date(year,month-1-offset,1)
     const y=date.getFullYear()
     const m=date.getMonth()+1
-    const rows=historical.filter((row)=>row.year===y&&row.month===m&&!noPresented(row))
+    const periodRows=historical.filter((row)=>row.year===y&&row.month===m&&!noPresented(row))
     return {
       key:`${y}-${m}`,
       label:MONTHS[m-1],
-      items:avg(rows.map((row)=>pct(row.data.items_pct))),
-      value:avg(rows.map((row)=>pct(row.data.value_pct))),
+      items:avg(periodRows.map((row)=>pct(row.data.items_pct))),
+      value:avg(periodRows.map((row)=>pct(row.data.value_pct))),
     }
   }),[historical,year,month])
+
+  const detailedPeriods=periods.map((row,index)=>{
+    const previous=index>0?periods[index-1]:null
+    return {
+      ...row,
+      itemsVariation:previous?pctVariation(row.items,previous.items):0,
+      valueVariation:previous?pctVariation(row.value,previous.value):0,
+    }
+  })
 
   const min=.985
   const max=1.005
   const toY=(value:number)=>12+((max-Math.max(min,Math.min(max,value)))/(max-min))*74
-  const toX=(index:number)=>periods.length<=1?50:6+index*(88/(periods.length-1))
-  const line=(key:'items'|'value')=>periods.map((row,index)=>`${toX(index)},${toY(row[key])}`).join(' ')
+  const toX=(index:number)=>detailedPeriods.length<=1?50:6+index*(88/(detailedPeriods.length-1))
+  const line=(key:'items'|'value')=>detailedPeriods.map((row,index)=>`${toX(index)},${toY(row[key])}`).join(' ')
 
   return (
     <article className="eri-trend-card">
@@ -163,16 +189,39 @@ function TrendPanel({historical,year,month}:{historical:Row[];year:number;month:
           {[12,30.5,49,67.5,86].map((y)=><line key={y} x1="4" y1={y} x2="98" y2={y} className="eri-gridline"/>)}
           <polyline points={line('value')} className="eri-trend-line green"/>
           <polyline points={line('items')} className="eri-trend-line navy"/>
-          {periods.map((row,index)=><circle key={'v'+row.key} cx={toX(index)} cy={toY(row.value)} r="2.2" className="eri-dot green"><title>{row.label} · Promedio $ {fmtPct(row.value)}</title></circle>)}
-          {periods.map((row,index)=><circle key={'i'+row.key} cx={toX(index)} cy={toY(row.items)} r="2.2" className="eri-dot navy"><title>{row.label} · Promedio IL {fmtPct(row.items)}</title></circle>)}
+          {detailedPeriods.map((row,index)=><circle key={'v'+row.key} cx={toX(index)} cy={toY(row.value)} r="2.2" className="eri-dot green"><title>{row.label} · Promedio $ {fmtPct(row.value)} · Variación {fmtVariation(row.valueVariation)}</title></circle>)}
+          {detailedPeriods.map((row,index)=><circle key={'i'+row.key} cx={toX(index)} cy={toY(row.items)} r="2.2" className="eri-dot navy"><title>{row.label} · Promedio IL {fmtPct(row.items)} · Variación {fmtVariation(row.itemsVariation)}</title></circle>)}
         </svg>
-        <div className="eri-trend-months">{periods.map((row)=><span key={row.key}>{row.label}</span>)}</div>
+        <div className="eri-trend-months">{detailedPeriods.map((row)=><span key={row.key}>{row.label}</span>)}</div>
       </div>
     </article>
   )
 }
 
-function ComparisonBars({rows}:{rows:Row[]}){
+function ComparisonBars({
+  rows,
+  historical,
+  year,
+  month,
+  selectedSiteKey,
+  onSelectSite,
+}:{
+  rows:Row[]
+  historical:Row[]
+  year:number
+  month:number
+  selectedSiteKey:string|null
+  onSelectSite:(key:string)=>void
+}){
+  const previousDate=new Date(year,month-2,1)
+  const previousYear=previousDate.getFullYear()
+  const previousMonth=previousDate.getMonth()+1
+  const previousByKey=new Map(
+    historical
+      .filter((row)=>row.year===previousYear&&row.month===previousMonth&&!noPresented(row))
+      .map((row)=>[rowSiteKey(row),row] as const)
+  )
+
   const items=rows
     .filter((row)=>!noPresented(row))
     .slice()
@@ -182,11 +231,22 @@ function ComparisonBars({rows}:{rows:Row[]}){
       if(ai>=0||bi>=0) return (ai<0?9999:ai)-(bi<0?9999:bi)
       return (a.source_row??9999)-(b.source_row??9999)
     })
-    .map((row)=>({
-      name:row.site_name,
-      items:pct(row.data.items_pct),
-      value:pct(row.data.value_pct),
-    }))
+    .map((row)=>{
+      const key=rowSiteKey(row)
+      const previous=previousByKey.get(key)
+      const items=pct(row.data.items_pct)
+      const value=pct(row.data.value_pct)
+      const previousItems=previous?pct(previous.data.items_pct):0
+      const previousValue=previous?pct(previous.data.value_pct):0
+      return {
+        key,
+        name:row.site_name,
+        items,
+        value,
+        itemsVariation:pctVariation(items,previousItems),
+        valueVariation:pctVariation(value,previousValue),
+      }
+    })
 
   const min=.90
   const max=1.02
@@ -207,27 +267,43 @@ function ComparisonBars({rows}:{rows:Row[]}){
         <div className="eri-y-axis">
           <span>102%</span><span>100%</span><span>98%</span><span>96%</span><span>94%</span><span>92%</span><span>90%</span>
         </div>
-        <div className="eri-bars-plot" style={{'--eri-count':Math.max(items.length,1)} as CSSProperties}>
+        <div
+          className={selectedSiteKey?'eri-bars-plot has-selection':'eri-bars-plot'}
+          style={{'--eri-count':Math.max(items.length,1)} as CSSProperties}
+        >
           <div className="eri-target-line" style={{bottom:`${targetPct}%`}}><span>Meta 99.50%</span></div>
-          {items.map((item,index)=>(
-            <div
-              className="eri-bar-group"
-              key={item.name+'-'+index}
-              data-tooltip={`${item.name} · IL ${fmtPct(item.items)} · $ ${fmtPct(item.value)} · Meta 99.50%`}
-            >
-              <div className="eri-bars-pair">
-                <div className="eri-bar-col">
-                  <span className="eri-bar-top navy">{fmtPct(item.items)}</span>
-                  <div className="eri-bar navy" style={{height:`${heightPct(item.items)}%`}}/>
+          {items.map((item,index)=>{
+            const selected=selectedSiteKey===item.key
+            return (
+              <div
+                className={selected?'eri-bar-group selected':'eri-bar-group'}
+                key={item.name+'-'+index}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selected}
+                onClick={()=>onSelectSite(item.key)}
+                onKeyDown={(event)=>{
+                  if(event.key==='Enter'||event.key===' '){
+                    event.preventDefault()
+                    onSelectSite(item.key)
+                  }
+                }}
+                data-tooltip={`${item.name} · IL ${fmtPct(item.items)} (Δ ${fmtVariation(item.itemsVariation)}) · $ ${fmtPct(item.value)} (Δ ${fmtVariation(item.valueVariation)}) · Meta 99.50% · ${selected?'Clic para quitar filtro':'Clic para filtrar sede'}`}
+              >
+                <div className="eri-bars-pair">
+                  <div className="eri-bar-col">
+                    <span className="eri-bar-top navy">{fmtPct(item.items)}</span>
+                    <div className="eri-bar navy" style={{height:`${heightPct(item.items)}%`}}/>
+                  </div>
+                  <div className="eri-bar-col">
+                    <span className="eri-bar-top green">{fmtPct(item.value)}</span>
+                    <div className="eri-bar green" style={{height:`${heightPct(item.value)}%`}}/>
+                  </div>
                 </div>
-                <div className="eri-bar-col">
-                  <span className="eri-bar-top green">{fmtPct(item.value)}</span>
-                  <div className="eri-bar green" style={{height:`${heightPct(item.value)}%`}}/>
-                </div>
+                <span className="eri-site-label" title={item.name}>{item.name}</span>
               </div>
-              <span className="eri-site-label" title={item.name}>{item.name}</span>
-            </div>
-          ))}
+            )
+          })}
           {!items.length&&<div className="eri-empty-bars">Sin registros para el período seleccionado.</div>}
         </div>
       </div>
@@ -240,18 +316,32 @@ export function ERIDashboard({
   historical,
   year,
   month,
-  contextLabel,
   centerGroup,
   onYearChange,
   onMonthChange,
   onCenterGroupChange,
 }:Props){
-  const current=rows.filter((row)=>!noPresented(row))
-  const noPresentation=rows.filter(noPresented)
+  const [selectedSiteKey,setSelectedSiteKey]=useState<string|null>(null)
+
+  useEffect(()=>{
+    if(selectedSiteKey&&!rows.some((row)=>rowSiteKey(row)===selectedSiteKey)){
+      setSelectedSiteKey(null)
+    }
+  },[selectedSiteKey,rows,year,month,centerGroup])
+
+  const dashboardRows=selectedSiteKey
+    ? rows.filter((row)=>rowSiteKey(row)===selectedSiteKey)
+    : rows
+  const dashboardHistorical=selectedSiteKey
+    ? historical.filter((row)=>rowSiteKey(row)===selectedSiteKey)
+    : historical
+
+  const current=dashboardRows.filter((row)=>!noPresented(row))
+  const noPresentation=dashboardRows.filter(noPresented)
   const avgItems=avg(current.map((row)=>pct(row.data.items_pct)))
   const avgValue=avg(current.map((row)=>pct(row.data.value_pct)))
   const previousDate=new Date(year,month-2,1)
-  const previousRows=historical.filter((row)=>
+  const previousRows=dashboardHistorical.filter((row)=>
     row.year===previousDate.getFullYear()&&
     row.month===previousDate.getMonth()+1&&
     !noPresented(row)
@@ -261,7 +351,7 @@ export function ERIDashboard({
   const itemsVariation=previousItems?avgItems/previousItems-1:(avgItems?1:0)
   const valueVariation=previousValue?avgValue/previousValue-1:(avgValue?1:0)
 
-  const below=rows
+  const below=dashboardRows
     .filter((row)=>!noPresented(row))
     .filter((row)=>{
       const storedAverage=pct(row.data.average_pct)
@@ -332,10 +422,6 @@ export function ERIDashboard({
           </div>
         </section>
 
-        <div className="eri-filter-context">
-          <b>{MONTHS[month-1]} {year}</b>
-          <span>{contextLabel}</span>
-        </div>
       </aside>
 
       <div className="eri-top-grid">
@@ -361,10 +447,17 @@ export function ERIDashboard({
           </div>
         </article>
 
-        <TrendPanel historical={historical} year={year} month={month}/>
+        <TrendPanel historical={dashboardHistorical} year={year} month={month}/>
       </div>
 
-      <ComparisonBars rows={rows}/>
+      <ComparisonBars
+        rows={rows}
+        historical={historical}
+        year={year}
+        month={month}
+        selectedSiteKey={selectedSiteKey}
+        onSelectSite={(key)=>setSelectedSiteKey((currentKey)=>currentKey===key?null:key)}
+      />
     </section>
   )
 }
