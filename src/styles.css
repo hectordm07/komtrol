@@ -25516,3 +25516,102 @@ html[data-screen-density="compact"] .io-dashboard-v3 .io-bar-item {
     padding-bottom: 0 !important;
   }
 }
+
+
+/* =========================================================
+   LOGIN MICROSOFT / OUTLOOK · CORPORATE SSO
+   ========================================================= */
+.microsoft-login-button {
+  width: 100%;
+  min-height: 54px;
+  margin: 0;
+  padding: 0 16px;
+  border: 1px solid #d4d9e8;
+  border-radius: 14px;
+  background: #fff;
+  color: #26345f;
+  box-shadow: 0 5px 16px rgba(37, 51, 105, .06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .12s ease, background .15s ease;
+}
+
+.microsoft-login-button:hover:not(:disabled) {
+  border-color: #aeb8d5;
+  background: #fbfcff;
+  box-shadow: 0 8px 20px rgba(37, 51, 105, .09);
+  transform: translateY(-1px);
+}
+
+.microsoft-login-button:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+
+.microsoft-mark {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 2px;
+}
+
+.microsoft-mark i {
+  display: block;
+  border-radius: 1px;
+}
+
+.microsoft-mark i:nth-child(1) { background: #f25022; }
+.microsoft-mark i:nth-child(2) { background: #7fba00; }
+.microsoft-mark i:nth-child(3) { background: #00a4ef; }
+.microsoft-mark i:nth-child(4) { background: #ffb900; }
+
+.login-divider {
+  position: relative;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b94ae;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .015em;
+  text-align: center;
+}
+
+.login-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: #e8ebf4;
+}
+
+.login-divider span {
+  position: relative;
+  z-index: 1;
+  padding: 0 10px;
+  background: rgba(255,255,255,.98);
+}
+
+@media (max-width: 760px) {
+  .microsoft-login-button {
+    min-height: 52px;
+    border-radius: 13px;
+    font-size: 12px;
+  }
+
+  .login-divider {
+    font-size: 8.5px;
+  }
+}

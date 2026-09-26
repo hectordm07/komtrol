@@ -232,6 +232,7 @@ function Login() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [firstAccess, setFirstAccess] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [microsoftLoading, setMicrosoftLoading] = useState(false)
   const [message, setMessage] = useState('')
 
   function switchMode(next: boolean) {
@@ -268,11 +269,24 @@ function Login() {
 
     setLoading(true)
 
-    const email = isDni
-      ? loginEmail(value)
-      : isEmail
-        ? value
-        : `${value}@kmmp.com.pe`
+    let email = value
+    if (!isEmail) {
+      const resolved = await supabase.functions.invoke('resolve-login-identifier', {
+        body: { identifier: value },
+      })
+
+      const resolvedEmail = String(resolved.data?.email ?? '').trim().toLowerCase()
+      if (resolved.error || !resolvedEmail) {
+        setLoading(false)
+        setMessage(
+          isDni
+            ? 'DNI o PIN incorrecto. Verifica los datos e intenta nuevamente.'
+            : 'Usuario o contraseña incorrectos. Verifica los datos e intenta nuevamente.'
+        )
+        return
+      }
+      email = resolvedEmail
+    }
 
     let { error } = await supabase.auth.signInWithPassword({
       email,
@@ -305,6 +319,32 @@ function Login() {
       } else {
         setMessage(`No se pudo validar el acceso: ${error.message}`)
       }
+    }
+  }
+
+  async function signInWithMicrosoft() {
+    setMessage('')
+    setMicrosoftLoading(true)
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'azure',
+      options: {
+        scopes: 'openid profile email',
+        redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account',
+        },
+      },
+    })
+
+    if (error) {
+      setMicrosoftLoading(false)
+      const text = error.message?.toLowerCase() ?? ''
+      setMessage(
+        text.includes('provider') || text.includes('azure')
+          ? 'El acceso con Microsoft está preparado en KOMTROL, pero falta habilitar el proveedor Microsoft Entra en Supabase.'
+          : `No se pudo iniciar el acceso con Microsoft: ${error.message}`
+      )
     }
   }
 
@@ -431,19 +471,19 @@ function Login() {
             <p>
               {firstAccess
                 ? 'Ingresa tu DNI y crea una clave de 6 a 8 dígitos para activar tu acceso.'
-                : 'Control operativo, trazabilidad y resultados en un solo lugar.'}
+                : 'Ingresa con tu usuario KOMTROL o continúa de forma segura con tu cuenta corporativa de Microsoft.'}
             </p>
           </div>
 
           <div className="login-form-fields">
             <label>
-              {firstAccess ? 'DNI' : 'DNI, usuario o correo'}
+              {firstAccess ? 'DNI' : 'Usuario, DNI o correo'}
               <input
                 type="text"
                 inputMode={firstAccess ? 'numeric' : undefined}
                 autoComplete="username"
                 maxLength={firstAccess ? 8 : undefined}
-                placeholder={firstAccess ? 'Ej.: 12345678' : 'Ej.: 12345678 o usuario.corporativo'}
+                placeholder={firstAccess ? 'Ej.: 12345678' : 'Ej.: hector.delgado o correo@kmmp.com.pe'}
                 value={identifier}
                 onChange={(e) => setIdentifier(firstAccess ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value)}
               />
@@ -481,7 +521,24 @@ function Login() {
           {message && <div className="form-alert login-form-alert">{message}</div>}
 
           <div className="login-actions">
-            <button className="primary-button full login-primary-button" disabled={loading}>
+            {!firstAccess && (
+              <>
+                <button
+                  type="button"
+                  className="microsoft-login-button"
+                  disabled={loading || microsoftLoading}
+                  onClick={() => void signInWithMicrosoft()}
+                >
+                  <span className="microsoft-mark" aria-hidden="true">
+                    <i /><i /><i /><i />
+                  </span>
+                  <span>{microsoftLoading ? 'Abriendo Microsoft…' : 'Continuar con Microsoft'}</span>
+                </button>
+                <div className="login-divider"><span>o ingresa con tu usuario KOMTROL</span></div>
+              </>
+            )}
+
+            <button className="primary-button full login-primary-button" disabled={loading || microsoftLoading}>
               {loading ? <RefreshCw className="spin" size={18} /> : <ShieldCheck size={18} />}
               {loading
                 ? (firstAccess ? 'Creando clave…' : 'Validando…')
@@ -491,7 +548,7 @@ function Login() {
             <button
               type="button"
               className="secondary-button full login-secondary-button"
-              disabled={loading}
+              disabled={loading || microsoftLoading}
               onClick={() => switchMode(!firstAccess)}
             >
               {firstAccess ? 'Volver a ingresar' : 'Primera vez: crear mi clave'}
