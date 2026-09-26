@@ -13084,3 +13084,91 @@
     opacity:.52 !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 01 · MINI KPI PERSONAS DECIMAL + LEGIBILIDAD V37
+   Promedio personal usa 1 decimal y las tarjetas pequeñas
+   aprovechan mejor el ancho sin cortar PROMEDIO HORAS/PERSONAL.
+   ========================================================= */
+@media (min-width:821px){
+  .io-dashboard-v3 .io-mini-card{
+    grid-template-columns:minmax(0,1fr) auto !important;
+    column-gap:6px !important;
+    padding-left:9px !important;
+    padding-right:9px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-main{
+    grid-template-columns:38px minmax(0,1fr) !important;
+    gap:7px !important;
+    min-width:0 !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy{
+    min-width:0 !important;
+    display:grid !important;
+    align-content:center !important;
+    gap:2px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy > span{
+    display:block !important;
+    width:100% !important;
+    min-width:0 !important;
+    font-size:8.6px !important;
+    line-height:1.08 !important;
+    font-weight:900 !important;
+    letter-spacing:.01em !important;
+    white-space:normal !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy strong{
+    font-size:30px !important;
+    line-height:.92 !important;
+    white-space:nowrap !important;
+  }
+
+  .io-dashboard-v3 .io-mini-change{
+    min-width:62px !important;
+    justify-content:flex-end !important;
+  }
+
+  .io-dashboard-v3 .io-mini-card .io-change-pill{
+    min-width:58px !important;
+    min-height:27px !important;
+    padding:0 7px !important;
+    justify-content:center !important;
+  }
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  .io-dashboard-v3 .io-mini-card{
+    padding:6px 8px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-main{
+    grid-template-columns:34px minmax(0,1fr) !important;
+    gap:6px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy > span{
+    font-size:8.2px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-copy strong{
+    font-size:28px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-change{
+    min-width:57px !important;
+  }
+
+  .io-dashboard-v3 .io-mini-card .io-change-pill{
+    min-width:54px !important;
+    padding:0 6px !important;
+    font-size:8px !important;
+  }
+}

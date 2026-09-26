@@ -283,14 +283,17 @@ function MiniKpi({
   value,
   icon,
   change,
-}:{title:string;value:number;icon:ReactNode;change:number}){
+  decimals=0,
+}:{title:string;value:number;icon:ReactNode;change:number;decimals?:number}){
   return (
     <article className="io-mini-card">
       <div className="io-mini-main">
         <div className="io-mini-icon">{icon}</div>
         <div className="io-mini-copy">
           <span>{title}</span>
-          <strong>{fmtInt(value)}</strong>
+          <strong>{decimals>0
+            ? value.toLocaleString('es-PE',{minimumFractionDigits:decimals,maximumFractionDigits:decimals})
+            : fmtInt(value)}</strong>
         </div>
       </div>
       <div className="io-mini-change"><ChangePill value={change}/><span>vs. mes anterior</span></div>
@@ -540,7 +543,7 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
       <div className="io-dashboard-top">
         <div className="io-mini-stack">
           <MiniKpi title="Promedio horas" value={avgHours} icon={<Clock3 size={18}/>} change={hoursChange}/>
-          <MiniKpi title="Promedio personal" value={avgPeople} icon={<Users size={18}/>} change={peopleChange}/>
+          <MiniKpi title="Promedio personal" value={avgPeople} icon={<Users size={18}/>} change={peopleChange} decimals={1}/>
         </div>
 
         <TrendCard
