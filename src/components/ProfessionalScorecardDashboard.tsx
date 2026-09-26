@@ -1739,18 +1739,7 @@ function UnifiedProfessionalDashboard({
     const skus=(set:Row[])=>sum(set,'skus')
     const units=(set:Row[])=>sum(set,'units')
     metrics=[
-      unifiedMetric('TOTAL 
-  if(props.reportCode==='sobrantes-faltantes') return <SobrantesFaltantesDashboard {...props}/>
-  if(props.reportCode==='diferencias-inventario') return <InventoryDifferencesDashboard {...props}/>
-  if(props.reportCode==='danados-scorecard') return <DifferenceLike {...props}/>
-  if(props.reportCode==='dashboard-transitos') return <TransitDashboard {...props}/>
-  if(props.reportCode==='activos-inactivos') return <AssetsDashboard {...props}/>
-  if(props.reportCode==='uca') return <UcaDashboard {...props}/>
-  if(props.reportCode==='ahorros') return <SavingsDashboard {...props}/>
-  if(props.reportCode==='perfect-ship-outbound'||props.reportCode==='perfect-ship-inbound') return <PerfectShipDashboard {...props}/>
-  return <SafeDashboard {...props}/>
-}
-,usd(current),usd(prev),six.length?usd(six):null,periodSets.map(usd),labels,compactMoney,'red',true,<Database size={24}/>),
+      unifiedMetric('TOTAL $',usd(current),usd(prev),six.length?usd(six):null,periodSets.map(usd),labels,compactMoney,'red',true,<Database size={24}/>),
       unifiedMetric('TOTAL SKU',skus(current),skus(prev),six.length?skus(six):null,periodSets.map(skus),labels,numberText,'navy',true,<FileText size={24}/>),
       unifiedMetric('TOTAL UNIDADES',units(current),units(prev),six.length?units(six):null,periodSets.map(units),labels,numberText,'navy',true,<Database size={24}/>),
     ]
