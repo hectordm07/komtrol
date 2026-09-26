@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -278,9 +278,16 @@ export function ERIDashboard({
     {label:'SUCURSAL',value:'GRUPO:SUCURSAL'},
     {label:'TIENDA',value:'GRUPO:TIENDA'},
   ]
-  const availableYears=Array.from(new Set([...historical.map((row)=>row.year),year])).sort((a,b)=>b-a)
-  const monthsWithData=new Set(historical.filter((row)=>row.year===year).map((row)=>row.month))
-  const displayedMonths=Array.from({length:12},(_,index)=>index+1)
+  const availableYears=Array.from(new Set(historical.map((row)=>row.year))).sort((a,b)=>b-a)
+  const availableMonths=Array.from(new Set(
+    historical.filter((row)=>row.year===year).map((row)=>row.month)
+  )).sort((a,b)=>a-b)
+  const displayedMonths=availableMonths.length?availableMonths:[month]
+  useEffect(()=>{
+    if(availableMonths.length && !availableMonths.includes(month)){
+      onMonthChange(availableMonths[availableMonths.length-1])
+    }
+  },[availableMonths.join(','),month,onMonthChange])
 
   return (
     <section className="eri-dashboard eri-dashboard-reference">
@@ -318,9 +325,8 @@ export function ERIDashboard({
               <button
                 key={monthNumber}
                 type="button"
-                className={month===monthNumber?'active':monthsWithData.has(monthNumber)?'has-data':'empty-period'}
+                className={month===monthNumber?'active':''}
                 onClick={()=>onMonthChange(monthNumber)}
-                title={monthsWithData.has(monthNumber)?'Mes con información':'Mes disponible para nuevo registro'}
               >{MONTHS[monthNumber-1]}</button>
             ))}
           </div>

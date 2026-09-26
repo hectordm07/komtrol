@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 
 type RowLike={year:number;month:number}
 
@@ -21,11 +21,15 @@ const GROUPS=[
 ]
 
 export function ScorecardClickFilters({rows,year,month,group,onYearChange,onMonthChange,onGroupChange}:Props){
-  const years=useMemo(()=>Array.from(new Set([...rows.map((row)=>row.year),year])).sort((a,b)=>b-a),[rows,year])
-  const monthsWithData=useMemo(()=>new Set(
+  const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
+  const availableMonths=useMemo(()=>Array.from(new Set(
     rows.filter((row)=>row.year===year).map((row)=>row.month)
-  ),[rows,year])
-  const monthNumbers=useMemo(()=>Array.from({length:12},(_,index)=>index+1),[])
+  )).sort((a,b)=>a-b),[rows,year])
+  useEffect(()=>{
+    if(availableMonths.length && !availableMonths.includes(month)){
+      onMonthChange(availableMonths[availableMonths.length-1])
+    }
+  },[availableMonths.join(','),month,onMonthChange])
   return <aside className="scorecard-click-filters" aria-label="Filtros rápidos del reporte">
     <section>
       <b>AÑO</b>
@@ -42,12 +46,11 @@ export function ScorecardClickFilters({rows,year,month,group,onYearChange,onMont
     <section>
       <b>MES</b>
       <div className="scorecard-click-months">
-        {monthNumbers.map((monthNumber)=><button
+        {availableMonths.map((monthNumber)=><button
           key={monthNumber}
           type="button"
-          className={month===monthNumber?'active':monthsWithData.has(monthNumber)?'has-data':'empty-period'}
+          className={month===monthNumber?'active':''}
           onClick={()=>onMonthChange(monthNumber)}
-          title={monthsWithData.has(monthNumber)?'Mes con información':'Mes disponible para nuevo registro'}
         >{MONTHS[monthNumber-1]}</button>)}
       </div>
     </section>

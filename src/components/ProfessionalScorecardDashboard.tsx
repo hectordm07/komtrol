@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { AlertTriangle, BarChart3, CheckCircle2, Database, FileText, TrendingDown, TrendingUp } from 'lucide-react'
 
 export type ProfessionalScorecardCode =
@@ -171,11 +171,15 @@ function Filters({
   segment:string;setSegment:(v:string)=>void
   extraTitle?:string;extraOptions?:string[];extra?:string;setExtra?:(v:string)=>void
 }){
-  const years=useMemo(()=>Array.from(new Set([...rows.map((row)=>row.year),year])).sort((a,b)=>b-a),[rows,year])
-  const monthsWithData=useMemo(()=>new Set(
+  const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
+  const availableMonths=useMemo(()=>Array.from(new Set(
     rows.filter((row)=>row.year===year).map((row)=>row.month)
-  ),[rows,year])
-  const availableMonths=useMemo(()=>Array.from({length:12},(_,index)=>index+1),[])
+  )).sort((a,b)=>a-b),[rows,year])
+  useEffect(()=>{
+    if(availableMonths.length && !availableMonths.includes(month)){
+      onMonthChange(availableMonths[availableMonths.length-1])
+    }
+  },[availableMonths.join(','),month,onMonthChange])
   const segments=useMemo(()=>{
     const labels=Array.from(new Set(rows.map((row)=>groupLabel(row.site_group||''))).values()).filter(Boolean)
     const preferred=['PROYECTO','SUCURSAL','TIENDA','CONSIGNACIONES','CONEXOS','DISTRIBUCIÓN']
@@ -221,9 +225,8 @@ function Filters({
       <div className="psc-month-grid">
         {availableMonths.map((monthNumber)=><button
           key={monthNumber}
-          className={month===monthNumber?'active':monthsWithData.has(monthNumber)?'has-data':'empty-period'}
+          className={month===monthNumber?'active':''}
           onClick={()=>onMonthChange(monthNumber)}
-          title={monthsWithData.has(monthNumber)?'Mes con información':'Mes disponible para nuevo registro'}
         >{MONTHS[monthNumber-1]}</button>)}
       </div>
     </section>
@@ -505,11 +508,16 @@ function Report3Filters({
   topVariation?:number|null
   topHistory?:number[]
 }){
-  const years=useMemo(()=>Array.from(new Set([...rows.map((row)=>row.year),year])).sort((a,b)=>b-a),[rows,year])
-  const monthsWithData=useMemo(()=>new Set(
+  const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
+  const months=useMemo(()=>Array.from(new Set(
     rows.filter((row)=>row.year===year).map((row)=>row.month)
-  ),[rows,year])
-  const months=useMemo(()=>Array.from({length:12},(_,index)=>index+1),[])
+  )).sort((a,b)=>a-b),[rows,year])
+
+  useEffect(()=>{
+    if(months.length&&!months.includes(month)){
+      onMonthChange(months[months.length-1])
+    }
+  },[months.join(','),month,onMonthChange])
 
   const centers=['TODOS','PROYECTO','SUCURSAL','TIENDA']
   const statuses=['TODOS','FALTANTE','SOBRANTE']
@@ -557,9 +565,8 @@ function Report3Filters({
         {months.map((item)=><button
           type="button"
           key={item}
-          className={month===item?'active':monthsWithData.has(item)?'has-data':'empty-period'}
+          className={month===item?'active':''}
           onClick={()=>onMonthChange(item)}
-          title={monthsWithData.has(item)?'Mes con información':'Mes disponible para nuevo registro'}
         >{MONTHS[item-1]}</button>)}
       </div>
     </section>

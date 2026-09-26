@@ -12678,3 +12678,38 @@
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   REPORT 01 · LEFT RAIL SAME WIDTH · V29
+   Año / Centro / Mes terminan exactamente en el mismo eje
+   derecho que la tarjeta Productividad IL.
+   ========================================================= */
+@media (min-width:821px){
+  .scorecard-monitor-fit .io-sidebar-stack{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+  }
+
+  .scorecard-monitor-fit .io-sidebar-stack > .scorecard-click-filters{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+    box-sizing:border-box !important;
+  }
+
+  .scorecard-monitor-fit .io-sidebar-stack > .scorecard-click-filters > section{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+    box-sizing:border-box !important;
+  }
+
+  .scorecard-monitor-fit .io-sidebar-stack > .io-sidebar-productivity{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:none !important;
+    box-sizing:border-box !important;
+  }
+}
