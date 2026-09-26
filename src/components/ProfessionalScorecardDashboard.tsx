@@ -686,7 +686,7 @@ function Report3Trend({
 }
 
 function Report3Kpi({
-  title,value,icon,variation,sixMonthVariation,history,labels,tone,formatter,showVariations=true
+  title,value,icon,variation,sixMonthVariation,history,labels,tone,formatter,showVariations=true,inverseVariation=false
 }:{
   title:string
   value:string
@@ -698,9 +698,15 @@ function Report3Kpi({
   tone:'red'|'green'|'navy'
   formatter:(value:number)=>string
   showVariations?:boolean
+  inverseVariation?:boolean
 }){
-  const monthTone=variation>0?'up':variation<0?'down':'neutral'
-  const sixTone=sixMonthVariation===null||sixMonthVariation===0?'neutral':sixMonthVariation>0?'up':'down'
+  const semanticTone=(value:number|null)=>{
+    if(value===null||value===0) return 'neutral'
+    const good=inverseVariation?value<0:value>0
+    return good?'up':'down'
+  }
+  const monthTone=semanticTone(variation)
+  const sixTone=semanticTone(sixMonthVariation)
 
   return <article className={"sf3-kpi sf3-kpi-modern "+tone}>
     <div className="sf3-kpi-summary">
@@ -849,16 +855,20 @@ function SobrantesFaltantesDashboard({
   const siteKeys=Array.from(new Set(currentBase.map(report3SiteKey)))
   const bySite=siteKeys.map((key)=>{
     const set=currentBase.filter((row)=>report3SiteKey(row)===key)
+    const sourceOrder=Math.min(...set.map((row)=>row.source_row??Number.MAX_SAFE_INTEGER))
     return {
       key,
       name:set[0]?.site_name||key,
       value:sum(set,'usd'),
       skus:sum(set,'skus'),
       units:sum(set,'units'),
+      sourceOrder,
     }
-  }).filter((item)=>item.value>0).sort((a,b)=>b.value-a.value)
+  })
+    .filter((item)=>item.value>0)
+    .sort((a,b)=>a.sourceOrder-b.sourceOrder||a.name.localeCompare(b.name,'es'))
 
-  const top=bySite[0]
+  const top=[...bySite].sort((a,b)=>b.value-a.value)[0]
 
   const previousBySite=Array.from(new Set(prevBase.map(report3SiteKey))).map((key)=>{
     const set=prevBase.filter((row)=>report3SiteKey(row)===key)
@@ -1467,7 +1477,267 @@ function AssetsDashboard(props:Props){
   </section>
 }
 
-export function ProfessionalScorecardDashboard(props:Props){
+
+type UnifiedSiteRow={
+  key:string
+  name:string
+  value:number
+  sourceOrder:number
+  secondary?:string
+}
+
+type UnifiedMetric={
+  title:string
+  value:string
+  numeric:number
+  previous:number
+  sixBack:number|null
+  history:number[]
+  labels:string[]
+  tone:'red'|'green'|'navy'
+  formatter:(value:number)=>string
+  inverse?:boolean
+  icon?:ReactNode
+}
+
+function periodRowsForUnified(
+  rows:Row[],
+  targetYear:number,
+  targetMonth:number,
+  segment:string,
+  extra:string,
+  selectedSiteKey:string|null
+){
+  const base=rows.filter((row)=>
+    row.year===targetYear&&
+    row.month===targetMonth&&
+    matchesSegment(row,segment)&&
+    matchesExtra(row,extra)
+  )
+  return selectedSiteKey?base.filter((row)=>report3SiteKey(row)===selectedSiteKey):base
+}
+
+function sourceOrderedSites(
+  rows:Row[],
+  valueFor:(set:Row[])=>number,
+  secondaryFor?:(set:Row[])=>string
+){
+  const keys=Array.from(new Set(rows.map(report3SiteKey)))
+  return keys.map((key)=>{
+    const set=rows.filter((row)=>report3SiteKey(row)===key)
+    return {
+      key,
+      name:set[0]?.site_name||key,
+      value:valueFor(set),
+      sourceOrder:Math.min(...set.map((row)=>row.source_row??Number.MAX_SAFE_INTEGER)),
+      secondary:secondaryFor?secondaryFor(set):undefined,
+    } as UnifiedSiteRow
+  })
+    .filter((item)=>Number.isFinite(item.value)&&item.value!==0)
+    .sort((a,b)=>a.sourceOrder-b.sourceOrder||a.name.localeCompare(b.name,'es'))
+}
+
+function unifiedMetric(
+  title:string,
+  numeric:number,
+  previous:number,
+  sixBack:number|null,
+  history:number[],
+  labels:string[],
+  formatter:(value:number)=>string,
+  tone:'red'|'green'|'navy',
+  inverse=false,
+  icon?:ReactNode
+):UnifiedMetric{
+  return {title,value:formatter(numeric),numeric,previous,sixBack,history,labels,formatter,tone,inverse,icon}
+}
+
+function UnifiedHighlight({
+  title,name,value,secondary,variation,history,tone,formatter
+}:{
+  title:string
+  name?:string
+  value:number
+  secondary?:string
+  variation:number|null
+  history:number[]
+  tone:'red'|'green'|'navy'
+  formatter:(value:number)=>string
+}){
+  const semantic=variation===null||variation===0?'neutral':variation>0?'up':'down'
+  return <article className={'sf3-highlight kom-unified-card '+tone}>
+    <div className="sf3-highlight-title">{title}</div>
+    <div className="sf3-highlight-body">
+      <b>{name||'Sin datos'}</b>
+      <strong>{formatter(value)}</strong>
+      <div className="sf3-highlight-meta">
+        <small>{secondary||'Información del período seleccionado'}</small>
+        <em>Resumen</em>
+      </div>
+      <div className={'sf3-highlight-variation '+semantic}>
+        <span className="sf3-highlight-variation-icon">
+          {variation===null||variation===0
+            ? <span className="sf3-neutral-mark">—</span>
+            : variation>0?<TrendingUp size={17}/>:<TrendingDown size={17}/>}
+        </span>
+        <div>
+          <b>{variation===null?'—':(variation>0?'+':'')+(variation*100).toFixed(1)+'%'}</b>
+          <small>Variación mensual</small>
+        </div>
+      </div>
+      <div className="sf3-highlight-spark" aria-hidden="true">
+        <Sparkline points={history.length?history:[0,0,0,0,0,0]} tone={tone}/>
+      </div>
+    </div>
+  </article>
+}
+
+function UnifiedScorecardFilters({
+  rows,year,month,onYearChange,onMonthChange,segment,setSegment,status,statusOptions,setStatus,highlight
+}:{
+  rows:Row[]
+  year:number
+  month:number
+  onYearChange:(year:number)=>void
+  onMonthChange:(month:number)=>void
+  segment:string
+  setSegment:(segment:string)=>void
+  status:string
+  statusOptions:string[]
+  setStatus:(status:string)=>void
+  highlight:ReactNode
+}){
+  const years=useMemo(()=>Array.from(new Set(rows.map((row)=>row.year))).sort((a,b)=>b-a),[rows])
+  const months=useMemo(()=>Array.from(new Set(rows.filter((row)=>row.year===year).map((row)=>row.month))).sort((a,b)=>a-b),[rows,year])
+  useEffect(()=>{
+    if(months.length&&!months.includes(month)) onMonthChange(months[months.length-1])
+  },[months.join(','),month,onMonthChange])
+  const centers=['TODOS','PROYECTO','SUCURSAL','TIENDA']
+  const statuses=['TODOS',...statusOptions.filter((item)=>norm(item)!=='TODOS')]
+
+  return <aside className="sf3-left unified-scorecard-left">
+    <section className="sf3-filter-card">
+      <b>AÑO</b>
+      <div className="sf3-grid sf3-years">
+        {years.map((item)=><button type="button" key={item} className={year===item?'active':''} onClick={()=>onYearChange(item)}>{item}</button>)}
+      </div>
+    </section>
+    <section className="sf3-filter-card">
+      <b>CENTRO</b>
+      <div className="sf3-grid sf3-centers">
+        {centers.map((item)=><button type="button" key={item} className={segment===item?'active':''} onClick={()=>setSegment(item)}>{item}</button>)}
+      </div>
+    </section>
+    <section className="sf3-filter-card">
+      <b>STATUS</b>
+      <div className="sf3-grid sf3-status">
+        {statuses.map((item)=><button type="button" key={item} className={norm(status)===norm(item)?'active':''} onClick={()=>setStatus(item)}>{item}</button>)}
+      </div>
+    </section>
+    <section className="sf3-filter-card">
+      <b>MES</b>
+      <div className="sf3-grid sf3-months">
+        {months.map((item)=><button type="button" key={item} className={month===item?'active':''} onClick={()=>onMonthChange(item)}>{MONTHS[item-1]}</button>)}
+      </div>
+    </section>
+    {highlight}
+  </aside>
+}
+
+function UnifiedEvolution({
+  title,rows,tone,formatter,selectedSiteKey,onSelectSite
+}:{
+  title:string
+  rows:UnifiedSiteRow[]
+  tone:'red'|'green'|'navy'
+  formatter:(value:number)=>string
+  selectedSiteKey:string|null
+  onSelectSite:(key:string)=>void
+}){
+  const visible=rows.slice(0,24)
+  const max=Math.max(...visible.map((row)=>Math.abs(row.value)),1)
+  return <article className={'sf3-evolution sf3-evolution-clean unified-evolution '+tone}>
+    <div className="sf3-evolution-head">
+      <span>{title}</span>
+      {selectedSiteKey&&<small>Selección activa · clic nuevamente para volver al total</small>}
+    </div>
+    <div className="sf3-evolution-body">
+      <div className={selectedSiteKey?'sf3-bars has-selection':'sf3-bars'} style={{'--sf3-count':Math.max(visible.length,1)} as CSSProperties}>
+        {visible.map((row)=>{
+          const selected=selectedSiteKey===row.key
+          return <div
+            className={selected?'sf3-bar-item selected':'sf3-bar-item'}
+            key={row.key}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            data-tooltip={row.name+' · '+formatter(row.value)+(row.secondary?' · '+row.secondary:'')+' · '+(selected?'Clic para quitar filtro':'Clic para filtrar esta sede')}
+            onClick={()=>onSelectSite(row.key)}
+            onKeyDown={(event)=>{
+              if(event.key==='Enter'||event.key===' '){
+                event.preventDefault()
+                onSelectSite(row.key)
+              }
+            }}
+          >
+            <span>{formatter(row.value)}</span>
+            <div className="sf3-bar-track"><i style={{height:Math.max(2,Math.abs(row.value)/max*100)+'%'}}/></div>
+            <b title={row.name}>{row.name}</b>
+          </div>
+        })}
+        {!visible.length&&<div className="sf3-empty">Sin datos para el filtro seleccionado.</div>}
+      </div>
+    </div>
+  </article>
+}
+
+function UnifiedProfessionalDashboard({
+  reportCode:code,rows,year,month,onYearChange,onMonthChange
+}:Props){
+  const [segment,setSegment]=useState('TODOS')
+  const [extra,setExtra]=useState('TODOS')
+  const [selectedSiteKey,setSelectedSiteKey]=useState<string|null>(null)
+
+  const statusOptions=useMemo(()=>Array.from(new Set(
+    rows.map((row)=>String(row.row_status||row.detail||'').trim()).filter(Boolean)
+  )).sort((a,b)=>a.localeCompare(b,'es')),[rows])
+
+  useEffect(()=>{
+    if(extra!=='TODOS'&&!statusOptions.some((item)=>norm(item)===norm(extra))) setExtra('TODOS')
+  },[extra,statusOptions.join('|')])
+
+  const currentBase=periodRowsForUnified(rows,year,month,segment,extra,null)
+  useEffect(()=>{
+    if(selectedSiteKey&&!currentBase.some((row)=>report3SiteKey(row)===selectedSiteKey)) setSelectedSiteKey(null)
+  },[selectedSiteKey,currentBase,year,month,segment,extra])
+
+  const current=selectedSiteKey?currentBase.filter((row)=>report3SiteKey(row)===selectedSiteKey):currentBase
+  const prevDate=new Date(year,month-2,1)
+  const sixDate=new Date(year,month-7,1)
+  const prev=periodRowsForUnified(rows,prevDate.getFullYear(),prevDate.getMonth()+1,segment,extra,selectedSiteKey)
+  const six=periodRowsForUnified(rows,sixDate.getFullYear(),sixDate.getMonth()+1,segment,extra,selectedSiteKey)
+  const periods=lastSixPeriods(year,month)
+  const labels=periods.map((period)=>period.label)
+  const periodSets=periods.map((period)=>periodRowsForUnified(rows,period.year,period.month,segment,extra,selectedSiteKey))
+  const periodBaseSets=periods.map((period)=>periodRowsForUnified(rows,period.year,period.month,segment,extra,null))
+
+  let metrics:UnifiedMetric[]=[]
+  let sites:UnifiedSiteRow[]=[]
+  let evolutionTitle='EVOLUCIÓN'
+  let evolutionTone:'red'|'green'|'navy'='navy'
+  let evolutionFormatter:(value:number)=>string=numberText
+  let highlightTitle='SEDE DESTACADA'
+  let highlight:UnifiedSiteRow|undefined
+  let highlightVariation:number|null=null
+  let highlightHistory:number[]=[]
+  let highlightFormatter:(value:number)=>string=numberText
+
+  if(code==='danados-scorecard'){
+    const usd=(set:Row[])=>sum(set,'usd')
+    const skus=(set:Row[])=>sum(set,'skus')
+    const units=(set:Row[])=>sum(set,'units')
+    metrics=[
+      unifiedMetric('TOTAL 
   if(props.reportCode==='sobrantes-faltantes') return <SobrantesFaltantesDashboard {...props}/>
   if(props.reportCode==='diferencias-inventario') return <InventoryDifferencesDashboard {...props}/>
   if(props.reportCode==='danados-scorecard') return <DifferenceLike {...props}/>
@@ -1477,4 +1747,208 @@ export function ProfessionalScorecardDashboard(props:Props){
   if(props.reportCode==='ahorros') return <SavingsDashboard {...props}/>
   if(props.reportCode==='perfect-ship-outbound'||props.reportCode==='perfect-ship-inbound') return <PerfectShipDashboard {...props}/>
   return <SafeDashboard {...props}/>
+}
+,usd(current),usd(prev),six.length?usd(six):null,periodSets.map(usd),labels,compactMoney,'red',true,<Database size={24}/>),
+      unifiedMetric('TOTAL SKU',skus(current),skus(prev),six.length?skus(six):null,periodSets.map(skus),labels,numberText,'navy',true,<FileText size={24}/>),
+      unifiedMetric('TOTAL UNIDADES',units(current),units(prev),six.length?units(six):null,periodSets.map(units),labels,numberText,'navy',true,<Database size={24}/>),
+    ]
+    sites=sourceOrderedSites(currentBase,usd,(set)=>numberText(skus(set))+' SKU · '+numberText(units(set))+' UND')
+    highlight=[...sites].sort((a,b)=>b.value-a.value)[0]
+    evolutionTitle='EVOLUCIÓN DAÑADOS'
+    evolutionTone='red'
+    evolutionFormatter=compactMoney
+    highlightTitle='PROYECTO CON MAYOR DAÑO'
+    highlightFormatter=compactMoney
+  } else if(code==='dashboard-transitos'){
+    const total=(set:Row[])=>{
+      const stored=sum(set,'total')
+      return stored||sum(set,'days_0_7')+sum(set,'days_7_14')+sum(set,'days_14_30')+sum(set,'days_30_100')
+    }
+    const recent=(set:Row[])=>sum(set,'days_0_7')+sum(set,'days_7_14')
+    const aged=(set:Row[])=>sum(set,'days_14_30')+sum(set,'days_30_100')
+    metrics=[
+      unifiedMetric('TOTAL TRÁNSITO',total(current),total(prev),six.length?total(six):null,periodSets.map(total),labels,compactMoney,'navy',true,<Database size={24}/>),
+      unifiedMetric('TRÁNSITO 0–14 DÍAS',recent(current),recent(prev),six.length?recent(six):null,periodSets.map(recent),labels,compactMoney,'green',true,<FileText size={24}/>),
+      unifiedMetric('TRÁNSITO 15–100 DÍAS',aged(current),aged(prev),six.length?aged(six):null,periodSets.map(aged),labels,compactMoney,'red',true,<AlertTriangle size={24}/>),
+    ]
+    sites=sourceOrderedSites(currentBase,total)
+    highlight=[...sites].sort((a,b)=>b.value-a.value)[0]
+    evolutionTitle='EVOLUCIÓN TRÁNSITOS'
+    evolutionTone='navy'
+    evolutionFormatter=compactMoney
+    highlightTitle='SEDE CON MAYOR TRÁNSITO'
+    highlightFormatter=compactMoney
+  } else if(code==='activos-inactivos'){
+    const active=(set:Row[])=>set.filter((row)=>norm(row.row_status)==='ACTIVO').length
+    const inactive=(set:Row[])=>set.filter((row)=>norm(row.row_status)==='INACTIVO').length
+    const value=(set:Row[])=>sum(set,'value_pen')
+    metrics=[
+      unifiedMetric('CENTROS ACTIVOS',active(current),active(prev),six.length?active(six):null,periodSets.map(active),labels,numberText,'green',false,<CheckCircle2 size={24}/>),
+      unifiedMetric('CENTROS INACTIVOS',inactive(current),inactive(prev),six.length?inactive(six):null,periodSets.map(inactive),labels,numberText,'red',true,<AlertTriangle size={24}/>),
+      unifiedMetric('VALOR S/',value(current),value(prev),six.length?value(six):null,periodSets.map(value),labels,(v)=>'S/ '+v.toLocaleString('es-PE',{maximumFractionDigits:0}),'navy',false,<Database size={24}/>),
+    ]
+    sites=sourceOrderedSites(currentBase,value,(set)=>numberText(sum(set,'units'))+' UND')
+    highlight=[...sites].sort((a,b)=>b.value-a.value)[0]
+    evolutionTitle='VALOR DE CENTROS ACTIVOS / INACTIVOS'
+    evolutionTone='navy'
+    evolutionFormatter=(v)=>'S/ '+v.toLocaleString('es-PE',{maximumFractionDigits:0})
+    highlightTitle='SEDE CON MAYOR VALOR'
+    highlightFormatter=evolutionFormatter
+  } else if(code==='uca'){
+    const empty=(set:Row[])=>sum(set,'empty')
+    const free=(set:Row[])=>{const capacity=sum(set,'total');return capacity?empty(set)/capacity:0}
+    const uca=(set:Row[])=>avg(set,'uca_pct')
+    metrics=[
+      unifiedMetric('UBICACIONES LIBRES',empty(current),empty(prev),six.length?empty(six):null,periodSets.map(empty),labels,numberText,'navy',false,<Database size={24}/>),
+      unifiedMetric('% UBICACIONES LIBRES',free(current),free(prev),six.length?free(six):null,periodSets.map(free),labels,percentText,'green',false,<CheckCircle2 size={24}/>),
+      unifiedMetric('UCA PROMEDIO',uca(current),uca(prev),six.length?uca(six):null,periodSets.map(uca),labels,percentText,'navy',false,<BarChart3 size={24}/>),
+    ]
+    sites=sourceOrderedSites(currentBase,(set)=>avg(set,'uca_pct'))
+    highlight=[...sites].sort((a,b)=>b.value-a.value)[0]
+    evolutionTitle='EVOLUCIÓN UCA'
+    evolutionTone='navy'
+    evolutionFormatter=percentText
+    highlightTitle='SEDE CON MAYOR UCA'
+    highlightFormatter=percentText
+  } else if(code==='ahorros'){
+    const amount=(set:Row[])=>sum(set,'amount')
+    const siteCount=(set:Row[])=>new Set(set.map((row)=>row.site_name)).size
+    const topAmount=(set:Row[])=>{
+      const values=sourceOrderedSites(set,amount).map((item)=>item.value)
+      return Math.max(0,...values)
+    }
+    metrics=[
+      unifiedMetric('TOTAL AHORRO',amount(current),amount(prev),six.length?amount(six):null,periodSets.map(amount),labels,compactMoney,'green',false,<Database size={24}/>),
+      unifiedMetric('SEDES CON AHORRO',siteCount(current),siteCount(prev),six.length?siteCount(six):null,periodSets.map(siteCount),labels,numberText,'navy',false,<FileText size={24}/>),
+      unifiedMetric('MAYOR AHORRO',topAmount(current),topAmount(prev),six.length?topAmount(six):null,periodSets.map(topAmount),labels,compactMoney,'green',false,<TrendingUp size={24}/>),
+    ]
+    sites=sourceOrderedSites(currentBase,amount,(set)=>String(set[0]?.data.saving_detail||''))
+    highlight=[...sites].sort((a,b)=>b.value-a.value)[0]
+    evolutionTitle='EVOLUCIÓN AHORROS'
+    evolutionTone='green'
+    evolutionFormatter=compactMoney
+    highlightTitle='SEDE CON MAYOR AHORRO'
+    highlightFormatter=compactMoney
+  } else if(code==='perfect-ship-outbound'||code==='perfect-ship-inbound'){
+    const compliance=(set:Row[])=>avg(set,'meets')
+    const target=(set:Row[])=>avg(set,'target')||.98
+    const below=(set:Row[])=>set.filter((row)=>pct(row.data.meets)>0&&pct(row.data.meets)<(pct(row.data.target)||.98)).length
+    metrics=[
+      unifiedMetric('PROMEDIO % CUMPLIMIENTO',compliance(current),compliance(prev),six.length?compliance(six):null,periodSets.map(compliance),labels,percentText,'green',false,<CheckCircle2 size={24}/>),
+      unifiedMetric('META',target(current),target(prev),six.length?target(six):null,periodSets.map(target),labels,percentText,'navy',false,<BarChart3 size={24}/>),
+      unifiedMetric('CENTROS BAJO META',below(current),below(prev),six.length?below(six):null,periodSets.map(below),labels,numberText,'red',true,<AlertTriangle size={24}/>),
+    ]
+    sites=sourceOrderedSites(currentBase,compliance)
+    highlight=[...sites].sort((a,b)=>a.value-b.value)[0]
+    evolutionTitle=code==='perfect-ship-inbound'?'PERFECT SHIP IN':'PERFECT SHIP OUT'
+    evolutionTone='green'
+    evolutionFormatter=percentText
+    highlightTitle='SEDE CON MENOR CUMPLIMIENTO'
+    highlightFormatter=percentText
+  } else {
+    const total=(set:Row[])=>set.length
+    const dangerous=(set:Row[])=>set.filter((row)=>norm(row.row_status).includes('PELIGRO')).length
+    const unsafe=(set:Row[])=>set.filter((row)=>norm(row.row_status).includes('INSEG')).length
+    const score=(set:Row[])=>set.reduce((acc,row)=>acc+Math.abs(n(row.data.score)),0)
+    metrics=[
+      unifiedMetric('TOTAL REPORTES',total(current),total(prev),six.length?total(six):null,periodSets.map(total),labels,numberText,'navy',true,<FileText size={24}/>),
+      unifiedMetric('CONDUCCIÓN PELIGROSA',dangerous(current),dangerous(prev),six.length?dangerous(six):null,periodSets.map(dangerous),labels,numberText,'red',true,<AlertTriangle size={24}/>),
+      unifiedMetric('CONDUCCIÓN INSEGURA',unsafe(current),unsafe(prev),six.length?unsafe(six):null,periodSets.map(unsafe),labels,numberText,'red',true,<AlertTriangle size={24}/>),
+    ]
+    sites=sourceOrderedSites(currentBase,score)
+    highlight=[...sites].sort((a,b)=>b.value-a.value)[0]
+    evolutionTitle='EVOLUCIÓN REPORTE DE CONDUCCIÓN SAFE'
+    evolutionTone='navy'
+    evolutionFormatter=(v)=>v.toFixed(2)
+    highlightTitle='SEDE CON MAYOR PUNTAJE REPORTADO'
+    highlightFormatter=evolutionFormatter
+  }
+
+  const prevBase=periodRowsForUnified(rows,prevDate.getFullYear(),prevDate.getMonth()+1,segment,extra,null)
+  const previousSites=sourceOrderedSites(prevBase,(set)=>{
+    if(code==='danados-scorecard') return sum(set,'usd')
+    if(code==='dashboard-transitos'){
+      const stored=sum(set,'total')
+      return stored||sum(set,'days_0_7')+sum(set,'days_7_14')+sum(set,'days_14_30')+sum(set,'days_30_100')
+    }
+    if(code==='activos-inactivos') return sum(set,'value_pen')
+    if(code==='uca') return avg(set,'uca_pct')
+    if(code==='ahorros') return sum(set,'amount')
+    if(code==='perfect-ship-outbound'||code==='perfect-ship-inbound') return avg(set,'meets')
+    return set.reduce((acc,row)=>acc+Math.abs(n(row.data.score)),0)
+  })
+  const previousHighlight=highlight
+    ? previousSites.find((item)=>item.key===highlight?.key)
+    : undefined
+  highlightVariation=highlight&&previousHighlight?changeRate(highlight.value,previousHighlight.value):null
+
+  highlightHistory=periodBaseSets.map((set)=>{
+    if(!highlight) return 0
+    const matching=set.filter((row)=>report3SiteKey(row)===highlight?.key)
+    if(!matching.length) return 0
+    if(code==='danados-scorecard') return sum(matching,'usd')
+    if(code==='dashboard-transitos'){
+      const stored=sum(matching,'total')
+      return stored||sum(matching,'days_0_7')+sum(matching,'days_7_14')+sum(matching,'days_14_30')+sum(matching,'days_30_100')
+    }
+    if(code==='activos-inactivos') return sum(matching,'value_pen')
+    if(code==='uca') return avg(matching,'uca_pct')
+    if(code==='ahorros') return sum(matching,'amount')
+    if(code==='perfect-ship-outbound'||code==='perfect-ship-inbound') return avg(matching,'meets')
+    return matching.reduce((acc,row)=>acc+Math.abs(n(row.data.score)),0)
+  })
+
+  return <section className={'sf3-dashboard unified-scorecard-dashboard report-'+code}>
+    <UnifiedScorecardFilters
+      rows={rows}
+      year={year}
+      month={month}
+      onYearChange={onYearChange}
+      onMonthChange={onMonthChange}
+      segment={segment}
+      setSegment={(value)=>{setSegment(value);setSelectedSiteKey(null)}}
+      status={extra}
+      statusOptions={statusOptions}
+      setStatus={(value)=>{setExtra(value);setSelectedSiteKey(null)}}
+      highlight={<UnifiedHighlight
+        title={highlightTitle}
+        name={highlight?.name}
+        value={highlight?.value||0}
+        secondary={highlight?.secondary}
+        variation={highlightVariation}
+        history={highlightHistory}
+        tone={evolutionTone}
+        formatter={highlightFormatter}
+      />}
+    />
+    <div className="sf3-kpis unified-scorecard-kpis">
+      {metrics.slice(0,3).map((metric)=><Report3Kpi
+        key={metric.title}
+        title={metric.title}
+        value={metric.value}
+        icon={metric.icon||<Database size={24}/>}
+        variation={changeRate(metric.numeric,metric.previous)}
+        sixMonthVariation={metric.sixBack===null?null:changeRate(metric.numeric,metric.sixBack)}
+        history={metric.history}
+        labels={metric.labels}
+        tone={metric.tone}
+        formatter={metric.formatter}
+        inverseVariation={metric.inverse}
+      />)}
+    </div>
+    <UnifiedEvolution
+      title={evolutionTitle}
+      rows={sites}
+      tone={evolutionTone}
+      formatter={evolutionFormatter}
+      selectedSiteKey={selectedSiteKey}
+      onSelectSite={(key)=>setSelectedSiteKey((currentKey)=>currentKey===key?null:key)}
+    />
+  </section>
+}
+
+export function ProfessionalScorecardDashboard(props:Props){
+  if(props.reportCode==='sobrantes-faltantes') return <SobrantesFaltantesDashboard {...props}/>
+  if(props.reportCode==='diferencias-inventario') return <InventoryDifferencesDashboard {...props}/>
+  return <UnifiedProfessionalDashboard {...props}/>
 }
