@@ -390,6 +390,71 @@ function parseReplenishmentLines(text: string): GuideLine[] {
     .slice(0, 999)
 }
 
+function detectBodyCorrelatives(text: string) {
+  const focused = taggedOcrSection(text, '--- CORRELATIVOS CUERPO ---')
+  if (!focused) return [] as number[]
+
+  const values = focused
+    .split(/\n+/)
+    .flatMap((row) => row.match(/\b\d{1,3}\b/g) ?? [])
+    .map(Number)
+    .filter((value) => value >= 1 && value <= 999)
+
+  const unique = [...new Set(values)].sort((a, b) => a - b)
+  if (unique.length < 2) return unique
+
+  let best: number[] = []
+  let current: number[] = []
+
+  for (const value of unique) {
+    if (!current.length || value === current[current.length - 1] + 1) {
+      current.push(value)
+    } else {
+      if (current.length > best.length) best = current
+      current = [value]
+    }
+  }
+  if (current.length > best.length) best = current
+
+  return best.length >= 2 ? best : unique
+}
+
+function alignGuideBodyLines(
+  incoming: GuideLine[],
+  previousHighest: number,
+  ocrText: string,
+) {
+  if (!incoming.length) return incoming
+
+  const ordered = [...incoming].sort((a, b) => a.line_no - b.line_no)
+  const correlatives = detectBodyCorrelatives(ocrText)
+    .filter((value) => value > Math.max(0, previousHighest - 1))
+
+  // Si la franja dedicada recuperó una secuencia válida, esa numeración tiene
+  // prioridad sobre los correlativos inventados por el fallback del parser.
+  if (correlatives.length >= 2 && correlatives.length >= Math.min(ordered.length, 2)) {
+    return ordered.map((line, index) => ({
+      ...line,
+      line_no: correlatives[index] ?? (correlatives[correlatives.length - 1] + (index - correlatives.length + 1)),
+    }))
+  }
+
+  // Cuando el OCR perdió los números del cuerpo, el parser suele devolver
+  // 1..N. En cuerpos 2+ esa secuencia no debe sobrescribir el cuerpo anterior:
+  // continuamos desde la última línea ya consolidada.
+  const overlapping = previousHighest > 0 &&
+    ordered.filter((line) => line.line_no <= previousHighest).length >= Math.ceil(ordered.length / 2)
+
+  if (overlapping) {
+    return ordered.map((line, index) => ({
+      ...line,
+      line_no: previousHighest + index + 1,
+    }))
+  }
+
+  return ordered
+}
+
 function mergeGuideBodyLines(current: GuideLine[], incoming: GuideLine[]) {
   const byLine = new Map<number, GuideLine>()
 
@@ -971,8 +1036,15 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
         if (status) setMessage(`Cuerpo ${pageNo} · ${status}`)
       })
 
-      const bodyLines = parseReplenishmentLines(result.text)
-      const bodyLineCount = detectDocumentLineCount(result.text)
+      const previousHighest = Math.max(...lines.map((line) => line.line_no || 0), 0)
+      const parsedBodyLines = parseReplenishmentLines(result.text)
+      const bodyLines = alignGuideBodyLines(parsedBodyLines, previousHighest, result.text)
+      const bodyCorrelatives = detectBodyCorrelatives(result.text)
+      const bodyLineCount = Math.max(
+        detectDocumentLineCount(result.text),
+        ...bodyCorrelatives,
+        0,
+      )
       const highestBodyLine = Math.max(
         bodyLineCount,
         ...bodyLines.map((line) => line.line_no),
@@ -1026,7 +1098,7 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
 
       setMessage(
         bodyLines.length
-          ? `Cuerpo ${pageNo} incorporado: ${bodyLines.length} línea${bodyLines.length === 1 ? '' : 's'} detectada${bodyLines.length === 1 ? '' : 's'}${highestBodyLine ? ` · hasta línea ${highestBodyLine}` : ''}. Puedes capturar el siguiente cuerpo.`
+          ? `Cuerpo ${pageNo} incorporado: ${bodyLines.length} línea${bodyLines.length === 1 ? '' : 's'} detectada${bodyLines.length === 1 ? '' : 's'}${highestBodyLine ? ` · correlativo hasta ${highestBodyLine}` : ''}. Puedes capturar el siguiente cuerpo.`
           : `Cuerpo ${pageNo} leído, pero no se identificaron líneas completas. Revísalo antes de confirmar.`
       )
       return true
@@ -1054,18 +1126,27 @@ export function GuidesModule({ mode, userId, profile, initialSearch, onInitialSe
     const cropW = Math.round(sourceW * 0.92)
     const cropH = Math.round(sourceH * 0.88)
 
+    // No enviar al OCR los 8–12 MP completos del sensor. Para texto de guía,
+    // ~2.2 MP conserva detalle y reduce mucho el tiempo/memoria en Android.
+    const maxLongSide = 2100
+    const captureScale = Math.min(1, maxLongSide / Math.max(cropW, cropH))
+    const outputW = Math.max(1, Math.round(cropW * captureScale))
+    const outputH = Math.max(1, Math.round(cropH * captureScale))
+
     const canvas = document.createElement('canvas')
-    canvas.width = cropW
-    canvas.height = cropH
+    canvas.width = outputW
+    canvas.height = outputH
     const ctx = canvas.getContext('2d')
     if (!ctx) {
       setCameraError('No se pudo preparar la captura.')
       return
     }
 
-    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, outputW, outputH)
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.94)
+      canvas.toBlob(resolve, 'image/jpeg', 0.88)
     )
     canvas.width = 1
     canvas.height = 1

@@ -137,8 +137,8 @@ function regionFor(mode: 'header' | 'detail') {
   // Las fotos de celular suelen incluir mesa/margen. Estas franjas priorizan
   // cabecera y tabla del formato Komatsu sin perder compatibilidad con otros PDFs/fotos.
   return mode === 'header'
-    ? { left: 0.00, top: 0.02, right: 1.00, bottom: 0.50, maxWidth: 2200, minWidth: 1100 }
-    : { left: 0.00, top: 0.20, right: 1.00, bottom: 0.93, maxWidth: 2800, minWidth: 1500 }
+    ? { left: 0.00, top: 0.02, right: 1.00, bottom: 0.50, maxWidth: 1850, minWidth: 1000 }
+    : { left: 0.00, top: 0.20, right: 1.00, bottom: 0.93, maxWidth: 2200, minWidth: 1250 }
 }
 
 function enhanceScannerPixels(data: Uint8ClampedArray, width: number, height: number) {
@@ -300,6 +300,7 @@ async function recognizeCanvas(
   canvas: HTMLCanvasElement,
   psm: '3' | '6' | '7' | '11',
   progress?: OcrProgress,
+  whitelist?: string,
 ) {
   const slot = workerSlots[slotIndex]
   slot.progress = progress ?? null
@@ -308,6 +309,7 @@ async function recognizeCanvas(
     tessedit_pageseg_mode: psm,
     preserve_interword_spaces: '1',
     user_defined_dpi: '300',
+    tessedit_char_whitelist: whitelist ?? '',
   })
 
   const result = await worker.recognize(canvas)
@@ -333,52 +335,88 @@ export async function recognizeGuideBodyImage(
     onProgress?.(3, 'Preparando cuerpo de la guía…')
     const image = await loadImage(file)
 
-    // Los cuerpos 2, 3, etc. normalmente ya no repiten la cabecera.
-    // Se prioriza casi toda la tabla para recuperar correlativo, material,
-    // descripción, cantidad y UM hasta el final físico de la hoja.
+    // Lectura principal más ligera. 2100 px conserva detalle suficiente para
+    // números de parte y cantidades, pero reduce de forma importante CPU/RAM
+    // frente a las antiguas lecturas de 3000–3200 px en celulares.
     const bodyCanvas = prepareRegionCanvas(image, {
       left: 0.00,
-      top: 0.055,
+      top: 0.045,
       right: 0.995,
-      bottom: 0.925,
-      maxWidth: 3000,
-      minWidth: 1700,
+      bottom: 0.94,
+      maxWidth: 2100,
+      minWidth: 1250,
     })
 
-    onProgress?.(10, 'Leyendo líneas del cuerpo…')
+    onProgress?.(10, 'Leyendo materiales del cuerpo…')
     const body = await recognizeCanvas(
       worker,
       slotIndex,
       bodyCanvas,
       '6',
-      (progress) => onProgress?.(10 + Math.round(progress * 0.76), 'Reconociendo materiales…'),
+      (progress) => onProgress?.(10 + Math.round(progress * 0.64), 'Reconociendo materiales…'),
     )
 
-    // Segunda lectura sobre la zona central de la tabla. En fotos verticales
-    // ayuda cuando sellos, sombras o bordes hacen perder algunos correlativos.
-    onProgress?.(88, 'Verificando correlativos y cantidades…')
-    const focusedCanvas = prepareRegionCanvas(image, {
+    // Microlectura dedicada al correlativo de línea. Es una franja angosta y
+    // solo permite dígitos, por lo que resulta mucho más rápida que repetir OCR
+    // sobre toda la hoja y recupera mejor 06, 07, 08… en cuerpos continuados.
+    onProgress?.(76, 'Reconociendo números de línea…')
+    const lineNumberCanvas = prepareRegionCanvas(image, {
       left: 0.00,
-      top: 0.10,
-      right: 0.995,
-      bottom: 0.84,
-      maxWidth: 3200,
-      minWidth: 1850,
+      top: 0.07,
+      right: 0.235,
+      bottom: 0.91,
+      maxWidth: 760,
+      minWidth: 420,
     })
-    const focused = await recognizeCanvas(worker, slotIndex, focusedCanvas, '6')
+    const lineNumbers = await recognizeCanvas(
+      worker,
+      slotIndex,
+      lineNumberCanvas,
+      '11',
+      (progress) => onProgress?.(76 + Math.round(progress * 0.16), 'Verificando correlativos…'),
+      '0123456789',
+    )
+
+    let focusedText = ''
+    let focusedConfidence = 0
+
+    // Solo si la lectura principal salió pobre hacemos un segundo OCR del
+    // detalle. En una foto legible se evita este paso y la captura termina antes.
+    const weakBody =
+      body.confidence < 48 ||
+      body.text.replace(/\s+/g, ' ').trim().length < 85 ||
+      !/\b(?:UND|EA|PC|PZ|PIE|FT|MT|M)\b/i.test(body.text)
+
+    if (weakBody) {
+      onProgress?.(93, 'Afinando detalle poco legible…')
+      const focusedCanvas = prepareRegionCanvas(image, {
+        left: 0.02,
+        top: 0.12,
+        right: 0.99,
+        bottom: 0.86,
+        maxWidth: 1850,
+        minWidth: 1150,
+      })
+      const focused = await recognizeCanvas(worker, slotIndex, focusedCanvas, '6')
+      focusedText = focused.text
+      focusedConfidence = focused.confidence
+      focusedCanvas.width = 1
+      focusedCanvas.height = 1
+    }
 
     bodyCanvas.width = 1
     bodyCanvas.height = 1
-    focusedCanvas.width = 1
-    focusedCanvas.height = 1
+    lineNumberCanvas.width = 1
+    lineNumberCanvas.height = 1
 
     onProgress?.(100, 'Cuerpo leído')
 
     return {
       text:
         '--- CUERPO DE GUIA ---\n' + body.text +
-        '\n--- VERIFICACION CUERPO ---\n' + focused.text,
-      confidence: Math.max(body.confidence, focused.confidence),
+        '\n--- CORRELATIVOS CUERPO ---\n' + lineNumbers.text +
+        (focusedText ? '\n--- VERIFICACION CUERPO ---\n' + focusedText : ''),
+      confidence: Math.max(body.confidence, lineNumbers.confidence, focusedConfidence),
       method: 'BODY_DETAIL',
       barcodes: [],
     }
@@ -423,25 +461,22 @@ export async function recognizeGuideImage(
     // cortas dentro del recuadro, a diferencia de PSM 7 que fuerza una sola.
     onProgress?.(50, 'Verificando N° de guía y referencia…')
 
-    const guideZone = prepareRegionCanvas(image, {
-      left: 0.54, top: 0.07, right: 0.995, bottom: 0.21, maxWidth: 1750, minWidth: 1050,
-    })
-    const referenceZone = prepareRegionCanvas(image, {
-      left: 0.42, top: 0.235, right: 0.995, bottom: 0.35, maxWidth: 1850, minWidth: 1100,
+    const identityZone = prepareRegionCanvas(image, {
+      left: 0.38, top: 0.055, right: 0.995, bottom: 0.36, maxWidth: 1700, minWidth: 1050,
     })
 
-    const guideFocused = await recognizeCanvas(worker, slotIndex, guideZone, '6')
-    const referenceFocused = await recognizeCanvas(worker, slotIndex, referenceZone, '6')
+    const identityFocused = await recognizeCanvas(worker, slotIndex, identityZone, '6')
 
-    guideZone.width = 1
-    guideZone.height = 1
-    referenceZone.width = 1
-    referenceZone.height = 1
+    identityZone.width = 1
+    identityZone.height = 1
 
-    focusedConfidence = Math.max(guideFocused.confidence, referenceFocused.confidence)
+    focusedConfidence = identityFocused.confidence
+    // La misma microlectura contiene ambos recuadros. Se duplica bajo los dos
+    // marcadores para mantener la prioridad de los parsers actuales sin hacer
+    // dos OCR independientes.
     headerText +=
-      '\n--- ZONA NUMERO GUIA ---\n' + guideFocused.text +
-      '\n--- ZONA REFERENCIA ---\n' + referenceFocused.text
+      '\n--- ZONA NUMERO GUIA ---\n' + identityFocused.text +
+      '\n--- ZONA REFERENCIA ---\n' + identityFocused.text
 
     const headerComplete = likelyHasHeader(headerText)
     const hasMaterial = likelyHasMaterialRow(headerText)
@@ -479,10 +514,10 @@ export async function recognizeGuideImage(
     // En reposiciones hacemos siempre una lectura concentrada de la tabla.
     // Esto reduce el efecto de sellos, líneas verticales y fondo de la mesa.
     // En el formato Komatsu la primera línea suele estar entre 30% y 42% de la foto.
-    if (likelyReplenishment(headerText) || !likelyHasMaterialRow(detail.text)) {
+    if (!likelyHasMaterialRow(detail.text)) {
       onProgress?.(88, 'Afinando N° de parte, descripción y cantidad…')
       const materialZone = prepareRegionCanvas(image, {
-        left: 0.00, top: 0.285, right: 0.995, bottom: 0.43, maxWidth: 2500, minWidth: 1500,
+        left: 0.00, top: 0.285, right: 0.995, bottom: 0.43, maxWidth: 1900, minWidth: 1150,
       })
       const materialFocused = await recognizeCanvas(worker, slotIndex, materialZone, '6')
       materialFocusedText = materialFocused.text
