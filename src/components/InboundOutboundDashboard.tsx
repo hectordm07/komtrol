@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ArrowUpRight,
   BarChart3,
@@ -84,6 +84,10 @@ function shortSiteLabel(row:Row){
 
   const alreadyHasSuffix=new RegExp(`\\b${suffix.trim()}\\b`,'i').test(base)
   return (base+(suffix&&!alreadyHasSuffix?suffix:'')).replace(/\s+/g,' ').trim()
+}
+
+function rowSiteKey(row:Row){
+  return `${String(row.warehouse||'').trim().toUpperCase()}::${String(row.site_name||'').trim().toUpperCase()}`
 }
 
 function withoutConsolidated(rows:Row[]){
@@ -308,11 +312,22 @@ function TrendCard({
   )
 }
 
-function ProductivityBars({rows,target}:{rows:Row[];target:number}){
+function ProductivityBars({
+  rows,
+  target,
+  selectedSiteKey,
+  onSelectSite,
+}:{
+  rows:Row[]
+  target:number
+  selectedSiteKey:string|null
+  onSelectSite:(key:string)=>void
+}){
   const items=withoutConsolidated(rows)
     .slice()
     .sort((a,b)=>(a.source_row??9999)-(b.source_row??9999))
     .map((row)=>({
+      key:rowSiteKey(row),
       name:row.site_name,
       shortName:shortSiteLabel(row),
       value:num(row.data.productivity),
@@ -337,7 +352,7 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
       </div>
 
       <div className="io-productivity-chart">
-        <div className="io-bars" style={barStyle}>
+        <div className={selectedSiteKey?'io-bars has-selection':'io-bars'} style={barStyle}>
           <div className="io-bars-plot-overlay" aria-hidden="true">
             <div className="io-target-line" style={{bottom:`${targetPct}%`}}>
               <span>Objetivo ≥ {fmtInt(target)}</span>
@@ -345,24 +360,39 @@ function ProductivityBars({rows,target}:{rows:Row[];target:number}){
           </div>
           {items.map((item,index)=>{
             const height=Math.max(item.value?4:0,(item.value/max)*100)
-            const alert=item.value>item.target
+            const meetsGoal=item.value>=item.target
+            const selected=selectedSiteKey===item.key
+            const itemStyle={
+              '--io-bar-height':`${height}%`,
+            } as CSSProperties
             return (
               <div
-                className="io-bar-item"
+                className={selected?'io-bar-item selected':'io-bar-item'}
                 key={`${item.name}-${index}`}
-                title={`${item.name} · Productividad ${fmtInt(item.value)} · Objetivo ≥ ${fmtInt(item.target)} · Diferencia ${item.value>=item.target?'+':''}${fmtInt(item.value-item.target)}`}
-                aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Objetivo igual o mayor a ${fmtInt(item.target)}.`}
+                style={itemStyle}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selected}
+                aria-label={`${item.name}. Productividad ${fmtInt(item.value)}. Objetivo igual o mayor a ${fmtInt(item.target)}. Clic para filtrar el dashboard.`}
+                onClick={()=>onSelectSite(item.key)}
+                onKeyDown={(event)=>{
+                  if(event.key==='Enter'||event.key===' '){
+                    event.preventDefault()
+                    onSelectSite(item.key)
+                  }
+                }}
               >
                 <span className="io-bar-tooltip" role="tooltip">
                   <b>{item.name}</b>
-                  <small>Productividad {fmtInt(item.value)} · Meta {fmtInt(item.target)}</small>
+                  <small>Productividad {fmtInt(item.value)} · Objetivo ≥ {fmtInt(item.target)}</small>
                   <small>Diferencia {item.value>=item.target?'+':''}{fmtInt(item.value-item.target)}</small>
+                  <small>{selected?'Clic para quitar filtro':'Clic para filtrar esta sede'}</small>
                 </span>
                 <div className="io-bar-plot">
-                  <div className={alert?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
-                  <div className={alert?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
+                  <div className={meetsGoal?'io-bar-value alert':'io-bar-value'}>{fmtInt(item.value)}</div>
+                  <div className={meetsGoal?'io-bar alert':'io-bar normal'} style={{height:`${height}%`}}/>
                 </div>
-                <div className="io-bar-label" title={item.name}>{item.shortName}</div>
+                <div className="io-bar-label">{item.shortName}</div>
               </div>
             )
           })}
@@ -418,8 +448,22 @@ export function InboundOutboundSidebarProductivityCard({
 }
 
 export function InboundOutboundDashboard({rows,historical,year,month,contextLabel}:Props){
-  const current=withoutConsolidated(rows)
-  const history=withoutConsolidated(historical)
+  const [selectedSiteKey,setSelectedSiteKey]=useState<string|null>(null)
+  const baseCurrent=withoutConsolidated(rows)
+  const baseHistory=withoutConsolidated(historical)
+
+  useEffect(()=>{
+    if(selectedSiteKey&&!baseCurrent.some((row)=>rowSiteKey(row)===selectedSiteKey)){
+      setSelectedSiteKey(null)
+    }
+  },[selectedSiteKey,rows,year,month])
+
+  const current=selectedSiteKey
+    ? baseCurrent.filter((row)=>rowSiteKey(row)===selectedSiteKey)
+    : baseCurrent
+  const history=selectedSiteKey
+    ? baseHistory.filter((row)=>rowSiteKey(row)===selectedSiteKey)
+    : baseHistory
 
   const avgHours=avg(current.map((row)=>num(row.data.hours)))
   const avgPeople=avg(current.map((row)=>num(row.data.person_day)))
@@ -499,7 +543,12 @@ export function InboundOutboundDashboard({rows,historical,year,month,contextLabe
 
       <div className="io-dashboard-bottom io-dashboard-bottom-bars-only">
         <div className="io-productivity-area">
-          <ProductivityBars rows={current} target={avgTarget}/>
+          <ProductivityBars
+            rows={baseCurrent}
+            target={avgTarget}
+            selectedSiteKey={selectedSiteKey}
+            onSelectSite={(key)=>setSelectedSiteKey((currentKey)=>currentKey===key?null:key)}
+          />
         </div>
       </div>
 
