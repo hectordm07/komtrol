@@ -1474,3 +1474,42 @@
     max-height:166px !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 03 · WAREHOUSE NAME + EVOLUTION LIFT V50
+   - Keep warehouse/project name fully visible in the compact
+     top-difference card.
+   - Raise EVOLUCIÓN content exactly 0.5 mm.
+   ========================================================= */
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body{
+  padding-top:10px !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>b{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:16px !important;
+  margin:0 !important;
+  padding:0 2px !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+  white-space:normal !important;
+  line-height:1.22 !important;
+  text-align:center !important;
+  transform:none !important;
+  position:relative !important;
+  z-index:2 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-evolution-clean .sf3-bars{
+  transform:translateY(-0.5mm) !important;
+}
+
+/* Keep labels fully inside the chart after lifting the plot. */
+[data-design-system="komtrol-scorecard-v1"] .sf3-evolution-clean .sf3-bar-item>b{
+  padding-top:5px !important;
+  overflow:visible !important;
+}
