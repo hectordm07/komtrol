@@ -1692,3 +1692,90 @@
     -webkit-line-clamp:3 !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 04 · LIFT EVOLUTION + LABEL SAFE AREA V53
+   The Report 04 chart was extending beyond the visible
+   corporate-laptop viewport. Reserve a bottom safe area so
+   warehouse names are always visible.
+   ========================================================= */
+@media (min-width:1200px){
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean{
+    align-self:start !important;
+    height:calc(100% - 58px) !important;
+    min-height:320px !important;
+    margin-top:-4px !important;
+    margin-bottom:58px !important;
+    overflow:hidden !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-evolution-body{
+    height:100% !important;
+    min-height:0 !important;
+    padding:10px 14px 6px !important;
+    box-sizing:border-box !important;
+    overflow:hidden !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bars{
+    height:100% !important;
+    min-height:0 !important;
+    transform:none !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+    height:100% !important;
+    min-height:0 !important;
+    grid-template-rows:22px minmax(0,1fr) 50px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+    display:-webkit-box !important;
+    grid-row:3 !important;
+    align-self:start !important;
+    width:100% !important;
+    height:50px !important;
+    min-height:50px !important;
+    padding:6px 3px 0 !important;
+    box-sizing:border-box !important;
+    -webkit-box-orient:vertical !important;
+    -webkit-line-clamp:3 !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:normal !important;
+    color:#17336f !important;
+    font-size:8px !important;
+    line-height:1.08 !important;
+    font-weight:850 !important;
+    text-align:center !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-track{
+    grid-row:2 !important;
+    height:100% !important;
+    min-height:0 !important;
+  }
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean{
+    height:calc(100% - 64px) !important;
+    min-height:300px !important;
+    margin-top:-5px !important;
+    margin-bottom:64px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item{
+    grid-template-rows:21px minmax(0,1fr) 48px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf4-dashboard .sf3-evolution-clean .sf3-bar-item>b{
+    height:48px !important;
+    min-height:48px !important;
+    font-size:7.8px !important;
+    padding-top:5px !important;
+  }
+}
