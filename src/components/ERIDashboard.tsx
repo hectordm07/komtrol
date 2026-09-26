@@ -411,7 +411,7 @@ export function ERIDashboard({
   },[availableMonths.join(','),month,onMonthChange])
 
   return (
-    <section className="eri-dashboard eri-dashboard-reference">
+    <section className="eri-dashboard eri-dashboard-reference eri-dashboard-r01-pattern">
       <aside className="eri-filter-rail" aria-label="Filtros ERI">
         <section className="eri-filter-card eri-year-filter">
           <div className="eri-filter-title"><CalendarClock size={15}/><b>AÑO</b></div>
