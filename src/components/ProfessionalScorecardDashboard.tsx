@@ -810,7 +810,7 @@ function SobrantesFaltantesDashboard({
       ? set.filter((row)=>report3SiteKey(row)===selectedSiteKey)
       : set
   })
-  const labels=periods.map((period)=>period.label+' '+String(period.year).slice(-2))
+  const labels=periods.map((period)=>period.label)
   const usdHistory=periodSets.map((set)=>sum(set,'usd'))
   const skuHistory=periodSets.map((set)=>sum(set,'skus'))
   const unitHistory=periodSets.map((set)=>sum(set,'units'))
