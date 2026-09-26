@@ -1394,3 +1394,268 @@
     border-style:dashed !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 01 · TRUE PLOT STAGE + OBJECTIVE RULE + ALIGN V34
+   Última capa CSS: mobile-final.css se importa al final.
+   ========================================================= */
+
+/* PRODUCTIVIDAD: escenario común para barras + línea de objetivo.
+   Ambos usan exactamente la misma altura; así 45 coincide con 45. */
+.io-dashboard-v3 .io-bars{
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  padding:0 !important;
+  display:grid !important;
+  grid-template-rows:minmax(0,1fr) 54px !important;
+  gap:0 !important;
+  align-items:stretch !important;
+  overflow:visible !important;
+}
+
+.io-dashboard-v3 .io-bars-stage{
+  position:relative !important;
+  min-height:0 !important;
+  height:100% !important;
+  display:grid !important;
+  grid-template-columns:repeat(var(--io-bar-count),minmax(0,1fr)) !important;
+  column-gap:clamp(5px,.72vw,13px) !important;
+  align-items:stretch !important;
+  padding:0 10px !important;
+}
+
+.io-dashboard-v3 .io-bars-stage > .io-bars-plot-overlay{
+  position:absolute !important;
+  z-index:4 !important;
+  inset:0 10px !important;
+  width:auto !important;
+  height:auto !important;
+  pointer-events:none !important;
+}
+
+.io-dashboard-v3 .io-bars-stage .io-target-line{
+  position:absolute !important;
+  left:0 !important;
+  right:0 !important;
+  width:100% !important;
+  margin:0 !important;
+  transform:none !important;
+}
+
+.io-dashboard-v3 .io-bars-stage > .io-bar-item{
+  position:relative !important;
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  display:block !important;
+  align-self:stretch !important;
+  overflow:visible !important;
+}
+
+.io-dashboard-v3 .io-bars-stage .io-bar-plot{
+  position:relative !important;
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  display:block !important;
+  overflow:visible !important;
+}
+
+.io-dashboard-v3 .io-bars-stage .io-bar{
+  position:absolute !important;
+  left:50% !important;
+  bottom:0 !important;
+  width:clamp(16px,54%,34px) !important;
+  min-width:12px !important;
+  max-width:34px !important;
+  height:var(--io-bar-height) !important;
+  margin:0 !important;
+  transform:translateX(-50%) !important;
+}
+
+.io-dashboard-v3 .io-bars-stage .io-bar-item:hover .io-bar{
+  transform:translateX(-50%) translateY(-2px) !important;
+}
+
+.io-dashboard-v3 .io-bars-stage .io-bar-value{
+  position:absolute !important;
+  z-index:5 !important;
+  left:50% !important;
+  bottom:calc(var(--io-bar-height) + 5px) !important;
+  margin:0 !important;
+  transform:translateX(-50%) !important;
+  white-space:nowrap !important;
+}
+
+.io-dashboard-v3 .io-bar-labels{
+  display:grid !important;
+  grid-template-columns:repeat(var(--io-bar-count),minmax(0,1fr)) !important;
+  column-gap:clamp(5px,.72vw,13px) !important;
+  padding:0 10px !important;
+  min-height:54px !important;
+  height:54px !important;
+}
+
+.io-dashboard-v3 .io-bar-labels .io-bar-label{
+  appearance:none !important;
+  position:static !important;
+  width:100% !important;
+  max-width:none !important;
+  min-width:0 !important;
+  height:54px !important;
+  min-height:54px !important;
+  padding:6px 2px 0 !important;
+  border:0 !important;
+  background:transparent !important;
+  color:#17336f !important;
+  transform:none !important;
+  font:inherit !important;
+  font-size:8.8px !important;
+  font-weight:850 !important;
+  line-height:1.08 !important;
+  text-align:center !important;
+  white-space:normal !important;
+  overflow:visible !important;
+  cursor:pointer !important;
+}
+
+.io-dashboard-v3 .io-bar-labels .io-bar-label.selected{
+  color:#2547ad !important;
+  text-decoration:underline !important;
+  text-underline-offset:3px !important;
+}
+
+/* Regla de objetivo editable: operador + valor. */
+.scorecard-objective-editor{
+  min-width:154px !important;
+  display:grid !important;
+  grid-template-columns:minmax(92px,1fr) 58px !important;
+  gap:5px !important;
+  align-items:center !important;
+}
+
+.scorecard-objective-editor select,
+.scorecard-objective-editor input{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:36px !important;
+  box-sizing:border-box !important;
+  border:1px solid #d5deef !important;
+  border-radius:9px !important;
+  background:#fff !important;
+  color:#17336f !important;
+  font-size:9px !important;
+  font-weight:800 !important;
+}
+
+.scorecard-objective-editor select{
+  padding:6px 24px 6px 8px !important;
+}
+
+.scorecard-objective-editor input{
+  padding:6px 7px !important;
+  text-align:center !important;
+}
+
+/* Fila superior: dos KPI a la izquierda terminan exactamente al mismo nivel
+   que Inbound y Outbound. */
+@media (min-width:821px){
+  .io-dashboard-v3 > .io-dashboard-top{
+    display:grid !important;
+    grid-template-columns:minmax(210px,.45fr) minmax(0,1fr) minmax(0,1fr) !important;
+    gap:10px !important;
+    align-items:stretch !important;
+    min-height:0 !important;
+    height:100% !important;
+    overflow:hidden !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-top > .io-mini-stack,
+  .io-dashboard-v3 > .io-dashboard-top > .io-trend-card{
+    min-height:0 !important;
+    height:100% !important;
+    max-height:100% !important;
+    margin:0 !important;
+    align-self:stretch !important;
+    box-sizing:border-box !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-top > .io-mini-stack{
+    display:grid !important;
+    grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    overflow:hidden !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-top .io-mini-card{
+    min-height:0 !important;
+    height:auto !important;
+    max-height:none !important;
+    margin:0 !important;
+    box-sizing:border-box !important;
+    overflow:hidden !important;
+  }
+
+  .io-dashboard-v3 > .io-dashboard-top > .io-trend-card{
+    box-sizing:border-box !important;
+    overflow:hidden !important;
+  }
+}
+
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  .io-dashboard-v3 .io-bars{
+    grid-template-rows:minmax(0,1fr) 50px !important;
+  }
+
+  .io-dashboard-v3 .io-bar-labels{
+    min-height:50px !important;
+    height:50px !important;
+  }
+
+  .io-dashboard-v3 .io-bar-labels .io-bar-label{
+    min-height:50px !important;
+    height:50px !important;
+    font-size:8.2px !important;
+  }
+}
+
+@media (min-width:1701px){
+  .io-dashboard-v3 .io-bars{
+    grid-template-rows:minmax(0,1fr) 62px !important;
+  }
+
+  .io-dashboard-v3 .io-bar-labels,
+  .io-dashboard-v3 .io-bar-labels .io-bar-label{
+    min-height:62px !important;
+    height:62px !important;
+  }
+}
+
+@media (max-width:820px){
+  .io-dashboard-v3 .io-bars{
+    width:max(100%,calc(var(--io-bar-count) * 82px)) !important;
+    min-width:calc(var(--io-bar-count) * 82px) !important;
+    grid-template-rows:minmax(240px,1fr) 58px !important;
+  }
+
+  .io-dashboard-v3 .io-bars-stage,
+  .io-dashboard-v3 .io-bar-labels{
+    grid-template-columns:repeat(var(--io-bar-count),minmax(72px,1fr)) !important;
+    column-gap:8px !important;
+    padding:0 8px !important;
+  }
+
+  .io-dashboard-v3 .io-bar-labels,
+  .io-dashboard-v3 .io-bar-labels .io-bar-label{
+    min-height:58px !important;
+    height:58px !important;
+    font-size:9px !important;
+  }
+
+  .scorecard-objective-editor{
+    min-width:140px !important;
+    grid-template-columns:minmax(84px,1fr) 52px !important;
+  }
+}

@@ -193,6 +193,11 @@ const TEMPLATE_FIELD_HEADERS:Record<string,string> = {
   driving:'CONDUCCION',
 }
 
+function normalizeTargetOperator(value:unknown){
+  const raw=String(value??'').trim().toUpperCase()
+  return raw==='LTE'||raw==='<='||raw==='≤'?'LTE':'GTE'
+}
+
 function templateHeader(field:FieldDef){
   return TEMPLATE_FIELD_HEADERS[field.key] || field.label.toUpperCase().replace(/[^A-Z0-9ÁÉÍÓÚÜÑ]+/g,'_')
 }
@@ -728,6 +733,19 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     setMessage('Registro actualizado correctamente, incluida su clasificación de centro.')
   }
 
+  function editTargetOperator(row:ScorecardRow,value:string) {
+    setEditingRows((current)=>{
+      const base=current[row.id]||row
+      return {
+        ...current,
+        [row.id]:{
+          ...base,
+          data:{...base.data,target_operator:normalizeTargetOperator(value)},
+        },
+      }
+    })
+  }
+
   function editRowMeta(row:ScorecardRow,key:'site_group',value:string) {
     setEditingRows((current)=>{
       const base=current[row.id]||row
@@ -770,6 +788,7 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
     const targetMonth=Number(newRecordMonth || month)
     const rowKey=`manual:${targetYear}:${targetMonth}:${targetWarehouse}:${Date.now()}`
     const emptyData=Object.fromEntries(report.fields.map((field)=>[field.key,field.type==='text'?'':null]))
+    if(report.code==='inbound-outbound') emptyData.target_operator='GTE'
 
     const {data,error}=await supabase.from('scorecard_rows').insert({
       report_code:report.code,
@@ -955,6 +974,12 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
           ? normalizeText(value)
           : value===null||value===undefined||value==='' ? null : numeric(value)
       })
+
+      if(def.code==='inbound-outbound'){
+        data.target_operator=normalizeTargetOperator(
+          pickSource(source,['REGLA_OBJETIVO','OBJETIVO_REGLA','TARGET_OPERATOR','OPERADOR_META']) || data.target_operator
+        )
+      }
 
       if(def.code==='inbound-outbound' && (data.productivity===null||data.productivity===undefined||data.productivity==='')){
         const denominator=numeric(data.person_day)*numeric(data.work_days)
@@ -1324,6 +1349,30 @@ export function ScorecardRemoteModule({mode,userId,role,profile}:Props) {
                     {report.fields.map((field)=>{
                       const value=edited.data?.[field.key]
                       const editable=editing&&canEdit&&(isAdmin||!field.auto)
+                      if(report.code==='inbound-outbound'&&field.key==='target'){
+                        const operator=normalizeTargetOperator(edited.data?.target_operator)
+                        return <td key={field.key}>
+                          {editable
+                            ? <div className="scorecard-objective-editor">
+                                <select
+                                  value={operator}
+                                  onChange={(event)=>editTargetOperator(row,event.target.value)}
+                                  aria-label={`Regla de objetivo de ${row.site_name}`}
+                                >
+                                  <option value="GTE">≥ Igual o mayor</option>
+                                  <option value="LTE">≤ Igual o menor</option>
+                                </select>
+                                <input
+                                  value={value===null||value===undefined?'':String(value)}
+                                  onChange={(event)=>editValue(row,field.key,event.target.value,field)}
+                                  type="number"
+                                  step="any"
+                                  aria-label={`Valor objetivo de ${row.site_name}`}
+                                />
+                              </div>
+                            : <span>{operator==='LTE'?'≤':'≥'} {fmtValue(value,field.type)}</span>}
+                        </td>
+                      }
                       return <td key={field.key}>{editable
                         ? <input
                             value={value===null||value===undefined?'':String(value)}
