@@ -1026,3 +1026,164 @@
     grid-area:highlight !important;
   }
 }
+
+
+/* =========================================================
+   REPORT 03 · TOP DIFFERENCE MONTHLY VARIATION V47
+   Keeps the monthly variation fully visible inside the
+   "PROYECTO CON MAYOR DIFERENCIA" card.
+   ========================================================= */
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global){
+  overflow:hidden !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body{
+  min-height:0 !important;
+  height:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:4px !important;
+  padding:8px 10px 9px !important;
+  box-sizing:border-box !important;
+  text-align:center !important;
+  overflow:hidden !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>b{
+  width:100% !important;
+  margin:0 !important;
+  color:#17336f !important;
+  font-size:12px !important;
+  line-height:1.05 !important;
+  font-weight:900 !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>strong{
+  margin:0 !important;
+  color:#ef3d36 !important;
+  font-size:30px !important;
+  line-height:.95 !important;
+  font-weight:950 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global).green .sf3-highlight-body>strong{
+  color:#0aa855 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>small{
+  margin:0 !important;
+  color:#64759a !important;
+  font-size:7px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>em{
+  margin:0 0 2px !important;
+  padding:3px 8px !important;
+  border-radius:999px !important;
+  font-size:6.5px !important;
+  line-height:1 !important;
+  font-weight:850 !important;
+}
+
+/* The side card does not need a sparkline; the space belongs to the monthly variation. */
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-spark{
+  display:none !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:48px !important;
+  max-height:48px !important;
+  margin-top:auto !important;
+  padding:6px 9px !important;
+  border-radius:14px !important;
+  box-sizing:border-box !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  flex:0 0 48px !important;
+  overflow:visible !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation.up{
+  background:#e8f7ef !important;
+  color:#078a46 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation.down{
+  background:#ffeded !important;
+  color:#df2924 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation.neutral{
+  background:#f1f4f9 !important;
+  color:#78869f !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation-icon{
+  width:30px !important;
+  height:30px !important;
+  min-width:30px !important;
+  border-radius:10px !important;
+  display:grid !important;
+  place-items:center !important;
+  background:rgba(255,255,255,.46) !important;
+  color:currentColor !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div{
+  display:grid !important;
+  gap:1px !important;
+  align-content:center !important;
+  text-align:left !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div>b{
+  color:currentColor !important;
+  font-size:15px !important;
+  line-height:1 !important;
+  font-weight:950 !important;
+}
+
+[data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation>div>small{
+  color:#64759a !important;
+  font-size:6px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+}
+
+/* Corporate laptop fit: reserve enough height for the monthly variation. */
+@media (min-width:1200px) and (max-width:1700px) and (max-height:850px){
+  [data-design-system="komtrol-scorecard-v1"] .sf3-left{
+    grid-template-rows:auto auto auto auto minmax(164px,1fr) !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global){
+    min-height:164px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body{
+    padding:7px 9px 8px !important;
+    gap:3px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-body>strong{
+    font-size:28px !important;
+  }
+
+  [data-design-system="komtrol-scorecard-v1"] .sf3-highlight:not(.sf3-highlight-global) .sf3-highlight-variation{
+    min-height:44px !important;
+    max-height:44px !important;
+    flex-basis:44px !important;
+  }
+}
